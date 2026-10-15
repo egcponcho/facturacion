@@ -29,10 +29,14 @@ async function cargar() {
     cargando.value = false
   }
 }
+// Tipos de empaque de la empresa (inner, caja, pallet…): a cuáles va una etiqueta de bulto
+const empaques = ref([])
 onMounted(() => {
   cargar()
   catalogos().then((c) => (cantidadesDe.value = c.cantidades)).catch(() => {})
+  api.get('/tipos-empaque').then((r) => (empaques.value = r)).catch(() => {})
 })
+const nombresEmpaque = (ids) => (ids || []).map((i) => tx(empaques.value.find((e) => e.id === i)?.nombre || `#${i}`)).join(', ')
 alCambiar(() => cargar(), ['/etiquetas/tipos'])
 
 const columnas = computed(() => [
@@ -40,6 +44,7 @@ const columnas = computed(() => [
   { clave: 'nombre', texto: t('Label type'), fija: true, prioridad: 1 },
   { clave: 'sujeto', texto: t('What is labeled'), prioridad: 1, textoValor: (v) => SUJETOS()[v] || v },
   { clave: 'cantidad', texto: t('How many'), prioridad: 2, textoValor: (v) => CANTIDADES()[v] || v },
+  { clave: 'empaques', texto: t('Goes on'), prioridad: 3, filtro: false, ordenable: false },
   { clave: 'obligatoria', texto: t('Required'), prioridad: 2, opciones: [[true, t('Yes')], [false, t('No')]] },
   { clave: 'disenos', texto: t('Designs'), num: true, prioridad: 3 },
   { clave: 'usos', texto: t('Places'), num: true, prioridad: 3 },
@@ -50,7 +55,8 @@ const columnas = computed(() => [
 const edicion = ref(null)
 const formulario = ref(null)
 function editar(x) {
-  edicion.value = x ? { ...x } : { codigo: '', nombre: '', descripcion: '', sujeto: 'ARTICULO', cantidad: 'POR_UNIDAD', obligatoria: false, activo: true }
+  edicion.value = x ? { ...x, empaques: [...(x.empaques || [])] }
+    : { codigo: '', nombre: '', descripcion: '', sujeto: 'ARTICULO', cantidad: 'POR_UNIDAD', obligatoria: false, activo: true, empaques: [] }
   nextTick(() => formulario.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
 }
 watch(() => edicion.value?.sujeto, (s) => {
@@ -66,7 +72,7 @@ function sugerirCodigo() {
 async function guardar() {
   const e = edicion.value
   const datos = { codigo: e.codigo, nombre: e.nombre, descripcion: e.descripcion, sujeto: e.sujeto, cantidad: e.cantidad,
-    obligatoria: e.obligatoria, activo: e.activo }
+    obligatoria: e.obligatoria, activo: e.activo, empaques: e.sujeto === 'BULTO' ? e.empaques : [] }
   try {
     if (e.id) await api.patch(`/etiquetas/tipos/${e.id}`, { ...datos, version: e.version })
     else await api.post('/etiquetas/tipos', datos)
@@ -121,6 +127,14 @@ const conDisenos = computed(() => edicion.value?.id && edicion.value.disenos > 0
         </div>
         <small v-if="conDisenos" class="ayuda">{{ t('The type already has designs: what it labels cannot change.') }}</small>
       </fieldset>
+      <fieldset v-if="edicion.sujeto === 'BULTO' && empaques.length" class="campo ft-empaques">
+        <legend>{{ t('Goes on') }}</legend>
+        <div class="opciones-sujeto">
+          <label v-for="e in empaques" :key="e.id" class="check"><input v-model="edicion.empaques" type="checkbox" :value="e.id" /> {{ tx(e.nombre) }}</label>
+        </div>
+        <small class="ayuda">{{ edicion.empaques.length ? t('Only these packages get this label (e.g. the pallet label only on pallets).')
+          : t('None chosen: it goes on every package. Choose some when each level has its own label (inner, carton, pallet).') }}</small>
+      </fieldset>
       <label class="campo"><span class="req">{{ t('How many labels come out') }}</span>
         <Seleccion v-model="edicion.cantidad">
           <option v-for="c in cantidadesDe[edicion.sujeto] || []" :key="c" :value="c">{{ CANTIDADES()[c] }}</option>
@@ -141,6 +155,11 @@ const conDisenos = computed(() => edicion.value?.id && edicion.value.disenos > 0
     </template>
     <template #celda-nombre="{ fila: x }"><strong>{{ tx(x.nombre) }}</strong><span class="sub">{{ x.codigo }}</span></template>
     <template #celda-obligatoria="{ fila: x }"><span v-if="x.obligatoria" class="etiqueta aviso ms-0">{{ t('Required') }}</span><span v-else class="apagado">{{ t('Optional') }}</span></template>
+    <template #celda-empaques="{ fila: x }">
+      <span v-if="x.sujeto !== 'BULTO'" class="apagado">—</span>
+      <span v-else-if="!x.empaques?.length">{{ t('Every package') }}</span>
+      <span v-else>{{ nombresEmpaque(x.empaques) }}</span>
+    </template>
     <template #celda-activo="{ fila: x }"><span class="etiqueta ms-0" :class="x.activo ? 'ok' : ''">{{ x.activo ? t('Active') : t('Inactive') }}</span></template>
     <template #acciones="{ fila: x }">
       <template v-if="editable">
@@ -159,6 +178,7 @@ const conDisenos = computed(() => edicion.value?.id && edicion.value.disenos > 0
 .ft-cabeza h3 { margin: 0; font-size: 1rem; }
 .form-tipo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
 .form-tipo > .check, .form-tipo > fieldset, .ft-pie { grid-column: 1 / -1; }
+.ft-empaques .ayuda { display: block; margin-top: 6px; }
 .ft-pie { display: flex; justify-content: flex-end; gap: 8px; }
 @media (max-width: 720px) { .form-tipo { grid-template-columns: minmax(0, 1fr); } }
 fieldset.campo { border: 0; padding: 0; margin: 0; }

@@ -244,6 +244,9 @@ def _limpiar(db: Session, user: Usuario, datos: dict, actual: UsoDiseno | None =
         raise ErrorNegocio("A design of this label type cannot go there.", 422, "validacion", [{"campo": "nivel", "mensaje": nivel}])
     destino = datos.get("destino_id") if "destino_id" in datos else (actual.destino_id if actual is not None else None)
     destino_id = _destino(db, nivel, destino)
+    if nivel == "TIPO_EMPAQUE" and not tipos.aplica(tipos.empaques_de(db, tipo.id), destino_id):
+        raise ErrorNegocio("This label type does not go on that package type (see the label type: «Goes on»).", 422, "validacion",
+                           [{"campo": "destino_id", "mensaje": tipo.nombre}])
     contexto = str(dato("contexto_tipo") or "NINGUNO").upper()
     if contexto not in CONTEXTOS:
         raise ErrorNegocio("Unknown kind of exception.", 422, "validacion", [{"campo": "contexto_tipo", "mensaje": contexto}])
@@ -702,11 +705,16 @@ def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
             filas.append({"nivel": "TIPO_EMPAQUE", "id": e.id, "nombre": e.nombre, "codigo": e.codigo, "padre_id": None,
                           "profundidad": 1})
     padres = {f["id"]: f for f in filas if f["nivel"] == "FAMILIA"}
+    empaques = {t.id: set(tipos.empaques_de(db, t.id)) for t in ts} if sujeto == "BULTO" else {}
     propios_familia = _propios_por_familia(db, usos) if sujeto == "ARTICULO" else {}
     faltan_total = 0
     for fila in filas:
         fila["celdas"] = {}
         for t in ts:
+            if fila["nivel"] == "TIPO_EMPAQUE" and not tipos.aplica(empaques.get(t.id), fila["id"]):
+                # Este tipo de etiqueta no va en este empaque: ni hereda ni falta
+                fila["celdas"][t.id] = {"normal": None, "hereda": None, "excepciones": 0, "propios": 0, "falta": False, "no_aplica": True}
+                continue
             nivel = "GENERAL" if fila["nivel"] == "SIN_FAMILIA" else fila["nivel"]
             lista = por_celda.get(celda_de(t.id, nivel, fila["id"]), []) if fila["nivel"] != "SIN_FAMILIA" else []
             normal = next((u for u in lista if u.contexto_tipo == "NINGUNO"), None)
@@ -822,4 +830,7 @@ def resolver(db: Session, user: Usuario, articulo_id: int | None = None, oc_id: 
     s = Sujeto(sujeto.upper(), articulo=a, oc=oc, tipo_empaque_id=tipo_empaque_id,
                valores={**(campos.valores_articulo(a) if a else {}), **(campos.valores_oc(db, oc) if oc else {})})
     r = Resolvedor(db)
-    return {"elecciones": [r.elegir(s, t).dict() for t in r.tipos_de(s.sujeto)]}
+    # En un bulto, los tipos que no van en ese empaque no se resuelven (no se imprimen ahí)
+    ts = [t for t in r.tipos_de(s.sujeto) if s.sujeto != "BULTO" or tipo_empaque_id is None
+          or tipos.aplica(tipos.empaques_de(db, t.id), tipo_empaque_id)]
+    return {"elecciones": [r.elegir(s, t).dict() for t in ts]}

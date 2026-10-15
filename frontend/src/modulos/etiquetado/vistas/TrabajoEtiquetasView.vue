@@ -246,6 +246,20 @@ async function cargarNiveles() {
   }
 }
 watch(() => p.pl_id, () => cargarNiveles())
+// Qué empaques llevan etiqueta, según a cuáles va cada tipo de bulto elegido («Va en» del tipo):
+// en un trabajo nuevo se marcan solos; quien imprime puede cambiarlos.
+const bultosElegidos = computed(() => tiposOrigen.value.filter((x) => x.sujeto === 'BULTO' && p.tipos.includes(x.id)))
+const vanEn = (nivel) => bultosElegidos.value.filter((x) => !x.empaques?.length || (nivel && x.empaques.includes(nivel)))
+const sinNivel = computed(() => (niveles.value ? bultosElegidos.value.filter((x) => x.empaques?.length
+  && !x.empaques.some((e) => p.niveles.includes(e))) : []))
+watch(() => [niveles.value, bultosElegidos.value.map((x) => x.id).join()], () => {
+  if (trabajo.value || !niveles.value) return
+  const limitados = new Set(bultosElegidos.value.flatMap((x) => x.empaques || []))
+  if (!limitados.size) return
+  const res = niveles.value.niveles.map((n) => n.tipo_empaque_id).filter((id) => limitados.has(id))
+  if (bultosElegidos.value.some((x) => !x.empaques?.length)) res.unshift(0)
+  if (res.length) p.niveles = res
+})
 const conCajas = computed(() => tiposOrigen.value.some((x) => x.sujeto === 'BULTO' && p.tipos.includes(x.id)))
 // Una familia: sus OC abiertas (las que tienen artículos de ella), etiquetando solo esos artículos
 const familias = ref([])
@@ -718,7 +732,10 @@ async function otroIgual() {
         <legend>{{ t('Which packages get a label') }}</legend>
         <label class="check"><input v-model="p.niveles" type="checkbox" :value="0" /> {{ t('Outer packages ({0})', [niveles.superiores]) }}</label>
         <label v-for="n in niveles.niveles.filter((x) => x.tipo_empaque_id)" :key="n.tipo_empaque_id" class="check">
-          <input v-model="p.niveles" type="checkbox" :value="n.tipo_empaque_id" /> {{ tx(n.nombre) }} · {{ fmtNum(n.unidades) }}</label>
+          <input v-model="p.niveles" type="checkbox" :value="n.tipo_empaque_id" /> {{ tx(n.nombre) }} · {{ fmtNum(n.unidades) }}
+          <span v-if="vanEn(n.tipo_empaque_id).length" class="ayuda">→ {{ vanEn(n.tipo_empaque_id).map((x) => tx(x.nombre)).join(', ') }}</span>
+          <span v-else class="ayuda">({{ t('none of the chosen labels goes here') }})</span></label>
+        <p v-for="x in sinNivel" :key="x.id" class="nota aviso"><Icono nombre="alerta" :tam="16" />{{ t('«{0}» does not go on any of the chosen packages.', [tx(x.nombre)]) }}</p>
         <small class="ayuda">{{ t('Each package prints once even if it is in two of the chosen levels. Which design each level uses is set in «Which design goes on what» → Packages.') }}</small>
       </fieldset>
       <fieldset class="tj-modo">

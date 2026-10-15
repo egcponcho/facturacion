@@ -191,12 +191,43 @@ def test_lista_de_empaque_por_nivel_con_tarimas_y_cajas(interno, admin):
             t = trabajo(interno, "PACKING", {"pl_id": pl_id, "niveles": [0, tipo_id], "tipos": [t_["id"]]})
             assert len(t["registros"]) == 1
             assert interno.post("/etiquetas/trabajos", {"origen": "PACKING", "parametros": {"pl_id": pl_id, "niveles": ["x"]}}).status_code == 422
+            # «Se aplica a»: una etiqueta solo de pallet no sale en las cajas aunque se elijan las dos
+            tp, pp = _con_diseno(interno, admin, "ORIG_SOLO_PALLET", "Pallet only", [OC], sujeto="BULTO", cantidad="POR_BULTO")
+            assert tp["empaques"] == []
+            # Con un diseño puesto en las cajas, no se puede dejar de aplicar a las cajas
+            u = uso(interno, tp["id"], pp["id"], nivel="TIPO_EMPAQUE", destino_id=tipo_caja)
+            v = interno.get("/etiquetas/tipos", params={"todos": True}).json()
+            version = next(x for x in v if x["id"] == tp["id"])["version"]
+            r = interno.patch(f"/etiquetas/tipos/{tp['id']}", {"empaques": [tipo_id], "version": version})
+            assert r.status_code == 422 and "empaques" in r.text, r.text
+            assert interno.post(f"/etiquetas/usos/{u['id']}/baja", {"motivo": "test"}).status_code == 200
+            r = interno.patch(f"/etiquetas/tipos/{tp['id']}", {"empaques": [tipo_id], "version": version})
+            assert r.status_code == 200 and r.json()["empaques"] == [tipo_id], r.text
+            t = trabajo(interno, "PACKING", {"pl_id": pl_id, "niveles": [tipo_id, tipo_caja], "tipos": [tp["id"], t_["id"]]})
+            de = [x["tipo_etiqueta_id"] for x in t["registros"]]
+            assert de.count(tp["id"]) == 1 and de.count(t_["id"]) == n_cajas + 1
+            # En la matriz de bultos la celda de las cajas no aplica (ni hereda ni falta) y no admite diseño
+            m = interno.get("/etiquetas/matriz", params={"sujeto": "BULTO"}).json()
+            celdas = {f["id"]: f["celdas"][str(tp["id"])] for f in m["filas"] if f["nivel"] == "TIPO_EMPAQUE"}
+            assert celdas[tipo_caja]["no_aplica"] and not celdas[tipo_caja]["falta"] and not celdas[tipo_id].get("no_aplica")
+            r = interno.post("/etiquetas/usos", {"tipo_etiqueta_id": tp["id"], "plantilla_id": pp["id"], "nivel": "TIPO_EMPAQUE",
+                                                 "destino_id": tipo_caja, "contexto_tipo": "NINGUNO"})
+            assert r.status_code == 422, r.text
+            el = interno.get("/etiquetas/resolver", params={"sujeto": "BULTO", "tipo_empaque_id": tipo_caja}).json()["elecciones"]
+            assert tp["id"] not in {e["tipo_etiqueta_id"] for e in el} and t_["id"] in {e["tipo_etiqueta_id"] for e in el}
+            # Solo los tipos de bulto se limitan por empaque
+            ta = tipo(interno, "ORIG_ART_EMP")
+            assert interno.patch(f"/etiquetas/tipos/{ta['id']}", {"empaques": [tipo_id]}).status_code == 422
     finally:
         with SessionLocal() as db, en_organizacion(1):
             for g in db.scalars(select(GrupoCajas).where(GrupoCajas.id.in_(ids_cajas))):
                 g.padre_id = None
             db.flush()
             db.delete(db.get(GrupoCajas, tarima_id))
+            from app.modelos import TipoEtiquetaEmpaque
+            for x in db.scalars(select(TipoEtiquetaEmpaque).where(TipoEtiquetaEmpaque.tipo_empaque_id == tipo_id)):
+                db.delete(x)
+            db.flush()
             db.delete(db.get(TipoEmpaque, tipo_id))
             db.commit()
 

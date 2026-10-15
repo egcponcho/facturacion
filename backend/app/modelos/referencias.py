@@ -79,6 +79,7 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
                                    ("version_id", "versiones_plantilla"), ("uso_id", "usos_diseno"),
                                    ("tipo_etiqueta_id", "tipos_etiqueta")],
     "plantillas_etiqueta": [("tipo_etiqueta_id", "tipos_etiqueta")],
+    "tipos_etiqueta_empaques": [("tipo_etiqueta_id", "tipos_etiqueta"), ("tipo_empaque_id", "tipos_empaque")],
     "versiones_plantilla": [("plantilla_id", "plantillas_etiqueta")],
     "usos_diseno": [("tipo_etiqueta_id", "tipos_etiqueta"), ("plantilla_id", "plantillas_etiqueta"),
                     ("familia_id", "familias_etiquetado"), ("producto_id", "productos"),

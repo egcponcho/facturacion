@@ -87,6 +87,12 @@ Siguen de antes: `familias_etiquetado` (con `padre_id`), `versiones_plantilla`,
 `trabajo_etiqueta_registros` (0070–0075). Todas llevan `organizacion_id`,
 política RLS y llaves de coherencia `fk_<tabla>_<col>_org`.
 
+Después: **0077** (revisión del módulo), **0078** (anular y reimprimir con
+motivo) y **0079** `tipos_etiqueta_empaques` (en qué tipos de empaque va un
+tipo de etiqueta de bulto; tabla nueva y vacía, con RLS y llaves de
+coherencia; no convierte datos). Probada ida y vuelta y sobre la base de
+demostración existente.
+
 ## 3. Pantallas
 
 Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**):
@@ -173,7 +179,7 @@ Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**
 | Método y ruta | Uso |
 |---|---|
 | `GET /catalogos` · `PUT /tamanos` | Sujetos con sus cantidades, niveles por sujeto, contextos y su orden, operadores de condición, simbologías, medidas de etiqueta, tipos sugeridos y orígenes; medidas propias de la empresa. |
-| `GET, POST /tipos` · `PATCH /tipos/{id}` · `POST /tipos/sugeridos` | Tipos de etiqueta (`todos=true` suma los inactivos); el sujeto no cambia si el tipo ya tiene diseños. |
+| `GET, POST /tipos` · `PATCH /tipos/{id}` · `POST /tipos/sugeridos` | Tipos de etiqueta (`todos=true` suma los inactivos); el sujeto no cambia si el tipo ya tiene diseños; `empaques` (ids de tipo de empaque, solo bultos; vacío = todos). |
 | `GET /matriz` · `GET /celda` | La matriz con cobertura y una celda con su firma, lo que hereda y cuántos artículos tiene. |
 | `PUT /usos/celda` · `POST /usos/simular` · `POST /usos/lote` | Guardar la celda entera (con `firma`), «qué cambia» sin guardar, la misma excepción en varias celdas. |
 | `GET, POST /usos` · `PATCH /usos/{id}` · `POST /usos/{id}/baja` · `GET /usos/{id}/historial` · `GET /usos/valores?contexto=` | Usos sueltos (desde el producto, la OC o el asistente), baja lógica con motivo, historial y valores para las excepciones. |
@@ -309,8 +315,6 @@ La lista completa de deficiencias y sugerencias, con prioridad, está en
 - **Escalera fija**: el orden de niveles y de excepciones no se configura
   por empresa (decisión D3).
 - **Imágenes**: PNG, JPEG o WebP de hasta 2 MB y 4000 px.
-- **Niveles de empaque**: un tipo de etiqueta de bulto no declara a qué
-  niveles se aplica (ver §11, alternativa B pendiente de decisión).
 - **Borradores**: son personales; otra persona no ve ni continúa el borrador
   de una familia.
 
@@ -326,26 +330,27 @@ caja n de N, contenedor, pesos, medidas, contenido, mixto/parcial) ya están
 como campos `bulto.*`, `oc.*` y `linea.*`; lo específico de una OC se cubre
 con excepciones por OC, cliente o destino.
 
-**Lo que se hizo ahora.** Un trabajo puede imprimir **varios niveles a la vez**
-(p. ej. cajas + pallets + inners), sin cambiar la base de datos.
+**Lo que se hizo.**
 
-**Lo que falta y cómo lo resuelven los sistemas conocidos.** En BarTender,
-NiceLabel/Loftware o un WMS, y en la etiqueta logística GS1 (un SSCC por
-unidad logística), cada nivel de la jerarquía de empaque tiene **su propia
-etiqueta**: la del inner no es la de la caja ni la del pallet. Aquí un tipo
-de etiqueta de bulto no dice a qué niveles se aplica: un diseño puesto en
-«toda la empresa» para «Etiqueta de caja» también saldría en los pallets si
-se eligen en el mismo trabajo (hoy se evita dejando sin diseño general a ese
-tipo y poniendo el diseño en la fila de cada nivel; un tipo opcional sin
-diseño en un nivel no se imprime ahí).
+- Un trabajo puede imprimir **varios niveles a la vez** (cajas + pallets + inners).
+- Cada tipo de etiqueta de bulto dice **en qué empaques va** («Va en», tabla
+  `tipos_etiqueta_empaques`, migración **0079**; sin filas = en todos, como
+  antes, así que nada existente cambió):
+  - la generación solo crea etiquetas de ese tipo en esos empaques;
+  - en la matriz de bultos, las celdas de los otros empaques dicen «No va
+    aquí» (ni heredan ni cuentan como faltantes) y no admiten diseño;
+  - no se puede quitar un empaque que ya tiene un diseño de ese tipo (se
+    quita primero en la matriz);
+  - `GET /resolver` de un bulto omite los tipos que no van en su empaque;
+  - al imprimir desde una lista de empaque, los niveles se marcan solos según
+    los tipos elegidos, cada nivel dice qué etiquetas lleva y se avisa si un
+    tipo elegido no va en ninguno de los niveles marcados.
 
-Alternativas (requieren decisión antes de tocar la base):
-
-| | Qué cambia | Migración | Consecuencias |
-|---|---|---|---|
-| A. Dejarlo como está | Nada | No | Funciona si se configura la matriz por nivel; depende de la disciplina de quien configura. |
-| B. «Se aplica a» en el tipo de etiqueta | Tabla nueva tipo de etiqueta ↔ tipos de empaque (vacía = todos) | Sí, solo estructura (sin mover datos: lo existente queda «todos») | Cada tipo dice si es de inner, caja o pallet; el trabajo propone los niveles solos; la matriz de bultos muestra solo las celdas que aplican. Recomendada. |
-| C. Un sujeto por nivel (INNER, CAJA, PALLET) | Cambia el catálogo de sujetos y los usos | Sí, con conversión de datos | Rígido: los niveles los define cada empresa; se descarta. |
+Así se cubre lo que hacen BarTender, NiceLabel/Loftware o un WMS con la
+jerarquía de empaque (y la etiqueta logística GS1, un SSCC por unidad): la
+etiqueta del inner, la de la caja y la del pallet son tipos distintos, cada
+uno en su nivel. Se descartó un sujeto fijo por nivel (INNER, CAJA, PALLET):
+los niveles los define cada empresa.
 
 ## Permisos
 

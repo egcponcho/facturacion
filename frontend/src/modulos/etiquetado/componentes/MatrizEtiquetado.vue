@@ -117,7 +117,9 @@ function guardado(opciones) {
             <span v-if="f.articulos != null" class="mz-cuenta">{{ t('{0} items', [fmtNum(f.articulos)]) }}</span>
           </th>
           <td v-for="tp in datos.tipos" :key="tp.id" :data-tipo="tx(tp.nombre)">
-            <button type="button" class="mz-celda" :class="{ falta: f.celdas[tp.id].falta, propio: f.celdas[tp.id].normal }"
+            <!-- El tipo no va en este empaque (se elige en el tipo de etiqueta: «Va en») -->
+            <span v-if="f.celdas[tp.id].no_aplica" class="mz-celda mz-no-aplica" :title="t('This label does not go on this package type')">{{ t('Does not go here') }}</span>
+            <button v-else type="button" class="mz-celda" :class="{ falta: f.celdas[tp.id].falta, propio: f.celdas[tp.id].normal }"
                     :aria-label="`${nombreFila(f)} · ${tx(tp.nombre)}`" @click="abrir(f, tp)">
               <template v-if="f.celdas[tp.id].normal">
                 <span class="mz-diseno"><Icono nombre="etiqueta" :tam="14" />{{ tx(f.celdas[tp.id].normal.plantilla) }}</span>
@@ -174,6 +176,7 @@ function guardado(opciones) {
 .mz-celda.falta { background: var(--aviso-fondo); }
 .mz-diseno { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; }
 .mz-hereda { color: var(--tinta-3); }
+.mz-no-aplica { color: var(--tinta-3); font-size: 0.78rem; font-style: italic; cursor: default; background: repeating-linear-gradient(135deg, transparent 0 6px, var(--superficie-2) 6px 8px); }
 .mz-falta { color: var(--aviso); display: inline-flex; gap: 5px; align-items: center; font-weight: 600; }
 .mz-extra { font-size: 0.75rem; color: var(--tinta-2); }
 .mz-leyenda { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }

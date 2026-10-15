@@ -122,6 +122,16 @@ class TipoEtiqueta(DeOrganizacion, Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 
+class TipoEtiquetaEmpaque(DeOrganizacion, Base):
+    """A qué tipos de empaque se aplica un tipo de etiqueta de bulto (la
+    etiqueta del inner no es la de la caja ni la del pallet). Sin filas, el
+    tipo se aplica a todos los empaques."""
+
+    __tablename__ = "tipos_etiqueta_empaques"
+    tipo_etiqueta_id: Mapped[int] = mapped_column(ForeignKey("tipos_etiqueta.id", ondelete="CASCADE"), primary_key=True)
+    tipo_empaque_id: Mapped[int] = mapped_column(ForeignKey("tipos_empaque.id", ondelete="CASCADE"), primary_key=True, index=True)
+
+
 class PlantillaEtiqueta(DeOrganizacion, Base):
     """Diseño con nombre estable. Lo que se dibuja vive en sus versiones; la
     vigente es la aprobada que se usa en producción (una versión nueva no la

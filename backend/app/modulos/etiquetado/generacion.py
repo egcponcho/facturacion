@@ -44,6 +44,7 @@ from app.modulos.acceso.permisos import exigir, proveedor_filtro, tiene
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, datos, familias, plantillas, reglas, render, salidas
 from app.modulos.etiquetado import diseno as svc_diseno
+from app.modulos.etiquetado import tipos as tipos_etiqueta
 from app.modulos.maestros import unidades as medidas
 
 FORMATOS = {"PDF": "application/pdf", "PNG": "image/png", "SVG": "image/svg+xml", "ZIP": "application/zip"}
@@ -234,6 +235,9 @@ def _grupos_bulto(db: Session, pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | 
         unidades = campos.bultos(db, oc.id)
     else:
         return []
+    # Un tipo limitado a algunos empaques (la etiqueta del pallet, la del inner…) solo sale en esos
+    empaques = tipos_etiqueta.empaques_de(db, t.id)
+    unidades = [u for u in unidades if tipos_etiqueta.aplica(empaques, u.tipo_empaque_id)]
     ids = {i for u in unidades for i in u.posiciones}
     posiciones = {p.id: p for p in db.scalars(select(PosicionOC).where(PosicionOC.id.in_(ids)))} if ids else {}
     res = []
