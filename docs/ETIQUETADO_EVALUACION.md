@@ -1493,3 +1493,106 @@ configura por empresa (D3, a propósito).
 | `node e2e/etiquetado.mjs` contra la demo | **16 de 16** comprobaciones: rutas anteriores → lugar nuevo, matriz, paso Generar y reparto del ZIP guardado, sin errores de JavaScript ni 5xx. |
 | `pytest` completo en PostgreSQL 16 con un rol sin privilegios (`app`) | **657 pasan** (8 min), incluidas las pruebas de seguridad por fila (RLS). Con un rol superusuario fallan las dos pruebas de RLS, porque un superusuario se salta las políticas: es del entorno, no del código. |
 | `node e2e/recorrido.mjs` (admin, interno y dos proveedores a 1440 y 390 px, 51–55 pantallas cada uno) | Todas las pantallas cargan, sin respuestas 4xx/5xx ni errores de JavaScript. El único aviso, en cada pantalla, es `ERR_CERT_AUTHORITY_INVALID` al pedir la fuente Inter a Google Fonts: el proxy de este entorno no tiene ese certificado. Por ese aviso el script termina con código 1. |
+
+### 17.3 Segunda entrega (recuadro automático y pendientes)
+
+| Parte | Estado |
+|---|---|
+| Recuadro que se ajusta al contenido | Hecho. Cada texto, campo, tabla e imagen tiene «Medidas del recuadro»: fijas (el texto se reduce o se corta, como antes), ajustar ancho, ajustar alto (parte en líneas) o ambos. Crece desde su alineación hasta el área segura; si aun así no cabe, aplica «Si no cabe». El servidor lo recalcula con los datos de cada etiqueta (`render.ajustar_caja`) y el editor lo muestra en vivo. Los textos y campos nuevos nacen ajustables. Con medidas fijas el panel avisa: «la letra se reduce a N pt para caber» y ofrece ajustar el recuadro. Arrastrar un asa vuelve manual solo esa medida. |
+| F1 | Hecho: nombre propio y ocultar cada campo (Configuración → Campos → Nombres de los campos). |
+| F2 | Ya estaba: las tablas suman una columna por atributo de variante de la empresa (`campos._columnas_atributos`). |
+| F4 | Ya estaba: los ejemplos del editor salen del último artículo real con OC (`campos.ejemplos`); los neutros solo cuando no hay datos. |
+| F8 | Hecho para chino, árabe y devanagari: fuentes Noto (OFL) y forma con HarfBuzz; orden bidireccional básico; PDF y SVG como contornos (el texto complejo no se puede seleccionar en el PDF). Idiomas de etiqueta zh, ar, hi. **No cubre** coreano (hangul), hebreo, tailandés ni otras escrituras; tampoco fuentes propias de la empresa. |
+| Completar en Revisar | Hecho para UPC, SKU del proveedor, peso y unidad del artículo, un valor por artículo, vía el mismo servicio que Datos maestros. |
+| Pruebas dedicadas | E1, E2, E5, E6 y E12 tienen prueba propia. |
+
+---
+
+## 18. Revisión 3: deficiencias que quedan y sugerencias
+
+Lo que sigue fijo en el código o falta para que el módulo sea configurable por
+completo, con evidencia y una propuesta. Prioridad: **A** (afecta lo que se
+imprime o su trazabilidad), **B** (configurabilidad importante), **C**
+(comodidad). Esfuerzo: S (días), M (1–2 semanas), L (más).
+
+### 18.1 Diseño y editor
+
+| Id | Qué falta o está fijo | Evidencia | Propuesta | Prio. | Esf. |
+|---|---|---|---|---|---|
+| D-1 | ~~Con recuadros automáticos, un elemento que crece tapa al de abajo.~~ **Hecho en esta revisión**: «Debajo de» (`debajo_de` + `separacion`): el elemento toma el borde inferior del de arriba ya ajustado; si el de arriba no se imprime, sube a su lugar; en cadena y sin ciclos (`render._apilar`, editor en vivo). Queda: flujo horizontal y aviso de solapamiento en la vista previa. | `render._preparar`, `_apilar` | — | A | — |
+| D-2 | No hay **campos calculados**: precio con impuesto, «cantidad / casepack», concatenar con reglas, días hasta la fecha. | Solo `{{campos}}`, formatos y partes de código | Fórmulas seguras (lista blanca de operaciones: + − × ÷, redondeo, concatenar, si/entonces, fecha + días) evaluadas en el servidor, con el mismo validador de las condiciones. Se guardan en la versión del diseño. | A | M |
+| D-3 | **Estilos condicionales**: el color o el texto no cambian según el dato (p. ej., rojo si es «PELIGROSO»). | `Condicion` solo muestra u oculta el elemento | Reglas de estilo por elemento: si `campo` cumple X → color, fondo, negrita, texto alternativo. | B | S |
+| D-4 | **Textos multilingües** dentro de un mismo diseño: hoy un diseño tiene un solo juego de textos fijos; para varios idiomas hay que duplicar el diseño y crear excepciones por país. | `Diseno.idioma` es único | Textos fijos con traducciones (`contenido_i18n`) y el idioma elegido por contexto (país de destino → idioma) en el uso del diseño. | B | M |
+| D-5 | **Bloques reutilizables**: dirección de la empresa, aviso legal o logo se copian a mano en cada diseño. | No hay entidad de bloque | «Componentes» de la empresa (grupo de elementos con versión) que los diseños insertan por referencia; al aprobar uno nuevo, avisa qué diseños lo usan. | B | M |
+| D-6 | **Unidades de medida por destino**: kg/lb, cm/in se imprimen como vienen. | `formatear` no convierte unidades | Formato «unidad» con conversión y unidad de salida por país (o por diseño). | B | S |
+| D-7 | **Moneda y precio** por país (símbolo, decimales, impuesto incluido) no son configurables. | Precio sale de la línea de OC, formato numérico genérico | Formato «moneda» con código ISO, símbolo y posición; lista de precios por país/canal como origen del dato (ver O-4). | B | M |
+| D-8 | **Fuentes propias de la empresa** (TTF/OTF de marca) no se pueden subir; coreano, hebreo y tailandés no tienen fuente. | `fuentes.FAMILIAS`, `escritura.RANGOS` fijos | Subir fuentes (validadas con fontTools, licencia declarada) por empresa; tabla de respaldo por escritura configurable; agregar Noto KR, Hebrew y Thai. | B | M |
+| D-9 | El **bidireccional** es básico (sin espejar paréntesis ni incrustaciones). | `escritura._orden_visual` | Usar `python-bidi` (UAX #9 completo) para el orden y HarfBuzz para la forma. | C | S |
+| D-10 | En el PDF el texto complejo va como contorno: **no se puede buscar** ni copiar. | `salidas._contornos_pdf` | Capa de texto invisible (modo de render 3) encima de los contornos. | C | S |
+| D-11 | No hay **biblioteca de plantillas** de sistema (GS1 logística, colgante estándar). | `plantillas` por organización (RLS) | Plantillas de sistema de solo lectura que la empresa copia. | C | S |
+
+### 18.2 Reglas, tipos y configuración
+
+| Id | Qué falta o está fijo | Evidencia | Propuesta | Prio. | Esf. |
+|---|---|---|---|---|---|
+| R-1 | **Sujetos fijos**: artículo, bulto y documento. No se etiqueta una **unidad de carga** (contenedor, tarima consolidada de embarque), un **embarque** ni una **ubicación** de bodega. | `modelos/etiquetado.SUJETOS`, `NIVELES_DE`, `CANTIDADES_DE` | Sujetos como catálogo con su origen de datos (ver 18.4): `UNIDAD_CARGA` (transporte), `EMBARQUE`, `RECEPCION`, `UBICACION`. Cada uno declara sus grupos de campos, niveles y cantidades. | A | L |
+| R-2 | **Contextos de excepción fijos** (centro, país, sociedad, proveedor, condición). Faltan marca, temporada, canal/cliente, grupo de artículos, almacén. | `CONTEXTOS`, `ORDEN_CONTEXTO` | Contextos declarados por catálogo: clave, de dónde sale el valor (campo del registro) y su lugar en el orden. La condición libre ya cubre casos raros; los frecuentes merecen su contexto con lista de valores. | B | M |
+| R-3 | **Escalera fija** (talla → producto → familia → tipo de empaque → empresa) y orden fijo de excepciones. | `reglas.Resolvedor`, decisión D3 | Mantener fija por defecto; permitir a la empresa **reordenar** los contextos (no los niveles), con simulación antes de guardar. | C | S |
+| R-4 | **Cantidades fijas** (por unidad, línea, artículo, bulto, documento, manual). No hay «una por inner pack», «una por casepack», «cantidad × 2» ni redondeos. | `CANTIDADES` | Cantidad con fórmula (D-2) sobre los datos de la línea o del bulto, con un tope. | B | S |
+| R-5 | **Orígenes fijos** del trabajo (OC, artículos, lista de empaque, familia). Faltan factura, embarque, recepción (reetiquetar al recibir), archivo CSV y la API para el ERP. | `ORIGENES_TRABAJO`, `SUJETOS_DE` | Origen como adaptador: cada uno arma los registros y su contexto con la misma interfaz (`armar`); el CSV valida contra el catálogo de campos. | B | M |
+| R-6 | **Aprobación**: cuatro ojos es global; no hay aprobadores por tipo de etiqueta ni por familia. | `ETIQUETAS_CUATRO_OJOS` | Aprobadores por tipo (rol o usuarios) y, opcional, aprobación doble para tipos regulados. | C | S |
+| R-7 | **Datos completables** desde el trabajo: solo cuatro columnas del artículo. | `trabajos.COMPLETABLES` | Declararlos en el catálogo de campos (`completable: true` + permiso) y sumar atributos de variante y campos propios. | C | S |
+
+### 18.3 Impresión y salida
+
+| Id | Qué falta o está fijo | Evidencia | Propuesta | Prio. | Esf. |
+|---|---|---|---|---|---|
+| P-1 | **Sin impresión directa**: se descarga el PDF y se imprime a mano; sin ZPL/EPL. | §7 de ETIQUETADO.md | Perfiles de impresora (dpi, desplazamiento X/Y, oscuridad, rollo o hoja) y salida ZPL probada contra una Zebra real; envío a un agente local (p. ej., QZ Tray) o a una cola de impresión. | A | L |
+| P-2 | **SSCC no se genera**: el código se valida pero el número sale de un campo; no hay prefijo GS1 de la empresa ni serie por bulto. | `codigos.validar` sin generador | Prefijo GS1 y dígito de extensión en la empresa; serie SSCC reservada al generar (como `etiqueta.serie`) y guardada en el bulto (ver O-2). | A | M |
+| P-3 | **RFID / EPC** (SGTIN-96) para ropa y calzado no existe. | — | Codificar EPC desde GTIN + serie; salida para impresoras RFID (ZPL `^RFW`). | B | L |
+| P-4 | **Reimpresión y anulación**: se confirma lo impreso, pero no se anula una etiqueta dañada ni se reimprime con motivo controlando la serie. | `confirmar_impresion` | «Reimprimir» (misma serie, motivo) y «Anular» (la serie queda inválida) con historial. | A | S |
+| P-5 | **Calibración**: no hay hoja de prueba de alineación por impresora. | — | Diseño de calibración (marcos y reglas) que se imprime por perfil. | C | S |
+
+### 18.4 Relación con el origen de los datos
+
+Hoy cada campo de la etiqueta tiene su origen documentado (`datos_campos.ORIGEN`,
+visible en el editor) y cada lote guarda la **instantánea** de lo impreso
+(`generacion_items.valores`), así que se reproduce idéntico aunque el dato
+cambie después. Las claves que unen la etiqueta con su origen son:
+
+| Lo etiquetado | Claves guardadas | De dónde salen los datos |
+|---|---|---|
+| Artículo de una OC | `oc_id`, `posicion_id`, `articulo_id` (registro e ítem) | `ordenes_compra`, `posiciones_oc`, `articulos` → `productos` → familia/grupo |
+| Artículo suelto | `articulo_id` | `articulos`, `productos`, último dato de OC si el diseño lo pide |
+| Bulto | `pl_id`, `grupo_cajas_id`, `bulto_indice` | `packing_lists`, `grupos_cajas` (jerarquía), `pl_lineas` → factura → posición de OC |
+| Documento | `oc_id` o `pl_id` | La OC o la lista de empaque con sus líneas |
+| Campo lógico | `procedencia` en la vista previa | La primera fuente con valor, según su orden |
+
+Deficiencias y propuestas:
+
+| Id | Qué falta | Propuesta | Prio. | Esf. |
+|---|---|---|---|---|
+| O-1 | **Etiquetas desactualizadas**: si el UPC, la cantidad de la línea o el contenido de una caja cambian **después** de imprimir, nadie se entera. | Al cambiar un dato maestro u operativo, comparar con las instantáneas de lo impreso (por `articulo_id`, `posicion_id`, bulto) y abrir una alerta «N etiquetas impresas tienen un dato que cambió» con la diferencia y el botón «Reimprimir». Las versiones por tabla (`versiones_datos`) ya dicen qué tablas cambiaron. | A | M |
+| O-2 | **El bulto no es una entidad**: su identidad es (lista, grupo, índice); si se reagrupa la lista, cambia. Sin SSCC persistente no se cierra el ciclo con la bodega. | Tabla `bultos` (lista, grupo, índice, SSCC, estado) creada al finalizar la lista; la etiqueta y la **recepción** usan el mismo bulto: escanear el SSCC al recibir confirma contenido y cantidades (módulo de recepción existente). | A | L |
+| O-3 | **Trabajos desactualizados**: un trabajo revisado ayer no avisa si hoy cambió la OC o la lista. | Guardar en el trabajo la versión de datos de cada tabla al revisar; al abrirlo, si cambió, mostrar «los datos cambiaron: revisar de nuevo» (y obligarlo antes de generar en real). | A | S |
+| O-4 | **Orígenes no modelados**: precio de venta por país, composición de la ficha técnica por idioma, datos del cliente final, temporada. | Diccionario de datos: cada campo nuevo se declara como «entidad + ruta» sobre una lista blanca de relaciones (artículo → producto → ficha; OC → proveedor; etc.), sin escribir código; el editor lo ofrece con su origen y ejemplo. | B | L |
+| O-5 | **Conflictos entre fuentes** solo existen en los campos lógicos. | Mostrar en Revisar, por registro, el origen de cada dato impreso (no solo de los lógicos) y marcar los que salen de un valor por defecto o manual. | C | S |
+| O-6 | **Datos del proveedor**: el proveedor no puede proponer correcciones (p. ej., su SKU) desde su trabajo; solo el equipo interno completa. | «Proponer corrección» del proveedor que queda pendiente de aprobación interna, con historial. | C | M |
+
+### 18.5 Orden sugerido
+
+1. **A de trazabilidad**: O-3 (trabajo desactualizado), P-4 (reimprimir y anular), O-1 (etiquetas desactualizadas).
+2. **A de diseño**: D-2 (campos calculados); D-1 ya hecho («Debajo de»).
+3. **A de logística**: P-2 + O-2 (SSCC y bultos persistentes, cierre con recepción), luego R-1 (más sujetos).
+4. **B**: R-2, R-4, R-5, D-3, D-4, D-5, D-6, D-7, D-8.
+5. **P-1** (impresión directa / ZPL) cuando haya una impresora para probar; la regla del proyecto es no declarar funcional lo que no se probó.
+
+### 18.6 Pruebas de esta revisión (resultado real)
+
+| Comando | Resultado |
+|---|---|
+| `pytest` completo en SQLite | **659 pasan, 4 omitidas** |
+| `pytest` completo en PostgreSQL 16 (rol `app`, sin privilegios) | **663 pasan** |
+| `ruff check .` · `npm run lint` · `npm run build` | Sin observaciones · correcto |
+| `node e2e/etiquetado.mjs` | Sin fallas |
+| En el navegador (Playwright, capturas) | Recuadro automático: la letra de 10 → 30 pt agranda el recuadro (93×18 → 277×53 px) y el fijo no cambia; «Debajo de»: al subir la letra del de arriba, el de abajo baja; nombres de campos: el nombre propio y el oculto se guardan; «Completar el dato»: el registro pasa de 1 error a 0. Sin errores de JavaScript. |

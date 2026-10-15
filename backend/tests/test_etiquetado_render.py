@@ -272,3 +272,37 @@ def test_chino_arabe_y_devanagari_con_forma_y_en_orden():
             assert franja.getextrema()[0] < 100
     # Meses y sí/no en el idioma de la etiqueta
     assert render.fecha_con_patron(render.date(2026, 3, 5), "d mmm aaaa", "zh") == "5 三月 2026"
+
+
+def test_elementos_debajo_de_otro_se_mueven_con_el():
+    """Un elemento «debajo de» otro toma su borde inferior más la separación: si el de arriba
+    crece (más letra o más líneas), baja; si el de arriba no se imprime, sube a su lugar."""
+    def lineas(valor, tam=10):
+        d = _diseno([
+            {"id": "a", "tipo": "campo", "campo": "articulo.descripcion", "si_vacio": "ocultar", "x": 5, "y": 5, "w": 60, "h": 5,
+             "ajustar": "alto", "estilo": {"tam": tam}},
+            {"id": "b", "tipo": "texto", "contenido": "SEGUNDO", "x": 5, "y": 12, "w": 40, "h": 5, "debajo_de": "a", "separacion": 2},
+            {"id": "c", "tipo": "texto", "contenido": "TERCERO", "x": 5, "y": 20, "w": 40, "h": 5, "debajo_de": "b", "separacion": 1},
+        ])
+        lz = render.componer(d, {"articulo.descripcion": valor})
+        pos = {}
+        for p in lz.prims:
+            if p.tipo == "texto":
+                for t, _x, base, _w in p.lineas:
+                    pos.setdefault(t, base)
+        return pos, lz
+
+    corto, _ = lineas("Shoe")
+    largo, _ = lineas("Running shoe with a long description that needs several lines to fit")
+    grande, _ = lineas("Shoe", tam=20)
+    assert largo["SEGUNDO"] > corto["SEGUNDO"] and largo["TERCERO"] > corto["TERCERO"]  # más líneas: bajan
+    assert grande["SEGUNDO"] > corto["SEGUNDO"]  # más letra: baja
+    assert largo["TERCERO"] - largo["SEGUNDO"] == pytest.approx(corto["TERCERO"] - corto["SEGUNDO"])  # la cadena se mantiene
+    vacio, _ = lineas(None)
+    assert "Shoe" not in vacio and vacio["SEGUNDO"] < corto["SEGUNDO"]  # sin el de arriba, sube a su lugar
+    # Una referencia que no existe se olvida; un ciclo no se acepta
+    d = _diseno([{"id": "x", "tipo": "texto", "contenido": "X", "debajo_de": "nada"}])
+    assert d["elementos"][0]["debajo_de"] is None
+    with pytest.raises(ErrorNegocio):
+        _diseno([{"id": "x", "tipo": "texto", "contenido": "X", "debajo_de": "y"},
+                 {"id": "y", "tipo": "texto", "contenido": "Y", "debajo_de": "x"}])

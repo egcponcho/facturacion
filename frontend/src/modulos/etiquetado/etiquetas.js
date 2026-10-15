@@ -279,6 +279,39 @@ export function fuenteImagen(e, valores) {
   const v = e.fuente_imagen === 'campo' ? valores[e.campo] : null
   return typeof v === 'string' && (v.startsWith('data:image/') || v.startsWith('/')) ? v : null
 }
+// Los elementos «debajo de» otro toman su borde inferior más la separación, en cadena (cajas: id → {x, y, w, h})
+export function apilar(elementos, cajas) {
+  const porId = Object.fromEntries(elementos.map((e) => [e.id, e]))
+  const listos = new Set()
+  const colocar = (id, camino = new Set()) => {
+    if (listos.has(id) || camino.has(id)) return
+    const e = porId[id]
+    if (e?.debajo_de && cajas[e.debajo_de]) {
+      camino.add(id)
+      colocar(e.debajo_de, camino)
+      const a = cajas[e.debajo_de]
+      cajas[id] = { ...cajas[id], y: Math.round((a.y + a.h + (e.separacion ?? 1)) * 1000) / 1000 }
+    }
+    listos.add(id)
+  }
+  for (const e of elementos) colocar(e.id)
+  return cajas
+}
+// Los elementos que siguen (directa o indirectamente) a este: no pueden ser su «de arriba»
+export function seguidores(elementos, id) {
+  const res = new Set()
+  let cambio = true
+  while (cambio) {
+    cambio = false
+    for (const e of elementos) {
+      if (e.debajo_de && (e.debajo_de === id || res.has(e.debajo_de)) && !res.has(e.id)) {
+        res.add(e.id)
+        cambio = true
+      }
+    }
+  }
+  return res
+}
 // El texto que muestra un texto o un campo con estos valores (vacío si no hay dato)
 export function textoElemento(e, valores, tipos) {
   if (e.tipo === 'texto') return sustituir(e.contenido, valores, tipos)

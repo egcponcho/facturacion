@@ -6947,5 +6947,10 @@
 "This labeling job cannot be changed now.": "Este trabajo de etiquetado no se puede cambiar ahora.",
 "Where it comes from": "De dónde sale",
 "Write the value of each item (up to {0}).": "Escribe el valor de cada artículo (hasta {0}).",
-"{0} renamed · {1} hidden": "{0} renombrados · {1} ocultos"
+"{0} renamed · {1} hidden": "{0} renombrados · {1} ocultos",
+"Below": "Debajo de",
+"Free position": "Posición libre",
+"Gap": "Separación",
+"It moves with the element above when it grows, shrinks or is not printed.": "Se mueve con el elemento de arriba cuando este crece, se achica o no se imprime.",
+"an element cannot go below itself (check «Below»)": "un elemento no puede ir debajo de sí mismo (revisa «Debajo de»)"
 }

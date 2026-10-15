@@ -136,6 +136,10 @@ class Elemento(_Base):
     # no cabe, se aplica el ajuste del estilo. Las tablas crecen con sus filas y las imágenes
     # toman la proporción de la imagen.
     ajustar: Literal["no", "ancho", "alto", "ambos"] = "no"
+    # Debajo de otro elemento: su Y es el borde inferior de ese elemento (ya ajustado) más la separación;
+    # si ese elemento no se imprime (vacío, oculto o con su condición sin cumplir), este sube a su lugar
+    debajo_de: str | None = Field(None, pattern=r"^[\w-]{1,40}$")
+    separacion: float = Field(1, ge=0, le=100)  # mm
     # texto: puede llevar campos {{articulo.sku}}; campo: un solo campo con prefijo y sufijo
     contenido: str | None = Field(None, max_length=2000)
     campo: str | None = Field(None, max_length=80)
@@ -276,6 +280,20 @@ class Diseno(_Base):
         ids = [e.id for e in v]
         if len(ids) != len(set(ids)):
             raise ValueError("element ids must be unique")
+        # «Debajo de»: un elemento que ya no existe se olvida; una cadena que vuelve a sí misma no se acepta
+        existentes, sigue = set(ids), {}
+        for e in v:
+            if e.debajo_de and (e.debajo_de not in existentes or e.debajo_de == e.id):
+                e.debajo_de = None
+            if e.debajo_de:
+                sigue[e.id] = e.debajo_de
+        for inicio in sigue:
+            visto, actual = {inicio}, sigue[inicio]
+            while actual in sigue:
+                if actual in visto:
+                    raise ValueError("an element cannot go below itself (check «Below»)")
+                visto.add(actual)
+                actual = sigue[actual]
         return v
 
     @model_validator(mode="after")

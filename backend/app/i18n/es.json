@@ -2203,6 +2203,7 @@
 "add cargo":"agregar carga",
 "add containers":"agregar contenedores",
 "adjust a receipt":"ajustar una recepción",
+"an element cannot go below itself (check «Below»)":"un elemento no puede ir debajo de sí mismo (revisa «Debajo de»)",
 "at destination":"en destino",
 "being received":"en recepción",
 "call off the shipment":"anular el embarque",

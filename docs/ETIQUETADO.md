@@ -114,7 +114,9 @@ Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**
   - **Tipos de etiqueta** (con las medidas de etiqueta de la empresa).
   - **Familias y artículos**: árbol de familias y asignación en bloque de
     grupos, productos y tallas; «usar mis grupos como familias».
-  - **Campos** propios de la empresa y **Historial**.
+  - **Campos**: **nombres de los campos** (el nombre que usa la empresa y
+    los que se ocultan al diseñar; la clave no cambia), campos lógicos
+    propios y **Historial**.
 - **Ficha del producto**, pestaña **Etiquetas**: la familia del producto,
   qué diseño usa cada tipo (y por qué), «usar otro diseño para este
   producto» (todo el producto o algunas tallas) y «volver a heredar».
@@ -127,7 +129,9 @@ Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**
      Real/Prueba.
   2. **Revisar**: problemas agrupados por causa con su arreglo («Elegir
      diseño» lo usa solo en este trabajo o lo guarda como regla para los
-     siguientes), datos que pide el diseño, una pestaña por tipo con
+     siguientes; «Completar el dato» escribe en el maestro del artículo el
+     UPC, SKU del proveedor, peso o unidad que falta, un valor por
+     artículo), datos que pide el diseño, una pestaña por tipo con
      cantidades editables y vista previa con anterior/siguiente.
   3. **Generar**: archivo de cada ejecución, contenido y reparto del ZIP,
      ejecuciones, marcar como impresas y «Nuevo trabajo, igual».
@@ -214,7 +218,17 @@ Se retiraron: `/asignaciones`, `/plan`, `/oc/{id}`, `POST /generaciones`,
 - **Códigos**: Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF-14, GS1-128 (con
   identificadores de aplicación), SSCC (dígito verificador), QR,
   DataMatrix, GS1 DataMatrix y PDF417. El catálogo lo sirve el servidor.
-- **Regional por diseño**: idioma de meses y sí/no (en, es, pt, fr),
+- **Recuadro que se ajusta al contenido** (por elemento): medidas fijas, o
+  el recuadro sigue al texto con su tamaño de letra (ancho, alto con líneas,
+  o ambos) desde su alineación y hasta el área segura; la tabla crece con
+  sus filas y la imagen toma su proporción. Se recalcula con los datos de
+  cada etiqueta y el editor lo muestra en vivo. **Debajo de**: un elemento
+  sigue el borde inferior de otro (más una separación); si el de arriba crece,
+  baja; si no se imprime, sube a su lugar.
+- **Escrituras**: latín, griego y cirílico con Liberation; chino, árabe
+  (de derecha a izquierda, letras unidas) y devanagari con Noto y forma
+  HarfBuzz (`escritura.py`). En el PDF esas líneas van como contornos.
+- **Regional por diseño**: idioma de meses y sí/no (en, es, pt, fr, zh, ar, hi),
   separador de miles y decimal, y patrón de fecha libre (`dd`, `d`, `mm`,
   `mmm`, `mmmm`, `aa`, `aaaa`).
 - **Marca de prueba** traducida según el idioma del diseño.
@@ -246,13 +260,15 @@ matriz, tipos, patrones), `_generacion`, `_trabajos` (incluye la migración
 
 ## 10. Limitaciones conocidas
 
-- **Fuentes**: solo Liberation (latín). Un diseño en chino, hindi o árabe
-  no se dibuja bien todavía (F8 pendiente).
-- **Campos**: no se pueden renombrar ni ocultar los campos fijos por empresa
-  (F1) y las columnas de las tablas siguen fijas a color y talla (F2).
-- **Asistente**: en Revisar se piden los datos que escribe el usuario
-  (variables del diseño); completar datos maestros que faltan (por ejemplo
-  el UPC de un artículo) se hace en su ficha, no desde el asistente.
+La lista completa de deficiencias y sugerencias, con prioridad, está en
+`docs/ETIQUETADO_EVALUACION.md` §18.
+
+- **Escrituras**: sin coreano, hebreo ni tailandés; el orden bidireccional
+  es básico (sin espejar paréntesis); no se suben fuentes propias.
+- **Recuadros automáticos**: «Debajo de» mueve un elemento en vertical; no
+  hay flujo horizontal ni aviso de solapamiento.
+- **Completar**: solo cuatro datos del artículo; lo demás se corrige donde se
+  origina.
 - **Escalera fija**: el orden de niveles y de excepciones no se configura
   por empresa (decisión D3).
 - **Imágenes**: PNG, JPEG o WebP de hasta 2 MB y 4000 px.

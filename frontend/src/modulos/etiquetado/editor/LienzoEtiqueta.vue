@@ -1,7 +1,7 @@
 <script setup>
 import { t } from '@/i18n/index.js'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, watchEffect } from 'vue'
-import { ajustarCaja, fuenteImagen, textoElemento } from '@/modulos/etiquetado/etiquetas.js'
+import { ajustarCaja, apilar, fuenteImagen, textoElemento } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import ElementoSvg from './ElementoSvg.vue'
 
@@ -43,16 +43,21 @@ function proporcion(src) {
 watchEffect(() => {
   void props.fuentes
   if (!est.editable || !d.value) return
-  const cambios = []
+  const cajas = {}
   for (const e of ed.elementos.value) {
+    cajas[e.id] = { x: e.x, y: e.y, w: e.w, h: e.h }
     if (!e.ajustar || e.ajustar === 'no') continue
     const v = valores.value
     const opciones = e.tipo === 'tabla' ? { filas: Array.isArray(v[e.coleccion]) ? v[e.coleccion].length : 0 }
       : e.tipo === 'imagen' ? { proporcion: proporcion(fuenteImagen(e, v)) }
         : { texto: textoElemento(e, v, est.tipos) || (e.tipo === 'campo' ? `{{${e.campo}}}` : e.contenido || '') }
     const c = ajustarCaja(e, d.value, opciones)
-    if (c && ['x', 'y', 'w', 'h'].some((k) => Math.abs(c[k] - e[k]) > 0.005)) cambios.push([e, c])
+    if (c) cajas[e.id] = c
   }
+  // «Debajo de»: el borde inferior del de arriba más la separación (render._apilar)
+  apilar(ed.elementos.value, cajas)
+  const cambios = ed.elementos.value.filter((e) => ['x', 'y', 'w', 'h'].some((k) => Math.abs(cajas[e.id][k] - e[k]) > 0.005))
+    .map((e) => [e, cajas[e.id]])
   if (cambios.length) ed.retocar(cambios)
 })
 

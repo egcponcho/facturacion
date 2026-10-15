@@ -5,7 +5,7 @@ import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { errorApi } from '@/stores/ui'
-import { AJUSTABLES, AJUSTES_CAJA, LISTAS, maquetar, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
+import { AJUSTABLES, AJUSTES_CAJA, LISTAS, maquetar, seguidores, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -44,6 +44,13 @@ const anchoAuto = computed(() => {
   return x.tipo === 'imagen' ? x.ajustar === 'ancho' : ['texto', 'campo'].includes(x.tipo) && ['ancho', 'ambos'].includes(x.ajustar)
 })
 const altoAuto = computed(() => !!e.value && AJUSTABLES.includes(e.value.tipo) && ['alto', 'ambos'].includes(e.value.ajustar))
+// «Debajo de»: cualquier otro elemento que no lo siga ya (evita ciclos)
+const posiblesArriba = computed(() => {
+  if (!e.value) return []
+  const fuera = seguidores(ed.elementos.value, e.value.id)
+  return ed.elementos.value.filter((x) => x.id !== e.value.id && !fuera.has(x.id))
+})
+const nombreElemento = (x) => x.nombre || (x.tipo === 'campo' ? `{{${x.campo}}}` : x.tipo === 'texto' ? (x.contenido || '').slice(0, 30) : x.tipo)
 // Con el recuadro fijo, la letra que de verdad se dibuja (si se reduce para caber)
 const letraReducida = computed(() => {
   const x = e.value
@@ -192,11 +199,22 @@ function fuenteImagen(v) {
     <h4>{{ t('Position and size') }}</h4>
     <div class="rejilla-2">
       <Medida v-model="e.x" etiqueta="X" :unidad="u" :disabled="bloqueado" />
-      <Medida v-model="e.y" etiqueta="Y" :unidad="u" :disabled="bloqueado" />
+      <Medida v-model="e.y" etiqueta="Y" :unidad="u" :disabled="bloqueado || !!e.debajo_de" />
       <Medida v-model="e.w" :etiqueta="t('Width')" :unidad="u" :min="0" :disabled="bloqueado || anchoAuto" :title="anchoAuto ? t('Automatic: it follows the content') : null" />
       <Medida v-model="e.h" :etiqueta="t('Height')" :unidad="u" :min="0" :disabled="bloqueado || altoAuto" :title="altoAuto ? t('Automatic: it follows the content') : null" />
       <Medida v-model="e.rot" :etiqueta="t('Rotation')" unidad="°" :min="-360" :max="360" :disabled="bloqueado" />
     </div>
+    <div class="rejilla-2 mt-chico">
+      <label class="campo-mini"><span>{{ t('Below') }}</span>
+        <Seleccion :model-value="e.debajo_de || ''" :disabled="bloqueado" :aria-label="t('Below')" @change="(v) => (e.debajo_de = v || null)">
+          <option value="">{{ t('Free position') }}</option>
+          <option v-for="x in posiblesArriba" :key="x.id" :value="x.id">{{ nombreElemento(x) }}</option>
+        </Seleccion>
+      </label>
+      <Medida v-if="e.debajo_de" :model-value="e.separacion ?? 1" :etiqueta="t('Gap')" :unidad="u" :min="0" :max="100" :disabled="bloqueado"
+              @update:model-value="(v) => (e.separacion = v)" />
+    </div>
+    <small v-if="e.debajo_de" class="ayuda">{{ t('It moves with the element above when it grows, shrinks or is not printed.') }}</small>
     <label v-if="AJUSTABLES.includes(e.tipo)" class="campo-mini mt-chico"><span>{{ t('Box size') }}</span>
       <Seleccion :model-value="e.ajustar || 'no'" :disabled="bloqueado" :aria-label="t('Box size')" @change="(v) => (e.ajustar = v)">
         <option v-for="[v, txt] in opcionesAjuste" :key="v" :value="v">{{ txt }}</option>

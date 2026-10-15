@@ -471,6 +471,91 @@ def componer(diseno: dict, valores: dict, tipos: dict | None = None, imagen_adju
         _REGIONAL.reset(marca)
 
 
+def _preparar(e: dict, valores: dict, tipos: dict, imagen_adjunta, W: float, H: float, margen: float) -> dict:
+    """Lo que un elemento va a dibujar: si se muestra, su contenido (texto o imagen), los problemas de su
+    contenido y su recuadro (ajustado al contenido si lo pide). No dibuja nada."""
+    r = {"e": e, "mostrar": True, "texto": None, "imagen": None, "problemas": []}
+    probs = r["problemas"]
+    if not e.get("visible", True) or not cumple(e.get("condicion"), valores):
+        r["mostrar"] = False
+        return r
+    t = e["tipo"]
+    ajusta = e.get("ajustar", "no") != "no"
+    if t in ("texto", "campo"):
+        if t == "texto":
+            texto, vacios = sustituir(e.get("contenido") or "", valores, tipos)
+            for c in vacios:
+                _problema(probs, "advertencia", "campo_vacio", e, f"The field {c} is empty.", campo=c)
+        else:
+            v = formatear(valores.get(e["campo"]), e.get("formato"), tipos.get(e["campo"], "texto"))
+            if v is None:
+                regla = e.get("si_vacio", "advertir")
+                if regla == "error":
+                    _problema(probs, "error", "campo_obligatorio", e, f"The field {e['campo']} is required and empty.",
+                              campo=e["campo"])
+                if regla in ("ocultar", "error"):
+                    r["mostrar"] = False
+                    return r
+                if regla == "alternativo":
+                    v = e.get("alternativo") or ""
+                else:
+                    _problema(probs, "advertencia", "campo_vacio", e, f"The field {e['campo']} is empty.", campo=e["campo"])
+                    v = ""
+            texto = f"{e.get('prefijo') or ''}{v}{e.get('sufijo') or ''}" if v else v
+        if not texto:
+            r["mostrar"] = False
+            return r
+        r["texto"] = texto
+        if ajusta:
+            r["e"] = ajustar_caja(e, W, H, margen, texto=texto)
+    elif t == "imagen":
+        from app.modulos.etiquetado.salidas import datos_imagen
+
+        if e.get("fuente_imagen") == "adjunto":
+            img = imagen_adjunta(e["adjunto_id"]) if imagen_adjunta else None
+        elif e.get("fuente_imagen") == "campo":
+            img = datos_imagen(valores.get(e["campo"]))
+        else:
+            img = datos_imagen(e.get("datos"))
+        proporcion = _proporcion(img) if img else None
+        if not proporcion:
+            if e.get("si_vacio") == "error":
+                _problema(probs, "error", "imagen_faltante", e, "The image is missing.")
+            elif e.get("si_vacio") != "ocultar":
+                _problema(probs, "advertencia", "imagen_faltante", e, "The image is missing.")
+            r["mostrar"] = False
+            return r
+        r["imagen"] = img
+        if ajusta:
+            r["e"] = ajustar_caja(e, W, H, margen, proporcion=proporcion)
+    elif t == "tabla" and ajusta:
+        filas = valores.get(e["coleccion"])
+        r["e"] = ajustar_caja(e, W, H, margen, filas=len(filas) if isinstance(filas, list) else 0)
+    return r
+
+
+def _apilar(elementos: list[dict], prep: dict) -> None:
+    """Los elementos que van debajo de otro (debajo_de) toman su borde inferior más la separación; si el
+    de arriba no se muestra (vacío, oculto o con su condición sin cumplir), suben a su lugar. En cadena."""
+    listos: set[str] = set()
+
+    def colocar(eid: str, camino: tuple = ()) -> None:
+        if eid in listos or eid in camino:
+            return
+        p = prep[eid]
+        ref = p["e"].get("debajo_de")
+        if ref and ref in prep:
+            colocar(ref, (*camino, eid))
+            arriba = prep[ref]
+            ea = arriba["e"]
+            y = ea["y"] + ea["h"] + (p["e"].get("separacion") or 0) if arriba["mostrar"] else ea["y"]
+            p["e"] = {**p["e"], "y": y}
+        listos.add(eid)
+
+    for e in elementos:
+        colocar(e["id"])
+
+
 def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, prueba: bool) -> Lienzo:
     tipos = tipos or {}
     prims: list[Prim] = []
@@ -490,12 +575,18 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
             _problema(problemas, "advertencia", "fuera_area_segura", e, "The element is outside the safe print area.")
         return True
 
-    for e in diseno.get("elementos", []):
-        if not e.get("visible", True) or not cumple(e.get("condicion"), valores):
+    # 1) Cada elemento con su contenido y su recuadro (ajustado al contenido si lo pide);
+    # 2) los que van debajo de otro siguen su borde inferior; 3) se dibujan en el orden de las capas
+    elementos = diseno.get("elementos", [])
+    prep = {e["id"]: _preparar(e, valores, tipos, imagen_adjunta, W, H, margen) for e in elementos}
+    _apilar(elementos, prep)
+    for e0 in elementos:
+        p = prep[e0["id"]]
+        problemas += p["problemas"]
+        if not p["mostrar"]:
             continue
-        t = e["tipo"]
-        # Los que ajustan su recuadro al contenido se miden después de conocer el contenido
-        if not (e.get("ajustar", "no") != "no" and t in ("texto", "campo", "tabla", "imagen")) and not dentro(e):
+        e, t = p["e"], e0["tipo"]
+        if not dentro(e):
             continue
         if t == "rect":
             prims.append(Prim("rect", e["x"], e["y"], e["w"], e["h"], relleno=e.get("relleno"), borde=e.get("borde"),
@@ -507,64 +598,13 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
             prims.append(Prim("linea", e["x"], e["y"], e["w"], e["h"], borde=e["color"], grosor=e["grosor"], trazo=e["trazo"],
                               **_giro(e)))
         elif t in ("texto", "campo"):
-            if t == "texto":
-                texto, vacios = sustituir(e.get("contenido") or "", valores, tipos)
-                for c in vacios:
-                    _problema(problemas, "advertencia", "campo_vacio", e, f"The field {c} is empty.", campo=c)
-            else:
-                v = formatear(valores.get(e["campo"]), e.get("formato"), tipos.get(e["campo"], "texto"))
-                if v is None:
-                    regla = e.get("si_vacio", "advertir")
-                    if regla == "ocultar":
-                        continue
-                    if regla == "error":
-                        _problema(problemas, "error", "campo_obligatorio", e, f"The field {e['campo']} is required and empty.",
-                                  campo=e["campo"])
-                        continue
-                    if regla == "alternativo":
-                        v = e.get("alternativo") or ""
-                    else:
-                        _problema(problemas, "advertencia", "campo_vacio", e, f"The field {e['campo']} is empty.", campo=e["campo"])
-                        v = ""
-                texto = f"{e.get('prefijo') or ''}{v}{e.get('sufijo') or ''}" if v else v
-            if texto and e.get("ajustar", "no") != "no":
-                e = ajustar_caja(e, W, H, margen, texto=texto)
-                if not dentro(e):
-                    continue
-            if texto:
-                _texto(e, texto, prims, problemas)
+            _texto(e, p["texto"], prims, problemas)
         elif t == "imagen":
-            from app.modulos.etiquetado.salidas import datos_imagen
-
-            img = None
-            if e.get("fuente_imagen") == "adjunto":
-                img = imagen_adjunta(e["adjunto_id"]) if imagen_adjunta else None
-            elif e.get("fuente_imagen") == "campo":
-                img = datos_imagen(valores.get(e["campo"]))
-            else:
-                img = datos_imagen(e.get("datos"))
-            if e.get("ajustar", "no") != "no":
-                if img:
-                    e = ajustar_caja(e, W, H, margen, proporcion=_proporcion(img))
-                if not dentro(e):
-                    continue
-            caja = _encaje(img, e) if img else None
-            if caja is None:
-                if e.get("si_vacio") == "error":
-                    _problema(problemas, "error", "imagen_faltante", e, "The image is missing.")
-                elif e.get("si_vacio") != "ocultar":
-                    _problema(problemas, "advertencia", "imagen_faltante", e, "The image is missing.")
-                continue
-            x, y, w, h = caja
-            prims.append(Prim("imagen", x, y, w, h, imagen=img, **_giro(e)))
+            x, y, w, h = _encaje(p["imagen"], e)
+            prims.append(Prim("imagen", x, y, w, h, imagen=p["imagen"], **_giro(e)))
         elif t == "codigo":
             _codigo(e, valores, tipos, fondo, prims, problemas)
         elif t == "tabla":
-            if e.get("ajustar", "no") != "no":
-                filas = valores.get(e["coleccion"])
-                e = ajustar_caja(e, W, H, margen, filas=len(filas) if isinstance(filas, list) else 0)
-                if not dentro(e):
-                    continue
             _tabla(e, valores, tipos, prims, problemas)
     if diseno.get("borde"):
         b = diseno["borde"]
