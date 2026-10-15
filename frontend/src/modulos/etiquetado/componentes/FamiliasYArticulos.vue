@@ -190,11 +190,6 @@ const otrasFamilias = computed(() => arbol.value.filter((x) => x.activa && Strin
 
 // ---- Alta y edición en la página ---------------------------------------------------------------------
 const formulario = ref(null)
-function nueva(padre = null) {
-  formulario.value = { codigo: '', nombre: '', descripcion: '', activa: true, campos: [], padre_id: padre }
-  modo.value = 'editar'
-  celda.value = null
-}
 function editar(f) {
   formulario.value = { ...f, campos: (f.campos || []).map((c) => ({ ...c })) }
   modo.value = 'editar'
@@ -252,7 +247,7 @@ async function mover(f, delta) {
     <aside class="fa-arbol panel" :aria-label="t('Labeling families')">
       <div class="fa-cabeza">
         <h3>{{ t('Families') }}</h3>
-        <button v-if="editable" type="button" class="btn btn-chico btn-primario" @click="nueva(null)"><Icono nombre="mas" :tam="14" />{{ t('New family') }}</button>
+        <button v-if="editable" type="button" class="btn btn-chico btn-primario" @click="router.push('/etiquetas/configuracion/familia/nueva')"><Icono nombre="mas" :tam="14" />{{ t('New family') }}</button>
       </div>
       <ul>
         <li><button type="button" class="fa-item" :aria-pressed="elegida === ''" @click="elegir('')"><span>{{ t('All') }}</span></button></li>
@@ -297,9 +292,10 @@ async function mover(f, delta) {
                 <template v-if="subfamilias.length"> · {{ t('{0} subfamilies', [subfamilias.length]) }}</template></p>
             </div>
             <div v-if="editable" class="fa-ficha-acciones">
+              <router-link :to="`/etiquetas/configuracion/familia/${familiaElegida.id}`" class="btn btn-primario"><Icono nombre="varita" :tam="15" />{{ t('Set up step by step') }}</router-link>
               <button type="button" class="btn" @click="editar(familiaElegida)"><Icono nombre="editar" :tam="15" />{{ t('Edit') }}</button>
               <MenuAcciones :etiqueta="t('More options of the family')">
-                <button type="button" role="menuitem" @click="nueva(familiaElegida.id)">{{ t('New subfamily') }}</button>
+                <button type="button" role="menuitem" @click="router.push({ path: '/etiquetas/configuracion/familia/nueva', query: { padre: familiaElegida.id } })">{{ t('New subfamily') }}</button>
                 <button type="button" role="menuitem" @click="mover(familiaElegida, -1)">{{ t('Move up in the list') }}</button>
                 <button type="button" role="menuitem" @click="mover(familiaElegida, 1)">{{ t('Move down in the list') }}</button>
                 <button type="button" role="menuitem" @click="eliminar(familiaElegida)">{{ t('Delete') }}</button>

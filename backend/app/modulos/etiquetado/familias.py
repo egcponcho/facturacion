@@ -436,3 +436,45 @@ def asignar_productos(db: Session, user: Usuario, familia_id: int | None, ids: l
         registrar(db, user, "familia_etiquetado", familia_id or 0, "asignar_productos",
                   {"familia_id": familia_id, "productos": [f"{p.estilo} {p.color or ''}".strip() for p in cambiados[:50]]})
     return {"cambiados": len(cambiados), "elegidos": len(elegidos)}
+
+
+def configurar(db: Session, user: Usuario, datos: dict) -> dict:
+    """Termina el asistente de una familia en una sola operación (todo o nada):
+    sus datos (`familia`, con `id` si ya existe), lo que entra en ella
+    (`productos`, `grupos`, `articulos`: ids) y su diseño normal por tipo de
+    etiqueta (`disenos`: [{tipo_etiqueta_id, plantilla_id}], plantilla_id
+    vacío = hereda). Mientras el asistente está a medias nada de esto cambia."""
+    from app.modulos.etiquetado import usos as svc_usos
+
+    exigir(user, "etiquetas.familias")
+    fam = datos.get("familia") or {}
+    if not isinstance(fam, dict):
+        raise ErrorNegocio("Check the labeling family.", 422, "validacion")
+    cuerpo = {k: fam[k] for k in ("codigo", "nombre", "padre_id", "descripcion", "activa", "campos") if k in fam}
+    r = actualizar(db, user, int(fam["id"]), cuerpo) if fam.get("id") else crear(db, user, cuerpo)
+    fid = r["id"]
+    hecho = {"productos": 0, "grupos": 0, "articulos": 0, "disenos": 0}
+    listas = {k: [int(x) for x in (datos.get(k) or [])] for k in ("productos", "grupos", "articulos")}
+    if any(listas.values()) and not cargar(db, fid).activa:
+        raise ErrorNegocio("The labeling family is inactive.", 422, "validacion")
+    if listas["productos"]:
+        hecho["productos"] = asignar_productos(db, user, fid, listas["productos"])["cambiados"]
+    if listas["grupos"]:
+        hecho["grupos"] = asignar_grupos(db, user, fid, listas["grupos"])["cambiados"]
+    if listas["articulos"]:
+        hecho["articulos"] = asignar_articulos(db, user, fid, listas["articulos"])["cambiados"]
+    disenos = datos.get("disenos") or []
+    if disenos:
+        exigir(user, "etiquetas.configurar")
+    for d in disenos:
+        tipo_id = int((d or {}).get("tipo_etiqueta_id") or 0)
+        antes = next((u for u in svc_usos._usos_celda(db, svc_usos.celda_de(tipo_id, "FAMILIA", fid))
+                      if u.contexto_tipo == "NINGUNO"), None)
+        nuevo = d.get("plantilla_id") or None
+        if (antes.plantilla_id if antes else None) == nuevo:
+            continue
+        svc_usos.guardar_celda(db, user, {"tipo_etiqueta_id": tipo_id, "nivel": "FAMILIA", "destino_id": fid,
+                                          "normal": {"plantilla_id": nuevo} if nuevo else None,
+                                          "motivo_cambio": "Family set up step by step"})
+        hecho["disenos"] += 1
+    return {"familia": _dict(cargar(db, fid), _conteos(db)), "hecho": hecho}

@@ -12,6 +12,7 @@ bidireccional completo de Unicode (paréntesis espejados, incrustaciones).
 Textos técnicos: i18n_extraer omite este archivo."""
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -163,6 +164,12 @@ def formar(texto: str, nombre_latino: str, tam_pt: float, espaciado_pt: float = 
 
 def ancho(texto: str, nombre_latino: str, tam_pt: float, espaciado_pt: float = 0) -> float:
     return formar(texto, nombre_latino, tam_pt, espaciado_pt)[1]
+
+
+# fontTools lee cada glifo la primera vez que se dibuja y eso no es seguro entre
+# hilos: dos miniaturas o PDF a la vez sobre la misma fuente se pisaban
+# («'Glyph' object has no attribute 'flags'»). Todo dibujo de glifos pasa por aquí.
+CANDADO_GLIFOS = threading.RLock()
 
 
 @lru_cache(maxsize=16)

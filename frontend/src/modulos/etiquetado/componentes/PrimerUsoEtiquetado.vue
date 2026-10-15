@@ -3,7 +3,6 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import Modal from '@/componentes/Modal.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { fmtNum } from '@/nucleo/utils'
 import { puede } from '@/stores/sesion'
@@ -75,7 +74,12 @@ async function terminar() {
 </script>
 
 <template>
-  <Modal :titulo="t('Set up your labels · {0} of {1}', [paso + 1, 3])" ancho="760px" @cerrar="emit('cerrar')">
+  <!-- En la página (no en una ventana): los tres pasos se ven numerados arriba -->
+  <section class="panel pu">
+    <p class="pu-sup">{{ t('Set up your labels · {0} of {1}', [paso + 1, 3]) }}</p>
+    <ol class="pu-pasos">
+      <li v-for="(txt, i) in PASOS()" :key="i" :class="{ actual: i === paso, hecho: i < paso }"><span>{{ i + 1 }}</span>{{ txt }}</li>
+    </ol>
     <h3 class="pu-titulo">{{ PASOS()[paso] }}</h3>
     <div v-if="!cat" class="vacio">{{ t('Loading…') }}</div>
 
@@ -127,17 +131,28 @@ async function terminar() {
       <p class="nota"><Icono nombre="info" :tam="16" />{{ t('{0} label types will be created.', [elegidos.length]) }}</p>
     </div>
 
-    <template #pie>
-      <button type="button" class="btn separar" @click="emit('cerrar')">{{ t('Skip') }}</button>
+    <div class="pu-pie">
+      <button type="button" class="btn pu-saltar" @click="emit('cerrar')">{{ t('Skip') }}</button>
       <button v-if="paso > 0" type="button" class="btn" :disabled="ocupado" @click="paso--"><Icono nombre="atras" :tam="15" />{{ t('Back') }}</button>
       <button v-if="paso < 2" type="button" class="btn btn-primario" :disabled="!elegidos.length" @click="paso++">{{ t('Next') }}<Icono nombre="derecha" :tam="15" /></button>
       <button v-else type="button" class="btn btn-primario" :disabled="ocupado || !elegidos.length" @click="terminar">{{ t('Finish') }}</button>
-    </template>
-  </Modal>
+    </div>
+  </section>
 </template>
 
 <style scoped>
-.pu-titulo { margin: 0 0 12px; font-size: 1rem; }
+.pu { max-width: 900px; }
+.pu-sup { margin: 0 0 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 600; }
+.pu-pasos { list-style: none; margin: 0 0 18px; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.pu-pasos li { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--tinta-3); }
+.pu-pasos li + li::before { content: ''; width: 24px; height: 1px; background: var(--linea); margin-right: 2px; }
+.pu-pasos li span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--linea); font-size: 0.75rem; }
+.pu-pasos li.actual { color: var(--tinta); font-weight: 600; }
+.pu-pasos li.actual span { background: var(--acento); border-color: var(--acento); color: #fff; }
+.pu-pasos li.hecho span { background: var(--acento-claro); border-color: var(--acento-medio); color: var(--acento-texto); }
+.pu-titulo { margin: 0 0 12px; font-size: 1.05rem; }
+.pu-pie { display: flex; gap: 8px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--linea); }
+.pu-saltar { margin-inline-end: auto; }
 .pu-lista { display: flex; flex-direction: column; gap: 10px; }
 .pu-tipo { display: grid; grid-template-columns: auto minmax(160px, 1fr) auto auto auto; gap: 10px; align-items: center; border: 1px solid var(--linea); border-radius: 10px; padding: 8px 10px; }
 .pu-tipo.apagado { opacity: 0.6; }

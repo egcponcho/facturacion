@@ -2,7 +2,10 @@
 //
 // - las rutas anteriores (/etiquetas/generar, /etiquetas/masiva, /etiquetas?vista=…,
 //   /etiquetas/plantillas/:id) llevan a su lugar nuevo (asistente, Configuración, Diseños);
-// - la configuración abre en la matriz «Qué diseño va en qué»;
+// - la configuración es una guía en orden (sin pestañas): abre en el primer paso
+//   que falta y cada paso dice si está listo;
+// - el asistente de una familia se deja como borrador, se retoma desde la guía y
+//   al terminar se aplica de una vez;
 // - en «Generar», el usuario elige cómo se reparten las etiquetas en archivos:
 //   las carpetas y el patrón de nombres aparecen solo cuando aplican, PNG y SVG
 //   van siempre una por archivo, y lo elegido se guarda en el trabajo.
@@ -26,6 +29,7 @@ const api = (ctx) => ({
   get: async (u) => (await ctx.request.get(`${BASE}/api${u}`, { headers: H })).json(),
   post: async (u, d) => (await ctx.request.post(`${BASE}/api${u}`, { data: d, headers: H })),
   patch: async (u, d) => (await ctx.request.patch(`${BASE}/api${u}`, { data: d, headers: H })),
+  del: async (u) => (await ctx.request.delete(`${BASE}/api${u}`, { headers: H })),
 })
 
 const navegador = await chromium.launch(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : {})
@@ -62,7 +66,7 @@ for (const [ruta, camino, vista] of [['/etiquetas?vista=familias', '/etiquetas/c
   await p.goto(BASE + ruta)
   await quieto()
   const u = new URL(p.url())
-  revisar(u.pathname === camino && (vista === null || u.searchParams.get('vista') === vista), `${ruta} → ${u.pathname}${u.search}`)
+  revisar(u.pathname === camino && (vista === null || [u.searchParams.get('vista'), u.searchParams.get('paso')].includes(vista)), `${ruta} → ${u.pathname}${u.search}`)
 }
 const diseno = (await a.get('/etiquetas/plantillas?size=1')).items?.[0]
 if (diseno) {
@@ -71,10 +75,59 @@ if (diseno) {
   revisar(new URL(p.url()).pathname === `/etiquetas/disenos/${diseno.id}`, 'el editor de plantillas pasa a /etiquetas/disenos/:id')
 }
 
-// ---- Configuración: la matriz «Qué diseño va en qué» ---------------------------------------------
+// ---- Configuración: guía paso a paso ------------------------------------------------------------
 await p.goto(`${BASE}/etiquetas/configuracion`)
 await quieto()
-revisar(await p.getByRole('tab', { name: /Which design goes on what|Qué diseño va en qué/ }).isVisible(), 'la configuración abre en la matriz')
+{
+  const pasos = p.locator('.guia-paso')
+  revisar(await pasos.count() === 6 && !(await p.locator('[role=tab]', { hasText: /Families and items|Familias y artículos/ }).count()), 'la configuración es una guía de 6 pasos, sin pestañas')
+  const paso = new URL(p.url()).searchParams.get('paso')
+  const actual = await p.locator('.guia-paso.actual').getAttribute('class')
+  revisar(!!paso && (actual.includes('falta') || paso === 'matriz'), `abre en el primer paso que falta (${paso})`)
+  await pasos.filter({ hasText: /Which design goes on what|Qué diseño va en qué/ }).click()
+  await quieto()
+  revisar(await p.locator('.matriz, table').first().isVisible() && new URL(p.url()).searchParams.get('paso') === 'matriz', 'el paso «Qué diseño va en qué» muestra la matriz')
+  await p.getByRole('button', { name: /^(Next|Siguiente): / }).click()
+  await quieto()
+  revisar(new URL(p.url()).searchParams.get('paso') === 'campos', '«Siguiente» lleva al paso que sigue')
+}
+
+// ---- Asistente de familia: borrador, retomar y terminar -------------------------------------------
+{
+  const sinFamilia = (await a.get('/etiquetas/productos?familia=sin&size=5')).items?.[0]
+  await p.goto(`${BASE}/etiquetas/configuracion/familia/nueva`)
+  await quieto()
+  const datos = p.locator('.af-cuerpo input')
+  await datos.nth(0).fill('E2EWIZ')
+  await datos.nth(1).fill('E2E wizard')
+  await p.getByRole('button', { name: /^(Next|Siguiente): / }).click()
+  await quieto()
+  if (sinFamilia) {
+    await p.locator('.af-cuerpo tbody tr', { hasText: sinFamilia.estilo }).first().locator('input[type=checkbox]').check()
+    revisar(await p.locator('.barra-seleccion, .bs').first().isVisible().catch(() => false) || await p.locator('.af-elegidos').isVisible(), 'lo elegido se ve arriba y en la barra flotante')
+  }
+  revisar(!(await a.get('/etiquetas/familias')).some((f) => f.codigo === 'E2EWIZ'), 'mientras se avanza, nada se aplica')
+  await p.getByRole('button', { name: /Save draft and exit|Guardar borrador y salir/ }).click()
+  await quieto()
+  const borr = p.locator('.guia-borrador a', { hasText: 'E2E wizard' })
+  revisar(await borr.isVisible(), 'el borrador aparece en la guía')
+  revisar(!(await a.get('/etiquetas/familias')).some((f) => f.codigo === 'E2EWIZ'), 'guardar el borrador no crea la familia')
+  await borr.click()
+  await quieto()
+  revisar(await p.locator('.af-borrador').isVisible() && (await p.locator('.af-elegidos').count()) === (sinFamilia ? 1 : 0), 'el borrador se retoma donde quedó')
+  await p.locator('.af-paso').last().click()
+  await quieto()
+  await p.getByRole('button', { name: /Finish and apply|Terminar y aplicar/ }).click()
+  await quieto()
+  const fam = (await a.get('/etiquetas/familias')).find((f) => f.codigo === 'E2EWIZ')
+  revisar(!!fam && (!sinFamilia || fam.productos === 1), 'al terminar se crea la familia con lo elegido')
+  revisar(!(await a.get('/perfil/borradores')).length, 'al terminar el borrador desaparece')
+  // Deja la demostración como estaba
+  if (fam) {
+    if (sinFamilia) await a.post('/etiquetas/productos/familia', { familia_id: null, ids: [sinFamilia.id] })
+    await a.del(`/etiquetas/familias/${fam.id}`)
+  }
+}
 
 // ---- Paso «Generar»: agrupación del ZIP ----------------------------------------------------------
 const lineas = posiciones.slice(0, 2)

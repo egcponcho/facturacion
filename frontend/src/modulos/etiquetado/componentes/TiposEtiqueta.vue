@@ -1,10 +1,9 @@
 <script setup>
 import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import Modal from '@/componentes/Modal.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { puede } from '@/stores/sesion'
@@ -47,9 +46,12 @@ const columnas = computed(() => [
   { clave: 'activo', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
 ])
 
+// El formulario se abre en la página, encima de la lista (no en una ventana)
 const edicion = ref(null)
+const formulario = ref(null)
 function editar(x) {
   edicion.value = x ? { ...x } : { codigo: '', nombre: '', descripcion: '', sujeto: 'ARTICULO', cantidad: 'POR_UNIDAD', obligatoria: false, activo: true }
+  nextTick(() => formulario.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
 }
 watch(() => edicion.value?.sujeto, (s) => {
   const e = edicion.value
@@ -101,24 +103,11 @@ const conDisenos = computed(() => edicion.value?.id && edicion.value.disenos > 0
 
 <template>
   <p class="nota mb-3"><Icono nombre="info" :tam="16" />{{ t('Each label type is a column of “Which design goes on what”. Required types must have a design for every record before printing.') }}</p>
-  <TablaDatos tabla="etiquetas_tipos" :columnas="columnas" :filas="lista" :cargando="cargando" orden-inicial="orden:asc" fila-clicable
-              :clase-fila="(x) => ({ apagada: !x.activo })" :etiqueta="t('Label types')" @fila="(x) => editable && editar(x)">
-    <template #filtros>
-      <button v-if="editable" type="button" class="btn btn-primario separar" @click="editar(null)"><Icono nombre="mas" />{{ t('New label type') }}</button>
-    </template>
-    <template #celda-nombre="{ fila: x }"><strong>{{ tx(x.nombre) }}</strong><span class="sub">{{ x.codigo }}</span></template>
-    <template #celda-obligatoria="{ fila: x }"><span v-if="x.obligatoria" class="etiqueta aviso ms-0">{{ t('Required') }}</span><span v-else class="apagado">{{ t('Optional') }}</span></template>
-    <template #celda-activo="{ fila: x }"><span class="etiqueta ms-0" :class="x.activo ? 'ok' : ''">{{ x.activo ? t('Active') : t('Inactive') }}</span></template>
-    <template #acciones="{ fila: x }">
-      <template v-if="editable">
-        <button type="button" class="btn-icono" :aria-label="t('Move up')" :title="t('Move up')" @click.stop="mover(x, -1)"><Icono nombre="arriba" :tam="15" /></button>
-        <button type="button" class="btn-icono" :aria-label="t('Move down')" :title="t('Move down')" @click.stop="mover(x, 1)"><Icono nombre="abajo" :tam="15" /></button>
-      </template>
-    </template>
-    <template #vacio>{{ t('No label types yet.') }}</template>
-  </TablaDatos>
-
-  <Modal v-if="edicion" :titulo="edicion.id ? t('Label type {0}', [tx(edicion.nombre)]) : t('New label type')" ancho="560px" @cerrar="edicion = null">
+  <section v-if="edicion" ref="formulario" class="panel form-tipo-panel">
+    <div class="ft-cabeza">
+      <h3>{{ edicion.id ? t('Label type {0}', [tx(edicion.nombre)]) : t('New label type') }}</h3>
+      <button type="button" class="btn-icono" :aria-label="t('Close')" @click="edicion = null"><Icono nombre="cerrar" :tam="16" /></button>
+    </div>
     <form id="form-tipo" class="form-tipo" @submit.prevent="guardar">
       <label class="campo"><span class="req">{{ t('Name') }}</span>
         <input v-model="edicion.nombre" required maxlength="120" :placeholder="t('E.g. Hang tag')" @input="sugerirCodigo" /></label>
@@ -139,16 +128,39 @@ const conDisenos = computed(() => edicion.value?.id && edicion.value.disenos > 0
       <label class="check"><input v-model="edicion.obligatoria" type="checkbox" /> {{ t('Required: every record must have a design of this type to print') }}</label>
       <label class="campo"><span>{{ t('Description') }}</span><textarea v-model="edicion.descripcion" rows="2" maxlength="300"></textarea></label>
       <label v-if="edicion.id" class="check"><input v-model="edicion.activo" type="checkbox" /> {{ t('Active (shown in the screens and the matrix)') }}</label>
+      <div class="ft-pie">
+        <button type="button" class="btn" @click="edicion = null">{{ t('Cancel') }}</button>
+        <button type="submit" class="btn btn-primario">{{ t('Save') }}</button>
+      </div>
     </form>
-    <template #pie>
-      <button type="button" class="btn separar" @click="edicion = null">{{ t('Cancel') }}</button>
-      <button type="submit" class="btn btn-primario" form="form-tipo">{{ t('Save') }}</button>
+  </section>
+  <TablaDatos tabla="etiquetas_tipos" :columnas="columnas" :filas="lista" :cargando="cargando" orden-inicial="orden:asc" fila-clicable
+              :clase-fila="(x) => ({ apagada: !x.activo })" :etiqueta="t('Label types')" @fila="(x) => editable && editar(x)">
+    <template #filtros>
+      <button v-if="editable" type="button" class="btn btn-primario separar" @click="editar(null)"><Icono nombre="mas" />{{ t('New label type') }}</button>
     </template>
-  </Modal>
+    <template #celda-nombre="{ fila: x }"><strong>{{ tx(x.nombre) }}</strong><span class="sub">{{ x.codigo }}</span></template>
+    <template #celda-obligatoria="{ fila: x }"><span v-if="x.obligatoria" class="etiqueta aviso ms-0">{{ t('Required') }}</span><span v-else class="apagado">{{ t('Optional') }}</span></template>
+    <template #celda-activo="{ fila: x }"><span class="etiqueta ms-0" :class="x.activo ? 'ok' : ''">{{ x.activo ? t('Active') : t('Inactive') }}</span></template>
+    <template #acciones="{ fila: x }">
+      <template v-if="editable">
+        <button type="button" class="btn-icono" :aria-label="t('Move up')" :title="t('Move up')" @click.stop="mover(x, -1)"><Icono nombre="arriba" :tam="15" /></button>
+        <button type="button" class="btn-icono" :aria-label="t('Move down')" :title="t('Move down')" @click.stop="mover(x, 1)"><Icono nombre="abajo" :tam="15" /></button>
+      </template>
+    </template>
+    <template #vacio>{{ t('No label types yet.') }}</template>
+  </TablaDatos>
+
 </template>
 
 <style scoped>
-.form-tipo { display: flex; flex-direction: column; gap: 14px; }
+.form-tipo-panel { margin-bottom: 16px; border-color: var(--acento-medio); }
+.ft-cabeza { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.ft-cabeza h3 { margin: 0; font-size: 1rem; }
+.form-tipo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+.form-tipo > .check, .form-tipo > fieldset, .ft-pie { grid-column: 1 / -1; }
+.ft-pie { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 720px) { .form-tipo { grid-template-columns: minmax(0, 1fr); } }
 fieldset.campo { border: 0; padding: 0; margin: 0; }
 .opciones-sujeto { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
 :deep(tr.apagada > td) { opacity: 0.6; }

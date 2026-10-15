@@ -25,7 +25,7 @@ const secciones = computed(() => [
   </div>
   <nav class="pestanas" :aria-label="t('Labels')">
     <router-link v-for="[ruta, nombre, icono] in secciones" :key="ruta" :to="ruta" class="pestana"
-                 :aria-current="route.path === ruta ? 'page' : undefined"><Icono :nombre="icono" :tam="15" />{{ nombre }}</router-link>
+                 :aria-current="route.path === ruta || (ruta !== '/etiquetas' && route.path.startsWith(ruta + '/')) ? 'page' : undefined"><Icono :nombre="icono" :tam="15" />{{ nombre }}</router-link>
   </nav>
 </template>
 

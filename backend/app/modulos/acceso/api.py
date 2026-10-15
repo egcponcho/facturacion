@@ -195,6 +195,24 @@ def guardar_vistas(pantalla: str, datos: list[dict], db: Db, user: User, clave: 
     return ejecutar(db, user, clave, lambda: preferencias.guardar_vistas(db, user, pantalla, datos))
 
 
+@router.get("/perfil/borradores")
+def listar_borradores(user: User, prefijo: str | None = None):
+    """Borradores propios que quedaron a medias en un asistente (los de `prefijo`, si se indica)."""
+    return preferencias.borradores(user, prefijo)
+
+
+@router.put("/perfil/borradores/{clave}")
+def guardar_borrador(clave: str, db: Db, user: User, datos: dict | None = Body(None)):
+    """Guarda un borrador propio ({titulo, datos}) sin tocar la configuración; null lo descarta."""
+    return ejecutar(db, user, None, lambda: preferencias.guardar_borrador(db, user, clave, datos))
+
+
+@router.delete("/perfil/borradores/{clave}")
+def descartar_borrador(clave: str, db: Db, user: User):
+    """Descarta un borrador propio (lo que tenía no se aplicó nunca)."""
+    return ejecutar(db, user, None, lambda: preferencias.guardar_borrador(db, user, clave, None))
+
+
 @router.get("/proveedores")
 def proveedores(db: Db, user: User):
     """Proveedores del alcance del usuario (para elegir con cuál trabajar). Se

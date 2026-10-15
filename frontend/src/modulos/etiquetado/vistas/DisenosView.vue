@@ -2,7 +2,7 @@
 import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import EstadoVacio from '@/componentes/EstadoVacio.vue'
@@ -19,6 +19,7 @@ import { CANTIDADES, SUJETOS, catalogos, textoDonde } from '@/modulos/etiquetado
 // Diseños de etiqueta agrupados por tipo de etiqueta: miniatura, versión en
 // uso, la que está en curso y dónde se usa (enlace a la matriz).
 const router = useRouter()
+const route = useRoute()
 const filtros = reactive({ q: '', estado: 'ACTIVA', estado_version: '' })
 const datos = ref({ items: [], total: 0 })
 const tipos = ref([])
@@ -40,7 +41,11 @@ watch(() => filtros.q, () => {
   espera = setTimeout(cargar, 300)
 })
 watch(() => [filtros.estado, filtros.estado_version], cargar)
-onMounted(cargar)
+// ?nuevo=<tipo>: viene de la configuración paso a paso para crear el diseño de ese tipo
+onMounted(async () => {
+  await cargar()
+  if (route.query.nuevo && puede('etiquetas.disenar')) abrirNuevo(Number(route.query.nuevo) || '')
+})
 alCambiar(() => cargar(), ['/etiquetas/plantillas', '/etiquetas/usos', '/etiquetas/tipos'])
 
 // Una sección por tipo, en el orden de la empresa

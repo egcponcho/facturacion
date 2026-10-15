@@ -71,7 +71,8 @@ def _contornos_pdf(c, texto: str, p: Prim, x: float, base: float) -> None:
         c.translate(gx, gy)
         c.scale(k, -k)
         trazo = c.beginPath()
-        conjunto[glifo].draw(_PlumaPdf(conjunto, trazo))
+        with escritura.CANDADO_GLIFOS:
+            conjunto[glifo].draw(_PlumaPdf(conjunto, trazo))
         c.drawPath(trazo, stroke=0, fill=1, fillMode=0)  # regla de relleno distinta de cero (TrueType)
         c.restoreState()
 
@@ -206,7 +207,8 @@ def _glifo(nombre: str, ch: str) -> str:
     if not g:
         return ""
     pen = SVGPathPen(glifos)
-    glifos[g].draw(pen)
+    with escritura.CANDADO_GLIFOS:
+        glifos[g].draw(pen)
     return pen.getCommands()
 
 
@@ -216,7 +218,8 @@ def _glifo_id(fuente: str, glifo: str) -> str:
 
     conjunto = escritura._glifos(fuente)[0]
     pen = SVGPathPen(conjunto)
-    conjunto[glifo].draw(pen)
+    with escritura.CANDADO_GLIFOS:
+        conjunto[glifo].draw(pen)
     return pen.getCommands()
 
 

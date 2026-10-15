@@ -229,6 +229,12 @@ def familias_desde_grupos(db: Db, user: User):
     return ejecutar(db, user, None, lambda: familias.desde_grupos(db, user))
 
 
+@router.post("/etiquetas/familias/configurar")
+def configurar_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Termina el asistente de una familia de una vez: datos, productos/grupos/artículos que entran y diseño por tipo."""
+    return ejecutar(db, user, clave, lambda: familias.configurar(db, user, datos))
+
+
 @router.put("/etiquetas/familias/orden")
 def ordenar_familias(db: Db, user: User, ids: list[int] = Body(..., embed=True)):
     """Orden de las familias (todas, en el orden deseado)."""

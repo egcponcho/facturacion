@@ -173,3 +173,50 @@ def test_familia_del_producto_la_heredan_sus_tallas(interno, tnf):
     assert x["familia_propia_id"] == fam["id"]
     assert interno.delete_(f"/etiquetas/familias/{fam['id']}").status_code == 409
     interno.post("/etiquetas/productos/familia", {"familia_id": p["familia_propia_id"], "ids": [p["id"]]})
+
+
+def test_asistente_de_familia_se_termina_de_una_vez_o_no_cambia_nada(interno, admin, tnf):
+    """El asistente guarda borradores personales sin tocar la configuración;
+    al terminar crea la familia, le pone productos/grupos/artículos y su diseño
+    por tipo en una sola operación (si algo falla, no queda nada a medias)."""
+    from tests.etiquetado_util import aprobada, tipo
+
+    t = tipo(interno, "ASIS_TAG")
+    p = aprobada(interno, admin, "Wizard tag", t["id"], [{"id": "t1", "tipo": "texto", "x": 2, "y": 2, "w": 40, "h": 8, "contenido": "x"}])
+    prods = interno.get("/etiquetas/productos", params={"size": 200}).json()["items"]
+    prod = prods[0]
+    # Borrador: personal, no cambia nada
+    borr = {"titulo": "Wizard", "datos": {"paso": 2, "familia": {"codigo": "WIZ", "nombre": "Wizard"}, "productos": [prod["id"]]}}
+    r = interno.put("/perfil/borradores/etiquetas.familia.nueva", borr)
+    assert r.status_code == 200 and r.json()["datos"]["paso"] == 2, r.text
+    assert "WIZ" not in {f["codigo"] for f in interno.get("/etiquetas/familias").json()}
+    assert [b["clave"] for b in interno.get("/perfil/borradores", params={"prefijo": "etiquetas."}).json()] == ["etiquetas.familia.nueva"]
+    assert tnf.get("/perfil/borradores").json() == []
+    assert "borradores" not in interno.get("/auth/me").json()["preferencias"]
+    assert interno.put("/perfil/borradores/Mal Nombre", borr).status_code == 422
+    # Si algo falla (un producto que no existe) no se crea la familia
+    malo = {"familia": {"codigo": "WIZ", "nombre": "Wizard"}, "productos": [prod["id"], 999999],
+            "disenos": [{"tipo_etiqueta_id": t["id"], "plantilla_id": p["id"]}]}
+    assert interno.post("/etiquetas/familias/configurar", malo).status_code == 404
+    assert "WIZ" not in {f["codigo"] for f in interno.get("/etiquetas/familias").json()}
+    # Sin permiso de configurar etiquetas, nada
+    assert tnf.post("/etiquetas/familias/configurar", {**malo, "productos": [prod["id"]]}).status_code == 403
+    # Bien: familia, producto y diseño de una vez
+    r = interno.post("/etiquetas/familias/configurar", {**malo, "productos": [prod["id"]]})
+    assert r.status_code == 200, r.text
+    fam = r.json()["familia"]
+    assert fam["codigo"] == "WIZ" and r.json()["hecho"]["productos"] == 1 and r.json()["hecho"]["disenos"] == 1
+    celda = interno.get("/etiquetas/celda", params={"tipo": t["id"], "nivel": "FAMILIA", "destino_id": fam["id"]}).json()
+    assert celda["normal"]["plantilla_id"] == p["id"]
+    # Volver a terminar con lo mismo no repite cambios; dejar el diseño vacío lo hereda
+    r = interno.post("/etiquetas/familias/configurar", {"familia": {"id": fam["id"], "nombre": "Wizard 2"},
+                                                        "disenos": [{"tipo_etiqueta_id": t["id"], "plantilla_id": p["id"]}]})
+    assert r.status_code == 200 and r.json()["hecho"]["disenos"] == 0 and r.json()["familia"]["nombre"] == "Wizard 2"
+    r = interno.post("/etiquetas/familias/configurar", {"familia": {"id": fam["id"]},
+                                                        "disenos": [{"tipo_etiqueta_id": t["id"], "plantilla_id": None}]})
+    assert r.status_code == 200 and r.json()["hecho"]["disenos"] == 1
+    assert interno.get("/etiquetas/celda", params={"tipo": t["id"], "nivel": "FAMILIA", "destino_id": fam["id"]}).json()["normal"] is None
+    # El borrador se descarta
+    assert interno.delete_("/perfil/borradores/etiquetas.familia.nueva").status_code == 200
+    assert interno.get("/perfil/borradores").json() == []
+    interno.post("/etiquetas/productos/familia", {"familia_id": prod["familia_propia_id"], "ids": [prod["id"]]})

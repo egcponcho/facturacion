@@ -339,3 +339,17 @@ def test_aviso_de_elementos_encimados_con_los_datos_reales():
         {"id": "b", "tipo": "texto", "contenido": "COLOR", "nombre": "Color", "x": 6, "y": 6, "w": 30, "h": 6},
     ])
     assert [p["elemento"] for p in render.componer(d, {}).problemas if p["codigo"] == "elementos_encimados"] == ["b"]
+
+
+def test_glifos_a_la_vez_desde_varios_hilos():
+    """Varias miniaturas o PDF a la vez sobre la misma fuente recién abierta
+    (cada glifo se lee la primera vez que se dibuja) no se pisan."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    letras = [chr(c) for c in range(33, 127)] + list("áéíóúñÁÉÍÓÚÑ¿¡€")
+    for _ in range(10):
+        salidas._fuente_svg.cache_clear()
+        salidas._glifo.cache_clear()
+        with ThreadPoolExecutor(16) as hilos:
+            trazos = list(hilos.map(lambda ch: salidas._glifo("LiberationSans-Regular", ch), letras * 4))
+        assert all(isinstance(x, str) for x in trazos) and sum(1 for x in trazos if x) > len(letras)
