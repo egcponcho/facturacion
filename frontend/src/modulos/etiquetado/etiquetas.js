@@ -118,8 +118,30 @@ export function cargarFuentes() {
       caras.push(f.load().catch(() => null))
     }
   }
+  // Chino, árabe y devanagari con las fuentes Noto del servidor (escritura.py); el navegador
+  // solo las descarga si el texto usa esas letras (unicode-range)
+  for (const [archivo, rango] of ESCRITURAS) {
+    for (const familia of Object.values(familias)) {
+      for (const [peso, sufijo] of [[400, 'Regular'], [700, 'Bold']]) {
+        for (const estilo of ['normal', 'italic']) {
+          document.fonts.add(new FontFace(`Etiqueta-${familia}`, `url(/api/etiquetas/fuentes/${archivo}-${sufijo}.ttf)`,
+            { weight: String(peso), style: estilo, unicodeRange: rango }))
+        }
+      }
+    }
+  }
   fuentesCargadas = Promise.all(caras)
   return fuentesCargadas
+}
+const ESCRITURAS = [
+  ['NotoSansArabic', 'U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF'],
+  ['NotoSansDevanagari', 'U+0900-097F, U+A8E0-A8FF'],
+  ['NotoSansSC', 'U+2E80-2FDF, U+3000-33FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF'],
+]
+// Avisa cuando el navegador termina de bajar una fuente (p. ej. la de chino al escribir un texto en chino)
+export function alCargarFuente(fn) {
+  document.fonts.addEventListener('loadingdone', fn)
+  return () => document.fonts.removeEventListener('loadingdone', fn)
 }
 
 // Medida de un texto en mm con la fuente de la etiqueta (para maquetar en el editor)
@@ -183,6 +205,89 @@ export function maquetar(texto, estilo, ancho, alto) {
   return { lineas, tam, desborda, interlinea: tam * (estilo.interlineado || 1.15) * PT_MM }
 }
 
+// ---- Recuadro que se ajusta al contenido (render.ajustar_caja) ---------------------------------
+export const AJUSTES_CAJA = () => [['no', t('Fixed size')], ['ambos', t('Fit the box to the content')],
+  ['ancho', t('Fit the width')], ['alto', t('Fit the height (wrap lines)')]]
+export const AJUSTABLES = ['texto', 'campo', 'tabla', 'imagen']
+const ANCLA_H = { izq: 'ini', centro: 'centro', der: 'fin' }
+const ANCLA_V = { arriba: 'ini', medio: 'centro', abajo: 'fin' }
+function anclar(inicio, largo, nuevo, ancla, minimo, maximo) {
+  const disponible = { ini: maximo - inicio, fin: inicio + largo - minimo,
+    centro: 2 * Math.min(inicio + largo / 2 - minimo, maximo - inicio - largo / 2) }[ancla]
+  const n = Math.max(Math.min(nuevo, Math.max(disponible, 1)), 0.5)
+  return [{ ini: inicio, centro: inicio + (largo - n) / 2, fin: inicio + largo - n }[ancla], n]
+}
+function partirEn(texto, estilo, tam, ancho) {
+  const lineas = []
+  for (const parrafo of texto.split('\n')) {
+    let actual = ''
+    for (const palabra of parrafo.split(' ')) {
+      const prueba = actual ? `${actual} ${palabra}` : palabra
+      if (anchoTexto(prueba, estilo, tam) <= ancho || !actual) actual = prueba
+      else {
+        lineas.push(actual)
+        actual = palabra
+      }
+    }
+    lineas.push(actual)
+  }
+  return lineas
+}
+// Ancho y alto (mm, con el relleno) que ocupa el texto con su letra sin reducir; con `ancho`, partido en líneas
+export function medidaTexto(texto, estilo, ancho = null) {
+  const tam = estilo.tam || 10
+  const rel = estilo.relleno || 0
+  const txt = estilo.mayusculas ? texto.toUpperCase() : texto
+  const lineas = ancho != null ? partirEn(txt, estilo, tam, Math.max(ancho - 2 * rel, 0.1))
+    : estilo.multilinea ? txt.split('\n') : txt.split('\n').slice(0, 1)
+  const w = Math.max(0, ...lineas.map((l) => anchoTexto(l, estilo, tam))) + 2 * rel
+  const h = (lineas.length - 1) * tam * (estilo.interlineado || 1.15) * PT_MM + tam * PT_MM + 2 * rel
+  return [w, h]
+}
+// El recuadro del elemento ajustado a su contenido (texto, filas de la tabla o proporción de la imagen),
+// desde su anclaje y dentro del área segura. Devuelve { x, y, w, h, multilinea } o null si no se ajusta.
+export function ajustarCaja(e, diseno, { texto = null, filas = null, proporcion = null } = {}) {
+  const modo = e.ajustar || 'no'
+  if (modo === 'no' || !AJUSTABLES.includes(e.tipo)) return null
+  let { x, y, w, h } = e
+  const m = diseno.margen || 0
+  const limX = [m, diseno.ancho - m]
+  const limY = [m, diseno.alto - m]
+  const est = { fuente: 'sans', tam: 10, interlineado: 1.15, espaciado: 0, relleno: 0, alin: 'izq', valign: 'arriba', ...(e.estilo || {}) }
+  let multilinea = est.multilinea
+  if (['texto', 'campo'].includes(e.tipo) && texto != null) {
+    if (modo === 'ancho' || modo === 'ambos') [x, w] = anclar(x, w, medidaTexto(texto, est)[0], ANCLA_H[est.alin], ...limX)
+    if (modo === 'alto' || modo === 'ambos') {
+      multilinea = true
+      ;[y, h] = anclar(y, h, medidaTexto(texto, { ...est, multilinea }, modo === 'alto' ? w : null)[1], ANCLA_V[est.valign], ...limY)
+    }
+  } else if (e.tipo === 'tabla' && filas != null && modo !== 'ancho') {
+    const fijas = (e.encabezado ? 1 : 0) + (e.totales?.length ? 1 : 0)
+    ;[y, h] = anclar(y, h, (e.alto_fila || 5) * Math.max(filas + fijas, 1), 'ini', ...limY)
+  } else if (e.tipo === 'imagen' && proporcion) {
+    if (modo === 'ancho') [x, w] = anclar(x, w, h / proporcion, 'ini', ...limX)
+    else [y, h] = anclar(y, h, w * proporcion, 'ini', ...limY)
+  } else return null
+  const r = (v) => Math.round(v * 1000) / 1000
+  return { x: r(x), y: r(y), w: r(w), h: r(h), multilinea }
+}
+// La imagen que muestra un elemento imagen (subida, propia del diseño o de un campo)
+export function fuenteImagen(e, valores) {
+  if (e.tipo !== 'imagen') return null
+  if (e.fuente_imagen === 'adjunto' && e.adjunto_id) return `/api/etiquetas/imagenes/${e.adjunto_id}`
+  if (e.fuente_imagen === 'datos' && e.datos) return e.datos
+  const v = e.fuente_imagen === 'campo' ? valores[e.campo] : null
+  return typeof v === 'string' && (v.startsWith('data:image/') || v.startsWith('/')) ? v : null
+}
+// El texto que muestra un texto o un campo con estos valores (vacío si no hay dato)
+export function textoElemento(e, valores, tipos) {
+  if (e.tipo === 'texto') return sustituir(e.contenido, valores, tipos)
+  if (e.tipo !== 'campo') return ''
+  let v = formatear(valores[e.campo], e.formato, tipos[e.campo])
+  if (v == null) v = e.si_vacio === 'alternativo' ? e.alternativo || '' : ''
+  return v ? `${e.prefijo || ''}${v}${e.sufijo || ''}` : ''
+}
+
 // Transformaciones de las partes de un código (render._transformar)
 export const TRANSFORMACIONES = () => ({ mayus: t('Capitals'), minus: t('Lowercase'), solo_digitos: t('Digits only'),
   sin_espacios: t('No spaces'), alfanumerico: t('Letters and digits only') })
@@ -210,8 +315,8 @@ export const nuevoId = (tipo) => `${tipo}-${Math.random().toString(36).slice(2, 
 
 export function elementoNuevo(tipo, x = 5, y = 5, extra = {}) {
   const base = { id: nuevoId(tipo), tipo, x, y, w: 40, h: 8, rot: 0, visible: true, bloqueado: false }
-  if (tipo === 'texto') return { ...base, contenido: t('Text'), estilo: { tam: 10 }, ...extra }
-  if (tipo === 'campo') return { ...base, w: 50, campo: extra.campo, estilo: { tam: 10 }, si_vacio: 'advertir', ...extra }
+  if (tipo === 'texto') return { ...base, contenido: t('Text'), estilo: { tam: 10 }, ajustar: 'ambos', ...extra }
+  if (tipo === 'campo') return { ...base, w: 50, campo: extra.campo, estilo: { tam: 10 }, si_vacio: 'advertir', ajustar: 'ambos', ...extra }
   if (tipo === 'codigo') return { ...base, w: 50, h: 18, simbologia: 'code128', valor: '{{articulo.sku}}', legible: true, margen: 1, ...extra }
   if (tipo === 'imagen') return { ...base, w: 20, h: 12, fuente_imagen: 'campo', campo: 'organizacion.logo', encaje: 'contener', ...extra }
   if (tipo === 'rect') return { ...base, w: 30, h: 15, relleno: null, borde: '#000000', grosor: 0.3, ...extra }
@@ -230,9 +335,14 @@ const MESES = {
   es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
   pt: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
   fr: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
+  zh: ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'].map((n) => `${n}月`),
+  ar: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+  hi: ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'],
 }
-const SI_NO = { en: ['Yes', 'No'], es: ['Sí', 'No'], pt: ['Sim', 'Não'], fr: ['Oui', 'Non'] }
-export const IDIOMAS_ETIQUETA = () => [['en', t('English')], ['es', t('Spanish')], ['pt', t('Portuguese')], ['fr', t('French')]]
+const MES_CORTO_3 = ['en', 'es', 'pt', 'fr'] // en los demás idiomas, el mes corto es el mes completo
+const SI_NO = { en: ['Yes', 'No'], es: ['Sí', 'No'], pt: ['Sim', 'Não'], fr: ['Oui', 'Non'], zh: ['是', '否'], ar: ['نعم', 'لا'], hi: ['हाँ', 'नहीं'] }
+export const IDIOMAS_ETIQUETA = () => [['en', t('English')], ['es', t('Spanish')], ['pt', t('Portuguese')], ['fr', t('French')],
+  ['zh', t('Chinese')], ['ar', t('Arabic')], ['hi', t('Hindi')]]
 // Patrones de fecha sugeridos (se puede escribir cualquiera con dd, d, mm, mmm, mmmm, aa y aaaa)
 export const PATRONES_FECHA = ['dd/mm/aaaa', 'aaaa-mm-dd', 'mm/dd/aaaa', 'dd-mmm-aaaa', 'd mmmm aaaa', 'mmm aa']
 let regional = {}
@@ -242,7 +352,7 @@ export function ponerRegional(diseno) {
 export function fechaConPatron(a, mes, dia, patron) {
   const meses = MESES[regional.idioma] || MESES.en
   const piezas = { aaaa: String(a).padStart(4, '0'), aa: String(a % 100).padStart(2, '0'), mmmm: meses[mes - 1],
-    mmm: meses[mes - 1].slice(0, 3).toUpperCase(), mm: String(mes).padStart(2, '0'), dd: String(dia).padStart(2, '0'), d: String(dia) }
+    mmm: MES_CORTO_3.includes(regional.idioma) ? meses[mes - 1].slice(0, 3).toUpperCase() : meses[mes - 1], mm: String(mes).padStart(2, '0'), dd: String(dia).padStart(2, '0'), d: String(dia) }
   return (patron || 'dd/mm/aaaa').replace(/aaaa|aa|mmmm|mmm|mm|dd|d/g, (m) => piezas[m])
 }
 const vacio = (v) => v == null || (typeof v === 'string' && !v.trim())

@@ -95,6 +95,18 @@ export function crearEditor() {
     queueMicrotask(() => (aplicando = false))
   }
 
+  // Recuadros que se ajustan al contenido: si el usuario aún no cambió nada (recién abierto),
+  // el ajuste no cuenta como un cambio sin guardar ni entra en deshacer
+  function retocar(cambios) {
+    const silencioso = !ed.sucio
+    if (silencioso) aplicando = true
+    for (const [e, c] of cambios) Object.assign(e, { x: c.x, y: c.y, w: c.w, h: c.h })
+    if (silencioso) {
+      ultimaFoto = JSON.stringify(ed.diseno)
+      queueMicrotask(() => (aplicando = false))
+    }
+  }
+
   // ---- Selección ------------------------------------------------------------------------
   const elementos = computed(() => ed.diseno?.elementos || [])
   const porId = (id) => elementos.value.find((e) => e.id === id)
@@ -314,7 +326,7 @@ export function crearEditor() {
 
   const api = {
     estado: ed, elementos, seleccionados, unico, problemasDe, porId,
-    cargar, guardado, fotografiar, deshacer, rehacer, seleccionar, seleccionarTodo, ajustar,
+    cargar, guardado, fotografiar, retocar, deshacer, rehacer, seleccionar, seleccionarTodo, ajustar,
     agregar, eliminar, duplicar, copiar, pegar, mover, alinear, distribuir, igualar, ordenar, moverCapa,
     agrupar, desagrupar, alternar, caja, codigos, codigoServidor, camposTodos, ejemplosTodos,
   }

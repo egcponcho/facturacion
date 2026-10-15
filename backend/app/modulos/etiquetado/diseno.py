@@ -91,6 +91,7 @@ class Columna(_Base):
     formato: Formato | None = None
 
 
+AJUSTABLES = ("texto", "campo", "tabla", "imagen")  # elementos cuyo recuadro puede ajustarse al contenido
 TRANSFORMACIONES = ("mayus", "minus", "solo_digitos", "sin_espacios", "alfanumerico")
 
 
@@ -128,6 +129,13 @@ class Elemento(_Base):
     visible: bool = True
     grupo: str | None = Field(None, max_length=40)
     condicion: Condicion | None = None
+    # El recuadro se ajusta al contenido (al generar, con los datos reales de cada etiqueta):
+    # no (medidas fijas: el texto se reduce o se corta según su estilo), ancho (una línea crece
+    # a lo ancho), alto (el texto se parte en líneas y crece hacia abajo) o ambos. Crece desde
+    # su anclaje (alineación horizontal y vertical) y nunca más allá del área segura; si aun así
+    # no cabe, se aplica el ajuste del estilo. Las tablas crecen con sus filas y las imágenes
+    # toman la proporción de la imagen.
+    ajustar: Literal["no", "ancho", "alto", "ambos"] = "no"
     # texto: puede llevar campos {{articulo.sku}}; campo: un solo campo con prefijo y sufijo
     contenido: str | None = Field(None, max_length=2000)
     campo: str | None = Field(None, max_length=80)
@@ -195,6 +203,8 @@ class Elemento(_Base):
                 raise ValueError("choose the image")
         if t in ("texto", "campo", "tabla") and self.estilo is None:
             self.estilo = Estilo()
+        if t not in AJUSTABLES:
+            self.ajustar = "no"
         return self
 
 

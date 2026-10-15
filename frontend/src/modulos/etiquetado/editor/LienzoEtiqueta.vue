@@ -1,6 +1,7 @@
 <script setup>
 import { t } from '@/i18n/index.js'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, watchEffect } from 'vue'
+import { ajustarCaja, fuenteImagen, textoElemento } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import ElementoSvg from './ElementoSvg.vue'
 
@@ -24,6 +25,36 @@ const vb = computed(() => `${-pad.value} ${-pad.value} ${d.value.ancho + 2 * pad
 const tamPx = computed(() => ({ width: `${(d.value.ancho + 2 * pad.value) * s.value}px`, height: `${(d.value.alto + 2 * pad.value) * s.value}px` }))
 const px = (n) => n / s.value // n píxeles de pantalla en mm
 const valores = computed(() => ({ ...ed.ejemplosTodos.value, ...(est.previa?.datos === 'reales' ? est.previa.valores : {}) }))
+
+// ---- Recuadros que se ajustan al contenido -------------------------------------------------
+// Con los valores que se ven en el lienzo (de ejemplo o reales); al generar, el servidor
+// vuelve a ajustarlos con los datos de cada etiqueta (render.ajustar_caja).
+const proporciones = reactive({})
+function proporcion(src) {
+  if (!src) return null
+  if (!(src in proporciones)) {
+    proporciones[src] = null
+    const im = new Image()
+    im.onload = () => (proporciones[src] = im.naturalWidth ? im.naturalHeight / im.naturalWidth : null)
+    im.src = src
+  }
+  return proporciones[src]
+}
+watchEffect(() => {
+  void props.fuentes
+  if (!est.editable || !d.value) return
+  const cambios = []
+  for (const e of ed.elementos.value) {
+    if (!e.ajustar || e.ajustar === 'no') continue
+    const v = valores.value
+    const opciones = e.tipo === 'tabla' ? { filas: Array.isArray(v[e.coleccion]) ? v[e.coleccion].length : 0 }
+      : e.tipo === 'imagen' ? { proporcion: proporcion(fuenteImagen(e, v)) }
+        : { texto: textoElemento(e, v, est.tipos) || (e.tipo === 'campo' ? `{{${e.campo}}}` : e.contenido || '') }
+    const c = ajustarCaja(e, d.value, opciones)
+    if (c && ['x', 'y', 'w', 'h'].some((k) => Math.abs(c[k] - e[k]) > 0.005)) cambios.push([e, c])
+  }
+  if (cambios.length) ed.retocar(cambios)
+})
 
 // ---- Reglas -----------------------------------------------------------------------------
 const FACTOR = { mm: 1, cm: 10, in: 25.4 }
@@ -86,6 +117,12 @@ function alPresionarElemento(ev, e) {
 function alPresionarAsa(ev, e, hx, hy) {
   ev.stopPropagation()
   if (!est.editable || e.bloqueado) return
+  // La medida que se arrastra deja de ser automática (la otra sigue ajustándose al contenido)
+  if (e.ajustar && e.ajustar !== 'no') {
+    const ancho = ['ancho', 'ambos'].includes(e.ajustar) && !hx
+    const alto = ['alto', 'ambos'].includes(e.ajustar) && !hy
+    e.ajustar = ancho && alto ? 'ambos' : ancho ? 'ancho' : alto ? 'alto' : 'no'
+  }
   const c = { x: e.x + e.w / 2, y: e.y + e.h / 2 }
   const local = { x: (-hx * e.w) / 2, y: (-hy * e.h) / 2 }
   const r = rotar(local.x, local.y, e.rot || 0)

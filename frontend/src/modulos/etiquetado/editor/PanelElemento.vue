@@ -5,7 +5,7 @@ import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { errorApi } from '@/stores/ui'
-import { LISTAS, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
+import { AJUSTABLES, AJUSTES_CAJA, LISTAS, maquetar, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -35,6 +35,37 @@ function insertarCampo(prop, clave) {
 
 // Estilo y formato: se crean al primer cambio
 const estilo = computed(() => e.value?.estilo || {})
+// Recuadro que se ajusta al contenido: qué medidas son automáticas y qué opciones tiene cada tipo
+const anchoAuto = computed(() => {
+  const x = e.value
+  if (!x || !AJUSTABLES.includes(x.tipo)) return false
+  return x.tipo === 'imagen' ? x.ajustar === 'ancho' : ['texto', 'campo'].includes(x.tipo) && ['ancho', 'ambos'].includes(x.ajustar)
+})
+const altoAuto = computed(() => !!e.value && AJUSTABLES.includes(e.value.tipo) && ['alto', 'ambos'].includes(e.value.ajustar))
+// Con el recuadro fijo, la letra que de verdad se dibuja (si se reduce para caber)
+const letraReducida = computed(() => {
+  const x = e.value
+  if (!x || !['texto', 'campo'].includes(x.tipo) || (x.ajustar && x.ajustar !== 'no')) return null
+  const est = { fuente: 'sans', tam: 10, interlineado: 1.15, espaciado: 0, relleno: 0, ajuste: 'reducir', tam_min: 6, ...(x.estilo || {}) }
+  if (est.ajuste !== 'reducir') return null
+  let txt = textoElemento(x, ed.ejemplosTodos.value, ed.estado.tipos) || (x.tipo === 'campo' ? `{{${x.campo}}}` : x.contenido || '')
+  if (est.mayusculas) txt = txt.toUpperCase()
+  const m = maquetar(txt, est, x.w, x.h)
+  return m.tam < est.tam - 0.01 ? Math.round(m.tam * 4) / 4 : null
+})
+const opcionesAjuste = computed(() => {
+  const tipo = e.value?.tipo
+  if (tipo === 'tabla') return [['no', t('Fixed size')], ['alto', t('Grow with its rows')]]
+  if (tipo === 'imagen') return [['no', t('Fixed size')], ['alto', t('Height from the image proportion')], ['ancho', t('Width from the image proportion')]]
+  return AJUSTES_CAJA()
+})
+const ayudaAjuste = computed(() => ({
+  no: t('The box keeps its size; if the text does not fit, the option «If it does not fit» applies.'),
+  ambos: t('The box grows or shrinks with the text and its letter size, from its alignment, up to the safe area.'),
+  ancho: t('The width follows the text (one line); the height stays.'),
+  alto: e.value?.tipo === 'tabla' ? t('The height follows the number of rows of each label.')
+    : e.value?.tipo === 'imagen' ? t('The height follows the proportion of the image.') : t('The text is split into lines inside the width and the height follows them.'),
+})[e.value?.ajustar || 'no'])
 function poner(obj, prop, v) {
   if (bloqueado.value) return
   e.value[obj] = { ...(e.value[obj] || {}), [prop]: v }
@@ -160,10 +191,16 @@ function fuenteImagen(v) {
     <div class="rejilla-2">
       <Medida v-model="e.x" etiqueta="X" :unidad="u" :disabled="bloqueado" />
       <Medida v-model="e.y" etiqueta="Y" :unidad="u" :disabled="bloqueado" />
-      <Medida v-model="e.w" :etiqueta="t('Width')" :unidad="u" :min="0" :disabled="bloqueado" />
-      <Medida v-model="e.h" :etiqueta="t('Height')" :unidad="u" :min="0" :disabled="bloqueado" />
+      <Medida v-model="e.w" :etiqueta="t('Width')" :unidad="u" :min="0" :disabled="bloqueado || anchoAuto" :title="anchoAuto ? t('Automatic: it follows the content') : null" />
+      <Medida v-model="e.h" :etiqueta="t('Height')" :unidad="u" :min="0" :disabled="bloqueado || altoAuto" :title="altoAuto ? t('Automatic: it follows the content') : null" />
       <Medida v-model="e.rot" :etiqueta="t('Rotation')" unidad="°" :min="-360" :max="360" :disabled="bloqueado" />
     </div>
+    <label v-if="AJUSTABLES.includes(e.tipo)" class="campo-mini mt-chico"><span>{{ t('Box size') }}</span>
+      <Seleccion :model-value="e.ajustar || 'no'" :disabled="bloqueado" :aria-label="t('Box size')" @change="(v) => (e.ajustar = v)">
+        <option v-for="[v, txt] in opcionesAjuste" :key="v" :value="v">{{ txt }}</option>
+      </Seleccion>
+      <small class="ayuda">{{ ayudaAjuste }}</small>
+    </label>
     <div class="botonera mt-chico">
       <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
               :key="m" type="button" class="btn btn-icono btn-chico" :disabled="bloqueado" :title="t('Align to the label: {0}', [txt])" :aria-label="txt" @click="ed.alinear(m)"><Icono :nombre="i" :tam="15" /></button>
@@ -367,6 +404,8 @@ function fuenteImagen(v) {
         </label>
         <Medida :model-value="estilo.tam ?? 10" :etiqueta="t('Letter height')" unidad="pt" :min="3" :max="400" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'tam', v)" />
       </div>
+      <p v-if="letraReducida" class="nota mt-chico">{{ t('The box is fixed: the letter is reduced to {0} pt to fit.', [letraReducida]) }}
+        <button v-if="!bloqueado" type="button" class="enlace" @click="e.ajustar = 'ambos'">{{ t('Fit the box to the content') }}</button></p>
       <div class="botonera mt-chico">
         <button v-for="[p, txt, cls] in [['negrita', 'B', 'fw'], ['cursiva', 'I', 'it'], ['subrayado', 'U', 'ul'], ['tachado', 'S', 'st'], ['mayusculas', 'AA', '']]" :key="p" type="button"
                 class="btn btn-icono btn-chico btn-estilo" :class="[cls, { activo: estilo[p] }]" :aria-pressed="!!estilo[p]" :disabled="bloqueado"

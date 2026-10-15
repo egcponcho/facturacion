@@ -34,8 +34,14 @@ MESES = {
            "dezembro"],
     "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre",
            "décembre"],
+    "zh": [f"{n}月" for n in ("一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二")],
+    "ar": ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"],
+    "hi": ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"],
 }
-SI_NO = {"en": ("Yes", "No"), "es": ("Sí", "No"), "pt": ("Sim", "Não"), "fr": ("Oui", "Non")}
+# Idiomas cuyo mes corto (mmm) son sus tres primeras letras en mayúsculas; en los demás, el mes completo
+MES_CORTO_3 = {"en", "es", "pt", "fr"}
+SI_NO = {"en": ("Yes", "No"), "es": ("Sí", "No"), "pt": ("Sim", "Não"), "fr": ("Oui", "Non"), "zh": ("是", "否"),
+         "ar": ("نعم", "لا"), "hi": ("हाँ", "नहीं")}
 _REGIONAL: ContextVar[dict | None] = ContextVar("regional_etiqueta", default=None)
 # Ancho mínimo del módulo (la barra más fina) para leerse con un lector común, en mm
 MODULO_MINIMO = {"ean13": 0.264, "ean8": 0.264, "upca": 0.264, "code128": 0.19, "code39": 0.19, "qr": 0.25, "itf14": 0.495,
@@ -115,7 +121,7 @@ def fecha_con_patron(d: date, patron: str, idioma: str = "en") -> str:
     """La fecha con un patrón de dd, d, mm, mmm, mmmm, aa y aaaa (los meses en el idioma de la etiqueta)."""
     meses = MESES.get(idioma, MESES["en"])
     piezas = {"aaaa": f"{d.year:04d}", "aa": f"{d.year % 100:02d}", "mmmm": meses[d.month - 1],
-              "mmm": meses[d.month - 1][:3].upper(), "mm": f"{d.month:02d}", "dd": f"{d.day:02d}", "d": str(d.day)}
+              "mmm": meses[d.month - 1][:3].upper() if idioma in MES_CORTO_3 else meses[d.month - 1], "mm": f"{d.month:02d}", "dd": f"{d.day:02d}", "d": str(d.day)}
     return re.sub(r"aaaa|aa|mmmm|mmm|mm|dd|d", lambda m: piezas[m.group(0)], patron)
 
 
@@ -345,6 +351,69 @@ def _texto(e: dict, texto: str, prims: list, problemas: list) -> None:
                       espaciado=esp, subrayado=est["subrayado"], tachado=est["tachado"], **_giro(e)))
 
 
+# ---- Recuadro que se ajusta al contenido ------------------------------------------------------
+ANCLA_H = {"izq": "ini", "centro": "centro", "der": "fin"}
+ANCLA_V = {"arriba": "ini", "medio": "centro", "abajo": "fin"}
+
+
+def _anclar(inicio: float, largo: float, nuevo: float, ancla: str, minimo: float, maximo: float) -> tuple[float, float]:
+    """Nueva posición y largo desde su anclaje (inicio, centro o final fijos), sin pasar del área segura."""
+    disponible = {"ini": maximo - inicio, "fin": inicio + largo - minimo,
+                  "centro": 2 * min(inicio + largo / 2 - minimo, maximo - inicio - largo / 2)}[ancla]
+    nuevo = max(min(nuevo, max(disponible, 1.0)), 0.5)
+    return {"ini": inicio, "centro": inicio + (largo - nuevo) / 2, "fin": inicio + largo - nuevo}[ancla], nuevo
+
+
+def medida_texto(e: dict, texto: str, ancho: float | None = None) -> tuple[float, float]:
+    """Ancho y alto (mm, con el relleno) que ocupa el texto con su estilo y su letra sin reducir.
+    Con `ancho`, el texto se parte en líneas para caber en él."""
+    est = e["estilo"]
+    if est.get("mayusculas"):
+        texto = texto.upper()
+    nombre = nombre_fuente(est["fuente"], est["negrita"], est["cursiva"])
+    tam, esp, rel = est["tam"], est["espaciado"], est["relleno"]
+    if ancho is not None:
+        lineas = _partir(texto, nombre, tam, esp, max(ancho - 2 * rel, 0.1))
+    else:
+        lineas = texto.split("\n") if est["multilinea"] else texto.split("\n")[:1]
+    w = max((ancho_texto(x, nombre, tam, esp) for x in lineas), default=0) + 2 * rel
+    h = (len(lineas) - 1) * tam * est["interlineado"] * PT_MM + tam * PT_MM + 2 * rel
+    return w, h
+
+
+def ajustar_caja(e: dict, W: float, H: float, margen: float, texto: str | None = None, filas: int | None = None,
+                 proporcion: float | None = None) -> dict:
+    """El elemento con su recuadro ajustado al contenido (e["ajustar"]): el texto con su letra
+    (no se reduce mientras quepa en el área segura), la tabla con sus filas, la imagen con su
+    proporción (alto / ancho). Devuelve una copia; sin ajuste, el mismo elemento."""
+    modo = e.get("ajustar") or "no"
+    if modo == "no":
+        return e
+    x, y, w, h = e["x"], e["y"], e["w"], e["h"]
+    lim_x, lim_y = (margen, W - margen), (margen, H - margen)
+    est = e.get("estilo") or {}
+    nuevo = {**e}
+    if e["tipo"] in ("texto", "campo") and texto is not None:
+        if modo in ("ancho", "ambos"):
+            w_nat, _ = medida_texto(e, texto)
+            x, w = _anclar(x, w, w_nat, ANCLA_H[est["alin"]], *lim_x)
+        if modo in ("alto", "ambos"):
+            # Alto: el texto se parte en líneas dentro del ancho; ambos: solo donde hay saltos de línea
+            nuevo["estilo"] = {**est, "multilinea": True}
+            _, h_nat = medida_texto(nuevo, texto, w if modo == "alto" else None)
+            y, h = _anclar(y, h, h_nat, ANCLA_V[est["valign"]], *lim_y)
+    elif e["tipo"] == "tabla" and filas is not None and modo in ("alto", "ambos"):
+        fijas = int(bool(e.get("encabezado"))) + int(bool(e.get("totales")))
+        y, h = _anclar(y, h, e["alto_fila"] * max(filas + fijas, 1), "ini", *lim_y)
+    elif e["tipo"] == "imagen" and proporcion:
+        if modo == "ancho":
+            x, w = _anclar(x, w, h / proporcion, "ini", *lim_x)
+        else:
+            y, h = _anclar(y, h, w * proporcion, "ini", *lim_y)
+    nuevo.update(x=x, y=y, w=w, h=h)
+    return nuevo
+
+
 def caja_girada(e: dict) -> tuple[float, float, float, float]:
     """Caja que ocupa el elemento una vez girado sobre su centro (x1, y1, x2, y2)."""
     if not e.get("rot"):
@@ -362,6 +431,17 @@ def _giro(e: dict) -> dict:
 
 
 # ---- Imágenes ----------------------------------------------------------------------------
+def _proporcion(img: bytes) -> float | None:
+    """Alto / ancho de la imagen (None si no es una imagen)."""
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(img)) as im:
+            return im.size[1] / im.size[0] if im.size[0] else None
+    except Exception:  # noqa: BLE001 - un archivo que no es imagen
+        return None
+
+
 def _encaje(img: bytes, e: dict) -> tuple[float, float, float, float] | None:
     from PIL import Image
 
@@ -396,20 +476,26 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
     problemas: list[dict] = []
     W, H, margen, fondo = diseno["ancho"], diseno["alto"], diseno["margen"], diseno["fondo"]
     prims.append(Prim("rect", 0, 0, W, H, relleno=fondo))
-    for e in diseno.get("elementos", []):
-        if not e.get("visible", True) or not cumple(e.get("condicion"), valores):
-            continue
+    def dentro(e: dict) -> bool:
         # Límites (de la caja ya girada): fuera de la etiqueta es un error; fuera del área segura, una advertencia
         x1, y1, x2, y2 = caja_girada(e)
         if x2 <= 0 or y2 <= 0 or x1 >= W or y1 >= H:
             _problema(problemas, "error", "fuera_de_la_etiqueta", e, "The element is outside the label.")
-            continue
+            return False
         if x1 < -0.01 or y1 < -0.01 or x2 > W + 0.01 or y2 > H + 0.01:
             _problema(problemas, "advertencia", "fuera_de_limites", e, "Part of the element is outside the label.")
         elif e["tipo"] != "rect" and (x1 < margen - 0.01 or y1 < margen - 0.01 or x2 > W - margen + 0.01
                                       or y2 > H - margen + 0.01):
             _problema(problemas, "advertencia", "fuera_area_segura", e, "The element is outside the safe print area.")
+        return True
+
+    for e in diseno.get("elementos", []):
+        if not e.get("visible", True) or not cumple(e.get("condicion"), valores):
+            continue
         t = e["tipo"]
+        # Los que ajustan su recuadro al contenido se miden después de conocer el contenido
+        if not (e.get("ajustar", "no") != "no" and t in ("texto", "campo", "tabla", "imagen")) and not dentro(e):
+            continue
         if t == "rect":
             prims.append(Prim("rect", e["x"], e["y"], e["w"], e["h"], relleno=e.get("relleno"), borde=e.get("borde"),
                               grosor=e["grosor"], radio=e["radio"], trazo=e["trazo"], **_giro(e)))
@@ -439,6 +525,10 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
                         _problema(problemas, "advertencia", "campo_vacio", e, f"The field {e['campo']} is empty.")
                         v = ""
                 texto = f"{e.get('prefijo') or ''}{v}{e.get('sufijo') or ''}" if v else v
+            if texto and e.get("ajustar", "no") != "no":
+                e = ajustar_caja(e, W, H, margen, texto=texto)
+                if not dentro(e):
+                    continue
             if texto:
                 _texto(e, texto, prims, problemas)
         elif t == "imagen":
@@ -451,6 +541,11 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
                 img = datos_imagen(valores.get(e["campo"]))
             else:
                 img = datos_imagen(e.get("datos"))
+            if e.get("ajustar", "no") != "no":
+                if img:
+                    e = ajustar_caja(e, W, H, margen, proporcion=_proporcion(img))
+                if not dentro(e):
+                    continue
             caja = _encaje(img, e) if img else None
             if caja is None:
                 if e.get("si_vacio") == "error":
@@ -463,6 +558,11 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
         elif t == "codigo":
             _codigo(e, valores, tipos, fondo, prims, problemas)
         elif t == "tabla":
+            if e.get("ajustar", "no") != "no":
+                filas = valores.get(e["coleccion"])
+                e = ajustar_caja(e, W, H, margen, filas=len(filas) if isinstance(filas, list) else 0)
+                if not dentro(e):
+                    continue
             _tabla(e, valores, tipos, prims, problemas)
     if diseno.get("borde"):
         b = diseno["borde"]

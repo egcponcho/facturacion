@@ -175,3 +175,100 @@ def test_hoja_de_varias_etiquetas_y_giro():
     girado = render.componer(svc_diseno.validar({"ancho": 60, "alto": 30, "elementos": [
         {"id": "t", "tipo": "texto", "contenido": "x", "x": 5, "y": 5, "w": 30, "h": 10, "rot": 90}]}), {})
     assert {p["codigo"] for p in girado.advertencias} == {"fuera_de_limites"}  # girado, se sale por arriba
+
+
+def _texto_de(lienzo):
+    p = next(x for x in lienzo.prims if x.tipo == "texto")
+    return p.tam, p.lineas
+
+
+def test_recuadro_que_se_ajusta_al_contenido():
+    """Con «ajustar» el recuadro sigue al texto con su letra (no se reduce), crece desde su
+    alineación y nunca pasa del área segura; la tabla crece con sus filas y la imagen toma su
+    proporción. Sin ajuste, la letra se reduce para caber en el recuadro fijo."""
+    def campo(ajustar, tam, valor="SKU-12345", **estilo):
+        d = _diseno([{"id": "a", "tipo": "campo", "campo": "articulo.sku", "x": 30, "y": 10, "w": 20, "h": 6, "ajustar": ajustar,
+                      "estilo": {"tam": tam, **estilo}}])
+        lienzo = render.componer(d, {"articulo.sku": valor})
+        return _texto_de(lienzo), {p["codigo"] for p in lienzo.problemas}
+
+    # Fijo: a 30 pt no cabe en 20 × 6 mm y la letra se reduce
+    (tam, _), _ = campo("no", 30)
+    assert tam < 30
+    # Ambos: el recuadro crece y la letra se queda en 30 pt; más letra, más ancho
+    (tam, lineas), problemas = campo("ambos", 30)
+    assert tam == 30 and lineas[0][1] == pytest.approx(30) and not problemas
+    (_, lineas20), _ = campo("ambos", 20)
+    assert lineas20[0][3] < lineas[0][3]
+    # Centrado: crece hacia los dos lados (el centro queda en 40 mm)
+    (_, lineas), _ = campo("ambos", 30, alin="centro")
+    assert lineas[0][1] + lineas[0][3] / 2 == pytest.approx(40, abs=0.01)
+    # A la derecha: el borde derecho queda fijo
+    (_, lineas), _ = campo("ambos", 30, alin="der")
+    assert lineas[0][1] + lineas[0][3] == pytest.approx(50, abs=0.01)
+    # Un texto enorme llega hasta el área segura y ahí se aplica «si no cabe» (reducir)
+    (tam, lineas), _ = campo("ambos", 30, valor="X" * 60)
+    assert tam < 30 and lineas[0][1] + lineas[0][3] <= 98 + 0.01
+    # Alto: se parte en líneas dentro del ancho y crece hacia abajo
+    (tam, lineas), _ = campo("alto", 12, valor="uno dos tres cuatro cinco seis siete")
+    assert tam == 12 and len(lineas) > 1
+    # Ajuste solo en elementos que lo admiten
+    d = _diseno([{"id": "r", "tipo": "rect", "w": 10, "h": 10, "ajustar": "ambos"}])
+    assert d["elementos"][0]["ajustar"] == "no"
+
+    # Tabla: el alto sigue a las filas (encabezado + 3 filas = 4 filas de 5 mm)
+    tabla = {"id": "t", "tipo": "tabla", "x": 5, "y": 5, "w": 60, "h": 8, "alto_fila": 5, "coleccion": "bulto.lineas",
+             "columnas": [{"campo": "sku"}], "ajustar": "alto"}
+    lienzo = render.componer(_diseno([tabla]), {"bulto.lineas": [{"sku": "A"}, {"sku": "B"}, {"sku": "C"}]})
+    assert not [p for p in lienzo.problemas if p["codigo"] == "tabla_desborda"]
+    marco = [p for p in lienzo.prims if p.tipo == "rect" and p.borde][-1]
+    assert marco.h == pytest.approx(20)
+    # Sin ajuste, las mismas filas no caben en 8 mm
+    lienzo = render.componer(_diseno([{**tabla, "ajustar": "no"}]), {"bulto.lineas": [{"sku": "A"}, {"sku": "B"}, {"sku": "C"}]})
+    assert any(p["codigo"] == "tabla_desborda" for p in lienzo.problemas)
+
+    # Imagen: 40 × 20 px → con 30 mm de ancho, 15 mm de alto
+    buf = io.BytesIO()
+    Image.new("RGB", (40, 20), "#336699").save(buf, "PNG")
+    import base64
+
+    datos = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    img = {"id": "i", "tipo": "imagen", "x": 5, "y": 5, "w": 30, "h": 30, "fuente_imagen": "datos", "datos": datos, "ajustar": "alto"}
+    p = next(x for x in render.componer(_diseno([img]), {}).prims if x.tipo == "imagen")
+    assert (p.w, p.h) == (pytest.approx(30), pytest.approx(15))
+
+
+def test_chino_arabe_y_devanagari_con_forma_y_en_orden():
+    """Las letras que Liberation no tiene se escriben con Noto y con forma (HarfBuzz): el
+    árabe va de derecha a izquierda con sus números de izquierda a derecha, el devanagari
+    combina sus letras; las tres salidas dibujan los glifos (no cuadros vacíos)."""
+    from app.modulos.etiquetado import escritura
+
+    tramos, ancho = escritura.formar("Talla مقاس 40 / 尺码", "LiberationSans-Regular", 12)
+    assert [(t.texto, t.fuente.split("-")[0], t.de_derecha) for t in tramos] == [
+        ("Talla ", "LiberationSans", False), ("مقاس", "NotoSansArabic", True), (" 40 / ", "LiberationSans", False),
+        ("尺码", "NotoSansSC", False)]
+    tramos, _ = escritura.formar("مرحبا 123", "LiberationSans-Bold", 12)
+    assert [t.texto for t in tramos] == ["123", "مرحبا "] and tramos[1].fuente == "NotoSansArabic-Bold"
+    tramos, _ = escritura.formar("नमस्ते", "LiberationSans-Regular", 12)
+    assert len(tramos[0].glifos) < len("नमस्ते")  # la forma une letras (conjuntos)
+    # El ajuste del recuadro y la medida usan la forma real
+    assert render.ancho_texto("尺码尺码", "LiberationSans-Regular", 10) > render.ancho_texto("ab", "LiberationSans-Regular", 10)
+
+    d = _diseno([{"id": f"t{i}", "tipo": "texto", "contenido": t, "x": 3, "y": 3 + i * 11, "w": 90, "h": 10, "estilo": {"tam": 14}}
+                 for i, t in enumerate(["标签 尺码 42", "مرحبا بالعالم 123", "नमस्ते दुनिया"])], idioma="zh")
+    lienzo = render.componer(d, {})
+    assert not lienzo.problemas
+    # PDF: los glifos van como contornos rellenos
+    with pdfplumber.open(io.BytesIO(salidas.pdf([lienzo]))) as doc:
+        assert len(doc.pages[0].curves) + len(doc.pages[0].rects) > 20
+    # SVG: un trazo por glifo; PNG: hay tinta en cada renglón
+    assert salidas.svg(lienzo).count("<path") > 20
+    with Image.open(io.BytesIO(salidas.png(lienzo, 150))) as im:
+        gris = im.convert("L")
+        k = 150 / 25.4
+        for i in range(3):
+            franja = gris.crop((0, round((3 + i * 11) * k), gris.width, round((13 + i * 11) * k)))
+            assert franja.getextrema()[0] < 100
+    # Meses y sí/no en el idioma de la etiqueta
+    assert render.fecha_con_patron(render.date(2026, 3, 5), "d mmm aaaa", "zh") == "5 三月 2026"

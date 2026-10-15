@@ -90,8 +90,9 @@ def test_escalera_de_resolucion(interno, caso):
     _exc(interno, caso, "oc", "GENERAL", contexto_tipo="OC", oc_id=caso["oc_id"], vigente_hasta=ayer)
     assert _elige(interno, caso)["plantilla"] != "Ladder oc"
     # La excepción de la OC gana a todo
-    hoy = date.today().isoformat()
-    u = _exc(interno, caso, "oc", "GENERAL", contexto_tipo="OC", oc_id=caso["oc_id"], vigente_desde=hoy)
+    # Desde ayer (no se cruza con la vencida; «hoy» del servidor puede ir un día delante del de la empresa)
+    desde = (date.today() - timedelta(days=1)).isoformat()
+    u = _exc(interno, caso, "oc", "GENERAL", contexto_tipo="OC", oc_id=caso["oc_id"], vigente_desde=desde)
     e = _elige(interno, caso)
     assert (e["plantilla"], e["porque"]["clase"]) == ("Ladder oc", "oc")
     # Dos excepciones iguales en la misma celda no se pueden guardar

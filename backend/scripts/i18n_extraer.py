@@ -18,7 +18,7 @@ OMITIR = ("main.py", "core/config.py", "core/db.py", "core/seguridad.py", "web/d
           "modulos/documentos/documentos.py",
           "modulos/documentos/exportar.py", "modulos/documentos/plantillas.py", "modulos/acceso/sms.py",
           "modulos/clasificacion/especialista.py", "modulos/etiquetado/datos_campos.py",
-          "modulos/etiquetado/fuentes.py", "modulos/etiquetado/codigos.py", "modulos/etiquetado/salidas.py")
+          "modulos/etiquetado/fuentes.py", "modulos/etiquetado/escritura.py", "modulos/etiquetado/codigos.py", "modulos/etiquetado/salidas.py")
 MODELOS: set = set()
 ESPANOL = re.compile(r"[áéíóúñ¿¡]|\b(de|del|la|el|los|las|y|para|con|por|una|que)\b", re.I)
 

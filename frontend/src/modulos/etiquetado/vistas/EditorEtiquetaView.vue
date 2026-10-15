@@ -11,7 +11,7 @@ import { fmtNum } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { CANTIDADES, SUJETOS, cargarFuentes, ponerRegional } from '@/modulos/etiquetado/etiquetas.js'
+import { CANTIDADES, SUJETOS, alCargarFuente, cargarFuentes, ponerRegional } from '@/modulos/etiquetado/etiquetas.js'
 import { crearEditor } from '@/modulos/etiquetado/editor/estado.js'
 import LienzoEtiqueta from '@/modulos/etiquetado/editor/LienzoEtiqueta.vue'
 import BibliotecaCampos from '@/modulos/etiquetado/editor/BibliotecaCampos.vue'
@@ -36,6 +36,7 @@ const grupos = ref({})
 const cargando = ref(true)
 const guardando = ref(false)
 const fuentes = ref(0)
+let quitarAviso = null
 const lienzo = ref(null)
 const panelIzq = ref('biblioteca')
 const panelDer = ref('propiedades')
@@ -279,6 +280,7 @@ onBeforeRouteLeave(async () => !(est.sucio && editable.value)
 onMounted(() => {
   cargar()
   cargarFuentes().then(() => fuentes.value++)
+  quitarAviso = alCargarFuente(() => fuentes.value++)
   window.addEventListener('keydown', teclas)
   window.addEventListener('beforeunload', antesDeSalir)
 })
@@ -286,6 +288,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', teclas)
   window.removeEventListener('beforeunload', antesDeSalir)
   clearTimeout(esperaPrevia)
+  quitarAviso?.()
 })
 const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × ${fmtNum(est.diseno.alto, 1)} mm` : ''))
 </script>

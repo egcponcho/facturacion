@@ -1,5 +1,5 @@
-"""Fuentes de las etiquetas (Liberation, en data/fuentes): nombres, archivos y
-medidas. Todas las salidas miden el texto igual (avance de cada letra, sin
+"""Fuentes de las etiquetas (Liberation y, para chino, árabe y devanagari, Noto:
+escritura.py; en data/fuentes): nombres, archivos y medidas. Todas las salidas miden el texto igual (avance de cada letra, sin
 interletraje). Textos técnicos: i18n_extraer omite este archivo."""
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ PT_MM = 25.4 / 72
 FUENTES = Path(__file__).resolve().parents[2] / "data" / "fuentes"
 # Marca de agua de las etiquetas de prueba (versión sin aprobar), en el idioma de la etiqueta
 MARCA_PRUEBA = {"en": "TEST · NOT APPROVED", "es": "PRUEBA · NO APROBADA", "pt": "TESTE · NÃO APROVADA",
-                "fr": "ESSAI · NON APPROUVÉE"}
+                "fr": "ESSAI · NON APPROUVÉE", "zh": "测试 · 未批准", "ar": "اختبار · غير معتمد", "hi": "परीक्षण · स्वीकृत नहीं"}
 FAMILIAS = {"sans": "LiberationSans", "serif": "LiberationSerif", "mono": "LiberationMono"}
 
 
@@ -36,6 +36,10 @@ def ancho_texto(texto: str, nombre: str, tam_pt: float, espaciado_pt: float = 0)
     """Ancho en mm (avance de cada letra, sin interletraje: igual en las tres salidas)."""
     if not texto:
         return 0.0
+    from app.modulos.etiquetado import escritura
+
+    if escritura.compleja(texto):
+        return escritura.ancho(texto, nombre, tam_pt, espaciado_pt)
     return (pdfmetrics.stringWidth(texto, _registrada(nombre), tam_pt) + espaciado_pt * (len(texto) - 1)) * PT_MM
 
 
