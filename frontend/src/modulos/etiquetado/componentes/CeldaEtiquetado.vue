@@ -3,7 +3,6 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import Modal from '@/componentes/Modal.vue'
 import { fmtFecha, fmtNum } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 import { puede } from '@/stores/sesion'
@@ -13,7 +12,7 @@ import ExcepcionFrase from '@/modulos/etiquetado/componentes/ExcepcionFrase.vue'
 import SelectorDiseno from '@/modulos/etiquetado/componentes/SelectorDiseno.vue'
 import { LISTAS, NUMERICOS, SIN_VALOR, catalogos, textoDonde, textoExcepcion, textoVigencia } from '@/modulos/etiquetado/etiquetas.js'
 
-// La ventana de una celda de la matriz (fila × tipo de etiqueta): su diseño
+// Una celda de la matriz (fila × tipo de etiqueta), en la misma página (sin ventana): su diseño
 // normal (o heredar), sus excepciones escritas como frase y los productos con
 // diseño propio. Antes de guardar se ve qué cambia; se guarda todo junto con la
 // firma que se leyó, así no se pisa el cambio de otra persona.
@@ -209,7 +208,15 @@ const autor = (x) => [x.creado_por, x.creado_en && fmtFecha(x.creado_en)].filter
 </script>
 
 <template>
-  <Modal :titulo="titulo" ancho="760px" @cerrar="emit('cerrar')">
+  <section class="panel celda-panel" :aria-label="titulo">
+    <header class="celda-titulo">
+      <button type="button" class="btn btn-icono" :aria-label="t('Back')" :title="t('Back')" @click="emit('cerrar')"><Icono nombre="atras" /></button>
+      <h3>{{ titulo }}</h3>
+      <div class="celda-acciones">
+        <button type="button" class="btn" @click="emit('cerrar')">{{ editable ? t('Cancel') : t('Close') }}</button>
+        <button v-if="editable" type="button" class="btn btn-primario" :disabled="ocupado || !cambios || editando !== null" @click="guardar">{{ t('Save') }}</button>
+      </div>
+    </header>
     <div v-if="!celda" class="vacio">{{ t('Loading…') }}</div>
     <div v-else class="celda">
       <section>
@@ -269,14 +276,19 @@ const autor = (x) => [x.creado_por, x.creado_en && fmtFecha(x.creado_en)].filter
 
       <EfectoCambio v-if="editable" :efecto="efecto" :cargando="simulando" :sin-cambios="!cambios" />
     </div>
-    <template #pie>
-      <button type="button" class="btn separar" @click="emit('cerrar')">{{ editable ? t('Cancel') : t('Close') }}</button>
-      <button v-if="editable" type="button" class="btn btn-primario" :disabled="ocupado || !cambios || editando !== null" @click="guardar">{{ t('Save') }}</button>
-    </template>
-  </Modal>
+    <footer v-if="editable && celda" class="celda-pie">
+      <button type="button" class="btn" @click="emit('cerrar')">{{ t('Cancel') }}</button>
+      <button type="button" class="btn btn-primario" :disabled="ocupado || !cambios || editando !== null" @click="guardar">{{ t('Save') }}</button>
+    </footer>
+  </section>
 </template>
 
 <style scoped>
+.celda-panel { display: flex; flex-direction: column; gap: 16px; }
+.celda-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--linea); padding-bottom: 12px; }
+.celda-titulo h3 { flex: 1; margin: 0; font-size: 1.05rem; min-width: 200px; }
+.celda-acciones, .celda-pie { display: flex; gap: 8px; }
+.celda-pie { justify-content: flex-end; border-top: 1px solid var(--linea); padding-top: 12px; }
 .celda { display: flex; flex-direction: column; gap: 18px; }
 .celda h4 { margin: 0 0 8px; font-size: 0.92rem; }
 .celda-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }

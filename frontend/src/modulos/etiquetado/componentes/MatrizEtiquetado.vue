@@ -14,7 +14,7 @@ import { CANTIDADES, SUJETOS_PLURAL, textoDonde } from '@/modulos/etiquetado/eti
 // «Qué diseño lleva cada cosa»: la pantalla principal para asignar diseños.
 // Filas: toda la empresa, las familias en árbol y los artículos sin familia
 // (o los tipos de empaque, para las cajas); columnas: los tipos de etiqueta.
-// Cada celda se abre en una ventana; las heredadas también.
+// Cada celda (también las heredadas) se abre en la misma página, en lugar de la tabla.
 const emit = defineEmits(['familias'])
 const sujetos = ref([])
 const sujeto = ref('ARTICULO')
@@ -63,6 +63,7 @@ const sinGeneral = computed(() => (datos.value?.tipos || []).filter((x) => cober
 // La ventana de la celda
 const abierta = ref(null)
 function abrir(f, tipo) {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
   const nivel = f.nivel === 'SIN_FAMILIA' ? 'GENERAL' : f.nivel
   const otras = (datos.value.filas || []).filter((x) => x !== f && !['GENERAL', 'SIN_FAMILIA'].includes(x.nivel))
     .map((x) => ({ nivel: x.nivel, destino_id: x.id, nombre: x.nombre }))
@@ -75,6 +76,9 @@ function guardado(opciones) {
 </script>
 
 <template>
+  <CeldaEtiquetado v-if="abierta" :tipo="abierta.tipo" :nivel="abierta.nivel" :destino-id="abierta.destinoId" :nombre="abierta.nombre" :otras="abierta.otras"
+                   @cerrar="abierta = null" @guardado="guardado" />
+  <template v-else>
   <div class="mz-barra">
     <nav v-if="sujetos.length > 1" class="pestanas-pildora" :aria-label="t('What is labeled')">
       <button v-for="s in sujetos" :key="s" type="button" class="pildora" :aria-pressed="sujeto === s" @click="sujeto = s">{{ SUJETOS_PLURAL()[s] }}</button>
@@ -142,8 +146,7 @@ function guardado(opciones) {
     <span v-if="!puede('etiquetas.configurar')">· {{ t('Read only: you can see the cells but not change them.') }}</span>
   </p>
 
-  <CeldaEtiquetado v-if="abierta" :tipo="abierta.tipo" :nivel="abierta.nivel" :destino-id="abierta.destinoId" :nombre="abierta.nombre" :otras="abierta.otras"
-                   @cerrar="abierta = null" @guardado="guardado" />
+  </template>
 </template>
 
 <style scoped>
