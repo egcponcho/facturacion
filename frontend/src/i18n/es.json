@@ -7177,5 +7177,8 @@
 "1 place without a design": "1 lugar sin diseño",
 "1 approved design": "1 diseño aprobado",
 "1 design in total": "1 diseño en total",
-"Back to the summary": "Volver al resumen"
+"Back to the summary": "Volver al resumen",
+"Choose the package levels.": "Elige los niveles de empaque.",
+"Each package prints once even if it is in two of the chosen levels. Which design each level uses is set in «Which design goes on what» → Packages.": "Cada empaque se imprime una vez aunque esté en dos de los niveles elegidos. Qué diseño usa cada nivel se define en «Qué diseño va en qué» → Bultos.",
+"Which packages get a label": "Qué empaques llevan etiqueta"
 }

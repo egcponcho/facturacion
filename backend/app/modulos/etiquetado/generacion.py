@@ -222,7 +222,14 @@ def _grupos_bulto(db: Session, pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | 
     varios, los campos de artículo quedan vacíos (la tabla del contenido los muestra)."""
     if pl is not None:
         tipo = pedido.get("tipo_empaque_id")
-        unidades = campos.unidades_pl(pl, int(tipo) if tipo else None, superiores=not tipo)
+        niveles = pedido.get("niveles") or [int(tipo) if tipo else 0]
+        # Varios niveles a la vez (cajas, pallets, inners…): cada unidad física una sola vez
+        unidades, vistas = [], set()
+        for n in niveles:
+            for u in campos.unidades_pl(pl, n or None, superiores=not n):
+                if u.clave not in vistas:
+                    vistas.add(u.clave)
+                    unidades.append(u)
     elif oc is not None:
         unidades = campos.bultos(db, oc.id)
     else:

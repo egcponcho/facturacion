@@ -30,7 +30,7 @@ const ocupado = ref(false)
 const guardado = ref('')
 const paso = ref(0)
 const origen = ref('OC') // OC · PACKING · ARTICULOS · FAMILIA (una familia = OC con familia_id)
-const p = reactive({ oc_ids: [], posiciones: [], cantidades: {}, articulos: [], pl_id: '', tipo_empaque_id: '', familia_id: '', tipos: [],
+const p = reactive({ oc_ids: [], posiciones: [], cantidades: {}, articulos: [], pl_id: '', niveles: [0], familia_id: '', tipos: [],
   prueba: false, elegidas: {}, manuales: {}, formato: 'PDF', zip: { carpetas: [], nombre: '', contenido: 'PDF', agrupar: 'plantilla' } })
 const cat = ref(null)
 const tipos = ref([])
@@ -57,7 +57,7 @@ function aplicar(tr) {
   const par = tr.parametros || {}
   origen.value = tr.origen === 'OC' && par.familia_id ? 'FAMILIA' : tr.origen
   Object.assign(p, { oc_ids: par.oc_ids || [], posiciones: par.posiciones || [], cantidades: par.cantidades || {}, articulos: par.articulos || [],
-    pl_id: par.pl_id || '', tipo_empaque_id: par.tipo_empaque_id || '', familia_id: par.familia_id || '', tipos: par.tipos || [],
+    pl_id: par.pl_id || '', niveles: par.niveles || [par.tipo_empaque_id || 0], familia_id: par.familia_id || '', tipos: par.tipos || [],
     prueba: !!par.prueba, elegidas: par.elegidas || {}, manuales: par.manuales || {}, formato: par.formato || 'PDF', zip: zipConDefecto(par.zip) })
   porPosiciones.value = (par.posiciones || []).length > 0
 }
@@ -79,7 +79,7 @@ function parametros() {
     familia_id: p.familia_id || null }
   if (origenServidor.value === 'OC') Object.assign(base, { oc_ids: p.oc_ids, posiciones: p.posiciones.length ? p.posiciones : null })
   if (origen.value === 'ARTICULOS') base.articulos = p.articulos
-  if (origen.value === 'PACKING') Object.assign(base, { pl_id: p.pl_id || null, tipo_empaque_id: p.tipo_empaque_id || null })
+  if (origen.value === 'PACKING') Object.assign(base, { pl_id: p.pl_id || null, tipo_empaque_id: null, niveles: p.niveles.length ? p.niveles : [0] })
   return base
 }
 async function guardar(silencioso = false) {
@@ -711,13 +711,16 @@ async function otroIgual() {
           <span v-if="noAplica(x.id)" class="ayuda">({{ x.sujeto === 'BULTO' ? t('needs a packing list') : t('nothing to label here') }})</span>
         </label>
         <p v-if="!tiposOrigen.length" class="ayuda">{{ t('There are no label types for this origin.') }}
-          <router-link to="/etiquetas/configuracion?vista=tipos" class="enlace">{{ t('Set them up') }}</router-link></p>
+          <router-link to="/etiquetas/configuracion?paso=tipos" class="enlace">{{ t('Set them up') }}</router-link></p>
       </fieldset>
-      <label v-if="origen === 'PACKING' && conCajas && niveles" class="campo tj-cajas"><span>{{ t('Which packages') }}</span>
-        <Seleccion v-model="p.tipo_empaque_id">
-          <option value="">{{ t('Outer packages ({0})', [niveles.superiores]) }}</option>
-          <option v-for="n in niveles.niveles" :key="n.tipo_empaque_id" :value="n.tipo_empaque_id">{{ tx(n.nombre || t('No type')) }} · {{ fmtNum(n.unidades) }}</option>
-        </Seleccion></label>
+      <!-- Qué empaques llevan etiqueta: varios niveles a la vez (cajas, pallets, inners…) -->
+      <fieldset v-if="origen === 'PACKING' && conCajas && niveles" class="tj-cajas">
+        <legend>{{ t('Which packages get a label') }}</legend>
+        <label class="check"><input v-model="p.niveles" type="checkbox" :value="0" /> {{ t('Outer packages ({0})', [niveles.superiores]) }}</label>
+        <label v-for="n in niveles.niveles.filter((x) => x.tipo_empaque_id)" :key="n.tipo_empaque_id" class="check">
+          <input v-model="p.niveles" type="checkbox" :value="n.tipo_empaque_id" /> {{ tx(n.nombre) }} · {{ fmtNum(n.unidades) }}</label>
+        <small class="ayuda">{{ t('Each package prints once even if it is in two of the chosen levels. Which design each level uses is set in «Which design goes on what» → Packages.') }}</small>
+      </fieldset>
       <fieldset class="tj-modo">
         <legend>{{ t('Mode') }}</legend>
         <label class="check"><input v-model="p.prueba" type="radio" :value="false" :disabled="niveles && !niveles.etiquetas_reales && origen === 'PACKING'" /> {{ t('Real') }}</label>
@@ -1005,7 +1008,8 @@ async function otroIgual() {
 .tj-tipo { display: grid; grid-template-columns: auto minmax(140px, 1fr) 80px minmax(0, 1.4fr); gap: 10px; align-items: center; min-height: 36px; }
 .tj-tipo.apagado { opacity: 0.6; }
 .tj-tipo .num { text-align: end; font-variant-numeric: tabular-nums; }
-.tj-cajas { max-width: 420px; }
+.tj-cajas { max-width: 520px; border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.tj-cajas legend { font-weight: 600; font-size: 0.86rem; margin-bottom: 4px; }
 .tj-problema { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .tj-problema-det p { margin: 4px 0 0 22px; }
 .tj-pestanas { margin: 0 0 8px; }

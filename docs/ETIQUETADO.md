@@ -101,38 +101,60 @@ Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**
   miniatura, versión, «Se usa en: …» y crear (tipo, tamaño del catálogo, en
   blanco o copia de otro). Archivar avisa qué lugares dejan de usarlo.
   El editor está en `/etiquetas/disenos/:id`.
-- **Configuración** (`/etiquetas/configuracion`):
-  - **Qué diseño va en qué**: la **matriz** (filas: toda la empresa,
-    familias y subfamilias, productos con diseño propio; columnas: tipos)
-    con cobertura («N de M artículos tienen todas sus etiquetas
-    obligatorias»). Cada celda muestra el diseño propio o «hereda X» y sus
-    excepciones; al abrirla se edita en una ventana: diseño normal,
-    excepciones escritas como frase («Si el país de destino es Panamá →
-    usar Colgante bilingüe porque…»), **qué cambia al guardar** (simulación
-    sin guardar: cuántos artículos cambian, cuáles quedan sin diseño) y
-    «aplicar también a» otras celdas de la columna.
-  - **Tipos de etiqueta** (con las medidas de etiqueta de la empresa).
-  - **Familias y artículos**: árbol de familias y asignación en bloque de
-    grupos, productos y tallas; «usar mis grupos como familias».
-  - **Campos**: **nombres de los campos** (el nombre que usa la empresa y
-    los que se ocultan al diseñar; la clave no cambia), campos lógicos
-    propios y **Historial**.
+- **Configuración** (`/etiquetas/configuracion?paso=…`): una **guía en orden**,
+  sin pestañas. Cada paso muestra si está listo o qué le falta, calculado de
+  los datos reales, y abre en el primero que falta; abajo, «Siguiente: …».
+  1. **Tipos de etiqueta** (y las medidas de la empresa). Sin tipos, el
+     asistente de primer uso aparece aquí mismo, en la página.
+  2. **Familias y artículos**: árbol de familias a la izquierda; a la derecha
+     la ficha de la elegida (ruta, conteos, «Sus etiquetas» por tipo, editar
+     y un menú ⋯) y lo que pertenece a ella. «Agregar a esta familia» está
+     **arriba** de la lista; lo elegido se asigna con la **barra flotante**
+     (poner aquí, mover a otra, quitar). «Nueva familia» y «Configurar paso a
+     paso» abren el asistente de familia.
+  3. **Diseños**: por tipo, cuántos diseños aprobados tiene, sus miniaturas y
+     «Nuevo diseño» (abre Diseños con `?nuevo=<tipo>`).
+  4. **Qué diseño va en qué**: la **matriz** (filas: toda la empresa, familias
+     y subfamilias; columnas: tipos) con cobertura. Una celda se abre **en la
+     misma página**, en lugar de la matriz: diseño normal, excepciones como
+     frase, **qué cambia al guardar** y «aplicar también a» otras celdas.
+  5. **Nombres y origen de los campos** (opcional).
+  6. **Revisar e historial**.
+
+  Las direcciones anteriores (`?vista=familias`, `?vista=historial`…) llevan
+  al paso que corresponde. A la izquierda (o arriba en pantallas medianas)
+  aparecen **Tus borradores**.
+- **Asistente de familia** (`/etiquetas/configuracion/familia/:id`, o
+  `nueva`): 1 datos → 2 qué entra (productos, grupos o tallas, elegidos en
+  varias páginas y búsquedas; se ven arriba y en la barra flotante) → 3 su
+  diseño por tipo (heredar, con lo que heredaría, o uno propio) → 4 revisar.
+  **Nada se aplica mientras se avanza**: «Terminar y aplicar» lo hace de una
+  vez (`POST /familias/configurar`, todo o nada) y «Guardar borrador y salir»
+  lo deja como **borrador personal** (preferencias del usuario, sin tabla
+  nueva) que se retoma desde la guía o se descarta.
 - **Ficha del producto**, pestaña **Etiquetas**: la familia del producto,
   qué diseño usa cada tipo (y por qué), «usar otro diseño para este
   producto» (todo el producto o algunas tallas) y «volver a heredar».
 - **OC y lista de empaque**, botón **Etiquetas**: un panel con las etiquetas
   de cada tipo, cuántas salen y qué falta; «Diseño especial para esta OC»
-  (crea la excepción con motivo), **Imprimir** e **Imprimir prueba**.
+  (se llena dentro del mismo panel; crea la excepción con motivo),
+  **Imprimir** e **Imprimir prueba**. En la OC se pueden elegir **líneas**
+  y «Etiquetas de estas líneas» (barra flotante) abre el trabajo solo con
+  esas posiciones.
 - **Asistente de trabajo** (`/etiquetas/trabajos/:id`), tres pasos:
-  1. **Qué**: origen, selección (OC y sus líneas, lista de empaque y qué
-     bultos, artículos, familia), tipos a imprimir con su conteo y modo
-     Real/Prueba.
+  1. **Qué**: origen, selección (OC completa o **posiciones elegidas**,
+     lista de empaque y **qué empaques llevan etiqueta** —varios niveles a la
+     vez: exteriores, cajas, inners, pallets—, artículos, familia), tipos a
+     imprimir con su conteo y modo Real/Prueba.
   2. **Revisar**: problemas agrupados por causa con su arreglo («Elegir
      diseño» lo usa solo en este trabajo o lo guarda como regla para los
      siguientes; «Completar el dato» escribe en el maestro del artículo el
      UPC, SKU del proveedor, peso o unidad que falta, un valor por
-     artículo), datos que pide el diseño, una pestaña por tipo con
-     cantidades editables y vista previa con anterior/siguiente.
+     artículo), datos que pide el diseño, una pestaña por tipo con la
+     **cantidad siempre editable** (y en bloque desde la barra flotante) y
+     vista previa con anterior/siguiente. Los formularios amplios
+     (elegir diseño, completar datos, reimprimir) se abren debajo de su fila,
+     no en ventanas.
   3. **Generar**: archivo de cada ejecución, contenido y reparto del ZIP,
      ejecuciones, marcar como impresas, **reimprimir** (copias idénticas de
      todo o de grupos y rangos, con motivo) y **anular** (con motivo: sus
@@ -164,6 +186,8 @@ Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**
 | `GET, POST /trabajos` · `GET, PATCH /trabajos/{id}` · `POST /trabajos/{id}/validar · generar · cancelar` · `GET /trabajos/{id}/estado · archivo` · `GET /trabajos/{id}/registros/{r}/vista-previa` | Trabajos de etiquetado (el único camino de generación). |
 | `GET /generaciones` · `GET /generaciones/{id}` · `GET /generaciones/{id}/archivo` · `POST /generaciones/{id}/impresion` | Historial de lo generado, descarga reproducible (`X-Identico`) y marca de impresión. |
 | `POST /generaciones/{id}/reimprimir` · `POST /generaciones/{id}/anular` | Reimpresión con motivo (todo o `seleccion` [{item_id, desde, hasta}]) y anulación con motivo. |
+| `POST /familias/configurar` | Termina el asistente de una familia en una operación: `familia` (con `id` si existe), `productos`, `grupos`, `articulos` e ids, `disenos` [{tipo_etiqueta_id, plantilla_id\|null}]. |
+| `GET /api/perfil/borradores?prefijo=` · `PUT, DELETE /api/perfil/borradores/{clave}` | Borradores personales de los asistentes ({titulo, datos}; hasta 30 de 100 KB). No viajan en `/auth/me`. |
 | `GET /usos/migracion` | Cómo quedaron las reglas anteriores al convertirse en usos (migración 0076). |
 | `GET /ordenes` · `GET /packing` · `GET /packing/{id}` | Listados para elegir en el asistente. |
 | `POST /imagenes` · `GET /imagenes/{id}` · `GET /fuentes/{archivo}` | Logos del diseño y fuentes del editor. |
@@ -179,6 +203,10 @@ Se retiraron: `/asignaciones`, `/plan`, `/oc/{id}`, `POST /generaciones`,
   se guardan por esa clave.
 - Desde **artículos sueltos**, la cantidad escrita cuenta solo en los tipos
   `POR_UNIDAD` y `MANUAL`; `POR_LINEA` y `POR_ARTICULO` dan una.
+- Desde una lista de empaque, `niveles` (lista: `0` = bultos exteriores, o
+  ids de tipo de empaque) imprime varios niveles en un mismo trabajo; cada
+  unidad física sale una vez aunque esté en dos niveles elegidos. Sigue
+  aceptándose `tipo_empaque_id` (un nivel) de los trabajos anteriores.
 - Una lista de empaque en **borrador** solo da etiquetas de prueba
   (regla `ETIQUETAS_PL_SIN_FINALIZAR` para permitir reales).
 - Un bulto con varios artículos deja vacíos los campos del artículo y lo
@@ -281,6 +309,43 @@ La lista completa de deficiencias y sugerencias, con prioridad, está en
 - **Escalera fija**: el orden de niveles y de excepciones no se configura
   por empresa (decisión D3).
 - **Imágenes**: PNG, JPEG o WebP de hasta 2 MB y 4000 px.
+- **Niveles de empaque**: un tipo de etiqueta de bulto no declara a qué
+  niveles se aplica (ver §11, alternativa B pendiente de decisión).
+- **Borradores**: son personales; otra persona no ve ni continúa el borrador
+  de una familia.
+
+## 11. Niveles de empaque: análisis y propuesta
+
+**Cómo está hoy.** La lista de empaque es un árbol de empaques de tipos que
+define cada empresa (`TipoEmpaque`: inner, caja, pallet, bolsa, tambor…, con
+nivel, prefijo, `cuenta_como` BULTO/INTERIOR/SOPORTE e identificador
+SERIAL/SSCC). Las etiquetas de sujeto **Bulto** se resuelven con la fila del
+tipo de empaque en la matriz («Qué diseño va en qué» → Bultos) y, si no hay,
+con la de toda la empresa. Los datos de la OC y de la lista (número de PL,
+caja n de N, contenedor, pesos, medidas, contenido, mixto/parcial) ya están
+como campos `bulto.*`, `oc.*` y `linea.*`; lo específico de una OC se cubre
+con excepciones por OC, cliente o destino.
+
+**Lo que se hizo ahora.** Un trabajo puede imprimir **varios niveles a la vez**
+(p. ej. cajas + pallets + inners), sin cambiar la base de datos.
+
+**Lo que falta y cómo lo resuelven los sistemas conocidos.** En BarTender,
+NiceLabel/Loftware o un WMS, y en la etiqueta logística GS1 (un SSCC por
+unidad logística), cada nivel de la jerarquía de empaque tiene **su propia
+etiqueta**: la del inner no es la de la caja ni la del pallet. Aquí un tipo
+de etiqueta de bulto no dice a qué niveles se aplica: un diseño puesto en
+«toda la empresa» para «Etiqueta de caja» también saldría en los pallets si
+se eligen en el mismo trabajo (hoy se evita dejando sin diseño general a ese
+tipo y poniendo el diseño en la fila de cada nivel; un tipo opcional sin
+diseño en un nivel no se imprime ahí).
+
+Alternativas (requieren decisión antes de tocar la base):
+
+| | Qué cambia | Migración | Consecuencias |
+|---|---|---|---|
+| A. Dejarlo como está | Nada | No | Funciona si se configura la matriz por nivel; depende de la disciplina de quien configura. |
+| B. «Se aplica a» en el tipo de etiqueta | Tabla nueva tipo de etiqueta ↔ tipos de empaque (vacía = todos) | Sí, solo estructura (sin mover datos: lo existente queda «todos») | Cada tipo dice si es de inner, caja o pallet; el trabajo propone los niveles solos; la matriz de bultos muestra solo las celdas que aplican. Recomendada. |
+| C. Un sujeto por nivel (INNER, CAJA, PALLET) | Cambia el catálogo de sujetos y los usos | Sí, con conversión de datos | Rígido: los niveles los define cada empresa; se descarta. |
 
 ## Permisos
 

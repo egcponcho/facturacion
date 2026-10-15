@@ -184,6 +184,13 @@ def test_lista_de_empaque_por_nivel_con_tarimas_y_cajas(interno, admin):
             paginas = _pdf(interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo").content)
             assert len(paginas) == n_cajas and "in P1" in paginas[0][2] and f"1/{n_cajas}" in paginas[0][2]
             assert interno.get(f"/etiquetas/generaciones/{gen['id']}").json()["pl_id"] == pl_id
+            # Varios niveles en un mismo trabajo: la tarima y sus cajas, cada unidad una vez
+            t = trabajo(interno, "PACKING", {"pl_id": pl_id, "niveles": [tipo_id, tipo_caja, tipo_id], "tipos": [t_["id"]]})
+            assert len(t["registros"]) == n_cajas + 1 and t["parametros"]["niveles"] == [tipo_id, tipo_caja]
+            # Los exteriores (0) son la tarima: pedirla dos veces no la repite
+            t = trabajo(interno, "PACKING", {"pl_id": pl_id, "niveles": [0, tipo_id], "tipos": [t_["id"]]})
+            assert len(t["registros"]) == 1
+            assert interno.post("/etiquetas/trabajos", {"origen": "PACKING", "parametros": {"pl_id": pl_id, "niveles": ["x"]}}).status_code == 422
     finally:
         with SessionLocal() as db, en_organizacion(1):
             for g in db.scalars(select(GrupoCajas).where(GrupoCajas.id.in_(ids_cajas))):

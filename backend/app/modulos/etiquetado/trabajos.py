@@ -76,7 +76,7 @@ CONTENIDOS = ("PDF", "PNG", "SVG")
 # mezclar diseños: si una carpeta tiene varios, uno por diseño) o un único PDF
 # (solo si todas miden lo mismo). PNG y SVG siempre van una por archivo.
 AGRUPACIONES = ("etiqueta", "plantilla", "carpeta", "unico")
-PARAMETROS = ("oc_ids", "posiciones", "cantidades", "articulos", "pl_id", "tipo_empaque_id", "familia_id", "tipos", "prueba",
+PARAMETROS = ("oc_ids", "posiciones", "cantidades", "articulos", "pl_id", "tipo_empaque_id", "niveles", "familia_id", "tipos", "prueba",
               "elegidas", "manuales", "formato", "hoja", "dpi", "zip", "cantidad", "nota")
 
 
@@ -170,6 +170,12 @@ def _limpiar(db: Session, user: Usuario, origen: str, p: dict) -> dict:
         res["articulos"] = limpia
     if res.get("pl_id"):
         generacion.cargar_pl(db, user, int(res["pl_id"]))
+    if "niveles" in res:
+        # Qué empaques de la lista llevan etiqueta, varios a la vez: 0 = los exteriores, o tipos de empaque
+        niveles = res["niveles"] or []
+        if not isinstance(niveles, list) or len(niveles) > 20 or not all(str(x).isdigit() for x in niveles):
+            raise ErrorNegocio("Choose the package levels.", 422, "validacion")
+        res["niveles"] = list(dict.fromkeys(int(x) for x in niveles)) or None
     if "tipos" in res:
         ids = list(dict.fromkeys(int(x) for x in res["tipos"] or []))
         tipos_ = {t.id: t for t in db.scalars(select(TipoEtiqueta).where(TipoEtiqueta.id.in_(ids)))}
@@ -219,6 +225,7 @@ def _partes(db: Session, t: TrabajoEtiquetas) -> list[tuple[str, dict]]:
     if t.origen == "PACKING":
         prefijo = f"pl{p.get('pl_id')}"
         return [(prefijo, {**comun, "pl_id": p.get("pl_id"), "tipo_empaque_id": p.get("tipo_empaque_id"),
+                           "niveles": p.get("niveles"),
                            "elegidas": de(prefijo, elegidas), "cantidades": de(prefijo, cantidades)})]
     elegidas_pos = set(p.get("posiciones") or [])
     res = []

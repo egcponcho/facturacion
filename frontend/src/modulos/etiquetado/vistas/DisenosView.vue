@@ -136,7 +136,7 @@ async function archivar(p) {
   <div v-if="cargando && !datos.items.length && !tipos.length" class="vacio">{{ t('Loading…') }}</div>
   <EstadoVacio v-else-if="!tipos.length" icono="etiqueta" :titulo="t('Your company has no label types yet')"
                :texto="t('Create the label types first (Setup); each design belongs to one.')">
-    <router-link to="/etiquetas/configuracion?vista=tipos" class="btn btn-primario">{{ t('Go to setup') }}</router-link>
+    <router-link to="/etiquetas/configuracion?paso=tipos" class="btn btn-primario">{{ t('Go to setup') }}</router-link>
   </EstadoVacio>
   <p v-else-if="!grupos.length" class="vacio">{{ t('No designs match these filters.') }}</p>
   <section v-for="g in grupos" :key="g.tipo.id" class="grupo-etq">
