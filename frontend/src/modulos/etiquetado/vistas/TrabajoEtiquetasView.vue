@@ -417,19 +417,32 @@ function alternarCarpeta(c) {
   p.zip = { ...p.zip, carpetas: lista }
 }
 let temporizador = null
-async function generar() {
+// Si lo que se va a imprimir cambió desde la revisión, el servidor lo dice (409 datos_cambiaron) con qué cambió
+const cambiosDatos = ref(null)
+async function revisarDeNuevo() {
+  cambiosDatos.value = null
+  ocupado.value = true
+  try {
+    if (await validar()) ir(1)
+  } finally {
+    ocupado.value = false
+  }
+}
+async function generar(aceptarCambios = false) {
+  cambiosDatos.value = null
   if (!(await guardar(true))) return
   ocupado.value = true
   try {
     const r = await api.post(`/etiquetas/trabajos/${trabajo.value.id}/generar`, { aceptar_advertencias: opciones.aceptar, parcial: opciones.parcial,
-      formato: p.formato, version: trabajo.value.version })
+      formato: p.formato, version: trabajo.value.version, aceptar_cambios: aceptarCambios })
     aplicar(r)
     if (r.estado === 'EN_PROCESO') {
       avisar(t('The labels are being generated in the background: you can leave this page.'))
       seguir()
     } else avisar(r.estado === 'PARCIAL' ? t('Generated the ready records; the ones with errors are pending.') : t('Labels generated.'))
   } catch (e) {
-    errorApi(e)
+    if (e.codigo === 'datos_cambiaron') cambiosDatos.value = e.detalle || []
+    else errorApi(e)
   } finally {
     ocupado.value = false
   }
@@ -675,7 +688,7 @@ async function otroIgual() {
           <div :style="{ width: `${Math.min(100, (trabajo.progreso * 100) / Math.max(trabajo.total, 1))}%` }"></div>
           <span>{{ t('{0} of {1} labels', [fmtNum(trabajo.progreso), fmtNum(trabajo.total)]) }}</span>
         </div>
-        <button type="button" class="btn btn-primario tj-generar" :disabled="ocupado || !pendientes.length || trabajo?.estado === 'EN_PROCESO'" @click="generar">
+        <button type="button" class="btn btn-primario tj-generar" :disabled="ocupado || !pendientes.length || trabajo?.estado === 'EN_PROCESO'" @click="generar()">
           <Icono nombre="etiqueta" :tam="16" />{{ t('Generate {0} labels', [fmtNum(etiquetasPendientes)]) }}</button>
       </template>
 
@@ -709,6 +722,17 @@ async function otroIgual() {
       </template>
     </section>
   </Asistente>
+
+  <Modal v-if="cambiosDatos" :titulo="t('The data changed since you reviewed the job')" ancho="620px" @cerrar="cambiosDatos = null">
+    <p>{{ t('What will be printed is no longer what you reviewed. Check it again, or generate with the new data.') }}</p>
+    <ul class="tj-cambios">
+      <li v-for="(c, i) in cambiosDatos" :key="i"><strong>{{ c.campo }}</strong> · {{ c.mensaje }}</li>
+    </ul>
+    <template #pie>
+      <button class="btn separar" type="button" :disabled="ocupado" @click="generar(true)">{{ t('Generate with the new data') }}</button>
+      <button class="btn btn-primario" type="button" :disabled="ocupado" @click="revisarDeNuevo">{{ t('Check it again') }}</button>
+    </template>
+  </Modal>
 
   <Modal v-if="completando" :titulo="t('Complete the datum')" ancho="480px" @cerrar="completando = null">
     <form id="form-completar" class="tj-bloque" @submit.prevent="completar">
@@ -816,5 +840,6 @@ tr.con-error > td { background: var(--error-fondo, transparent); }
 .error-txt { color: var(--error); margin: 0; }
 .aviso-txt { color: var(--aviso); margin: 0; }
 @media (max-width: 640px) { .tj-tipo { grid-template-columns: auto 1fr auto; } .tj-tipo .ayuda { grid-column: 2 / -1; } }
+.tj-cambios { margin: 8px 0 0; padding-inline-start: 18px; max-height: 45vh; overflow: auto; font-size: 0.9rem; }
 .tj-completar { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow: auto; }
 </style>

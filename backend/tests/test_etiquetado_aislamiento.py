@@ -16,12 +16,12 @@ TEXTO = [{"id": "t", "tipo": "texto", "contenido": "{{articulo.sku}}", "x": 3, "
 
 @pytest.fixture(scope="module")
 def segunda(client, admin):
-    r = admin.post("/plataforma/organizaciones", {"codigo": "ETQ2", "nombre": "Second labels company", "pais": "gt",
-                                                  "admin_email": "etq2@demo.com", "admin_nombre": "Labels admin 2",
-                                                  "admin_telefono": "+50200000002"})
+    r = admin.post("/plataforma/organizaciones", {"codigo": "ETQAIS", "nombre": "Second labels company", "pais": "gt",
+                                                  "admin_email": "etqais@demo.com", "admin_nombre": "Labels admin 2",
+                                                  "admin_telefono": "+50200000017"})
     assert r.status_code == 200, r.text
     org = r.json()
-    api = Api(client, "etq2@demo.com", org["password_temporal"])
+    api = Api(client, "etqais@demo.com", org["password_temporal"])
     assert api.post("/auth/password", {"actual": org["password_temporal"], "nueva": "Etiquetas#2026x"}).status_code == 200
     yield org, api
     admin.patch(f"/plataforma/organizaciones/{org['id']}", {"activa": False})

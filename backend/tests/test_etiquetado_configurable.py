@@ -67,3 +67,51 @@ def test_completar_desde_el_trabajo_el_dato_del_articulo(interno, admin, tnf):
         interno.post(f"/etiquetas/usos/{u['id']}/baja", {"motivo": "Test done"})
         version = next(x for x in interno.get("/etiquetas/tipos", params={"todos": True}).json() if x["id"] == t_["id"])["version"]
         interno.patch(f"/etiquetas/tipos/{t_['id']}", {"activo": False, "version": version})
+
+
+def test_trabajo_desactualizado_avisa_antes_de_generar(interno, admin):
+    """Si lo que se va a imprimir cambia entre la revisión y la generación (aquí, el SKU del
+    proveedor del artículo), generar responde 409 con qué cambió en vez de imprimir algo
+    distinto de lo revisado; un cambio en un dato que el diseño no imprime no frena nada.
+    Revisar de nuevo (o aceptar los cambios) permite generar."""
+    from app.modelos import Articulo
+
+    datos = oc_con_articulos(interno)
+    linea = datos["lineas"][0]
+    aid = articulo_de(linea["id"])
+    with SessionLocal() as db, en_organizacion(1):
+        a = db.get(Articulo, aid)
+        antes_sku, antes_peso = a.sku_proveedor, a.peso_unitario
+    assert interno.patch(f"/catalogos/articulos/{aid}", {"sku_proveedor": "REV-1"}).status_code == 200
+    t_ = tipo(interno, "DESACTUALIZADO")
+    d = aprobada(interno, admin, "Supplier SKU printed", t_["id"],
+                 [{"id": "s", "tipo": "campo", "campo": "articulo.sku_proveedor", "x": 3, "y": 3, "w": 60, "h": 8}])
+    u = uso(interno, t_["id"], d["id"])
+    try:
+        tr = trabajo(interno, "OC", {"oc_ids": [datos["oc"]["id"]], "posiciones": [linea["id"]], "tipos": [t_["id"]]})
+        # Un dato que el diseño no imprime: no frena
+        assert interno.patch(f"/catalogos/articulos/{aid}", {"peso_unitario": (antes_peso or 0) + 1}).status_code == 200
+        # El que imprime: 409 con antes y después
+        assert interno.patch(f"/catalogos/articulos/{aid}", {"sku_proveedor": "REV-2"}).status_code == 200
+        r = interno.post(f"/etiquetas/trabajos/{tr['id']}/generar", {"formato": "PDF", "version": tr["version"], "aceptar_advertencias": True})
+        assert r.status_code == 409 and r.json()["codigo"] == "datos_cambiaron", r.text
+        assert "articulo.sku_proveedor: REV-1 → REV-2" in r.json()["detalle"][0]["mensaje"]
+        # El 409 no cambia el trabajo: sigue con lo revisado hasta revisarlo de nuevo
+        tr = interno.get(f"/etiquetas/trabajos/{tr['id']}").json()
+        r = interno.post(f"/etiquetas/trabajos/{tr['id']}/generar", {"formato": "PDF", "version": tr["version"], "aceptar_advertencias": True})
+        assert r.status_code == 409
+        # Aceptar los cambios genera con los datos nuevos
+        r = interno.post(f"/etiquetas/trabajos/{tr['id']}/generar", {"formato": "PDF", "version": tr["version"], "aceptar_advertencias": True,
+                                                                     "aceptar_cambios": True})
+        assert r.status_code == 200, r.text
+        # Otro trabajo: revisar de nuevo también deja generar sin aceptar nada
+        tr = trabajo(interno, "OC", {"oc_ids": [datos["oc"]["id"]], "posiciones": [linea["id"]], "tipos": [t_["id"]]})
+        assert interno.patch(f"/catalogos/articulos/{aid}", {"sku_proveedor": "REV-3"}).status_code == 200
+        tr = interno.post(f"/etiquetas/trabajos/{tr['id']}/validar").json()
+        r = interno.post(f"/etiquetas/trabajos/{tr['id']}/generar", {"formato": "PDF", "version": tr["version"], "aceptar_advertencias": True})
+        assert r.status_code in (200, 409) and r.json().get("codigo") != "datos_cambiaron", r.text
+    finally:
+        interno.patch(f"/catalogos/articulos/{aid}", {"sku_proveedor": antes_sku, "peso_unitario": antes_peso})
+        interno.post(f"/etiquetas/usos/{u['id']}/baja", {"motivo": "Test done"})
+        version = next(x for x in interno.get("/etiquetas/tipos", params={"todos": True}).json() if x["id"] == t_["id"])["version"]
+        interno.patch(f"/etiquetas/tipos/{t_['id']}", {"activo": False, "version": version})

@@ -6952,5 +6952,10 @@
 "Free position": "Posición libre",
 "Gap": "Separación",
 "It moves with the element above when it grows, shrinks or is not printed.": "Se mueve con el elemento de arriba cuando este crece, se achica o no se imprime.",
-"an element cannot go below itself (check «Below»)": "un elemento no puede ir debajo de sí mismo (revisa «Debajo de»)"
+"an element cannot go below itself (check «Below»)": "un elemento no puede ir debajo de sí mismo (revisa «Debajo de»)",
+"Check it again": "Revisar de nuevo",
+"Generate with the new data": "Generar con los datos nuevos",
+"The data changed since the job was reviewed: check it again before generating.": "Los datos cambiaron desde que se revisó el trabajo: revísalo de nuevo antes de generar.",
+"The data changed since you reviewed the job": "Los datos cambiaron desde que revisaste el trabajo",
+"What will be printed is no longer what you reviewed. Check it again, or generate with the new data.": "Lo que se va a imprimir ya no es lo que revisaste. Revísalo de nuevo o genera con los datos nuevos."
 }

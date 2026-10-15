@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import contextvars
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -470,6 +471,41 @@ def completar(db: Session, user: Usuario, trabajo_id: int, campo: str, valores: 
     return detalle(db, user, t.id)
 
 
+# Lo que se revisó de cada registro: los valores que lee su diseño. No cuentan los que cambian
+# solos en cada revisión (fecha y número de la etiqueta, serie, contexto del trabajo).
+VOLATILES = ("etiqueta.", "contexto.")
+
+
+def _revisado(g) -> dict | None:
+    if g.version is None:
+        return None
+    datos = {}
+    for c in sorted(generacion.svc_diseno.campos_usados(g.version.diseno)):
+        if c.startswith(VOLATILES):
+            continue
+        v = g.valores.get(c)
+        if isinstance(v, (list, dict)):  # una tabla (contenido de la caja…): su huella
+            v = "#" + hashlib.sha256(json.dumps(v, sort_keys=True, default=str).encode()).hexdigest()[:16]
+        elif v is not None:
+            v = str(v)[:200]
+        datos[c] = v
+    return {"version_id": g.version.id, "cantidad": max(g.cantidad, 0), "datos": datos}
+
+
+def diferencias(antes: dict | None, ahora: dict | None) -> list[dict]:
+    """Qué cambió en lo que se va a imprimir desde la revisión: [{campo, antes, ahora}]."""
+    if not antes or not ahora:
+        return []
+    res = []
+    if antes.get("version_id") != ahora.get("version_id"):
+        res.append({"campo": "diseno", "antes": antes.get("version_id"), "ahora": ahora.get("version_id")})
+    if antes.get("cantidad") != ahora.get("cantidad"):
+        res.append({"campo": "cantidad", "antes": antes.get("cantidad"), "ahora": ahora.get("cantidad")})
+    a, b = antes.get("datos") or {}, ahora.get("datos") or {}
+    res += [{"campo": c, "antes": a.get(c), "ahora": b.get(c)} for c in sorted(set(a) | set(b)) if a.get(c) != b.get(c)]
+    return res
+
+
 def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
     """Arma los registros del trabajo con su diseño, por qué y problemas. Los ya
     generados se conservan como tales (no se vuelven a generar). Devuelve los
@@ -510,7 +546,7 @@ def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
                              "uso_id": e.uso.id if e and e.uso and getattr(e.uso, "id", None) else None,
                              "cantidad": max(g.cantidad, 0),
                              "estado": "OMITIDO" if g.omitido else _estado_registro(g.problemas), "problemas": g.problemas[:50],
-                             "motivo": (e.motivo or "")[:300] if e else None}
+                             "motivo": (e.motivo or "")[:300] if e else None, "revisado": _revisado(g)}
     # Registros: se conservan los generados; los demás se reemplazan
     for clave, r in anteriores.items():
         if r.estado == "GENERADO":
@@ -686,6 +722,12 @@ def generar(db: Session, user: Usuario, trabajo_id: int, opciones: dict) -> dict
         raise ErrorNegocio("The labels are already being generated.", 409, "estado")
     if t.estado == "CANCELADO":
         raise ErrorNegocio("The labeling job was cancelled.", 409, "estado")
+    # Lo revisado de cada registro pendiente, para avisar si lo que se va a imprimir cambió desde entonces
+    previos = {r.clave: r.revisado for r in t.registros if r.estado not in ("GENERADO", "OMITIDO") and r.revisado}
+    # Lo que el usuario cambió en el trabajo después de revisarlo (cantidades a mano, más posiciones o tipos) es su
+    # decisión, no un cambio de los datos: no se avisa
+    a_mano = {str(k) for k in ((t.parametros or {}).get("cantidades") or {})}
+    parametros_cambiados = t.estado == "BORRADOR"
     grupos = _validar(db, user, t)
     if t.resumen["problemas"]:
         raise ErrorNegocio("The labeling job has errors: fix them first.", 422, "etiquetas_con_errores",
@@ -705,6 +747,21 @@ def generar(db: Session, user: Usuario, trabajo_id: int, opciones: dict) -> dict
                             if p["nivel"] == "error"][:50])
     if not generables:
         raise ErrorNegocio("No record is ready to generate.", 422, "etiquetas_con_errores")
+    if previos and not opciones.get("aceptar_cambios"):
+        cambios = []
+        for r in generables:
+            if r.clave not in previos:
+                d = [] if parametros_cambiados else [{"campo": "registro", "antes": None, "ahora": r.referencia}]
+            else:
+                d = [x for x in diferencias(previos[r.clave], r.revisado) if not (x["campo"] == "cantidad" and r.clave in a_mano)]
+            if d:
+                cambios.append((r, d))
+        if cambios:
+            raise ErrorNegocio("The data changed since the job was reviewed: check it again before generating.", 409,
+                               "datos_cambiaron",
+                               [{"campo": r.referencia, "mensaje": "; ".join(f"{x['campo']}: {x['antes'] if x['antes'] is not None else '—'}"
+                                                                            f" → {x['ahora'] if x['ahora'] is not None else '—'}" for x in d)[:300]}
+                                for r, d in cambios][:50])
     advertencias = [{"campo": r.referencia, "mensaje": p["mensaje"]} for r in generables for p in r.problemas
                     if p["nivel"] == "advertencia"]
     if advertencias and not opciones.get("aceptar_advertencias"):

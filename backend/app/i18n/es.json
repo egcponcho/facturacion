@@ -1697,6 +1697,7 @@
 "The currency is required.":"La moneda es obligatoria.",
 "The current password is incorrect.":"La contraseña actual es incorrecta.",
 "The customs text of a list goes on each option.":"El texto aduanero de una lista va en cada opción.",
+"The data changed since the job was reviewed: check it again before generating.":"Los datos cambiaron desde que se revisó el trabajo: revísalo de nuevo antes de generar.",
 "The data changed since this preview. Upload the file again to review the current differences.":"Los datos cambiaron desde esta previa. Vuelva a subir el archivo para revisar las diferencias actuales.",
 "The data scope has suppliers, companies and carriers only.":"El alcance de los datos solo tiene proveedores, sociedades y transportistas.",
 "The date cannot be before the last event ({0}).":"La fecha no puede ser anterior al último evento ({0}).",

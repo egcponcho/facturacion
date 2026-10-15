@@ -341,6 +341,8 @@ class TrabajoRegistro(DeOrganizacion, Base):
     estado: Mapped[str] = mapped_column(String(12), default="LISTO", index=True)
     problemas: Mapped[list] = mapped_column(JSON, default=list)
     motivo: Mapped[str | None] = mapped_column(String(300))
+    # Lo que se revisó: valores que lee su diseño, versión y cantidad (para avisar si cambian antes de generar)
+    revisado: Mapped[dict | None] = mapped_column(JSON)
     generacion_id: Mapped[int | None] = mapped_column(ForeignKey("generaciones_etiqueta.id", ondelete="SET NULL"), index=True)
 
     trabajo: Mapped[TrabajoEtiquetas] = relationship(back_populates="registros")
