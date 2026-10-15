@@ -92,6 +92,7 @@ class Columna(_Base):
 
 
 AJUSTABLES = ("texto", "campo", "tabla", "imagen")  # elementos cuyo recuadro puede ajustarse al contenido
+AJUSTE_NORMAL = {"texto": "ambos", "campo": "ambos", "tabla": "alto", "imagen": "alto"}  # si el diseño no lo dice
 TRANSFORMACIONES = ("mayus", "minus", "solo_digitos", "sin_espacios", "alfanumerico")
 
 
@@ -135,7 +136,9 @@ class Elemento(_Base):
     # su anclaje (alineación horizontal y vertical) y nunca más allá del área segura; si aun así
     # no cabe, se aplica el ajuste del estilo. Las tablas crecen con sus filas y las imágenes
     # toman la proporción de la imagen.
-    ajustar: Literal["no", "ancho", "alto", "ambos"] = "no"
+    # Sin indicarlo, se ajusta (el recuadro automático es lo normal): textos y campos en ancho y alto, tablas con
+    # sus filas, imágenes con su proporción. «no» deja las medidas fijas.
+    ajustar: Literal["no", "ancho", "alto", "ambos"] | None = None
     # Debajo de otro elemento: su Y es el borde inferior de ese elemento (ya ajustado) más la separación;
     # si ese elemento no se imprime (vacío, oculto o con su condición sin cumplir), este sube a su lugar
     debajo_de: str | None = Field(None, pattern=r"^[\w-]{1,40}$")
@@ -211,6 +214,8 @@ class Elemento(_Base):
             self.estilo = Estilo()
         if t not in AJUSTABLES:
             self.ajustar = "no"
+        elif self.ajustar is None:
+            self.ajustar = AJUSTE_NORMAL[t]
         return self
 
 

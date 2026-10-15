@@ -33,7 +33,7 @@ const routes = [
       return true
     } },
   { path: '/etiquetas/disenos', component: () => import('@/modulos/etiquetado/vistas/DisenosView.vue'), meta: { permiso: 'etiquetas.ver' } },
-  { path: '/etiquetas/disenos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta' } },
+  { path: '/etiquetas/disenos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta', lienzo: true } },
   { path: '/etiquetas/plantillas/:id(\\d+)', redirect: (to) => `/etiquetas/disenos/${to.params.id}` },
   { path: '/etiquetas/configuracion', component: () => import('@/modulos/etiquetado/vistas/ConfiguracionEtiquetadoView.vue'), meta: { permiso: 'etiquetas.ver' } },
   // Asistente único de etiquetado (todas las entradas crean un trabajo); las rutas anteriores llevan a él

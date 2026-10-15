@@ -109,38 +109,39 @@ def test_codigos_validados_sin_inventar_identificadores():
 
 
 def test_texto_largo_vacio_condiciones_y_limites():
+    """Con medidas fijas («ajustar»: «no»): reducir, cortar o desbordar; campo vacío, condiciones y límites."""
     largo = "Men's waterproof breathable rain jacket with adjustable hood"
-    base = {"x": 2, "y": 2, "w": 40, "h": 6, "estilo": {"tam": 12}}
-    reducido = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": "Men's waterproof rain jacket", **base,
+    base = {"ajustar": "no", "x": 2, "y": 2, "w": 40, "h": 6, "estilo": {"tam": 12}}
+    reducido = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": "Men's waterproof rain jacket", **base,
                                          "estilo": {"tam": 12, "tam_min": 6}}]), {})
     assert 6 <= reducido.prims[-1].tam < 12 and not reducido.advertencias
-    cortado = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": largo, **base,
+    cortado = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": largo, **base,
                                         "estilo": {"tam": 12, "ajuste": "cortar"}}]), {})
     assert cortado.prims[-1].lineas[0][0].endswith("…") and {p["codigo"] for p in cortado.advertencias} == {"texto_cortado"}
-    desborda = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": largo, **base,
+    desborda = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": largo, **base,
                                          "estilo": {"tam": 12, "ajuste": "ninguno"}}]), {})
     assert {p["codigo"] for p in desborda.advertencias} == {"texto_desborda"}
-    multilinea = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": largo, "x": 2, "y": 2, "w": 40, "h": 30,
+    multilinea = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": largo, "x": 2, "y": 2, "w": 40, "h": 30,
                                            "estilo": {"tam": 9, "multilinea": True}}]), {})
     assert len(multilinea.prims[-1].lineas) >= 3 and not multilinea.problemas
     # Campo vacío: advertir, ocultar, texto alternativo o error
-    campo = {"id": "c", "tipo": "campo", "campo": "articulo.color", "x": 2, "y": 2, "w": 40, "h": 8}
+    campo = {"id": "c", "tipo": "campo", "ajustar": "no", "campo": "articulo.color", "x": 2, "y": 2, "w": 40, "h": 8}
     assert {p["codigo"] for p in render.componer(_diseno([campo]), {}).advertencias} == {"campo_vacio"}
     assert not render.componer(_diseno([{**campo, "si_vacio": "ocultar"}]), {}).problemas
     alt = render.componer(_diseno([{**campo, "si_vacio": "alternativo", "alternativo": "N/A"}]), {})
     assert alt.prims[-1].lineas[0][0] == "N/A"
     assert {p["codigo"] for p in render.componer(_diseno([{**campo, "si_vacio": "error"}]), {}).errores} == {"campo_obligatorio"}
     # Condición: el elemento solo aparece si el campo tiene valor
-    cond = {"id": "x", "tipo": "texto", "contenido": "PREPACK", "x": 2, "y": 2, "w": 30, "h": 8,
+    cond = {"id": "x", "tipo": "texto", "ajustar": "no", "contenido": "PREPACK", "x": 2, "y": 2, "w": 30, "h": 8,
             "condicion": {"campo": "articulo.prepack", "op": "existe"}}
     assert len(render.componer(_diseno([cond]), {}).prims) == 1  # solo el fondo
     assert len(render.componer(_diseno([cond]), {"articulo.prepack": "PPK-6"}).prims) == 2
     # Límites
     fuera = render.componer(_diseno([{"id": "f", "tipo": "rect", "x": 120, "y": 2, "w": 10, "h": 5, "relleno": "#000000"}]), {})
     assert {p["codigo"] for p in fuera.errores} == {"fuera_de_la_etiqueta"}
-    parcial = render.componer(_diseno([{"id": "p", "tipo": "texto", "contenido": "x", "x": 95, "y": 2, "w": 10, "h": 5}]), {})
+    parcial = render.componer(_diseno([{"id": "p", "tipo": "texto", "ajustar": "no", "contenido": "x", "x": 95, "y": 2, "w": 10, "h": 5}]), {})
     assert {p["codigo"] for p in parcial.advertencias} == {"fuera_de_limites"}
-    pequeno = render.componer(_diseno([{"id": "s", "tipo": "texto", "contenido": "x", "x": 3, "y": 3, "w": 10, "h": 5,
+    pequeno = render.componer(_diseno([{"id": "s", "tipo": "texto", "ajustar": "no", "contenido": "x", "x": 3, "y": 3, "w": 10, "h": 5,
                                         "estilo": {"tam": 4, "tam_min": 3}}]), {})
     assert {p["codigo"] for p in pequeno.advertencias} == {"texto_pequeno"}
 
@@ -159,7 +160,7 @@ def test_hoja_de_varias_etiquetas_y_giro():
     d = svc_diseno.validar({"ancho": 60, "alto": 30, "hoja": {"modo": "hoja", "papel_ancho": 210, "papel_alto": 297,
                                                               "columnas": 3, "filas": 8, "margen_sup": 10, "margen_izq": 7,
                                                               "espacio_h": 2.5, "espacio_v": 4},
-                            "elementos": [{"id": "t", "tipo": "texto", "contenido": "{{etiqueta.numero}}", "x": 18, "y": 11, "w": 24,
+                            "elementos": [{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": "{{etiqueta.numero}}", "x": 18, "y": 11, "w": 24,
                                            "h": 8, "rot": 90}]})
     lienzos = [render.componer(d, {"etiqueta.numero": i}) for i in range(1, 31)]
     with pdfplumber.open(io.BytesIO(salidas.pdf(lienzos, d["hoja"]))) as doc:
@@ -173,7 +174,7 @@ def test_hoja_de_varias_etiquetas_y_giro():
         assert im.convert("L").getextrema()[0] < 128  # hay texto oscuro (girado, dentro de la etiqueta)
     assert not lienzos[0].problemas
     girado = render.componer(svc_diseno.validar({"ancho": 60, "alto": 30, "elementos": [
-        {"id": "t", "tipo": "texto", "contenido": "x", "x": 5, "y": 5, "w": 30, "h": 10, "rot": 90}]}), {})
+        {"id": "t", "tipo": "texto", "ajustar": "no", "contenido": "x", "x": 5, "y": 5, "w": 30, "h": 10, "rot": 90}]}), {})
     assert {p["codigo"] for p in girado.advertencias} == {"fuera_de_limites"}  # girado, se sale por arriba
 
 

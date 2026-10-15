@@ -206,9 +206,15 @@ export function maquetar(texto, estilo, ancho, alto) {
 }
 
 // ---- Recuadro que se ajusta al contenido (render.ajustar_caja) ---------------------------------
-export const AJUSTES_CAJA = () => [['no', t('Fixed size')], ['ambos', t('Fit the box to the content')],
-  ['ancho', t('Fit the width')], ['alto', t('Fit the height (wrap lines)')]]
 export const AJUSTABLES = ['texto', 'campo', 'tabla', 'imagen']
+// El recuadro automático es lo normal (diseno.AJUSTE_NORMAL); «no» deja las medidas fijas
+export const AJUSTE_NORMAL = { texto: 'ambos', campo: 'ambos', tabla: 'alto', imagen: 'alto' }
+// Cómo crece el recuadro automático de cada tipo
+export const CRECIMIENTOS = () => ({
+  texto: [['ambos', t('Width and height')], ['ancho', t('Only the width (one line)')], ['alto', t('Wrap into lines')]],
+  imagen: [['alto', t('Height from the image')], ['ancho', t('Width from the image')]],
+  tabla: [['alto', t('With its rows')]],
+})
 // Los que se leen: el servidor avisa si se tapan entre sí (salvo los marcados «superponer»)
 export const CON_CONTENIDO = ['texto', 'campo', 'imagen', 'codigo', 'tabla']
 const ANCLA_H = { izq: 'ini', centro: 'centro', der: 'fin' }
@@ -353,11 +359,11 @@ export function elementoNuevo(tipo, x = 5, y = 5, extra = {}) {
   if (tipo === 'texto') return { ...base, contenido: t('Text'), estilo: { tam: 10 }, ajustar: 'ambos', ...extra }
   if (tipo === 'campo') return { ...base, w: 50, campo: extra.campo, estilo: { tam: 10 }, si_vacio: 'advertir', ajustar: 'ambos', ...extra }
   if (tipo === 'codigo') return { ...base, w: 50, h: 18, simbologia: 'code128', valor: '{{articulo.sku}}', legible: true, margen: 1, ...extra }
-  if (tipo === 'imagen') return { ...base, w: 20, h: 12, fuente_imagen: 'campo', campo: 'organizacion.logo', encaje: 'contener', ...extra }
+  if (tipo === 'imagen') return { ...base, w: 20, h: 12, fuente_imagen: 'campo', campo: 'organizacion.logo', encaje: 'contener', ajustar: 'alto', ...extra }
   if (tipo === 'rect') return { ...base, w: 30, h: 15, relleno: null, borde: '#000000', grosor: 0.3, ...extra }
   if (tipo === 'elipse') return { ...base, w: 15, h: 15, relleno: null, borde: '#000000', grosor: 0.3, ...extra }
   if (tipo === 'linea') return { ...base, w: 40, h: 0, color: '#000000', grosor: 0.3, ...extra }
-  if (tipo === 'tabla') return { ...base, w: 80, h: 30, alto_fila: 5, encabezado: true, cuadricula: true, desborde: 'error', totales: [],
+  if (tipo === 'tabla') return { ...base, w: 80, h: 30, alto_fila: 5, ajustar: 'alto', encabezado: true, cuadricula: true, desborde: 'error', totales: [],
     color: '#000000', grosor: 0.2, estilo: { tam: 7, tam_min: 5 }, coleccion: '', columnas: [], ...extra }
   return { ...base, ...extra }
 }

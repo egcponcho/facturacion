@@ -3,7 +3,7 @@ import { t } from '@/i18n/index.js'
 import { computed, onMounted, ref } from 'vue'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
-import { IDIOMAS_ETIQUETA, catalogos } from '@/modulos/etiquetado/etiquetas.js'
+import { AJUSTABLES, AJUSTE_NORMAL, IDIOMAS_ETIQUETA, catalogos } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -32,6 +32,12 @@ function elegirTamano(i) {
 function girarEtiqueta() {
   if (no.value) return
   ;[d.value.ancho, d.value.alto] = [d.value.alto, d.value.ancho]
+}
+// Elementos con medidas fijas (diseños hechos antes del recuadro automático): se pasan todos de una vez
+const fijos = computed(() => (d.value.elementos || []).filter((e) => AJUSTABLES.includes(e.tipo) && (!e.ajustar || e.ajustar === 'no')))
+function todosAutomaticos() {
+  if (no.value) return
+  for (const e of fijos.value) e.ajustar = AJUSTE_NORMAL[e.tipo]
 }
 function borde(activo) {
   if (no.value) return
@@ -89,6 +95,10 @@ const noCabe = computed(() => {
 
 <template>
   <div class="panel-prop">
+    <div v-if="fijos.length && !no" class="nota nota-auto">
+      <p>{{ fijos.length === 1 ? t('1 element has a fixed box: it does not grow with its content.') : t('{0} elements have a fixed box: they do not grow with their content.', [fijos.length]) }}</p>
+      <button type="button" class="btn btn-chico" @click="todosAutomaticos"><Icono nombre="auto-caja" :tam="15" />{{ t('Turn on the automatic box in all') }}</button>
+    </div>
     <h4>{{ t('Label dimensions') }}</h4>
     <div class="segmentos" role="group" :aria-label="t('Unit')">
       <button v-for="x in ['mm', 'cm', 'in']" :key="x" type="button" class="segmento" :aria-pressed="u === x" :disabled="no" @click="d.unidad = x">{{ x }}</button>
@@ -195,6 +205,8 @@ const noCabe = computed(() => {
 </template>
 
 <style scoped>
+.nota-auto { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin: 0 0 6px; }
+.nota-auto p { margin: 0; font-size: 0.8rem; }
 .panel-prop { display: flex; flex-direction: column; gap: 8px; }
 .panel-prop h4 { margin: 12px 0 0; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .panel-prop h4:first-child { margin-top: 0; }

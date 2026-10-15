@@ -44,7 +44,7 @@ def limpiar(interno):
 
 # ---- Tablas (motor de dibujo) ------------------------------------------------------------------
 def _tabla(**kw):
-    e = {"id": "t", "tipo": "tabla", "coleccion": "bulto.lineas", "x": 2, "y": 2, "w": 90, "h": 30, "alto_fila": 5,
+    e = {"id": "t", "tipo": "tabla", "ajustar": "no", "coleccion": "bulto.lineas", "x": 2, "y": 2, "w": 90, "h": 30, "alto_fila": 5,
          "columnas": [{"campo": "sku", "titulo": "SKU", "ancho": 3}, {"campo": "talla", "titulo": "Size"},
                       {"campo": "cantidad", "titulo": "Qty", "alin": "der"}],
          "totales": ["cantidad"], "estilo": {"tam": 8, "tam_min": 6}, **kw}

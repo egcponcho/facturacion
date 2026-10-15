@@ -281,6 +281,23 @@ export function crearEditor() {
     if (!ed.editable) return
     for (const e of seleccionados.value) e.grupo = null
   }
+  // Los elegidos ya forman un solo grupo / se pueden agrupar (dos o más que no son ya el mismo grupo)
+  const agrupados = computed(() => seleccionados.value.some((e) => e.grupo))
+  const agrupables = computed(() => seleccionados.value.length > 1
+    && !(seleccionados.value.every((e) => e.grupo) && new Set(seleccionados.value.map((e) => e.grupo)).size === 1))
+  // Gira lo elegido sobre su centro (en pasos de 90°: etiquetas laterales)
+  function girar(grados) {
+    if (!ed.editable) return
+    for (const e of movibles()) e.rot = (((e.rot || 0) + grados) % 360 + 360) % 360
+  }
+  // Lleva lo elegido (como bloque) al centro de la etiqueta: horizontal, vertical o ambos
+  function centrar(eje = 'ambos') {
+    if (!ed.editable || !movibles().length) return
+    const c = caja(seleccionados.value)
+    const dx = eje !== 'v' ? (ed.diseno.ancho - (c.x2 - c.x1)) / 2 - c.x1 : 0
+    const dy = eje !== 'h' ? (ed.diseno.alto - (c.y2 - c.y1)) / 2 - c.y1 : 0
+    mover(dx, dy)
+  }
   function alternar(prop) {
     if (!ed.editable || !seleccionados.value.length) return
     const valor = prop === 'visible' ? !seleccionados.value.every((e) => e.visible !== false) : !seleccionados.value.every((e) => e.bloqueado)
@@ -328,7 +345,7 @@ export function crearEditor() {
     estado: ed, elementos, seleccionados, unico, problemasDe, porId,
     cargar, guardado, fotografiar, retocar, deshacer, rehacer, seleccionar, seleccionarTodo, ajustar,
     agregar, eliminar, duplicar, copiar, pegar, mover, alinear, distribuir, igualar, ordenar, moverCapa,
-    agrupar, desagrupar, alternar, caja, codigos, codigoServidor, camposTodos, ejemplosTodos,
+    agrupar, desagrupar, agrupados, agrupables, girar, centrar, alternar, caja, codigos, codigoServidor, camposTodos, ejemplosTodos,
   }
   provide(CLAVE, api)
   return api

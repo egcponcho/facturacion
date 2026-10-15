@@ -5,6 +5,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import Icono from '@/componentes/Icono.vue'
+import MenuAcciones from '@/componentes/MenuAcciones.vue'
 import Modal from '@/componentes/Modal.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { fmtNum } from '@/nucleo/utils'
@@ -14,6 +15,8 @@ import { avisar, errorApi } from '@/stores/ui'
 import { CANTIDADES, SUJETOS, alCargarFuente, cargarFuentes, ponerRegional } from '@/modulos/etiquetado/etiquetas.js'
 import { crearEditor } from '@/modulos/etiquetado/editor/estado.js'
 import LienzoEtiqueta from '@/modulos/etiquetado/editor/LienzoEtiqueta.vue'
+import BarraEditor from '@/modulos/etiquetado/editor/BarraEditor.vue'
+import MenuContexto from '@/modulos/etiquetado/editor/MenuContexto.vue'
 import BibliotecaCampos from '@/modulos/etiquetado/editor/BibliotecaCampos.vue'
 import CapasEtiqueta from '@/modulos/etiquetado/editor/CapasEtiqueta.vue'
 import PanelElemento from '@/modulos/etiquetado/editor/PanelElemento.vue'
@@ -38,8 +41,15 @@ const guardando = ref(false)
 const fuentes = ref(0)
 let quitarAviso = null
 const lienzo = ref(null)
-const panelIzq = ref('biblioteca')
-const panelDer = ref('propiedades')
+// Paneles: a la izquierda uno a la vez (campos, capas, vista previa o versiones; plegable) y a la derecha
+// las propiedades (plegable). Se recuerdan por navegador.
+const leerPaneles = () => { try { return JSON.parse(localStorage.getItem('editor-etiqueta-paneles') || '{}') } catch { return {} } }
+const panelesGuardados = leerPaneles()
+const panelIzq = ref(panelesGuardados.izq === undefined ? 'campos' : panelesGuardados.izq)
+const panelDer = ref(panelesGuardados.der !== false)
+watch([panelIzq, panelDer], ([izq, der]) => { try { localStorage.setItem('editor-etiqueta-paneles', JSON.stringify({ izq, der })) } catch { /* sin almacenamiento */ } })
+const abrirPanel = (p) => (panelIzq.value = panelIzq.value === p ? null : p)
+const menuContexto = ref(null)
 
 const disenador = computed(() => puede('etiquetas.disenar'))
 const editable = computed(() => disenador.value && plantilla.value?.estado === 'ACTIVA' && ['BORRADOR', 'RECHAZADA'].includes(version.value?.estado))
@@ -218,7 +228,7 @@ const aviso = computed(() => {
       ? { texto: t('Version {0} is approved and never changes. Version {1} is in progress.', [v.numero, abierta.value.numero]), accion: [t('Open version {0}', [abierta.value.numero]), () => cambiarVersion(abierta.value.id)] }
       : { texto: t('Version {0} is approved and never changes: changes go in a new version, which replaces it once approved.', [v.numero]), accion: [t('Create new version'), nuevaVersion] }
   }
-  if (v.estado === 'PENDIENTE') return { texto: t('Version {0} is waiting for approval. Withdraw it from approval to keep editing.', [v.numero]), accion: [t('See versions'), () => (panelDer.value = 'versiones')] }
+  if (v.estado === 'PENDIENTE') return { texto: t('Version {0} is waiting for approval. Withdraw it from approval to keep editing.', [v.numero]), accion: [t('See versions'), () => (panelIzq.value = 'versiones')] }
   if (v.estado === 'ARCHIVADA') return { texto: t('Version {0} is archived: it is kept for the history.', [v.numero]) }
   return null
 })
@@ -238,6 +248,7 @@ function teclas(ev) {
   }
   const escribiendo = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable
   if (escribiendo || document.querySelector('.modal-fondo')) return
+  if (k === 'escape' && menuContexto.value) return (menuContexto.value = null)
   const hecho = () => ev.preventDefault()
   if (mod && k === 'z' && !ev.shiftKey) return hecho(), ed.deshacer()
   if ((mod && k === 'y') || (mod && k === 'z' && ev.shiftKey)) return hecho(), ed.rehacer()
@@ -267,6 +278,7 @@ const ATAJOS = computed(() => [
   [t('Arrows (Shift: ×10)'), t('Move one grid step')], ['[ / ]', t('Send backward / bring forward')], ['+ / − / Ctrl + 0', t('Zoom in / out / fit')],
   [t('Space + drag'), t('Move around the canvas')], [t('Shift while dragging'), t('Straight line, keep proportions, rotate in steps of 15°')],
   [t('Alt while dragging'), t('No guides and no grid')], [t('Double click a text'), t('Edit it on the label')],
+  [t('Right click'), t('Actions on what is selected')],
 ])
 
 function antesDeSalir(e) {
@@ -296,17 +308,12 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
 <template>
   <div v-if="cargando && !plantilla" class="editor-etq cargando-ed"><p class="ayuda">{{ t('Loading…') }}</p></div>
   <div v-else-if="plantilla && version && est.diseno" class="editor-etq">
-    <!-- Cabecera: diseño, versión y acciones -->
+    <!-- Cabecera: el diseño, su versión, el estado para imprimir y guardar -->
     <header class="ed-cabeza">
       <router-link to="/etiquetas/disenos" class="btn btn-icono" :aria-label="t('Back to designs')" :title="t('Back to designs')"><Icono nombre="atras" /></router-link>
       <div class="ed-titulo">
-        <h1>{{ tx(plantilla.nombre) }}</h1>
-        <p class="ed-meta">
-          <span>{{ tx(plantilla.tipo) }}</span> ·
-          <span>{{ SUJETOS()[plantilla.sujeto] }}</span> ·
-          <span>{{ medida }}</span>
-          <button v-if="disenador && plantilla.estado === 'ACTIVA'" type="button" class="btn btn-texto btn-chico" @click="abrirDatos">{{ t('Edit data') }}</button>
-        </p>
+        <h1 :title="tx(plantilla.nombre)">{{ tx(plantilla.nombre) }}</h1>
+        <p class="ed-meta"><span>{{ tx(plantilla.tipo) }}</span><span>{{ SUJETOS()[plantilla.sujeto] }}</span><span>{{ medida }}</span></p>
       </div>
       <div class="ed-version">
         <Seleccion :model-value="version.id" :aria-label="t('Version')" @change="cambiarVersion">
@@ -314,12 +321,22 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
         </Seleccion>
         <EstadoBadge :estado="version.estado" tipo="etiqueta" />
       </div>
+      <button type="button" class="btn btn-chico ed-estado-previa" :class="{ error: errores, aviso: !errores && avisos }" :title="t('See the preview and its problems')"
+              @click="panelIzq = 'previa'">
+        <Icono :nombre="errores ? 'alerta' : avisos ? 'info' : 'check'" :tam="15" />
+        <span>{{ errores ? (errores === 1 ? t('1 error') : t('{0} errors', [errores])) : avisos ? (avisos === 1 ? t('1 warning') : t('{0} warnings', [avisos])) : t('Ready to print') }}</span>
+      </button>
       <div class="ed-acciones">
         <span v-if="editable" class="indicador-guardado" :class="{ sucio: est.sucio }">{{ guardando ? t('Saving…') : est.sucio ? t('Unsaved changes') : t('Saved') }}</span>
         <button v-if="editable && est.sucio" type="button" class="btn btn-texto btn-chico" @click="recargarVersion">{{ t('Discard') }}</button>
         <button v-if="editable" type="button" class="btn" :disabled="!est.sucio || guardando" @click="guardar"><Icono nombre="check" :tam="16" />{{ t('Save') }}</button>
         <button v-if="editable && version.estado === 'BORRADOR'" type="button" class="btn btn-primario" :disabled="errores > 0 || guardando"
-                :title="errores ? t('Fix the errors first') : ''" @click="enviar"><Icono nombre="enviar" :tam="16" />{{ t('Send for approval') }}</button>
+                :title="errores ? t('Fix the errors first') : ''" @click="enviar"><Icono nombre="enviar" :tam="16" /><span class="ed-txt-largo">{{ t('Send for approval') }}</span></button>
+        <MenuAcciones :etiqueta="t('More options of the design')">
+          <button v-if="disenador && plantilla.estado === 'ACTIVA'" type="button" role="menuitem" @click="abrirDatos">{{ t('Design data (name, type)') }}</button>
+          <button type="button" role="menuitem" @click="panelIzq = 'versiones'">{{ t('Versions and approval') }}</button>
+          <button type="button" role="menuitem" @click="ayudaTeclas = true">{{ t('Keyboard shortcuts') }}</button>
+        </MenuAcciones>
       </div>
     </header>
 
@@ -328,65 +345,51 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
     <div v-else-if="version.estado === 'RECHAZADA' && version.comentario" class="nota ed-aviso rechazo"><Icono nombre="alerta" :tam="16" />
       <span>{{ t('Rejected by {0}: «{1}». Fix it and send it again.', [version.revisada_por || '—', version.comentario]) }}</span></div>
 
-    <!-- Barra de herramientas -->
-    <div class="ed-barra" role="toolbar" :aria-label="t('Editor tools')">
-      <button type="button" class="btn btn-icono btn-chico" :disabled="!editable || !est.historia.length" :title="t('Undo (Ctrl+Z)')" :aria-label="t('Undo')" @click="ed.deshacer()"><Icono nombre="deshacer" :tam="16" /></button>
-      <button type="button" class="btn btn-icono btn-chico" :disabled="!editable || !est.futuro.length" :title="t('Redo (Ctrl+Y)')" :aria-label="t('Redo')" @click="ed.rehacer()"><Icono nombre="rehacer" :tam="16" /></button>
-      <span class="sep" />
-      <button type="button" class="btn btn-icono btn-chico" :title="t('Zoom out')" :aria-label="t('Zoom out')" @click="alejar"><Icono nombre="zoom-menos" :tam="16" /></button>
-      <button type="button" class="btn btn-chico zoom-txt" :title="t('Actual scale (100 %)')" @click="zoom(1)">{{ Math.round(est.zoom * 100) }} %</button>
-      <button type="button" class="btn btn-icono btn-chico" :title="t('Zoom in')" :aria-label="t('Zoom in')" @click="acercar"><Icono nombre="zoom-mas" :tam="16" /></button>
-      <button type="button" class="btn btn-icono btn-chico" :title="t('Fit to screen (Ctrl+0)')" :aria-label="t('Fit to screen')" @click="lienzo?.ajustarZoom()"><Icono nombre="ajustar" :tam="16" /></button>
-      <span class="sep" />
-      <button type="button" class="btn btn-icono btn-chico" :class="{ activo: est.diseno.cuadricula.visible }" :aria-pressed="est.diseno.cuadricula.visible" :title="t('Show grid')" :aria-label="t('Show grid')"
-              @click="est.diseno.cuadricula.visible = !est.diseno.cuadricula.visible"><Icono nombre="cuadricula" :tam="16" /></button>
-      <button type="button" class="btn btn-chico" :class="{ activo: est.diseno.cuadricula.ajustar }" :aria-pressed="est.diseno.cuadricula.ajustar" @click="est.diseno.cuadricula.ajustar = !est.diseno.cuadricula.ajustar">{{ t('Snap') }}</button>
-      <template v-if="est.seleccion.length && editable">
-        <span class="sep" />
-        <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
-                :key="m" type="button" class="btn btn-icono btn-chico" :title="txt" :aria-label="txt" @click="ed.alinear(m)"><Icono :nombre="i" :tam="16" /></button>
-        <span class="sep" />
-        <button type="button" class="btn btn-icono btn-chico" :title="t('Duplicate (Ctrl+D)')" :aria-label="t('Duplicate')" @click="ed.duplicar()"><Icono nombre="copiar" :tam="16" /></button>
-        <button type="button" class="btn btn-icono btn-chico" :title="t('Delete (Del)')" :aria-label="t('Delete')" @click="ed.eliminar()"><Icono nombre="basura" :tam="16" /></button>
-      </template>
-      <span class="crece" />
-      <button type="button" class="btn btn-chico ed-estado-previa" :class="{ error: errores, aviso: !errores && avisos }" @click="panelDer = 'previa'">
-        <Icono :nombre="errores ? 'alerta' : avisos ? 'info' : 'check'" :tam="15" />
-        {{ errores ? (errores === 1 ? t('1 error') : t('{0} errors', [errores])) : avisos ? (avisos === 1 ? t('1 warning') : t('{0} warnings', [avisos])) : t('Ready to print') }}
-      </button>
-      <button type="button" class="btn btn-icono btn-chico" :title="t('Keyboard shortcuts')" :aria-label="t('Keyboard shortcuts')" @click="ayudaTeclas = true">?</button>
-    </div>
+    <BarraEditor @acercar="acercar" @alejar="alejar" @zoom100="zoom(1)" @ajustar="lienzo?.ajustarZoom()" @campos="panelIzq = 'campos'" />
 
-    <div class="ed-cuerpo">
-      <aside class="ed-lado ed-izq">
-        <nav class="pestanas-pildora ed-pestanas" role="tablist">
-          <button type="button" role="tab" class="pildora" :aria-selected="panelIzq === 'biblioteca'" @click="panelIzq = 'biblioteca'">{{ t('Add') }}</button>
-          <button type="button" role="tab" class="pildora" :aria-selected="panelIzq === 'capas'" @click="panelIzq = 'capas'">{{ t('Layers') }} ({{ ed.elementos.value.length }})</button>
-        </nav>
+    <div class="ed-cuerpo" :class="{ 'sin-izq': !panelIzq, 'sin-der': !panelDer }">
+      <!-- Riel: qué panel se ve a la izquierda (otro clic lo pliega) -->
+      <nav class="ed-riel" :aria-label="t('Panels')">
+        <button v-for="[clave, icono, texto, cuenta, marca] in [
+                  ['campos', 'campo', t('Fields'), null, null],
+                  ['capas', 'capas', t('Layers'), ed.elementos.value.length, null],
+                  ['previa', 'ojo', t('Preview'), null, errores ? 'error' : avisos ? 'aviso' : null],
+                  ['versiones', 'historial', t('Versions'), plantilla.versiones.length, null]]"
+                :key="clave" type="button" class="riel-btn" :class="{ activo: panelIzq === clave }" :aria-pressed="panelIzq === clave"
+                :title="panelIzq === clave ? t('Hide the panel') : texto" @click="abrirPanel(clave)">
+          <span class="riel-icono"><Icono :nombre="icono" :tam="18" /><span v-if="marca" class="riel-marca" :class="marca" /></span>
+          <span class="riel-texto">{{ texto }}<template v-if="cuenta"> · {{ cuenta }}</template></span>
+        </button>
+      </nav>
+      <aside v-if="panelIzq" class="ed-lado ed-izq" :aria-label="{ campos: t('Fields'), capas: t('Layers'), previa: t('Preview'), versiones: t('Versions') }[panelIzq]">
+        <header class="ed-lado-cabeza">
+          <h2>{{ { campos: t('Data fields'), capas: t('Layers'), previa: t('Preview with real data'), versiones: t('Versions and approval') }[panelIzq] }}</h2>
+          <button type="button" class="btn btn-icono btn-chico" :title="t('Hide the panel')" :aria-label="t('Hide the panel')" @click="panelIzq = null"><Icono nombre="panel-izq" :tam="16" /></button>
+        </header>
         <div class="ed-scroll">
-          <BibliotecaCampos v-if="panelIzq === 'biblioteca'" :grupos="grupos" />
-          <CapasEtiqueta v-else />
-        </div>
-      </aside>
-      <main class="ed-centro">
-        <LienzoEtiqueta ref="lienzo" :fuentes="fuentes" @zoom="zoom" />
-      </main>
-      <aside class="ed-lado ed-der">
-        <nav class="pestanas-pildora ed-pestanas" role="tablist">
-          <button type="button" role="tab" class="pildora" :aria-selected="panelDer === 'propiedades'" @click="panelDer = 'propiedades'">{{ est.seleccion.length ? t('Element') : t('Label') }}</button>
-          <button type="button" role="tab" class="pildora" :aria-selected="panelDer === 'previa'" @click="panelDer = 'previa'">{{ t('Preview') }}</button>
-          <button type="button" role="tab" class="pildora" :aria-selected="panelDer === 'versiones'" @click="panelDer = 'versiones'">{{ t('Versions') }} ({{ plantilla.versiones.length }})</button>
-        </nav>
-        <div class="ed-scroll">
-          <template v-if="panelDer === 'propiedades'">
-            <PanelElemento v-if="est.seleccion.length" :grupos="grupos" />
-            <PanelEtiqueta v-else />
-          </template>
-          <VistaPrevia v-else-if="panelDer === 'previa'" :cargando="previaCargando" />
+          <BibliotecaCampos v-if="panelIzq === 'campos'" :grupos="grupos" />
+          <CapasEtiqueta v-else-if="panelIzq === 'capas'" />
+          <VistaPrevia v-else-if="panelIzq === 'previa'" :cargando="previaCargando" />
           <VersionesEtiqueta v-else :plantilla="plantilla" :actual="version.id" :sucio="est.sucio && editable" @abrir="cambiarVersion" @cambio="alCambiarVersiones" />
         </div>
       </aside>
+      <main class="ed-centro">
+        <LienzoEtiqueta ref="lienzo" :fuentes="fuentes" @zoom="zoom" @menu="(p) => (menuContexto = p)" />
+        <button v-if="!panelDer" type="button" class="btn btn-chico ed-abrir-der" @click="panelDer = true"><Icono nombre="panel-der" :tam="16" />{{ t('Properties') }}</button>
+      </main>
+      <aside v-if="panelDer" class="ed-lado ed-der" :aria-label="t('Properties')">
+        <header class="ed-lado-cabeza">
+          <h2>{{ ed.seleccionados.value.length > 1 ? t('{0} elements selected', [ed.seleccionados.value.length]) : est.seleccion.length ? t('Element') : t('Label') }}</h2>
+          <button type="button" class="btn btn-icono btn-chico" :title="t('Hide the panel')" :aria-label="t('Hide the panel')" @click="panelDer = false"><Icono nombre="panel-der" :tam="16" /></button>
+        </header>
+        <div class="ed-scroll">
+          <PanelElemento v-if="est.seleccion.length" :grupos="grupos" />
+          <PanelEtiqueta v-else />
+        </div>
+      </aside>
     </div>
+
+    <MenuContexto v-if="menuContexto" :x="menuContexto.x" :y="menuContexto.y" @cerrar="menuContexto = null" />
 
     <Modal v-if="datos" :titulo="t('Design data')" @cerrar="datos = null">
       <label class="campo"><span>{{ t('Name') }}</span><input v-model="datos.nombre" maxlength="120" /></label>
@@ -410,48 +413,71 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
 </template>
 
 <style scoped>
-.editor-etq { display: flex; flex-direction: column; height: calc(100vh - 108px); min-height: 560px; gap: 10px; }
+.editor-etq { display: flex; flex-direction: column; height: calc(100vh - 100px); min-height: 560px; gap: 8px; }
 .cargando-ed { align-items: center; justify-content: center; }
-.ed-cabeza { display: flex; align-items: center; gap: 12px; }
-@media (max-width: 1100px) {
-  .ed-cabeza { flex-wrap: wrap; }
-  .ed-cabeza .ed-titulo { flex: 1 1 calc(100% - 60px); }
-  .ed-cabeza .ed-meta { flex-wrap: wrap; white-space: normal; }
-  .ed-cabeza .ed-titulo h1 { white-space: normal; }
-}
-.ed-titulo { flex: 1; min-width: 0; }
-.ed-titulo h1 { margin: 0; font-size: 1.3rem; line-height: 1.25; }
-.ed-meta { margin: 2px 0 0; font-size: 0.8rem; color: var(--tinta-3); display: flex; gap: 4px; align-items: center; white-space: nowrap; overflow: hidden; }
-.ed-meta > span { overflow: hidden; text-overflow: ellipsis; }
-.ed-titulo h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ed-version { display: flex; align-items: center; gap: 8px; }
-.ed-version :deep(.sb) { min-width: 170px; }
-.ed-acciones { display: flex; align-items: center; gap: 8px; }
-.indicador-guardado { font-size: 0.78rem; color: var(--ok); }
+/* Cabecera en una línea; en pantallas angostas pasa a dos */
+.ed-cabeza { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 6px; }
+.ed-titulo { flex: 1 1 220px; min-width: 0; }
+.ed-titulo h1 { margin: 0; font-size: 1.15rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-meta { margin: 1px 0 0; font-size: 0.78rem; color: var(--tinta-3); display: flex; gap: 6px; white-space: nowrap; overflow: hidden; }
+.ed-meta span { overflow: hidden; text-overflow: ellipsis; }
+.ed-meta span + span::before { content: '·'; margin-inline-end: 6px; }
+.ed-version { display: flex; align-items: center; gap: 8px; flex: none; }
+.ed-version :deep(.sb) { min-width: 160px; }
+.ed-acciones { display: flex; align-items: center; gap: 6px; flex: none; }
+.indicador-guardado { font-size: 0.76rem; color: var(--ok); white-space: nowrap; }
 .indicador-guardado.sucio { color: var(--aviso); }
-.ed-aviso { display: flex; align-items: center; gap: 10px; margin: 0; }
-.ed-aviso span { flex: 1; }
-.ed-aviso.rechazo { background: var(--error-fondo); color: var(--error); border-color: transparent; }
-.ed-barra { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 5px 8px; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; }
-.ed-barra .sep { width: 1px; height: 22px; background: var(--linea); margin: 0 4px; }
-.ed-barra .activo { background: var(--acento-claro); border-color: var(--acento-medio); color: var(--acento-texto); }
-.zoom-txt { min-width: 58px; font-variant-numeric: tabular-nums; }
-.ed-estado-previa { color: var(--ok); }
+.ed-estado-previa { color: var(--ok); flex: none; }
 .ed-estado-previa.aviso { color: var(--aviso); }
 .ed-estado-previa.error { color: var(--error); }
-.ed-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: 250px minmax(0, 1fr) 330px; gap: 10px; }
-.ed-lado { display: flex; flex-direction: column; min-height: 0; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
-.ed-pestanas { padding: 8px 8px 0; flex-wrap: wrap; }
-.ed-scroll { flex: 1; overflow: auto; padding: 10px 12px 16px; }
-.ed-centro { min-height: 0; border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
+.ed-aviso { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; }
+.ed-aviso span { flex: 1; }
+.ed-aviso.rechazo { background: var(--error-fondo); color: var(--error); border-color: transparent; }
+/* Cuerpo: riel | panel izquierdo | lienzo | propiedades */
+.ed-cuerpo { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: 64px 272px minmax(0, 1fr) 316px; gap: 8px; }
+.ed-cuerpo.sin-izq { grid-template-columns: 64px minmax(0, 1fr) 316px; }
+.ed-cuerpo.sin-der { grid-template-columns: 64px 272px minmax(0, 1fr); }
+.ed-cuerpo.sin-izq.sin-der { grid-template-columns: 64px minmax(0, 1fr); }
+.ed-riel { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; }
+.riel-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; border: 0; border-radius: 8px; background: none;
+  color: var(--tinta-3); font: inherit; font-size: 0.68rem; line-height: 1.15; cursor: pointer; text-align: center; }
+.riel-btn:hover { background: var(--superficie-2); color: var(--tinta); }
+.riel-btn.activo { background: var(--acento-claro); color: var(--acento-texto); }
+.riel-icono { position: relative; display: inline-flex; }
+.riel-marca { position: absolute; top: -2px; inset-inline-end: -4px; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--superficie); }
+.riel-marca.error { background: var(--error); }
+.riel-marca.aviso { background: var(--aviso); }
+.riel-texto { overflow-wrap: anywhere; }
+.ed-lado { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
+.ed-lado-cabeza { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--linea); }
+.ed-lado-cabeza h2 { flex: 1; min-width: 0; margin: 0; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-scroll { flex: 1; overflow: auto; padding: 10px 12px 16px; min-width: 0; }
+/* Dentro de los paneles nada se sale por el borde: las columnas y los selectores se encogen */
+.ed-scroll :deep(.rejilla-2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ed-scroll :deep(.sb) { min-width: 0; width: 100%; }
+.ed-scroll :deep(input), .ed-scroll :deep(select), .ed-scroll :deep(textarea) { max-width: 100%; min-width: 0; box-sizing: border-box; }
+.ed-centro { position: relative; min-height: 0; min-width: 0; border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
+.ed-abrir-der { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2; box-shadow: var(--sombra-flotante); }
 kbd { font-family: ui-monospace, monospace; font-size: 0.78rem; background: var(--superficie-2); border: 1px solid var(--linea); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; }
-@media (max-width: 1100px) {
-  .ed-cuerpo { grid-template-columns: 220px minmax(0, 1fr) 290px; }
+@media (max-width: 1400px) {
+  .ed-cuerpo { grid-template-columns: 64px 248px minmax(0, 1fr) 296px; }
+  .ed-cuerpo.sin-izq { grid-template-columns: 64px minmax(0, 1fr) 296px; }
+  .ed-cuerpo.sin-der { grid-template-columns: 64px 248px minmax(0, 1fr); }
+}
+/* Pantallas medianas: el panel izquierdo flota sobre el lienzo en vez de quitarle espacio */
+@media (max-width: 1180px) {
+  .ed-cuerpo, .ed-cuerpo.sin-izq { grid-template-columns: 64px minmax(0, 1fr) 284px; }
+  .ed-cuerpo.sin-der, .ed-cuerpo.sin-izq.sin-der { grid-template-columns: 64px minmax(0, 1fr); }
+  .ed-izq { position: absolute; z-index: 5; top: 0; bottom: 0; inset-inline-start: 72px; width: 280px; box-shadow: var(--sombra-flotante); }
+  .ed-txt-largo { display: none; }
 }
 @media (max-width: 900px) {
   .editor-etq { height: auto; }
-  .ed-cuerpo { grid-template-columns: 1fr; }
+  .ed-cuerpo, .ed-cuerpo.sin-izq, .ed-cuerpo.sin-der, .ed-cuerpo.sin-izq.sin-der { grid-template-columns: 1fr; }
+  .ed-riel { flex-direction: row; overflow-x: auto; }
+  .riel-btn { flex: 1; }
+  .ed-izq { position: static; width: auto; box-shadow: none; max-height: 60vh; }
   .ed-centro { height: 60vh; order: -1; }
-  .ed-lado { max-height: 70vh; }
+  .ed-der { max-height: 70vh; }
 }
 </style>

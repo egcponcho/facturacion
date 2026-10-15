@@ -3,9 +3,10 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
+import Interruptor from '@/componentes/Interruptor.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { errorApi } from '@/stores/ui'
-import { AJUSTABLES, AJUSTES_CAJA, CON_CONTENIDO, LISTAS, maquetar, seguidores, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
+import { AJUSTABLES, AJUSTE_NORMAL, CRECIMIENTOS, CON_CONTENIDO, LISTAS, maquetar, seguidores, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -62,12 +63,13 @@ const letraReducida = computed(() => {
   const m = maquetar(txt, est, x.w, x.h)
   return m.tam < est.tam - 0.01 ? Math.round(m.tam * 4) / 4 : null
 })
-const opcionesAjuste = computed(() => {
-  const tipo = e.value?.tipo
-  if (tipo === 'tabla') return [['no', t('Fixed size')], ['alto', t('Grow with its rows')]]
-  if (tipo === 'imagen') return [['no', t('Fixed size')], ['alto', t('Height from the image proportion')], ['ancho', t('Width from the image proportion')]]
-  return AJUSTES_CAJA()
-})
+// Recuadro automático (lo normal) o medidas fijas; si es automático, cómo crece
+const automatico = computed(() => !!e.value?.ajustar && e.value.ajustar !== 'no')
+const crecimientos = computed(() => CRECIMIENTOS()[['texto', 'campo'].includes(e.value?.tipo) ? 'texto' : e.value?.tipo] || [])
+function alternarAutomatico(si) {
+  if (bloqueado.value) return
+  e.value.ajustar = si ? AJUSTE_NORMAL[e.value.tipo] : 'no'
+}
 const ayudaAjuste = computed(() => ({
   no: t('The box keeps its size; if the text does not fit, the option «If it does not fit» applies.'),
   ambos: t('The box grows or shrinks with the text and its letter size, from its alignment, up to the safe area.'),
@@ -161,7 +163,6 @@ function fuenteImagen(v) {
 <template>
   <!-- Varios elementos -->
   <div v-if="ed.seleccionados.value.length > 1" class="panel-prop">
-    <p class="prop-titulo">{{ t('{0} elements selected', [ed.seleccionados.value.length]) }}</p>
     <h4>{{ t('Align') }}</h4>
     <div class="botonera">
       <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
@@ -176,7 +177,7 @@ function fuenteImagen(v) {
     </div>
     <p class="ayuda">{{ t('They align with each other; with a single element, it aligns to the label.') }}</p>
     <div class="botonera mt">
-      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.agrupar()"><Icono nombre="agrupar" :tam="15" />{{ t('Group') }}</button>
+      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.agrupar()"><Icono nombre="agrupar" :tam="15" />{{ t('Group them') }}</button>
       <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.duplicar()"><Icono nombre="copiar" :tam="15" />{{ t('Duplicate') }}</button>
       <button type="button" class="btn btn-chico btn-peligro" :disabled="!est.editable" @click="ed.eliminar()"><Icono nombre="basura" :tam="15" />{{ t('Delete') }}</button>
     </div>
@@ -197,6 +198,18 @@ function fuenteImagen(v) {
     </div>
 
     <h4>{{ t('Position and size') }}</h4>
+    <div v-if="AJUSTABLES.includes(e.tipo)" class="auto-caja" :class="{ apagado: !automatico }">
+      <div class="auto-fila">
+        <Icono nombre="auto-caja" :tam="16" />
+        <span class="auto-texto"><strong>{{ t('Automatic box') }}</strong>
+          <small>{{ automatico ? ayudaAjuste : t('Fixed size: if the content does not fit, the option «If it does not fit» applies.') }}</small></span>
+        <Interruptor :model-value="automatico" :etiqueta="t('Automatic box')" :deshabilitado="bloqueado" @update:model-value="alternarAutomatico" />
+      </div>
+      <div v-if="automatico && crecimientos.length > 1" class="segmentos-mini" role="radiogroup" :aria-label="t('How it grows')">
+        <button v-for="[v, txt] in crecimientos" :key="v" type="button" role="radio" :aria-checked="e.ajustar === v" :disabled="bloqueado"
+                :class="{ activo: e.ajustar === v }" @click="e.ajustar = v">{{ txt }}</button>
+      </div>
+    </div>
     <div class="rejilla-2">
       <Medida v-model="e.x" etiqueta="X" :unidad="u" :disabled="bloqueado" />
       <Medida v-model="e.y" etiqueta="Y" :unidad="u" :disabled="bloqueado || !!e.debajo_de" />
@@ -217,12 +230,6 @@ function fuenteImagen(v) {
     <small v-if="e.debajo_de" class="ayuda">{{ t('It moves with the element above when it grows, shrinks or is not printed.') }}</small>
     <label v-if="CON_CONTENIDO.includes(e.tipo)" class="check-linea mt-chico" :title="t('Without this, the preview and the job warn when it covers or is covered by another text, code, table or image.')">
       <input type="checkbox" :checked="!!e.superponer" :disabled="bloqueado" @change="e.superponer = $event.target.checked" />{{ t('It can go over other elements') }}</label>
-    <label v-if="AJUSTABLES.includes(e.tipo)" class="campo-mini mt-chico"><span>{{ t('Box size') }}</span>
-      <Seleccion :model-value="e.ajustar || 'no'" :disabled="bloqueado" :aria-label="t('Box size')" @change="(v) => (e.ajustar = v)">
-        <option v-for="[v, txt] in opcionesAjuste" :key="v" :value="v">{{ txt }}</option>
-      </Seleccion>
-      <small class="ayuda">{{ ayudaAjuste }}</small>
-    </label>
     <div class="botonera mt-chico">
       <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
               :key="m" type="button" class="btn btn-icono btn-chico" :disabled="bloqueado" :title="t('Align to the label: {0}', [txt])" :aria-label="txt" @click="ed.alinear(m)"><Icono :nombre="i" :tam="15" /></button>
@@ -427,7 +434,7 @@ function fuenteImagen(v) {
         <Medida :model-value="estilo.tam ?? 10" :etiqueta="t('Letter height')" unidad="pt" :min="3" :max="400" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'tam', v)" />
       </div>
       <p v-if="letraReducida" class="nota mt-chico">{{ t('The box is fixed: the letter is reduced to {0} pt to fit.', [letraReducida]) }}
-        <button v-if="!bloqueado" type="button" class="enlace" @click="e.ajustar = 'ambos'">{{ t('Fit the box to the content') }}</button></p>
+        <button v-if="!bloqueado" type="button" class="enlace" @click="e.ajustar = 'ambos'">{{ t('Turn on the automatic box') }}</button></p>
       <div class="botonera mt-chico">
         <button v-for="[p, txt, cls] in [['negrita', 'B', 'fw'], ['cursiva', 'I', 'it'], ['subrayado', 'U', 'ul'], ['tachado', 'S', 'st'], ['mayusculas', 'AA', '']]" :key="p" type="button"
                 class="btn btn-icono btn-chico btn-estilo" :class="[cls, { activo: estilo[p] }]" :aria-pressed="!!estilo[p]" :disabled="bloqueado"
@@ -485,6 +492,17 @@ function fuenteImagen(v) {
 </template>
 
 <style scoped>
+.auto-caja { border: 1px solid var(--acento-medio); background: var(--acento-claro); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.auto-caja.apagado { border-color: var(--linea); background: var(--superficie-2); }
+.auto-fila { display: flex; align-items: center; gap: 8px; }
+.auto-fila > :first-child { color: var(--acento-texto); flex: none; }
+.auto-caja.apagado .auto-fila > :first-child { color: var(--tinta-3); }
+.auto-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 0.82rem; }
+.auto-texto small { color: var(--tinta-3); font-size: 0.74rem; line-height: 1.3; }
+.segmentos-mini { display: flex; gap: 2px; margin-top: 8px; padding: 2px; border-radius: 7px; background: var(--superficie); border: 1px solid var(--linea); }
+.segmentos-mini button { flex: 1; border: 0; background: none; border-radius: 5px; padding: 4px 6px; font-size: 0.74rem; color: var(--tinta-2); cursor: pointer; }
+.segmentos-mini button.activo { background: var(--acento); color: #fff; }
+.segmentos-mini button:disabled { cursor: default; opacity: 0.6; }
 .panel-prop { display: flex; flex-direction: column; gap: 6px; }
 .panel-prop h4 { margin: 12px 0 2px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .prop-titulo { margin: 0; font-weight: 600; }
