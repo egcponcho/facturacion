@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import Asistente from '@/componentes/Asistente.vue'
+import BarraSeleccion from '@/componentes/BarraSeleccion.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
@@ -58,6 +59,7 @@ function aplicar(tr) {
   Object.assign(p, { oc_ids: par.oc_ids || [], posiciones: par.posiciones || [], cantidades: par.cantidades || {}, articulos: par.articulos || [],
     pl_id: par.pl_id || '', tipo_empaque_id: par.tipo_empaque_id || '', familia_id: par.familia_id || '', tipos: par.tipos || [],
     prueba: !!par.prueba, elegidas: par.elegidas || {}, manuales: par.manuales || {}, formato: par.formato || 'PDF', zip: zipConDefecto(par.zip) })
+  porPosiciones.value = (par.posiciones || []).length > 0
 }
 async function cargar(id) {
   try {
@@ -143,6 +145,8 @@ onMounted(async () => {
   const q = route.query
   origen.value = ['OC', 'ARTICULOS', 'PACKING', 'FAMILIA'].includes(q.origen) ? q.origen : 'OC'
   p.oc_ids = ids(q.ocs || q.oc)
+  p.posiciones = ids(q.posiciones)
+  porPosiciones.value = p.posiciones.length > 0
   p.articulos = ids(q.articulos).map((id) => ({ articulo_id: id, cantidad: 1 }))
   p.pl_id = q.pl ? Number(q.pl) : ''
   p.prueba = q.prueba === '1'
@@ -187,7 +191,8 @@ async function ir(i) {
 const cerrar = () => router.push('/etiquetas')
 
 // ---- 1. Qué imprimir ------------------------------------------------------------------------------------------
-const listoParaCrear = computed(() => p.tipos.length > 0 && ((origenServidor.value === 'OC' && p.oc_ids.length) || (origen.value === 'ARTICULOS' && p.articulos.length)
+const listoParaCrear = computed(() => p.tipos.length > 0 && ((origenServidor.value === 'OC' && p.oc_ids.length && (!porPosiciones.value || p.posiciones.length))
+  || (origen.value === 'ARTICULOS' && p.articulos.length)
   || (origen.value === 'PACKING' && p.pl_id)))
 const sujetosOrigen = computed(() => cat.value?.origenes?.[origenServidor.value] || [])
 const tiposOrigen = computed(() => tipos.value.filter((x) => sujetosOrigen.value.includes(x.sujeto)))
@@ -249,17 +254,46 @@ async function elegirFamilia(id) {
   p.familia_id = id || ''
   p.oc_ids = id ? (await api.get('/etiquetas/ordenes', { familia_id: id, solo_ids: true }).catch(() => ({ ids: [] }))).ids.slice(0, 200) : []
 }
-// Líneas de la OC (solo con pocas OC): por defecto todas las abiertas
+// Posiciones de la OC: toda la OC (lo normal) o solo las líneas elegidas (con búsqueda y elegir todas)
+const porPosiciones = ref(false)
 const lineas = reactive({})
-const verLineas = ref(false)
-watch(verLineas, (v) => v && p.oc_ids.slice(0, 5).forEach((id) => {
-  if (!lineas[id]) api.get(`/ordenes/${id}`).then((r) => (lineas[id] = r.posiciones)).catch(() => {})
-}))
-const elegida = (id) => !p.posiciones.length || p.posiciones.includes(id)
+const filtroLineas = ref('')
+function cargarLineas() {
+  for (const id of p.oc_ids) {
+    if (!lineas[id]) api.get(`/ordenes/${id}`).then((r) => (lineas[id] = r.posiciones)).catch(() => (lineas[id] = []))
+  }
+}
+watch([porPosiciones, () => p.oc_ids.join()], () => {
+  if (!porPosiciones.value) return
+  cargarLineas()
+  // Las líneas de una OC que se quitó dejan de estar elegidas
+  const validas = new Set(p.oc_ids.flatMap((id) => (lineas[id] || []).map((l) => l.id)))
+  if (p.oc_ids.every((id) => lineas[id])) p.posiciones = p.posiciones.filter((x) => validas.has(x))
+})
+function elegirPosiciones() {
+  porPosiciones.value = true
+}
+function todaLaOc() {
+  porPosiciones.value = false
+  p.posiciones = []
+}
+const normal = (x) => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+const lineasDe = (id) => {
+  const f = normal(filtroLineas.value)
+  return (lineas[id] || []).filter((l) => !f || normal([l.posicion, l.codigo_articulo, l.descripcion, l.color, l.talla].join(' ')).includes(f))
+}
+const totalLineas = computed(() => p.oc_ids.reduce((s, id) => s + (lineas[id]?.length || 0), 0))
+const todasDe = (id) => lineasDe(id).length > 0 && lineasDe(id).every((l) => p.posiciones.includes(l.id))
 function alternarLinea(id) {
-  let lista = p.posiciones.length ? [...p.posiciones] : Object.values(lineas).flat().map((x) => x.id)
-  lista = lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id]
-  p.posiciones = lista
+  p.posiciones = p.posiciones.includes(id) ? p.posiciones.filter((x) => x !== id) : [...p.posiciones, id]
+}
+function alternarOc(id, si) {
+  const del = lineasDe(id).map((l) => l.id)
+  p.posiciones = si ? [...new Set([...p.posiciones, ...del])] : p.posiciones.filter((x) => !del.includes(x))
+}
+function todasLineas(si) {
+  const visibles = p.oc_ids.flatMap((id) => lineasDe(id).map((l) => l.id))
+  p.posiciones = si ? [...new Set([...p.posiciones, ...visibles])] : p.posiciones.filter((x) => !visibles.includes(x))
 }
 // Cuántas etiquetas de cada tipo, antes de crear el trabajo (una OC o una lista de empaque)
 const resumen = ref(null)
@@ -283,7 +317,35 @@ watch(tiposTrabajo, (l) => {
 const LIMITE = 200
 const mostrar = ref(LIMITE)
 watch(tipoVista, () => (mostrar.value = LIMITE))
-const delTipo = computed(() => registros.value.filter((r) => r.tipo_etiqueta_id === tipoVista.value))
+// Arriba de la tabla: buscar, ver solo lo que tiene problemas y poner la cantidad a varios de una vez
+const buscarRev = ref('')
+const filtroRev = ref('todos')
+const delTipoTodos = computed(() => registros.value.filter((r) => r.tipo_etiqueta_id === tipoVista.value))
+const delTipo = computed(() => {
+  const f = normal(buscarRev.value)
+  return delTipoTodos.value.filter((r) => (filtroRev.value === 'todos' || (filtroRev.value === 'problemas' ? ['ERROR', 'ADVERTENCIA'].includes(r.estado)
+    : !['ERROR', 'ADVERTENCIA'].includes(r.estado))) && (!f || normal(`${r.referencia} ${r.plantilla || ''}`).includes(f)))
+})
+const selRev = ref([])
+watch([tipoVista, filtroRev, buscarRev], () => (selRev.value = []))
+const todosRev = computed(() => delTipo.value.length > 0 && delTipo.value.slice(0, mostrar.value).every((r) => selRev.value.includes(r.clave)))
+function alternarRev(r) {
+  selRev.value = selRev.value.includes(r.clave) ? selRev.value.filter((x) => x !== r.clave) : [...selRev.value, r.clave]
+}
+const alternarTodosRev = () => (selRev.value = todosRev.value ? [] : delTipo.value.slice(0, mostrar.value).map((r) => r.clave))
+const cantidadLote = ref(1)
+function aplicarCantidadLote() {
+  const n = Math.max(Number(cantidadLote.value) || 0, 0)
+  p.cantidades = { ...p.cantidades, ...Object.fromEntries(selRev.value.map((k) => [k, n])) }
+  selRev.value = []
+  revalidar()
+}
+function cantidadOriginal(r) {
+  const c = { ...p.cantidades }
+  delete c[r.clave]
+  p.cantidades = c
+  revalidar()
+}
 const tipoActual = computed(() => tipos.value.find((x) => x.id === tipoVista.value))
 const disenosTrabajo = computed(() => trabajo.value?.resumen?.disenos || [])
 const variables = computed(() => trabajo.value?.resumen?.variables || [])
@@ -320,9 +382,10 @@ function cambiarCantidad(r, v) {
 // Completar el dato que falta en el maestro de artículos (UPC, SKU del proveedor, peso…) sin salir del asistente
 const completable = (x) => !!x.campo && (cat.value?.completables || []).includes(x.campo) && puede('catalogos.editar')
 const completando = ref(null)
+const claveProblema = (x) => `${x.categoria}|${x.nivel}|${x.mensaje}|${x.campo || ''}`
 function abrirCompletar(x) {
   const articulos = Object.entries(x.articulos).slice(0, 200).map(([id, referencia]) => ({ id, referencia }))
-  completando.value = { campo: x.campo, nombre: x.mensaje, articulos, valores: Object.fromEntries(articulos.map((a) => [a.id, ''])) }
+  completando.value = { clave: claveProblema(x), campo: x.campo, nombre: x.mensaje, articulos, valores: Object.fromEntries(articulos.map((a) => [a.id, ''])) }
 }
 async function completar() {
   const c = completando.value
@@ -571,20 +634,45 @@ async function otroIgual() {
             <button type="button" class="btn-icono" :aria-label="t('Remove')" @click="p.oc_ids = p.oc_ids.filter((x) => x !== id)"><Icono nombre="cerrar" :tam="12" /></button></span>
           <span v-if="!p.oc_ids.length" class="ayuda">{{ t('Choose one or more POs (or start from the PO list and select several).') }}</span>
         </div>
-        <details v-if="p.oc_ids.length && p.oc_ids.length <= 5" class="tj-lineas" @toggle="verLineas = $event.target.open">
-          <summary>{{ p.posiciones.length ? t('Lines: {0} chosen', [p.posiciones.length]) : t('Lines: all the open ones') }}</summary>
-          <div v-for="id in p.oc_ids" :key="id">
-            <h4>{{ t('PO {0}', [nombres.oc[id] || id]) }}</h4>
-            <table v-if="lineas[id]" class="tabla tj-tabla">
-              <tbody><tr v-for="l in lineas[id]" :key="l.id">
-                <td><input type="checkbox" :checked="elegida(l.id)" :aria-label="t('Label this line')" @change="alternarLinea(l.id)" /></td>
-                <td>{{ l.posicion }}</td><td>{{ l.codigo_articulo }} <span class="ayuda">{{ [l.color, l.talla].filter(Boolean).join(' · ') }}</span></td>
-                <td class="num">{{ fmtNum(l.cantidad) }} {{ l.unidad }}</td>
-              </tr></tbody>
-            </table>
-            <p v-else class="ayuda">{{ t('Loading…') }}</p>
+        <div v-if="p.oc_ids.length" class="tj-posiciones">
+          <div class="tj-seg" role="radiogroup" :aria-label="t('Which lines')">
+            <button type="button" role="radio" :aria-checked="!porPosiciones" :class="{ activo: !porPosiciones }" @click="todaLaOc">
+              <strong>{{ p.oc_ids.length === 1 ? t('The whole PO') : t('The whole POs') }}</strong><span>{{ t('All its open lines') }}</span></button>
+            <button type="button" role="radio" :aria-checked="porPosiciones" :class="{ activo: porPosiciones }" @click="elegirPosiciones">
+              <strong>{{ t('Only some lines') }}</strong><span>{{ t('Choose the lines to label') }}</span></button>
           </div>
-        </details>
+          <template v-if="porPosiciones">
+            <div class="tj-barra-lista">
+              <label class="buscador tj-buscar"><Icono nombre="buscar" :tam="15" />
+                <input v-model="filtroLineas" type="search" :placeholder="t('Search line, SKU, color or size')" :aria-label="t('Search line')" /></label>
+              <span class="ayuda">{{ t('{0} of {1} lines chosen', [p.posiciones.length, totalLineas]) }}</span>
+              <span class="crece" />
+              <button type="button" class="btn btn-chico" @click="todasLineas(true)"><Icono nombre="check" :tam="14" />{{ filtroLineas ? t('Choose the ones found') : t('Choose all') }}</button>
+              <button type="button" class="btn btn-chico" :disabled="!p.posiciones.length" @click="todasLineas(false)">{{ t('Clear') }}</button>
+            </div>
+            <div v-for="id in p.oc_ids" :key="id" class="tj-pos-oc">
+              <div class="tj-pos-cabeza">
+                <label class="check"><input type="checkbox" :checked="todasDe(id)" :disabled="!lineasDe(id).length" @change="alternarOc(id, $event.target.checked)" />
+                  <strong>{{ t('PO {0}', [nombres.oc[id] || id]) }}</strong></label>
+                <span class="ayuda">{{ lineas[id] ? t('{0} lines', [lineas[id].length]) : t('Loading…') }}</span>
+              </div>
+              <div v-if="lineasDe(id).length" class="tj-scroll tj-scroll-corto">
+                <table class="tabla tj-tabla tj-lineas">
+                  <thead><tr><th class="chk"></th><th>{{ t('Line') }}</th><th>{{ t('Item') }}</th><th>{{ t('Color and size') }}</th><th class="num">{{ t('Quantity') }}</th></tr></thead>
+                  <tbody><tr v-for="l in lineasDe(id)" :key="l.id" :class="{ elegida: p.posiciones.includes(l.id) }" @click="alternarLinea(l.id)">
+                    <td class="chk"><input type="checkbox" :checked="p.posiciones.includes(l.id)" :aria-label="t('Label line {0}', [l.posicion])" @click.stop @change="alternarLinea(l.id)" /></td>
+                    <td>{{ l.posicion }}</td>
+                    <td>{{ l.codigo_articulo }}<span v-if="l.descripcion" class="ayuda"> · {{ tx(l.descripcion) }}</span></td>
+                    <td class="ayuda">{{ [l.color, l.talla].filter(Boolean).join(' · ') || '—' }}</td>
+                    <td class="num">{{ fmtNum(l.cantidad) }} {{ l.unidad }}</td>
+                  </tr></tbody>
+                </table>
+              </div>
+              <p v-else-if="lineas[id]" class="ayuda">{{ filtroLineas ? t('No line matches.') : t('This PO has no open lines.') }}</p>
+            </div>
+            <p v-if="!p.posiciones.length" class="nota aviso"><Icono nombre="info" :tam="15" /> {{ t('Choose at least one line to continue.') }}</p>
+          </template>
+        </div>
       </div>
       <div v-else-if="origen === 'FAMILIA'" class="tj-bloque">
         <label class="campo"><span>{{ t('Labeling family') }}</span>
@@ -642,16 +730,40 @@ async function otroIgual() {
       <div v-if="generales.length || sinDiseno.length || otrosProblemas.length || avisos.length" class="panel tj-bloque">
         <h3 class="tj-h">{{ t('Problems') }}</h3>
         <p v-for="(x, i) in generales" :key="`g${i}`" :class="x.nivel === 'error' ? 'error-txt' : 'aviso-txt'"><Icono :nombre="NIVEL_ICONO[x.nivel]" :tam="14" /> {{ tx(x.mensaje) }}</p>
-        <div v-for="g in sinDiseno" :key="g.tipo.id" class="tj-problema">
-          <span class="error-txt"><Icono nombre="alerta" :tam="14" /> {{ t('{0} records without a design of “{1}”', [g.registros.length, tx(g.tipo.nombre)]) }}</span>
-          <button type="button" class="btn btn-chico" :disabled="ocupado" @click="abrirEleccion(g)">{{ t('Choose design') }}</button>
+        <div v-for="g in sinDiseno" :key="g.tipo.id" class="tj-problema-caja">
+          <div class="tj-problema">
+            <span class="error-txt"><Icono nombre="alerta" :tam="14" /> {{ t('{0} records without a design of “{1}”', [g.registros.length, tx(g.tipo.nombre)]) }}</span>
+            <button v-if="eleccion?.grupo.tipo.id !== g.tipo.id" type="button" class="btn btn-chico" :disabled="ocupado" @click="abrirEleccion(g)">{{ t('Choose design') }}</button>
+          </div>
+          <div v-if="eleccion?.grupo.tipo.id === g.tipo.id" class="tj-en-linea">
+            <SelectorDiseno v-model="eleccion.plantilla_id" :tipo-id="eleccion.grupo.tipo.id" />
+            <label v-if="puede('etiquetas.configurar')" class="check"><input v-model="eleccion.regla" type="checkbox" /> {{ t('Save it as the design of') }}
+              <Seleccion v-model="eleccion.lugar" :disabled="!eleccion.regla" :aria-label="t('Place')">
+                <option v-for="l in eleccion.lugares" :key="l.clave" :value="l.clave">{{ l.nombre }}</option></Seleccion></label>
+            <p class="ayuda">{{ eleccion.regla ? t('Next jobs use it too; it can be changed in Setup → Which design goes on what.') : t('Only for this job.') }}</p>
+            <div class="tj-fila">
+              <button type="button" class="btn btn-primario" :disabled="!eleccion.plantilla_id || ocupado" @click="aplicarEleccion">{{ t('Use this design') }}</button>
+              <button type="button" class="btn" @click="eleccion = null">{{ t('Cancel') }}</button>
+            </div>
+          </div>
         </div>
         <details v-for="(x, i) in otrosProblemas" :key="`o${i}`" class="tj-problema-det">
           <summary :class="x.nivel === 'error' ? 'error-txt' : 'aviso-txt'"><Icono :nombre="NIVEL_ICONO[x.nivel]" :tam="14" />
             {{ tx(x.mensaje) }} <span class="ayuda">· {{ CATEGORIAS()[x.categoria] || x.categoria }} · {{ t('{0} records', [x.referencias.length]) }}</span></summary>
           <p class="ayuda">{{ x.referencias.slice(0, 30).join(' · ') }}<template v-if="x.referencias.length > 30"> …</template></p>
-          <button v-if="completable(x)" type="button" class="btn btn-chico" :disabled="ocupado"
+          <button v-if="completable(x) && completando?.clave !== claveProblema(x)" type="button" class="btn btn-chico" :disabled="ocupado"
                   @click="abrirCompletar(x)">{{ t('Complete the datum') }}</button>
+          <form v-if="completando?.clave === claveProblema(x)" class="tj-en-linea" @submit.prevent="completar">
+            <p class="nota">{{ t('Each item gets its own value; it is saved in its master data (same validations and history as Master data). Leave empty the ones you do not know.') }}</p>
+            <div class="tj-completar">
+              <label v-for="a in completando.articulos" :key="a.id" class="campo"><span>{{ a.referencia }}</span>
+                <input v-model="completando.valores[a.id]" maxlength="120" /></label>
+            </div>
+            <div class="tj-fila">
+              <button class="btn btn-primario" type="submit" :disabled="ocupado || !Object.values(completando.valores).some((v) => String(v).trim())">{{ t('Save and check again') }}</button>
+              <button class="btn" type="button" @click="completando = null">{{ t('Cancel') }}</button>
+            </div>
+          </form>
         </details>
         <p v-for="(x, i) in avisos" :key="`a${i}`" class="aviso-txt"><Icono nombre="info" :tam="14" /> {{ tx(x.mensaje || x) }}</p>
       </div>
@@ -668,19 +780,32 @@ async function otroIgual() {
           <button v-for="x in tiposTrabajo" :key="x.tipo_etiqueta_id" type="button" class="pestana" role="tab" :aria-selected="tipoVista === x.tipo_etiqueta_id"
                   @click="tipoVista = x.tipo_etiqueta_id">{{ tx(x.tipo) }} <span class="cuenta" :class="{ alerta: x.errores }">{{ fmtNum(x.etiquetas) }}</span></button>
         </nav>
+        <div class="tj-barra-lista">
+          <label class="buscador tj-buscar"><Icono nombre="buscar" :tam="15" />
+            <input v-model="buscarRev" type="search" :placeholder="t('Search record or design')" :aria-label="t('Search record')" /></label>
+          <div class="segmentos-txt" role="radiogroup" :aria-label="t('Show')">
+            <button v-for="[v, txt] in [['todos', t('All')], ['problemas', t('With problems')], ['listos', t('Without problems')]]" :key="v" type="button" role="radio"
+                    :aria-checked="filtroRev === v" :class="{ activo: filtroRev === v }" @click="filtroRev = v">{{ txt }}</button>
+          </div>
+          <span class="ayuda">{{ t('{0} of {1}', [fmtNum(delTipo.length), fmtNum(delTipoTodos.length)]) }}</span>
+        </div>
         <div class="tj-scroll">
           <table class="tabla tj-tabla">
-            <thead><tr><th>{{ t('Labeled record') }}</th><th>{{ t('Design') }}</th><th>{{ t('Why') }}</th><th class="num">{{ t('Quantity') }}</th><th></th></tr></thead>
+            <thead><tr><th class="chk"><input type="checkbox" :checked="todosRev" :disabled="!delTipo.length || ocupado" :aria-label="t('Select all')" @change="alternarTodosRev" /></th>
+              <th>{{ t('Labeled record') }}</th><th>{{ t('Design') }}</th><th>{{ t('Why') }}</th><th class="num">{{ t('Quantity') }}</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="r in delTipo.slice(0, mostrar)" :key="r.id" :class="{ 'con-error': r.estado === 'ERROR' }">
+              <tr v-for="r in delTipo.slice(0, mostrar)" :key="r.id" :class="{ 'con-error': r.estado === 'ERROR', elegida: selRev.includes(r.clave) }">
+                <td class="chk"><input type="checkbox" :checked="selRev.includes(r.clave)" :disabled="ocupado" :aria-label="t('Select {0}', [r.referencia])" @change="alternarRev(r)" /></td>
                 <td>{{ r.referencia }}</td>
                 <td><template v-if="r.plantilla">{{ tx(r.plantilla) }} <span class="ayuda">v{{ r.version }}</span></template>
                   <span v-else class="etiqueta error ms-0">{{ t('No design') }}</span></td>
                 <td class="ayuda">{{ tx(r.motivo || '') }}</td>
-                <td class="num">
-                  <input v-if="tipoActual?.cantidad === 'MANUAL' || origen === 'ARTICULOS' || p.cantidades[r.clave] != null" :value="r.cantidad" type="number" min="0" class="tj-num"
-                         :aria-label="t('Labels')" :disabled="ocupado" @change="cambiarCantidad(r, $event.target.value)" />
-                  <button v-else type="button" class="enlace" :title="t('Change the quantity')" @click="p.cantidades = { ...p.cantidades, [r.clave]: r.cantidad }">{{ fmtNum(r.cantidad) }}</button>
+                <td class="num tj-cantidad">
+                  <input :value="r.cantidad" type="number" min="0" class="tj-num" :class="{ propia: p.cantidades[r.clave] != null }" :aria-label="t('Labels of {0}', [r.referencia])"
+                         :disabled="ocupado" :title="p.cantidades[r.clave] != null ? t('Quantity written by hand') : t('Quantity from the data; write another to change it')"
+                         @keydown.enter="$event.target.blur()" @change="cambiarCantidad(r, $event.target.value)" />
+                  <button v-if="p.cantidades[r.clave] != null && tipoActual?.cantidad !== 'MANUAL' && origen !== 'ARTICULOS'" type="button" class="btn-icono"
+                          :title="t('Back to the quantity from the data')" :aria-label="t('Back to the quantity from the data')" :disabled="ocupado" @click="cantidadOriginal(r)"><Icono nombre="deshacer" :tam="14" /></button>
                 </td>
                 <td><button v-if="r.plantilla_id" type="button" class="btn-icono" :aria-label="t('Preview')" @click="verPrevia(r)"><Icono nombre="ojo" :tam="15" /></button></td>
               </tr>
@@ -688,7 +813,12 @@ async function otroIgual() {
           </table>
         </div>
         <button v-if="delTipo.length > mostrar" type="button" class="btn btn-chico mt" @click="mostrar += LIMITE">{{ t('Show {0} more of {1}', [Math.min(LIMITE, delTipo.length - mostrar), fmtNum(delTipo.length)]) }}</button>
-        <p v-if="!delTipo.length" class="ayuda">{{ t('Nothing to label of this type here.') }}</p>
+        <p v-if="!delTipo.length" class="ayuda">{{ delTipoTodos.length ? t('No record matches.') : t('Nothing to label of this type here.') }}</p>
+        <BarraSeleccion :cantidad="selRev.length" :singular="t('record selected')" :plural="t('records selected')" @limpiar="selRev = []">
+          <label class="tj-lote">{{ t('Labels of each') }}
+            <input v-model.number="cantidadLote" type="number" min="0" class="tj-num" :aria-label="t('Labels of each')" @keydown.enter="aplicarCantidadLote" /></label>
+          <button type="button" class="btn" :disabled="ocupado" @click="aplicarCantidadLote"><Icono nombre="check" :tam="15" />{{ t('Apply quantity') }}</button>
+        </BarraSeleccion>
       </div>
     </section>
 
@@ -724,7 +854,18 @@ async function otroIgual() {
           <div :style="{ width: `${Math.min(100, (trabajo.progreso * 100) / Math.max(trabajo.total, 1))}%` }"></div>
           <span>{{ t('{0} of {1} labels', [fmtNum(trabajo.progreso), fmtNum(trabajo.total)]) }}</span>
         </div>
-        <button type="button" class="btn btn-primario tj-generar" :disabled="ocupado || !pendientes.length || trabajo?.estado === 'EN_PROCESO'" @click="generar()">
+        <div v-if="cambiosDatos" class="tj-cambios-caja" role="alert">
+          <p><Icono nombre="alerta" :tam="16" /> <strong>{{ t('The data changed since you reviewed the job') }}</strong></p>
+          <p class="ayuda">{{ t('What will be printed is no longer what you reviewed. Check it again, or generate with the new data.') }}</p>
+          <ul class="tj-cambios">
+            <li v-for="(c, i) in cambiosDatos" :key="i"><strong>{{ c.campo }}</strong> · {{ c.mensaje }}</li>
+          </ul>
+          <div class="tj-fila">
+            <button class="btn btn-primario" type="button" :disabled="ocupado" @click="revisarDeNuevo">{{ t('Check it again') }}</button>
+            <button class="btn" type="button" :disabled="ocupado" @click="generar(true)">{{ t('Generate with the new data') }}</button>
+          </div>
+        </div>
+        <button v-else type="button" class="btn btn-primario tj-generar" :disabled="ocupado || !pendientes.length || trabajo?.estado === 'EN_PROCESO'" @click="generar()">
           <Icono nombre="etiqueta" :tam="16" />{{ t('Generate {0} labels', [fmtNum(etiquetasPendientes)]) }}</button>
       </template>
 
@@ -740,7 +881,7 @@ async function otroIgual() {
           <summary>{{ t('Runs and printing') }}</summary>
           <table class="tabla tj-tabla">
             <thead><tr><th>#</th><th>{{ t('PO') }}</th><th class="num">{{ t('Labels') }}</th><th>{{ t('Status') }}</th><th>{{ t('Date') }}</th><th></th></tr></thead>
-            <tbody><tr v-for="e in trabajo.ejecuciones" :key="e.id">
+            <tbody><template v-for="e in trabajo.ejecuciones" :key="e.id"><tr>
               <td>{{ e.id }}</td><td>{{ e.oc || '—' }}</td><td class="num">{{ fmtNum(e.total) }}</td>
               <td><EstadoBadge :estado="e.situacion" tipo="ejecucion" />
                 <span v-if="e.anulada_en" class="ayuda"> {{ e.anulada_por }} · {{ e.motivo_anulacion }}</span>
@@ -754,11 +895,41 @@ async function otroIgual() {
                   <button v-if="!e.impresa_en" type="button" class="btn btn-chico" :disabled="!e.descargas"
                           :title="e.descargas ? '' : t('Download it before confirming the printing')"
                           @click="impresion = { id: e.id, total: e.total, cantidad: e.total, impresora: '', observacion: '', confirmo: false }">{{ t('Mark as printed') }}</button>
-                  <button type="button" class="btn btn-chico" @click="abrirReimpresion(e)">{{ t('Reprint') }}</button>
+                  <button type="button" class="btn btn-chico" :class="{ activo: reimpresion?.id === e.id }" :aria-expanded="reimpresion?.id === e.id"
+                          @click="reimpresion?.id === e.id ? (reimpresion = null) : abrirReimpresion(e)">{{ t('Reprint') }}</button>
                   <button type="button" class="btn btn-chico btn-peligro" @click="anulacion = { id: e.id, total: e.total, motivo: '' }">{{ t('Void') }}</button>
                 </template>
               </td>
-            </tr></tbody>
+            </tr>
+            <tr v-if="reimpresion?.id === e.id" class="tj-fila-detalle"><td colspan="6">
+              <form class="tj-en-linea" @submit.prevent="reimprimir">
+                <p class="ayuda">{{ t('Identical copies, with the same numbers and serials. The reprint is recorded with its reason.') }}</p>
+                <div class="tj-fila">
+                  <label class="campo tj-motivo"><span class="req">{{ t('Reason') }}</span>
+                    <input v-model="reimpresion.motivo" maxlength="300" minlength="3" required :placeholder="t('Printer jam, damaged labels…')" /></label>
+                  <label class="campo"><span>{{ t('Format') }}</span>
+                    <Seleccion v-model="reimpresion.formato" :aria-label="t('Format')">
+                      <option v-for="f in ['PDF', 'PNG', 'SVG', 'ZIP']" :key="f" :value="f">{{ f }}</option>
+                    </Seleccion></label>
+                </div>
+                <label class="check"><input v-model="reimpresion.todas" type="checkbox" /> {{ t('All the labels of the run') }}</label>
+                <div v-if="!reimpresion.todas" class="tj-scroll tj-scroll-corto">
+                  <table class="tabla tj-tabla">
+                    <thead><tr><th></th><th>{{ t('Group') }}</th><th class="num">{{ t('From') }}</th><th class="num">{{ t('To') }}</th></tr></thead>
+                    <tbody><tr v-for="g in reimpresion.grupos" :key="g.id">
+                      <td><input v-model="g.elegido" type="checkbox" :aria-label="g.referencia" /></td>
+                      <td>{{ g.referencia }} <span class="ayuda">({{ fmtNum(g.cantidad) }})</span></td>
+                      <td class="num"><input v-model.number="g.desde" class="tj-num" type="number" min="1" :max="g.cantidad" :disabled="!g.elegido" :aria-label="t('From')" /></td>
+                      <td class="num"><input v-model.number="g.hasta" class="tj-num" type="number" :min="g.desde" :max="g.cantidad" :disabled="!g.elegido" :aria-label="t('To')" /></td>
+                    </tr></tbody>
+                  </table>
+                </div>
+                <div class="tj-fila">
+                  <button type="submit" class="btn btn-primario" :disabled="!totalReimpresion"><Icono nombre="descargar" :tam="15" />{{ t('Reprint {0} labels', [fmtNum(totalReimpresion)]) }}</button>
+                  <button type="button" class="btn" @click="reimpresion = null">{{ t('Cancel') }}</button>
+                </div>
+              </form>
+            </td></tr></template></tbody>
           </table>
           <p class="ayuda">{{ t('Generated, downloaded and printed are different: printed is recorded only when someone confirms it.') }}</p>
         </details>
@@ -766,46 +937,8 @@ async function otroIgual() {
     </section>
   </Asistente>
 
-  <Modal v-if="cambiosDatos" :titulo="t('The data changed since you reviewed the job')" ancho="620px" @cerrar="cambiosDatos = null">
-    <p>{{ t('What will be printed is no longer what you reviewed. Check it again, or generate with the new data.') }}</p>
-    <ul class="tj-cambios">
-      <li v-for="(c, i) in cambiosDatos" :key="i"><strong>{{ c.campo }}</strong> · {{ c.mensaje }}</li>
-    </ul>
-    <template #pie>
-      <button class="btn separar" type="button" :disabled="ocupado" @click="generar(true)">{{ t('Generate with the new data') }}</button>
-      <button class="btn btn-primario" type="button" :disabled="ocupado" @click="revisarDeNuevo">{{ t('Check it again') }}</button>
-    </template>
-  </Modal>
 
-  <Modal v-if="completando" :titulo="t('Complete the datum')" ancho="480px" @cerrar="completando = null">
-    <form id="form-completar" class="tj-bloque" @submit.prevent="completar">
-      <p class="ayuda">{{ tx(completando.nombre) }}</p>
-      <p class="nota">{{ t('Each item gets its own value; it is saved in its master data (same validations and history as Master data). Leave empty the ones you do not know.') }}</p>
-      <div class="tj-completar">
-        <label v-for="a in completando.articulos" :key="a.id" class="campo"><span>{{ a.referencia }}</span>
-          <input v-model="completando.valores[a.id]" maxlength="120" /></label>
-      </div>
-    </form>
-    <template #pie>
-      <button class="btn separar" type="button" @click="completando = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" type="submit" form="form-completar" :disabled="ocupado || !Object.values(completando.valores).some((v) => String(v).trim())">{{ t('Save and check again') }}</button>
-    </template>
-  </Modal>
 
-  <Modal v-if="eleccion" :titulo="t('Design for “{0}”', [tx(eleccion.grupo.tipo.nombre)])" ancho="620px" @cerrar="eleccion = null">
-    <div class="tj-bloque">
-      <p class="ayuda">{{ t('{0} records have no design of this type.', [eleccion.grupo.registros.length]) }}</p>
-      <SelectorDiseno v-model="eleccion.plantilla_id" :tipo-id="eleccion.grupo.tipo.id" />
-      <label v-if="puede('etiquetas.configurar')" class="check"><input v-model="eleccion.regla" type="checkbox" /> {{ t('Save it as the design of') }}
-        <Seleccion v-model="eleccion.lugar" :disabled="!eleccion.regla" :aria-label="t('Place')">
-          <option v-for="l in eleccion.lugares" :key="l.clave" :value="l.clave">{{ l.nombre }}</option></Seleccion></label>
-      <p class="ayuda">{{ eleccion.regla ? t('Next jobs use it too; it can be changed in Setup → Which design goes on what.') : t('Only for this job.') }}</p>
-    </div>
-    <template #pie>
-      <button type="button" class="btn separar" @click="eleccion = null">{{ t('Cancel') }}</button>
-      <button type="button" class="btn btn-primario" :disabled="!eleccion.plantilla_id || ocupado" @click="aplicarEleccion">{{ t('Use this design') }}</button>
-    </template>
-  </Modal>
 
   <PanelLateral v-if="previa" :titulo="registroPrevia?.referencia || t('Preview')" ancho="720px" @cerrar="previa = null">
     <template #estado><span class="ayuda">{{ tx(previa.plantilla) }} · v{{ previa.version }}</span></template>
@@ -833,32 +966,6 @@ async function otroIgual() {
     </template>
   </Modal>
 
-  <Modal v-if="reimpresion" :titulo="t('Reprint run #{0}', [reimpresion.id])" @cerrar="reimpresion = null">
-    <form id="form-reimpresion" class="tj-bloque" @submit.prevent="reimprimir">
-      <p class="ayuda">{{ t('Identical copies, with the same numbers and serials. The reprint is recorded with its reason.') }}</p>
-      <label class="campo"><span class="req">{{ t('Reason') }}</span>
-        <input v-model="reimpresion.motivo" maxlength="300" minlength="3" required :placeholder="t('Printer jam, damaged labels…')" /></label>
-      <label class="campo"><span>{{ t('Format') }}</span>
-        <Seleccion v-model="reimpresion.formato" :aria-label="t('Format')">
-          <option v-for="f in ['PDF', 'PNG', 'SVG', 'ZIP']" :key="f" :value="f">{{ f }}</option>
-        </Seleccion></label>
-      <label class="check"><input v-model="reimpresion.todas" type="checkbox" /> {{ t('All the labels of the run') }}</label>
-      <table v-if="!reimpresion.todas" class="tabla tj-tabla">
-        <thead><tr><th></th><th>{{ t('Group') }}</th><th class="num">{{ t('From') }}</th><th class="num">{{ t('To') }}</th></tr></thead>
-        <tbody><tr v-for="g in reimpresion.grupos" :key="g.id">
-          <td><input v-model="g.elegido" type="checkbox" :aria-label="g.referencia" /></td>
-          <td>{{ g.referencia }} <span class="ayuda">({{ fmtNum(g.cantidad) }})</span></td>
-          <td class="num"><input v-model.number="g.desde" class="tj-num" type="number" min="1" :max="g.cantidad" :disabled="!g.elegido" :aria-label="t('From')" /></td>
-          <td class="num"><input v-model.number="g.hasta" class="tj-num" type="number" :min="g.desde" :max="g.cantidad" :disabled="!g.elegido" :aria-label="t('To')" /></td>
-        </tr></tbody>
-      </table>
-      <p class="ayuda">{{ t('{0} labels', [fmtNum(totalReimpresion)]) }}</p>
-    </form>
-    <template #pie>
-      <button type="button" class="btn separar" @click="reimpresion = null">{{ t('Cancel') }}</button>
-      <button type="submit" class="btn btn-primario" form="form-reimpresion" :disabled="!totalReimpresion">{{ t('Reprint') }}</button>
-    </template>
-  </Modal>
 
   <Modal v-if="impresion" :titulo="t('Mark as printed')" @cerrar="impresion = null">
     <form id="form-impresion" class="tj-bloque" @submit.prevent="confirmarImpresion">
@@ -926,4 +1033,39 @@ tr.con-error > td { background: var(--error-fondo, transparent); }
 @media (max-width: 640px) { .tj-tipo { grid-template-columns: auto 1fr auto; } .tj-tipo .ayuda { grid-column: 2 / -1; } }
 .tj-cambios { margin: 8px 0 0; padding-inline-start: 18px; max-height: 45vh; overflow: auto; font-size: 0.9rem; }
 .tj-completar { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow: auto; }
+/* Posiciones de la OC */
+.tj-posiciones { display: flex; flex-direction: column; gap: 10px; }
+.tj-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.tj-seg button { display: flex; flex-direction: column; gap: 2px; text-align: start; border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px;
+  background: var(--superficie); font: inherit; color: var(--tinta); cursor: pointer; }
+.tj-seg button span { font-size: 0.8rem; color: var(--tinta-3); }
+.tj-seg button.activo { border-color: var(--acento); background: var(--acento-claro); }
+.tj-barra-lista { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.tj-barra-lista .crece { flex: 1; }
+.tj-buscar input { min-width: 300px; }
+.tj-pos-oc { border: 1px solid var(--linea); border-radius: 10px; padding: 8px 10px; }
+.tj-pos-cabeza { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 6px; }
+.tj-scroll-corto { max-height: 340px; }
+.tj-lineas tbody tr { cursor: pointer; }
+.tj-tabla tr.elegida > td { background: var(--acento-claro); }
+.tj-tabla .chk { width: 32px; }
+/* Revisar */
+.segmentos-txt { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--superficie-2); border: 1px solid var(--linea); }
+.segmentos-txt button { border: 0; background: none; border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 0.82rem; color: var(--tinta-2); cursor: pointer; }
+.segmentos-txt button.activo { background: var(--superficie); color: var(--tinta); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.1); }
+.tj-cantidad { white-space: nowrap; }
+.tj-cantidad .btn-icono { vertical-align: middle; margin-inline-start: 2px; }
+.tj-num.propia { border-color: var(--acento-medio); background: var(--acento-claro); }
+.tj-lote { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; }
+.tj-lote input { color: var(--tinta); background: var(--superficie); }
+/* Arreglar en el mismo lugar (sin ventanas) */
+.tj-problema-caja { display: flex; flex-direction: column; gap: 6px; }
+.tj-en-linea { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 4px 22px; padding: 12px; border: 1px solid var(--acento-medio);
+  border-radius: 10px; background: var(--superficie); }
+.tj-cambios-caja { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--aviso); border-radius: 10px; background: var(--aviso-fondo, var(--superficie-2)); }
+.tj-cambios-caja p { margin: 0; display: flex; gap: 6px; align-items: center; }
+.tj-fila-detalle > td { background: var(--superficie-2); }
+.tj-fila-detalle .tj-en-linea { margin: 4px 0; }
+.tj-motivo { flex: 2 1 280px; }
+.btn.activo { background: var(--acento-claro); border-color: var(--acento-medio); color: var(--acento-texto); }
 </style>

@@ -126,13 +126,15 @@ revisar(guardado.agrupar === 'unico', `la agrupación se guarda en el trabajo ($
   const REIMPRIMIR = /^(Reprint|Reimprimir)$/
   revisar(await fila.getByRole('button', { name: REIMPRIMIR }).isVisible(), 'cada ejecución ofrece «Reimprimir»')
   await fila.getByRole('button', { name: REIMPRIMIR }).click()
-  const modal = p.locator('.modal')
-  await modal.locator('input[required]').first().fill('E2E printer jam')
-  await modal.getByRole('checkbox', { name: /All the labels|Todas las etiquetas/ }).uncheck()
-  await modal.locator('tbody input[type=checkbox]').first().check()
-  await modal.locator('tbody input[type=number]').nth(1).fill('1')
+  // La reimpresión se llena en la misma tabla (debajo de su fila), sin ventana
+  const enFila = p.locator('.tj-fila-detalle')
+  revisar(await enFila.isVisible() && !(await p.locator('.modal').isVisible()), 'reimprimir se llena debajo de la fila, sin ventana')
+  await enFila.locator('input[required]').first().fill('E2E printer jam')
+  await enFila.getByRole('checkbox', { name: /All the labels|Todas las etiquetas/ }).uncheck()
+  await enFila.locator('tbody input[type=checkbox]').first().check()
+  await enFila.locator('tbody input[type=number]').nth(1).fill('1')
   const descarga = p.waitForEvent('download', { timeout: 15000 }).catch(() => null)
-  await modal.getByRole('button', { name: REIMPRIMIR }).click()
+  await enFila.getByRole('button', { name: /^(Reprint|Reimprimir) 1/ }).click()
   const archivo = await descarga
   revisar(!!archivo && /reprint1/.test(archivo.suggestedFilename()), `la reimpresión se descarga (${archivo?.suggestedFilename()})`)
   await quieto()
@@ -143,6 +145,7 @@ revisar(guardado.agrupar === 'unico', `la agrupación se guarda en el trabajo ($
   revisar(await aparece(fila.getByText(/Reprinted 1 times|Reimpresa 1 veces/)),
     `la fila muestra que se reimprimió (${JSON.stringify(await fila.innerText().catch(() => ''))})`)
   // Anular
+  const modal = p.locator('.modal')
   await fila.getByRole('button', { name: /^(Void|Anular)$/ }).click()
   await modal.locator('input[required]').first().fill('E2E wrong data')
   await modal.getByRole('button', { name: /^(Void|Anular)$/ }).click()

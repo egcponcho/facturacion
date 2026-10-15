@@ -5,6 +5,7 @@ import { api } from '@/nucleo/api'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
+import PanelLateral from '@/componentes/PanelLateral.vue'
 import { fmtFechaHora, fmtNum } from '@/nucleo/utils'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
@@ -187,7 +188,7 @@ const miniatura = (v) => `/api/etiquetas/versiones/${v.id}/miniatura.svg?e=${enc
       </template>
     </Modal>
 
-    <Modal v-if="comparacion" :titulo="t('Version {0} and version {1}', [comparacion.vieja.numero, comparacion.nueva.numero])" ancho="920px" @cerrar="comparacion = null">
+    <PanelLateral v-if="comparacion" :titulo="t('Version {0} and version {1}', [comparacion.vieja.numero, comparacion.nueva.numero])" ancho="880px" @cerrar="comparacion = null">
       <div class="comparar">
         <figure v-for="v in [comparacion.vieja, comparacion.nueva]" :key="v.id">
           <figcaption>{{ t('Version {0}', [v.numero]) }} <EstadoBadge :estado="v.estado" tipo="etiqueta" /></figcaption>
@@ -200,7 +201,7 @@ const miniatura = (v) => `/api/etiquetas/versiones/${v.id}/miniatura.svg?e=${enc
         <tbody><tr v-for="(c, i) in comparacion.cambios" :key="i"><td class="nowrap">{{ tx(c[0]) }}</td><td>{{ c[1] }}</td></tr></tbody>
       </table>
       <p v-else class="ayuda">{{ t('The two versions have the same design.') }}</p>
-    </Modal>
+    </PanelLateral>
   </div>
 </template>
 
