@@ -802,6 +802,7 @@
  "It is the version in use: choose another approved version first, or archive the design.",
  "It is used on purchase orders: its company cannot change.",
  "It keeps reserving PO quantities.",
+ "It overlaps {0}: one covers the other.",
  "It was reopened by the internal team.",
  "Item",
  "Item categories",

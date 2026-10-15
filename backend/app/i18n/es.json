@@ -801,6 +801,7 @@
 "It is the version in use: choose another approved version first, or archive the design.":"Es la versión en uso: elija antes otra versión aprobada o archive el diseño.",
 "It is used on purchase orders: its company cannot change.":"Se usa en órdenes de compra: su sociedad no puede cambiar.",
 "It keeps reserving PO quantities.":"Sigue reservando cantidades de la OC.",
+"It overlaps {0}: one covers the other.":"Se encima con {0}: uno tapa al otro.",
 "It was reopened by the internal team.":"El equipo interno la reabrió.",
 "Item":"Artículo",
 "Item categories":"Categorías de artículo",

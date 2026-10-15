@@ -556,6 +556,36 @@ def _apilar(elementos: list[dict], prep: dict) -> None:
         colocar(e["id"])
 
 
+CON_CONTENIDO = ("texto", "campo", "imagen", "codigo", "tabla")  # los que se leen: no deben taparse entre sí
+TOLERANCIA_ENCIMA = 0.2  # mm que dos elementos pueden tocarse sin avisar
+
+
+def _huella(e: dict, prims: list[Prim]) -> tuple[float, float, float, float]:
+    """Lo que el elemento ocupa de verdad (x1, y1, x2, y2): un texto sin fondo ni giro, sus líneas; lo demás, su caja."""
+    texto = next((p for p in prims if p.tipo == "texto"), None) if e["tipo"] in ("texto", "campo") else None
+    if texto and texto.lineas and not e.get("rot") and not e["estilo"].get("fondo"):
+        alto = texto.tam * PT_MM
+        return (min(x for _, x, _, _ in texto.lineas), texto.lineas[0][2] - alto * 0.8,
+                max(x + w for _, x, _, w in texto.lineas), texto.lineas[-1][2] + alto * 0.2)
+    imagen = next((p for p in prims if p.tipo == "imagen"), None) if e["tipo"] == "imagen" else None
+    if imagen:
+        return caja_girada({**e, "x": imagen.x, "y": imagen.y, "w": imagen.w, "h": imagen.h})
+    return caja_girada(e)
+
+
+def _encimados(huellas: list[tuple[dict, tuple]], problemas: list) -> None:
+    """Avisa cuando dos elementos con contenido se tapan (con los datos reales, ya ajustados y apilados):
+    el de arriba en las capas lleva el aviso. Los que pueden ir encima (superponer) no avisan."""
+    for i, (e, (a1, b1, a2, b2)) in enumerate(huellas):
+        for otro, (c1, d1, c2, d2) in huellas[:i]:
+            if e.get("superponer") or otro.get("superponer"):
+                continue
+            if min(a2, c2) - max(a1, c1) > TOLERANCIA_ENCIMA and min(b2, d2) - max(b1, d1) > TOLERANCIA_ENCIMA:
+                nombre = otro.get("nombre") or otro.get("campo") or otro["id"]
+                _problema(problemas, "advertencia", "elementos_encimados", e, f"It overlaps {nombre}: one covers the other.")
+                break
+
+
 def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, prueba: bool) -> Lienzo:
     tipos = tipos or {}
     prims: list[Prim] = []
@@ -580,6 +610,7 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
     elementos = diseno.get("elementos", [])
     prep = {e["id"]: _preparar(e, valores, tipos, imagen_adjunta, W, H, margen) for e in elementos}
     _apilar(elementos, prep)
+    huellas: list[tuple[dict, tuple]] = []
     for e0 in elementos:
         p = prep[e0["id"]]
         problemas += p["problemas"]
@@ -588,6 +619,7 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
         e, t = p["e"], e0["tipo"]
         if not dentro(e):
             continue
+        desde = len(prims)
         if t == "rect":
             prims.append(Prim("rect", e["x"], e["y"], e["w"], e["h"], relleno=e.get("relleno"), borde=e.get("borde"),
                               grosor=e["grosor"], radio=e["radio"], trazo=e["trazo"], **_giro(e)))
@@ -606,6 +638,9 @@ def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, p
             _codigo(e, valores, tipos, fondo, prims, problemas)
         elif t == "tabla":
             _tabla(e, valores, tipos, prims, problemas)
+        if t in CON_CONTENIDO and len(prims) > desde:
+            huellas.append((e, _huella(e, prims[desde:])))
+    _encimados(huellas, problemas)
     if diseno.get("borde"):
         b = diseno["borde"]
         prims.append(Prim("rect", b["grosor"] / 2, b["grosor"] / 2, W - b["grosor"], H - b["grosor"], borde=b["color"],

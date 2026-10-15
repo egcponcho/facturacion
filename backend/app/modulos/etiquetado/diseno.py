@@ -140,6 +140,8 @@ class Elemento(_Base):
     # si ese elemento no se imprime (vacío, oculto o con su condición sin cumplir), este sube a su lugar
     debajo_de: str | None = Field(None, pattern=r"^[\w-]{1,40}$")
     separacion: float = Field(1, ge=0, le=100)  # mm
+    # Puede ir encima de otro elemento con contenido (un texto sobre una imagen, p. ej.): no se avisa
+    superponer: bool = False
     # texto: puede llevar campos {{articulo.sku}}; campo: un solo campo con prefijo y sufijo
     contenido: str | None = Field(None, max_length=2000)
     campo: str | None = Field(None, max_length=80)

@@ -209,6 +209,8 @@ export function maquetar(texto, estilo, ancho, alto) {
 export const AJUSTES_CAJA = () => [['no', t('Fixed size')], ['ambos', t('Fit the box to the content')],
   ['ancho', t('Fit the width')], ['alto', t('Fit the height (wrap lines)')]]
 export const AJUSTABLES = ['texto', 'campo', 'tabla', 'imagen']
+// Los que se leen: el servidor avisa si se tapan entre sí (salvo los marcados «superponer»)
+export const CON_CONTENIDO = ['texto', 'campo', 'imagen', 'codigo', 'tabla']
 const ANCLA_H = { izq: 'ini', centro: 'centro', der: 'fin' }
 const ANCLA_V = { arriba: 'ini', medio: 'centro', abajo: 'fin' }
 function anclar(inicio, largo, nuevo, ancla, minimo, maximo) {

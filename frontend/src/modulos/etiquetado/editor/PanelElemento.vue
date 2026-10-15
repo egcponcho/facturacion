@@ -5,7 +5,7 @@ import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { errorApi } from '@/stores/ui'
-import { AJUSTABLES, AJUSTES_CAJA, LISTAS, maquetar, seguidores, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
+import { AJUSTABLES, AJUSTES_CAJA, CON_CONTENIDO, LISTAS, maquetar, seguidores, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -215,6 +215,8 @@ function fuenteImagen(v) {
               @update:model-value="(v) => (e.separacion = v)" />
     </div>
     <small v-if="e.debajo_de" class="ayuda">{{ t('It moves with the element above when it grows, shrinks or is not printed.') }}</small>
+    <label v-if="CON_CONTENIDO.includes(e.tipo)" class="check-linea mt-chico" :title="t('Without this, the preview and the job warn when it covers or is covered by another text, code, table or image.')">
+      <input type="checkbox" :checked="!!e.superponer" :disabled="bloqueado" @change="e.superponer = $event.target.checked" />{{ t('It can go over other elements') }}</label>
     <label v-if="AJUSTABLES.includes(e.tipo)" class="campo-mini mt-chico"><span>{{ t('Box size') }}</span>
       <Seleccion :model-value="e.ajustar || 'no'" :disabled="bloqueado" :aria-label="t('Box size')" @change="(v) => (e.ajustar = v)">
         <option v-for="[v, txt] in opcionesAjuste" :key="v" :value="v">{{ txt }}</option>

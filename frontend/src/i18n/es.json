@@ -6957,5 +6957,8 @@
 "Generate with the new data": "Generar con los datos nuevos",
 "The data changed since the job was reviewed: check it again before generating.": "Los datos cambiaron desde que se revisó el trabajo: revísalo de nuevo antes de generar.",
 "The data changed since you reviewed the job": "Los datos cambiaron desde que revisaste el trabajo",
-"What will be printed is no longer what you reviewed. Check it again, or generate with the new data.": "Lo que se va a imprimir ya no es lo que revisaste. Revísalo de nuevo o genera con los datos nuevos."
+"What will be printed is no longer what you reviewed. Check it again, or generate with the new data.": "Lo que se va a imprimir ya no es lo que revisaste. Revísalo de nuevo o genera con los datos nuevos.",
+"It can go over other elements": "Puede ir encima de otros elementos",
+"It overlaps {0}: one covers the other.": "Se encima con {0}: uno tapa al otro.",
+"Without this, the preview and the job warn when it covers or is covered by another text, code, table or image.": "Si no se marca, la vista previa y el trabajo avisan cuando tapa o lo tapa otro texto, código, tabla o imagen."
 }

@@ -306,3 +306,35 @@ def test_elementos_debajo_de_otro_se_mueven_con_el():
     with pytest.raises(ErrorNegocio):
         _diseno([{"id": "x", "tipo": "texto", "contenido": "X", "debajo_de": "y"},
                  {"id": "y", "tipo": "texto", "contenido": "Y", "debajo_de": "x"}])
+
+
+def test_aviso_de_elementos_encimados_con_los_datos_reales():
+    """Dos elementos que se leen (textos, campos, códigos, tablas, imágenes) no deben taparse: con
+    los datos reales (ya ajustados y apilados) se avisa en el de arriba. Lo que solo ocupa espacio
+    vacío del recuadro no cuenta, los rectángulos y líneas de adorno tampoco, y un elemento puede
+    marcarse para ir encima de otros sin aviso."""
+    def encimados(valor, ajustar="ancho", **extra):
+        d = _diseno([
+            {"id": "a", "tipo": "campo", "campo": "articulo.descripcion", "x": 5, "y": 5, "w": 20, "h": 6, "ajustar": ajustar,
+             "estilo": {"tam": 10, "ajuste": "ninguno"}},
+            {"id": "b", "tipo": "codigo", "simbologia": "code128", "valor": "ABC123", "x": 50, "y": 4, "w": 40, "h": 20, **extra},
+            {"id": "fondo", "tipo": "rect", "x": 0, "y": 0, "w": 100, "h": 50, "relleno": "#eeeeee"},
+        ])
+        lz = render.componer(d, {"articulo.descripcion": valor})
+        return [(p["elemento"], p["mensaje"]) for p in lz.problemas if p["codigo"] == "elementos_encimados"]
+
+    assert encimados("Shoe") == []  # cabe: no toca el código (el rectángulo de fondo no cuenta)
+    largo = "Running shoe with a very long description"
+    assert encimados(largo) == [("b", "It overlaps articulo.descripcion: one covers the other.")]  # crece y llega al código
+    assert encimados(largo, superponer=True) == []  # puede ir encima
+    # Dentro de un recuadro grande, solo cuenta lo que el texto ocupa de verdad
+    d = _diseno([
+        {"id": "a", "tipo": "texto", "contenido": "SKU", "x": 5, "y": 5, "w": 60, "h": 20},
+        {"id": "b", "tipo": "texto", "contenido": "COLOR", "x": 40, "y": 18, "w": 30, "h": 6},
+    ])
+    assert not [p for p in render.componer(d, {}).problemas if p["codigo"] == "elementos_encimados"]
+    d = _diseno([
+        {"id": "a", "tipo": "texto", "contenido": "SKU", "x": 5, "y": 5, "w": 30, "h": 6},
+        {"id": "b", "tipo": "texto", "contenido": "COLOR", "nombre": "Color", "x": 6, "y": 6, "w": 30, "h": 6},
+    ])
+    assert [p["elemento"] for p in render.componer(d, {}).problemas if p["codigo"] == "elementos_encimados"] == ["b"]
