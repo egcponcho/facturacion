@@ -12,6 +12,7 @@ baja queda en el historial (entidad uso_diseno).
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import date, datetime
 
 from sqlalchemy import func, select
@@ -128,6 +129,56 @@ def historial(db: Session, user: Usuario, uso_id: int) -> list[dict]:
                        .order_by(Historial.fecha.desc(), Historial.id.desc()))
     return [{"id": h.id, "fecha": h.fecha, "accion": h.accion, "detalle": h.detalle, "motivo": h.motivo,
              "usuario": _usuario(db, h.usuario_id)} for h in filas]
+
+
+# Lo que la migración 0076 escribió en el historial (motivos y notas en inglés): aquí para que se traduzca en el informe
+TEXTOS_0076 = (
+    "The rule was inactive.",
+    "The origin, unit or data mode of the rule no longer exist: the design applies to every origin.",
+    "The package type {0} does not exist.",
+    "The rule was limited to package types {0}: the limit no longer applies.",
+    "Several rules gave a design to the same place; the one with the highest priority stays (rule {0}).",
+    # «A package label cannot depend on a product…» se lee con sus partes traducibles
+    "The labels of {0} cannot depend on {1}: add an exception with a condition if it is still needed.",
+    "a package", "a document", "this kind", "a labeling family", "a product", "an item",
+)
+_DEPENDE = re.compile(r"^A (package|document|label) label cannot depend on an? (labeling family|product|item): ")
+
+
+def _texto_0076(texto: str | None) -> str | None:
+    m = _DEPENDE.match(texto or "")
+    if not m:
+        return texto
+    que = {"package": "a package", "document": "a document"}.get(m[1], "this kind")
+    donde = {"labeling family": "a labeling family", "product": "a product", "item": "an item"}[m[2]]
+    return f"The labels of {que} cannot depend on {donde}: add an exception with a condition if it is still needed."
+
+
+def informe_migracion(db: Session, user: Usuario) -> dict:
+    """Cómo quedaron las reglas anteriores al pasar a usos de diseño (migración 0076): cada regla con su
+    resultado (convertida o de baja, y por qué), sus notas (lo que ya no aplica) y si su uso sigue vigente
+    hoy. Sale del historial que dejó la migración; sin reglas anteriores, vacío."""
+    from app.modelos import Historial
+
+    exigir(user, "etiquetas.configurar")
+    filas = db.execute(select(Historial.entidad_id, Historial.detalle, Historial.fecha)
+                       .where(Historial.entidad == "uso_diseno", Historial.accion == "migrar").order_by(Historial.id)).all()
+    ids = [i for i, *_ in filas]
+    usos_ = {u.id: u for u in db.scalars(select(UsoDiseno).where(UsoDiseno.id.in_(ids))
+                                         .options(selectinload(UsoDiseno.plantilla), selectinload(UsoDiseno.tipo)))} if ids else {}
+    res = []
+    for uid, d, fecha in filas:
+        d, u = d or {}, usos_.get(uid)
+        res.append({"uso_id": uid, "regla": d.get("regla"), "nombre": d.get("nombre"), "ambito": d.get("ambito"),
+                    "prioridad": d.get("prioridad"), "resultado": d.get("resultado"), "motivo_baja": _texto_0076(d.get("motivo_baja")),
+                    "notas": d.get("notas") or [], "nivel": d.get("nivel"), "contexto_tipo": d.get("contexto_tipo"),
+                    "tipo": u.tipo.nombre if u else None, "plantilla": u.plantilla.nombre if u else None,
+                    "destino": nombre_destino(db, u.nivel, u.destino_id) if u else None,
+                    "vigente": bool(u and u.eliminado_en is None), "fecha": fecha})
+    return {"resumen": {"reglas": len({x["regla"] for x in res}), "convertidas": sum(x["resultado"] == "convertida" for x in res),
+                        "de_baja": sum(x["resultado"] == "baja" for x in res), "con_notas": sum(bool(x["notas"]) for x in res),
+                        "vigentes": sum(x["vigente"] for x in res)},
+            "filas": res}
 
 
 # ---- Validación ------------------------------------------------------------------------------

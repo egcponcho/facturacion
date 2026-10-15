@@ -154,6 +154,12 @@ def baja_uso(uso_id: int, db: Db, user: User, motivo: str | None = Body(None, em
     return ejecutar(db, user, None, lambda: usos.baja(db, user, uso_id, motivo))
 
 
+@router.get("/etiquetas/usos/migracion")
+def informe_migracion_usos(db: Db, user: User):
+    """Cómo quedaron las reglas anteriores al convertirse en usos de diseño (convertidas, de baja y por qué, notas)."""
+    return usos.informe_migracion(db, user)
+
+
 @router.get("/etiquetas/usos/{uso_id}/historial")
 def historial_uso(uso_id: int, db: Db, user: User):
     """Cada alta, cambio y baja del uso, con autor y fecha."""

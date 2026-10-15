@@ -156,3 +156,40 @@ def test_familia_inactiva_sigue_aplicando_y_sin_coincidencia(interno, admin, cas
         assert reg["estado"] == "ERROR" and "sin_plantilla" in problemas(reg)
     finally:
         caso["usos"].insert(0, uso(interno, caso["tipo"]["id"], caso["d"]["general"]["id"]))
+
+
+def test_informe_de_la_conversion_de_reglas_anteriores(interno, tnf, caso):
+    """La migración 0076 deja en el historial qué pasó con cada regla anterior; el informe lo muestra
+    (convertida o de baja y por qué, notas, y si su uso sigue vigente hoy). Solo quien configura."""
+    from app.modelos import Historial
+
+    vivo = caso["usos"][0]
+    baja = _exc(interno, caso, "a", contexto_tipo="CENTRO_DESTINO", contexto_valores=[caso["centro"]])
+    _baja(interno, caso, baja)
+    ids = []
+    with SessionLocal() as db, en_organizacion(1):
+        for uid, det in ((vivo["id"], {"regla": 9001, "nombre": "Old general", "ambito": "GENERAL", "prioridad": 10,
+                                       "resultado": "convertida", "nivel": "GENERAL", "contexto_tipo": "NINGUNO",
+                                       "motivo_baja": None, "notas": ["The origin of the rule no longer exists."]}),
+                         (baja["id"], {"regla": 9002, "nombre": "Old duplicate", "ambito": "GENERAL", "prioridad": 5,
+                                       "resultado": "baja", "nivel": "GENERAL", "contexto_tipo": "NINGUNO",
+                                       "motivo_baja": "Several rules gave a design to the same place.", "notas": []})):
+            h = Historial(organizacion_id=1, entidad="uso_diseno", entidad_id=uid, accion="migrar", detalle=det)
+            db.add(h)
+            db.flush()
+            ids.append(h.id)
+        db.commit()
+    try:
+        r = interno.get("/etiquetas/usos/migracion")
+        assert r.status_code == 200, r.text
+        filas = {x["regla"]: x for x in r.json()["filas"]}
+        assert filas[9001]["vigente"] and filas[9001]["plantilla"] == "Cases general" and filas[9001]["notas"]
+        assert not filas[9002]["vigente"] and filas[9002]["resultado"] == "baja" and "same place" in filas[9002]["motivo_baja"]
+        res = r.json()["resumen"]
+        assert res["convertidas"] >= 1 and res["de_baja"] >= 1 and res["con_notas"] >= 1
+        assert tnf.get("/etiquetas/usos/migracion").status_code == 403
+    finally:
+        with SessionLocal() as db, en_organizacion(1):
+            for i in ids:
+                db.delete(db.get(Historial, i))
+            db.commit()

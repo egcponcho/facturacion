@@ -9,6 +9,7 @@ import Icono from '@/componentes/Icono.vue'
 import { puede } from '@/stores/sesion'
 import CabezaEtiquetado from '@/modulos/etiquetado/componentes/CabezaEtiquetado.vue'
 import CamposEtiqueta from '@/modulos/etiquetado/componentes/CamposEtiqueta.vue'
+import ConversionReglas from '@/modulos/etiquetado/componentes/ConversionReglas.vue'
 import NombresCampos from '@/modulos/etiquetado/componentes/NombresCampos.vue'
 import FamiliasYArticulos from '@/modulos/etiquetado/componentes/FamiliasYArticulos.vue'
 import HistorialEtiquetas from '@/modulos/etiquetado/componentes/HistorialEtiquetas.vue'
@@ -73,7 +74,10 @@ function listo() {
     <NombresCampos />
     <CamposEtiqueta />
   </template>
-  <HistorialEtiquetas v-else />
+  <template v-else>
+    <ConversionReglas v-if="puede('etiquetas.configurar')" />
+    <HistorialEtiquetas />
+  </template>
 
   <PrimerUsoEtiquetado v-if="primerUso" @cerrar="primerUso = false" @listo="listo" />
 </template>
