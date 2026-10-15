@@ -401,16 +401,26 @@ class Resolvedor:
         return all(cumple_condicion(c, s.valores) for c in u.condiciones or [])
 
     # ---- Elección --------------------------------------------------------------------------------
+    def _empate(self, gana: UsoDiseno, candidatos: list, s: Sujeto, ctx: dict) -> list[dict]:
+        """Otras excepciones del mismo peso (misma celda y tipo) que también aplican con otro diseño: gana la
+        más antigua, pero la configuración es ambigua (p. ej. dos excepciones por condiciones que se cumplen a
+        la vez) y se avisa. Las que se cruzan siempre (mismos valores y condiciones) ya no se pueden guardar."""
+        return [{"uso_id": u.id, "plantilla": u.plantilla.nombre, "contexto_texto": texto_contexto(u)}
+                for u in candidatos if u is not gana and u.contexto_tipo == gana.contexto_tipo
+                and u.plantilla_id != gana.plantilla_id and self.coincide(u, s, ctx)]
+
     def elegir(self, s: Sujeto, tipo: TipoEtiqueta) -> Eleccion:
         escalones = self.escalones(s)
         ctx = self.contexto(s)
         if s.oc is not None:
             for nivel, sid in escalones:
                 x = self.celdas.get((tipo.id, nivel, sid))
-                for u in (x.de_oc.get(s.oc.id, []) if x else []):
+                candidatos = x.de_oc.get(s.oc.id, []) if x else []
+                for u in candidatos:
                     if self.coincide(u, s, ctx):
                         return Eleccion(tipo, u, {"clase": "oc", "nivel": nivel, "destino": self.nombre(nivel, sid),
-                                                  "oc": s.oc.numero, "motivo": u.motivo})
+                                                  "oc": s.oc.numero, "motivo": u.motivo,
+                                                  "empate": self._empate(u, candidatos, s, ctx)})
         for nivel, sid in escalones:
             x = self.celdas.get((tipo.id, nivel, sid))
             if x is None:
@@ -419,7 +429,8 @@ class Resolvedor:
                 if self.coincide(u, s, ctx):
                     return Eleccion(tipo, u, {"clase": "excepcion", "nivel": nivel, "destino": self.nombre(nivel, sid),
                                               "contexto_tipo": u.contexto_tipo, "contexto_valores": u.contexto_valores or [],
-                                              "contexto_texto": texto_contexto(u), "motivo": u.motivo})
+                                              "contexto_texto": texto_contexto(u), "motivo": u.motivo,
+                                              "empate": self._empate(u, x.excepciones, s, ctx)})
             if x.normal is not None:
                 return Eleccion(tipo, x.normal, {"clase": "normal", "nivel": nivel, "destino": self.nombre(nivel, sid)})
         return Eleccion(tipo, None, {"clase": "sin_diseno"})

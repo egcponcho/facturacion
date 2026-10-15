@@ -369,6 +369,11 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
                 g.problema("info", "sin_plantilla", f"{g.tipo.nombre} does not apply to this record (no design is assigned).")
             continue
         g.problemas += de_fuentes
+        if e.porque.get("empate"):
+            otros = ", ".join(x["plantilla"] for x in e.porque["empate"])
+            g.problema("advertencia", "excepciones_empatadas",
+                       f"Other exceptions of the same place also apply ({otros}): the oldest one is used. "
+                       "Make their conditions exclusive.")
         if not dibujar:
             if e.plantilla.version_vigente_id is None and not (prueba and borradores):
                 g.problema("error", "sin_plantilla", "The design has no approved version.")

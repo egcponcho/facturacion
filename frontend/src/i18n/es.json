@@ -6975,5 +6975,6 @@
 "This label batch was voided: it can no longer be downloaded or printed.": "Este lote de etiquetas se anuló: ya no se puede descargar ni imprimir.",
 "Void run #{0}": "Anular la ejecución #{0}",
 "Write the reason.": "Escribe el motivo.",
-"{0}: choose labels from 1 to {1}.": "{0}: elige etiquetas de la 1 a la {1}."
+"{0}: choose labels from 1 to {1}.": "{0}: elige etiquetas de la 1 a la {1}.",
+"Other exceptions of the same place also apply ({0}): the oldest one is used. Make their conditions exclusive.": "En el mismo lugar también aplican otras excepciones ({0}): se usa la más antigua. Haz que sus condiciones se excluyan."
 }

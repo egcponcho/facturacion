@@ -1133,6 +1133,7 @@
 "Original XF date":"Fecha XF original",
 "Other":"Otro",
 "Other arrival ports":"Otros puertos de llegada",
+"Other exceptions of the same place also apply ({0}): the oldest one is used. Make their conditions exclusive.":"En el mismo lugar también aplican otras excepciones ({0}): se usa la más antigua. Haz que sus condiciones se excluyan.",
 "Other names in files (comma-separated)":"Otros nombres en los archivos (separados por coma)",
 "Other origins":"Otros orígenes",
 "Other words":"Otras palabras",

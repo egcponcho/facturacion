@@ -1134,6 +1134,7 @@
  "Original XF date",
  "Other",
  "Other arrival ports",
+ "Other exceptions of the same place also apply ({0}): the oldest one is used. Make their conditions exclusive.",
  "Other names in files (comma-separated)",
  "Other origins",
  "Other words",
