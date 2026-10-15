@@ -1550,7 +1550,7 @@ imprime o su trazabilidad), **B** (configurabilidad importante), **C**
 | P-1 | **Sin impresión directa**: se descarga el PDF y se imprime a mano; sin ZPL/EPL. | §7 de ETIQUETADO.md | Perfiles de impresora (dpi, desplazamiento X/Y, oscuridad, rollo o hoja) y salida ZPL probada contra una Zebra real; envío a un agente local (p. ej., QZ Tray) o a una cola de impresión. | A | L |
 | P-2 | **SSCC no se genera**: el código se valida pero el número sale de un campo; no hay prefijo GS1 de la empresa ni serie por bulto. | `codigos.validar` sin generador | Prefijo GS1 y dígito de extensión en la empresa; serie SSCC reservada al generar (como `etiqueta.serie`) y guardada en el bulto (ver O-2). | A | M |
 | P-3 | **RFID / EPC** (SGTIN-96) para ropa y calzado no existe. | — | Codificar EPC desde GTIN + serie; salida para impresoras RFID (ZPL `^RFW`). | B | L |
-| P-4 | **Reimpresión y anulación**: se confirma lo impreso, pero no se anula una etiqueta dañada ni se reimprime con motivo controlando la serie. | `confirmar_impresion` | «Reimprimir» (misma serie, motivo) y «Anular» (la serie queda inválida) con historial. | A | S |
+| P-4 | ✔ **Hecho (§19, AU-E4).** **Reimpresión y anulación**: se confirma lo impreso, pero no se anula una etiqueta dañada ni se reimprime con motivo controlando la serie. | `confirmar_impresion` | «Reimprimir» (misma serie, motivo) y «Anular» (la serie queda inválida) con historial. | A | S |
 | P-5 | **Calibración**: no hay hoja de prueba de alineación por impresora. | — | Diseño de calibración (marcos y reglas) que se imprime por perfil. | C | S |
 
 ### 18.4 Relación con el origen de los datos
@@ -1574,7 +1574,7 @@ Deficiencias y propuestas:
 |---|---|---|---|---|
 | O-1 | **Etiquetas desactualizadas**: si el UPC, la cantidad de la línea o el contenido de una caja cambian **después** de imprimir, nadie se entera. | Al cambiar un dato maestro u operativo, comparar con las instantáneas de lo impreso (por `articulo_id`, `posicion_id`, bulto) y abrir una alerta «N etiquetas impresas tienen un dato que cambió» con la diferencia y el botón «Reimprimir». Las versiones por tabla (`versiones_datos`) ya dicen qué tablas cambiaron. | A | M |
 | O-2 | **El bulto no es una entidad**: su identidad es (lista, grupo, índice); si se reagrupa la lista, cambia. Sin SSCC persistente no se cierra el ciclo con la bodega. | Tabla `bultos` (lista, grupo, índice, SSCC, estado) creada al finalizar la lista; la etiqueta y la **recepción** usan el mismo bulto: escanear el SSCC al recibir confirma contenido y cantidades (módulo de recepción existente). | A | L |
-| O-3 | **Trabajos desactualizados**: un trabajo revisado ayer no avisa si hoy cambió la OC o la lista. | Guardar en el trabajo la versión de datos de cada tabla al revisar; al abrirlo, si cambió, mostrar «los datos cambiaron: revisar de nuevo» (y obligarlo antes de generar en real). | A | S |
+| O-3 | ✔ **Hecho (§19, AU-E1).** **Trabajos desactualizados**: un trabajo revisado ayer no avisa si hoy cambió la OC o la lista. | Guardar en el trabajo la versión de datos de cada tabla al revisar; al abrirlo, si cambió, mostrar «los datos cambiaron: revisar de nuevo» (y obligarlo antes de generar en real). | A | S |
 | O-4 | **Orígenes no modelados**: precio de venta por país, composición de la ficha técnica por idioma, datos del cliente final, temporada. | Diccionario de datos: cada campo nuevo se declara como «entidad + ruta» sobre una lista blanca de relaciones (artículo → producto → ficha; OC → proveedor; etc.), sin escribir código; el editor lo ofrece con su origen y ejemplo. | B | L |
 | O-5 | **Conflictos entre fuentes** solo existen en los campos lógicos. | Mostrar en Revisar, por registro, el origen de cada dato impreso (no solo de los lógicos) y marcar los que salen de un valor por defecto o manual. | C | S |
 | O-6 | **Datos del proveedor**: el proveedor no puede proponer correcciones (p. ej., su SKU) desde su trabajo; solo el equipo interno completa. | «Proponer corrección» del proveedor que queda pendiente de aprobación interna, con historial. | C | M |
@@ -1596,3 +1596,50 @@ Deficiencias y propuestas:
 | `ruff check .` · `npm run lint` · `npm run build` | Sin observaciones · correcto |
 | `node e2e/etiquetado.mjs` | Sin fallas |
 | En el navegador (Playwright, capturas) | Recuadro automático: la letra de 10 → 30 pt agranda el recuadro (93×18 → 277×53 px) y el fijo no cambia; «Debajo de»: al subir la letra del de arriba, el de abajo baja; nombres de campos: el nombre propio y el oculto se guardan; «Completar el dato»: el registro pasa de 1 error a 0. Sin errores de JavaScript. |
+
+## 19. Auditoría técnica externa: lo corregido (P0 y P1)
+
+Una auditoría externa del módulo pidió revisar, en este orden: P0 integridad y trazabilidad
+(aislamiento por empresa, datos que cambian entre revisar y generar, reintentos sin duplicar,
+identidad del bulto, reproducción histórica) y P1 (migración 0076, matriz de resolución,
+cantidades, calidad de impresión: reimprimir/anular y solapamientos). Cada punto quedó en su
+propio commit en `claude/bold-lovelace-iwx2wa`.
+
+| Id | Punto de la auditoría | Qué se encontró | Qué se hizo | Prueba |
+|---|---|---|---|---|
+| AU-E0 | P0 · Aislamiento por empresa | Sin defecto: el servicio filtra por organización (un id ajeno «no existe») y las llaves compuestas `(id, organizacion_id)` impiden en la base una fila que cruce empresas. | Prueba nueva con una segunda empresa real (tipos, diseños, usos, trabajos, OC) y una inserción directa que la base rechaza. | `test_etiquetado_aislamiento.py` (SQLite y PostgreSQL con RLS) |
+| AU-E1 | P0 · Datos que cambian entre revisar y generar (= O-3) | Generar volvía a calcular y podía imprimir algo distinto de lo revisado sin avisar. | Migración **0077** (`revisado` por registro: versión del diseño, cantidad y los valores que el diseño imprime). Generar responde **409 `datos_cambiaron`** con «campo: antes → ahora»; lo que el diseño no imprime no frena, y lo que el usuario cambió en el trabajo (cantidades a mano, posiciones, tipos) tampoco. El asistente ofrece «Revisar de nuevo» o «Generar con los datos nuevos». | `test_trabajo_desactualizado_avisa_antes_de_generar` |
+| AU-E2 | P0 · Generar a la vez y reintentos | Ya cubierto: toma atómica con arriendo, el ejecutor que perdió el arriendo no confirma, un registro no se genera dos veces (llave única registro→ítem), reintentos simultáneos, parcial + reintento. | Sin cambios de código; verificado en SQLite y PostgreSQL. | `test_etiquetado_durable.py` |
+| AU-E3 | P1 · Solapamientos en el diseño | Dos textos o un texto y un código podían taparse con los datos reales sin aviso. | Al dibujar (vista previa, revisión y generación), después de ajustar recuadros y apilar: si dos elementos que se leen se tapan (las líneas reales del texto, no su recuadro vacío) → advertencia `elementos_encimados` en el de arriba. Adornos no cuentan; casilla «Puede ir encima de otros elementos» por elemento. | `test_aviso_de_elementos_encimados_con_los_datos_reales` |
+| AU-E4 | P1 · Reimprimir y anular (= P-4) | Solo se confirmaba la impresión. | Migración **0078**. **Anular** con motivo: no se descarga, no se confirma ni entra al ZIP; sus registros vuelven a pendientes (al generarlos se revisan otra vez); las series usadas no se reutilizan. **Reimprimir** con motivo: copias idénticas (mismos números y series) de todo el lote o de grupos y rangos, con historial (quién, cuándo, cuántas, formato, por qué). Botones y ventanas en el paso Generar. | `test_etiquetado_anular.py` · `e2e/etiquetado.mjs` |
+| AU-E5 | P1 · Matriz de resolución | Un empate (dos excepciones del mismo peso que aplican a la vez con distinto diseño) se resolvía en silencio por antigüedad. | Sigue ganando la más antigua, pero el «por qué» trae `empate` y el registro la advertencia `excepciones_empatadas`. Casos cubiertos: valores que se solapan (no se guardan), fechas que no se cruzan (sí), bordes y futuro de las vigencias, diseño normal sin fechas, familia inactiva (sigue aplicando a sus artículos; ya no se asigna), sin coincidencia (opcional → no se imprime; obligatorio → error). | `test_etiquetado_resolucion_casos.py` |
+| AU-E5b | P1 · Migración 0076 | La conversión dejaba cada regla en el historial, pero nadie podía verla. | `GET /etiquetas/usos/migracion` y panel «Conversión de las reglas anteriores» (Configuración → Historial): convertida o de baja y por qué, notas y si sigue vigente. La prueba de la propia migración (`test_migracion_convierte_las_reglas_en_tipos_y_usos_de_diseno`) ya cubría ida y vuelta. | `test_informe_de_la_conversion_de_reglas_anteriores` |
+
+Decisiones tomadas (sin migrar datos existentes; las migraciones 0077 y 0078 solo agregan columnas):
+
+- **Familia inactiva**: desactivarla no cambia lo que se imprime para los artículos que ya la
+  tienen (cambiarlo en silencio sería peor); solo deja de asignarse.
+- **Reimprimir** pide lo mismo que descargar (el proveedor de la OC también puede); **anular**
+  pide acceso al trabajo.
+- **Empates**: no se bloquean al guardar porque dos condiciones distintas pueden o no
+  cumplirse a la vez según el dato; se avisan cuando ocurren.
+
+Defecto encontrado de paso en la interfaz: `api.descargar` (descargas y reimpresión) no
+invalidaba la caché del cliente como los demás cambios, así que la pantalla podía seguir
+mostrando «Generada» después de descargar o reimprimir hasta que llegara el aviso del canal.
+Corregido.
+
+Pendiente de la auditoría (P2, UX y configurabilidad) y de §18: O-1 (etiquetas ya impresas con
+un dato que cambió), O-2 + P-2 (bulto persistente y SSCC), D-2 (campos calculados), P-1
+(impresión directa; no se declara funcional sin una impresora para probar).
+
+### 19.1 Pruebas de esta entrega (resultado real)
+
+| Comando | Resultado |
+|---|---|
+| `pytest` completo en SQLite | **670 pasan, 4 omitidas** |
+| `pytest` completo en PostgreSQL 16 (rol `app`, sin privilegios: RLS aplica) | **674 pasan** |
+| `alembic upgrade head` → `alembic check` → `downgrade 0076` → `upgrade head` (SQLite) | Sin diferencias con los modelos; ida y vuelta correcta |
+| `ruff check .` · `npm run lint` · `npm run build` | Sin observaciones · correcto |
+| `node e2e/etiquetado.mjs` (con reimprimir y anular) | Sin fallas (4 corridas seguidas después de la corrección de la caché) |
+

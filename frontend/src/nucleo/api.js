@@ -177,6 +177,8 @@ export const api = {
       ? { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } }
       : { method: 'POST', credentials: 'same-origin', body: JSON.stringify(cuerpo),
           headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/json', 'Idempotency-Key': nuevaClave() } })
+    // Descargar también escribe (cuenta la descarga, registra una reimpresión): lo guardado se revalida
+    invalidarTodo()
     if (!r.ok) {
       const datos = await r.json().catch(() => null)
       throw new ApiError(r.status, datos)

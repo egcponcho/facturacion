@@ -134,7 +134,12 @@ Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**
      artículo), datos que pide el diseño, una pestaña por tipo con
      cantidades editables y vista previa con anterior/siguiente.
   3. **Generar**: archivo de cada ejecución, contenido y reparto del ZIP,
-     ejecuciones, marcar como impresas y «Nuevo trabajo, igual».
+     ejecuciones, marcar como impresas, **reimprimir** (copias idénticas de
+     todo o de grupos y rangos, con motivo) y **anular** (con motivo: sus
+     registros vuelven a pendientes) y «Nuevo trabajo, igual». Si lo que se
+     va a imprimir cambió desde la revisión (un SKU, el contenido de una
+     caja, el diseño), generar avisa con cada cambio (409 `datos_cambiaron`)
+     antes de imprimir: revisar de nuevo o generar con los datos nuevos.
 
   Desde la OC: `?origen=OC&oc=…&tipos=…&prueba=1` crea el trabajo y entra
   directo a Revisar. Las rutas anteriores (`/etiquetas?vista=…`,
@@ -158,6 +163,8 @@ Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**
 | `GET /versiones/{id}` · `PUT /versiones/{id}/diseno` · `POST /versiones/{id}/{enviar·retirar·aprobar·rechazar·archivar·usar}` · `GET /versiones/{id}/miniatura.svg` · `POST /vista-previa` | Versiones, aprobación y vista previa exacta. |
 | `GET, POST /trabajos` · `GET, PATCH /trabajos/{id}` · `POST /trabajos/{id}/validar · generar · cancelar` · `GET /trabajos/{id}/estado · archivo` · `GET /trabajos/{id}/registros/{r}/vista-previa` | Trabajos de etiquetado (el único camino de generación). |
 | `GET /generaciones` · `GET /generaciones/{id}` · `GET /generaciones/{id}/archivo` · `POST /generaciones/{id}/impresion` | Historial de lo generado, descarga reproducible (`X-Identico`) y marca de impresión. |
+| `POST /generaciones/{id}/reimprimir` · `POST /generaciones/{id}/anular` | Reimpresión con motivo (todo o `seleccion` [{item_id, desde, hasta}]) y anulación con motivo. |
+| `GET /usos/migracion` | Cómo quedaron las reglas anteriores al convertirse en usos (migración 0076). |
 | `GET /ordenes` · `GET /packing` · `GET /packing/{id}` | Listados para elegir en el asistente. |
 | `POST /imagenes` · `GET /imagenes/{id}` · `GET /fuentes/{archivo}` | Logos del diseño y fuentes del editor. |
 
@@ -224,7 +231,9 @@ Se retiraron: `/asignaciones`, `/plan`, `/oc/{id}`, `POST /generaciones`,
   sus filas y la imagen toma su proporción. Se recalcula con los datos de
   cada etiqueta y el editor lo muestra en vivo. **Debajo de**: un elemento
   sigue el borde inferior de otro (más una separación); si el de arriba crece,
-  baja; si no se imprime, sube a su lugar.
+  baja; si no se imprime, sube a su lugar. Si con los datos reales dos
+  elementos que se leen se tapan, la vista previa y el trabajo avisan
+  (`elementos_encimados`), salvo los marcados «Puede ir encima de otros».
 - **Escrituras**: latín, griego y cirílico con Liberation; chino, árabe
   (de derecha a izquierda, letras unidas) y devanagari con Noto y forma
   HarfBuzz (`escritura.py`). En el PDF esas líneas van como contornos.

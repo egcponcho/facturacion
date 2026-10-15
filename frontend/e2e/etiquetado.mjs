@@ -139,7 +139,9 @@ revisar(guardado.agrupar === 'unico', `la agrupación se guarda en el trabajo ($
   const e1 = (await a.get(`/etiquetas/trabajos/${tg.id}`)).ejecuciones[0]
   revisar(e1.reimpresiones?.length === 1 && e1.reimpresiones[0].total === 1 && e1.reimpresiones[0].motivo === 'E2E printer jam',
     `la reimpresión queda en el historial con su motivo (${JSON.stringify(e1.reimpresiones)})`)
-  revisar(await fila.getByText(/Reprinted 1 times|Reimpresa 1 veces/).isVisible(), 'la fila muestra que se reimprimió')
+  const aparece = (loc) => loc.first().waitFor({ timeout: 15000 }).then(() => true).catch(() => false)
+  revisar(await aparece(fila.getByText(/Reprinted 1 times|Reimpresa 1 veces/)),
+    `la fila muestra que se reimprimió (${JSON.stringify(await fila.innerText().catch(() => ''))})`)
   // Anular
   await fila.getByRole('button', { name: /^(Void|Anular)$/ }).click()
   await modal.locator('input[required]').first().fill('E2E wrong data')
@@ -148,7 +150,7 @@ revisar(guardado.agrupar === 'unico', `la agrupación se guarda en el trabajo ($
   const t2 = await a.get(`/etiquetas/trabajos/${tg.id}`)
   revisar(t2.ejecuciones[0].situacion === 'ANULADA' && t2.registros.every((r) => r.estado !== 'GENERADO'),
     `anular deja la ejecución anulada y los registros pendientes (${t2.ejecuciones[0].situacion}, ${t2.estado})`)
-  revisar(await fila.getByText(/E2E wrong data/).isVisible() && !(await fila.getByRole('button', { name: REIMPRIMIR }).isVisible()),
+  revisar(await aparece(fila.getByText(/E2E wrong data/)) && !(await fila.getByRole('button', { name: REIMPRIMIR }).isVisible()),
     'la fila anulada muestra el motivo y ya no ofrece reimprimir')
 }
 
