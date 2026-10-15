@@ -1,9 +1,8 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import Modal from '@/componentes/Modal.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { puede } from '@/stores/sesion'
@@ -50,7 +49,9 @@ const nuevaFuente = ref('')
 function abrir(c) {
   edicion.value = c ? { ...c, fuentes: [...c.fuentes], sujetos: [...(c.sujetos || [])] }
     : { clave: '', etiqueta: '', descripcion: '', tipo: 'texto', fuentes: [], politica: 'ADVERTIR', sujetos: [], activo: true }
+  nextTick(() => formulario.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
 }
+const formulario = ref(null)
 function agregarFuente() {
   if (nuevaFuente.value && !edicion.value.fuentes.includes(nuevaFuente.value)) edicion.value.fuentes.push(nuevaFuente.value)
   nuevaFuente.value = ''
@@ -84,23 +85,10 @@ async function quitar(c) {
 </script>
 
 <template>
-  <TablaDatos tabla="etiquetas_campos_logicos" :columnas="columnas" :filas="lista" :cargando="cargando" :etiqueta="t('Logical fields')">
-    <template #filtros>
-      <button v-if="editable" type="button" class="btn btn-primario separar" @click="abrir(null)"><Icono nombre="mas" />{{ t('New logical field') }}</button>
-    </template>
-    <template #celda-campo="{ fila: c }"><code v-text="`{{${c.campo}}}`"></code></template>
-    <template #celda-etiqueta="{ fila: c }">
-      <button v-if="editable" type="button" class="btn-texto" @click="abrir(c)">{{ c.etiqueta }}</button><span v-else>{{ c.etiqueta }}</span>
-    </template>
-    <template #celda-fuentes="{ fila: c }"><span v-for="(f, i) in c.fuentes" :key="f" class="fuente">{{ i + 1 }}. {{ tx(nombre(f)) }}</span></template>
-    <template #acciones="{ fila: c }">
-      <button v-if="editable" type="button" class="btn-icono" :aria-label="t('Remove')" :title="c.en_uso ? t('Designs use it: deactivate it instead') : t('Remove')"
-              :disabled="!!c.en_uso" @click="quitar(c)"><Icono nombre="basura" :tam="15" /></button>
-    </template>
-    <template #vacio>{{ t('No logical fields yet. Create one when a datum can come from several places (PO line, item, product…).') }}</template>
-  </TablaDatos>
-
-  <Modal v-if="edicion" :titulo="edicion.id ? t('Edit logical field') : t('New logical field')" ancho="560px" @cerrar="edicion = null">
+  <!-- Alta y edición en la página, encima de la lista (no en una ventana) -->
+  <section v-if="edicion" ref="formulario" class="panel en-linea">
+    <div class="en-linea-cabeza"><h3>{{ edicion.id ? t('Edit logical field') : t('New logical field') }}</h3>
+      <button type="button" class="btn-icono" :aria-label="t('Close')" @click="edicion = null"><Icono nombre="cerrar" :tam="16" /></button></div>
     <form id="form-campo-logico" class="form-cl" @submit.prevent="guardar">
       <div class="fila-cl">
         <label class="campo"><span class="req">{{ t('Key') }}</span>
@@ -135,15 +123,30 @@ async function quitar(c) {
       </fieldset>
       <label class="check"><input v-model="edicion.activo" type="checkbox" /> {{ t('Active') }}</label>
     </form>
-    <template #pie>
-      <button class="btn separar" type="button" @click="edicion = null">{{ t('Cancel') }}</button>
+    <div class="en-linea-pie">
+      <button class="btn" type="button" @click="edicion = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" type="submit" form="form-campo-logico" :disabled="!edicion.fuentes.length">{{ t('Save') }}</button>
+    </div>
+  </section>
+  <TablaDatos tabla="etiquetas_campos_logicos" :columnas="columnas" :filas="lista" :cargando="cargando" :etiqueta="t('Logical fields')">
+    <template #filtros>
+      <button v-if="editable" type="button" class="btn btn-primario separar" @click="abrir(null)"><Icono nombre="mas" />{{ t('New logical field') }}</button>
     </template>
-  </Modal>
+    <template #celda-campo="{ fila: c }"><code v-text="`{{${c.campo}}}`"></code></template>
+    <template #celda-etiqueta="{ fila: c }">
+      <button v-if="editable" type="button" class="btn-texto" @click="abrir(c)">{{ c.etiqueta }}</button><span v-else>{{ c.etiqueta }}</span>
+    </template>
+    <template #celda-fuentes="{ fila: c }"><span v-for="(f, i) in c.fuentes" :key="f" class="fuente">{{ i + 1 }}. {{ tx(nombre(f)) }}</span></template>
+    <template #acciones="{ fila: c }">
+      <button v-if="editable" type="button" class="btn-icono" :aria-label="t('Remove')" :title="c.en_uso ? t('Designs use it: deactivate it instead') : t('Remove')"
+              :disabled="!!c.en_uso" @click="quitar(c)"><Icono nombre="basura" :tam="15" /></button>
+    </template>
+    <template #vacio>{{ t('No logical fields yet. Create one when a datum can come from several places (PO line, item, product…).') }}</template>
+  </TablaDatos>
 </template>
 
 <style scoped>
-.form-cl { display: flex; flex-direction: column; gap: 12px; }
+.form-cl { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
 .fila-cl { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .fila-cl > .campo { flex: 1 1 180px; }
 .grupo-cl { border: 1px solid var(--linea); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }

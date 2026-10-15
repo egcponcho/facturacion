@@ -1,7 +1,7 @@
 <script setup>
 import { alCambiar } from '@/nucleo/cambios.js'
 import { t, tx } from '@/i18n/index.js'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
@@ -57,8 +57,10 @@ async function guardarFamilia() {
 
 // Diseño propio: para todo el producto o solo para algunas tallas
 const propio = ref(null)
+const formPropio = ref(null)
 function abrirPropio(x) {
   propio.value = { tipo: x.tipo, plantilla_id: x.propio?.plantilla_id || '', tallas: [], cambia: !!x.propio }
+  nextTick(() => formPropio.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
 }
 const efecto = ref(null)
 const simulando = ref(false)
@@ -112,8 +114,27 @@ const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { o
         <button v-if="puede('etiquetas.familias')" type="button" class="btn btn-chico" @click="abrirFamilia">{{ t('Change family') }}</button></span>
     </div>
 
+    <!-- Diseño propio: en la página, encima de las tarjetas (no en una ventana) -->
+    <section v-if="propio" ref="formPropio" class="panel en-linea">
+      <div class="en-linea-cabeza"><h3>{{ t('Design of “{0}” for this product', [tx(propio.tipo.nombre)]) }}</h3>
+        <button type="button" class="btn-icono" :aria-label="t('Close')" @click="propio = null"><Icono nombre="cerrar" :tam="16" /></button></div>
+      <div class="ep-form">
+        <SelectorDiseno v-model="propio.plantilla_id" :tipo-id="propio.tipo.id" />
+        <fieldset v-if="datos.articulos.length > 1" class="ep-solo">
+          <legend>{{ t('Only for these sizes (empty: the whole product)') }}</legend>
+          <label v-for="a in datos.articulos" :key="a.id" class="check"><input v-model="propio.tallas" type="checkbox" :value="a.id" /> {{ a.talla || a.sku }}</label>
+        </fieldset>
+        <EfectoCambio v-if="!propio.tallas.length" :efecto="efecto" :cargando="simulando" :sin-cambios="!propio.plantilla_id" />
+        <p v-else class="ayuda">{{ t('{0} sizes get this design; the rest keep the one of the product.', [propio.tallas.length]) }}</p>
+      </div>
+      <div class="en-linea-pie">
+        <button type="button" class="btn" @click="propio = null">{{ t('Cancel') }}</button>
+        <button type="button" class="btn btn-primario" :disabled="!propio.plantilla_id" @click="guardarPropio">{{ t('Save') }}</button>
+      </div>
+    </section>
+
     <div class="ep-tarjetas">
-      <article v-for="x in datos.tipos" :key="x.tipo.id" class="ep-tarjeta panel">
+      <article v-for="x in datos.tipos" :key="x.tipo.id" class="ep-tarjeta panel" :class="{ editando: propio?.tipo.id === x.tipo.id }">
         <h4>{{ tx(x.tipo.nombre) }}</h4>
         <div class="ep-diseno">
           <div class="ep-mini"><img v-if="miniatura(x.eleccion)" :src="miniatura(x.eleccion)" :alt="t('Preview of {0}', [x.eleccion.plantilla])" /></div>
@@ -139,11 +160,11 @@ const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { o
       </article>
     </div>
     <p v-if="!datos.tipos.length" class="ayuda">{{ t('There are no label types for items yet.') }}
-      <router-link to="/etiquetas/configuracion?vista=tipos" class="enlace">{{ t('Set them up') }}</router-link></p>
+      <router-link to="/etiquetas/configuracion?paso=tipos" class="enlace">{{ t('Set them up') }}</router-link></p>
 
     <div class="ep-pie">
       <router-link v-if="puede('etiquetas.generar') && datos.articulos.length" :to="imprimir" class="btn btn-primario"><Icono nombre="etiqueta" :tam="16" />{{ t('Print labels of this product') }}</router-link>
-      <router-link :to="{ path: '/etiquetas/configuracion', query: { vista: 'historial' } }" class="btn btn-chico btn-texto"><Icono nombre="historial" :tam="15" />{{ t('Generated labels') }}</router-link>
+      <router-link :to="{ path: '/etiquetas/configuracion', query: { paso: 'revisar' } }" class="btn btn-chico btn-texto"><Icono nombre="historial" :tam="15" />{{ t('Generated labels') }}</router-link>
     </div>
   </div>
 
@@ -159,21 +180,6 @@ const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { o
     </template>
   </Modal>
 
-  <Modal v-if="propio" :titulo="t('Design of “{0}” for this product', [tx(propio.tipo.nombre)])" ancho="640px" @cerrar="propio = null">
-    <div class="ep-form">
-      <SelectorDiseno v-model="propio.plantilla_id" :tipo-id="propio.tipo.id" />
-      <fieldset v-if="datos.articulos.length > 1" class="ep-solo">
-        <legend>{{ t('Only for these sizes (empty: the whole product)') }}</legend>
-        <label v-for="a in datos.articulos" :key="a.id" class="check"><input v-model="propio.tallas" type="checkbox" :value="a.id" /> {{ a.talla || a.sku }}</label>
-      </fieldset>
-      <EfectoCambio v-if="!propio.tallas.length" :efecto="efecto" :cargando="simulando" :sin-cambios="!propio.plantilla_id" />
-      <p v-else class="ayuda">{{ t('{0} sizes get this design; the rest keep the one of the product.', [propio.tallas.length]) }}</p>
-    </div>
-    <template #pie>
-      <button type="button" class="btn separar" @click="propio = null">{{ t('Cancel') }}</button>
-      <button type="button" class="btn btn-primario" :disabled="!propio.plantilla_id" @click="guardarPropio">{{ t('Save') }}</button>
-    </template>
-  </Modal>
 </template>
 
 <style scoped>
@@ -190,6 +196,7 @@ const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { o
 .ep-mini img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; }
 .ep-excepciones, .ep-tallas { margin: 0; padding-inline-start: 18px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 2px; }
 .ep-acciones, .ep-pie { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ep-tarjeta.editando { border-color: var(--acento); }
 .ep-form { display: flex; flex-direction: column; gap: 12px; }
 .ep-solo { border: 1px solid var(--linea); border-radius: 8px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
 </style>

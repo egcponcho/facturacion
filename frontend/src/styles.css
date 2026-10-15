@@ -1341,3 +1341,11 @@ th.num .orden-btn { flex-direction: row-reverse; }
    caja, de cualquier medida y orientación, sin deformarse */
 .previa-etiqueta { display: flex; justify-content: center; align-items: center; max-width: 100%; min-width: 0; overflow: hidden; }
 .previa-etiqueta > svg, .previa-etiqueta > img { display: block; flex: 0 1 auto; width: auto; height: auto; max-width: 100%; max-height: var(--previa-alto, min(60vh, 520px)); }
+
+/* Formulario en la página, en lugar de una ventana, para datos amplios:
+   encabezado con cerrar, cuerpo y pie con las acciones */
+.en-linea { border-color: var(--acento-medio); margin-bottom: 16px; }
+.en-linea-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+.en-linea-cabeza h3 { margin: 0; font-size: 1rem; }
+.en-linea-pie { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--linea); }
+.en-linea-pie .separar { margin-inline-end: auto; margin-inline-start: 0; }

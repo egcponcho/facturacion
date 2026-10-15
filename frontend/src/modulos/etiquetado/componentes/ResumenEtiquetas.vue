@@ -4,7 +4,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
-import Modal from '@/componentes/Modal.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { fmtNum } from '@/nucleo/utils'
@@ -68,6 +67,20 @@ async function guardarEspecial() {
 <template>
   <PanelLateral :titulo="titulo" ancho="560px" @cerrar="emit('cerrar')">
     <div v-if="!datos" class="vacio">{{ t('Loading…') }}</div>
+    <!-- Diseño especial: dentro del mismo panel, sin otra ventana encima -->
+    <template v-else-if="especial">
+      <button type="button" class="btn btn-chico btn-texto re-volver" @click="especial = null"><Icono nombre="atras" :tam="14" />{{ t('Back to the summary') }}</button>
+      <h3 class="re-titulo">{{ t('Special design for PO {0}', [numero]) }}</h3>
+      <form id="form-especial" class="re-form" @submit.prevent="guardarEspecial">
+        <label class="campo"><span class="req">{{ t('Label type') }}</span>
+          <Seleccion v-model="especial.tipo_etiqueta_id"><option v-for="x in datos.tipos" :key="x.tipo.id" :value="x.tipo.id">{{ tx(x.tipo.nombre) }}</option></Seleccion></label>
+        <SelectorDiseno v-if="tipoEspecial" :key="tipoEspecial.id" v-model="especial.plantilla_id" :tipo-id="tipoEspecial.id" />
+        <label v-if="tipoEspecial?.sujeto === 'ARTICULO'" class="campo"><span>{{ t('Only for the family') }}</span>
+          <Seleccion v-model="especial.familia_id"><option value="">{{ t('Every item of the PO') }}</option>
+            <option v-for="f in familias" :key="f.id" :value="f.id">{{ tx(f.ruta || f.nombre) }}</option></Seleccion></label>
+        <label class="campo"><span class="req">{{ t('Reason') }}</span><input v-model="especial.motivo" required maxlength="300" :placeholder="t('E.g. the customer asks for its own carton label')" /></label>
+      </form>
+    </template>
     <template v-else>
       <p v-if="!reales" class="nota aviso"><Icono nombre="alerta" :tam="16" />{{ t('The packing list is a draft; real labels are enabled when it is confirmed. Until then only test labels.') }}</p>
       <ul class="re-tipos">
@@ -91,28 +104,17 @@ async function guardarEspecial() {
       </ul>
       <p class="ayuda">{{ t('Total: {0} labels. Already generated: {1}.', [fmtNum(datos.total), fmtNum(datos.ya_generadas)]) }}</p>
     </template>
-    <template #pie>
+    <template v-if="especial" #pie>
+      <button type="button" class="btn separar" @click="especial = null">{{ t('Cancel') }}</button>
+      <button type="submit" class="btn btn-primario" form="form-especial" :disabled="!especial.plantilla_id">{{ t('Save') }}</button>
+    </template>
+    <template v-else #pie>
       <button v-if="origen === 'OC' && puede('etiquetas.configurar') && datos?.tipos.length" type="button" class="btn separar" @click="abrirEspecial">{{ t('Special design for this PO…') }}</button>
       <button v-if="puede('etiquetas.generar')" type="button" class="btn btn-primario" :disabled="!datos || !conEtiquetas.length" @click="imprimir">
         <Icono nombre="etiqueta" :tam="16" />{{ reales ? t('Print labels') : t('Print test') }}</button>
     </template>
   </PanelLateral>
 
-  <Modal v-if="especial" :titulo="t('Special design for PO {0}', [numero])" ancho="600px" @cerrar="especial = null">
-    <form id="form-especial" class="re-form" @submit.prevent="guardarEspecial">
-      <label class="campo"><span class="req">{{ t('Label type') }}</span>
-        <Seleccion v-model="especial.tipo_etiqueta_id"><option v-for="x in datos.tipos" :key="x.tipo.id" :value="x.tipo.id">{{ tx(x.tipo.nombre) }}</option></Seleccion></label>
-      <SelectorDiseno v-if="tipoEspecial" :key="tipoEspecial.id" v-model="especial.plantilla_id" :tipo-id="tipoEspecial.id" />
-      <label v-if="tipoEspecial?.sujeto === 'ARTICULO'" class="campo"><span>{{ t('Only for the family') }}</span>
-        <Seleccion v-model="especial.familia_id"><option value="">{{ t('Every item of the PO') }}</option>
-          <option v-for="f in familias" :key="f.id" :value="f.id">{{ tx(f.ruta || f.nombre) }}</option></Seleccion></label>
-      <label class="campo"><span class="req">{{ t('Reason') }}</span><input v-model="especial.motivo" required maxlength="300" :placeholder="t('E.g. the customer asks for its own carton label')" /></label>
-    </form>
-    <template #pie>
-      <button type="button" class="btn separar" @click="especial = null">{{ t('Cancel') }}</button>
-      <button type="submit" class="btn btn-primario" form="form-especial" :disabled="!especial.plantilla_id">{{ t('Save') }}</button>
-    </template>
-  </Modal>
 </template>
 
 <style scoped>
@@ -129,4 +131,6 @@ async function guardarEspecial() {
 .re-generales .error { color: var(--error); }
 .re-generales .advertencia { color: var(--aviso); }
 .re-form { display: flex; flex-direction: column; gap: 14px; }
+.re-volver { align-self: flex-start; margin-bottom: 4px; }
+.re-titulo { margin: 0 0 12px; font-size: 1rem; }
 </style>
