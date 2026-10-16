@@ -327,6 +327,8 @@ def _se_cruzan(a: UsoDiseno, b: UsoDiseno) -> bool:
         return False
     if a.contexto_tipo == "NINGUNO":
         return True
+    if (a.prioridad or 0) != (b.prioridad or 0):  # la prioridad decide cuál vale
+        return False
     fin_a, fin_b = a.vigente_hasta or date.max, b.vigente_hasta or date.max
     ini_a, ini_b = a.vigente_desde or date.min, b.vigente_desde or date.min
     if fin_a < ini_b or fin_b < ini_a:
@@ -578,9 +580,20 @@ def _pedido_celda(db: Session, datos: dict) -> tuple[TipoEtiqueta, str, int | No
     return tipo, nivel, _destino(db, nivel, datos.get("destino_id"))
 
 
+def _datos_normal(n: dict | None) -> dict | None:
+    """Lo que dice la regla normal de una celda: un diseño (con dónde va, cuántas
+    y prioridad) o «no lleva»; None (o sin diseño) es heredar."""
+    n = n or {}
+    accion = str(n.get("accion") or "USAR").upper()
+    if accion == "USAR" and not n.get("plantilla_id"):
+        return None
+    return {"accion": accion, "plantilla_id": n.get("plantilla_id") if accion == "USAR" else None,
+            "alcance": n.get("alcance") or None, "cantidad": n.get("cantidad") or None, "prioridad": n.get("prioridad") or 0}
+
+
 def guardar_celda(db: Session, user: Usuario, datos: dict) -> dict:
-    """Guarda la celda entera: su diseño normal (`normal`: {plantilla_id}, o null
-    para heredar), sus excepciones (con id, se editan; sin id, se agregan) y
+    """Guarda la celda entera: su regla normal (`normal`: {plantilla_id, alcance,
+    cantidad, prioridad} o {accion: NO_LLEVA}; null para heredar), sus excepciones (con id, se editan; sin id, se agregan) y
     las que se quitan. `firma` es la que se leyó: si otro la cambió, 409."""
     exigir(user, "etiquetas.configurar")
     tipo, nivel, destino_id = _pedido_celda(db, datos)
@@ -597,13 +610,14 @@ def guardar_celda(db: Session, user: Usuario, datos: dict) -> dict:
         _baja(db, user, por_id[int(uid)], motivo)
     if "normal" in datos:
         actual = next((u for u in usos if u.contexto_tipo == "NINGUNO" and u.eliminado_en is None), None)
-        if datos["normal"] is None or not (datos["normal"] or {}).get("plantilla_id"):
+        n = _datos_normal(datos["normal"])
+        if n is None:
             if actual is not None:
                 _baja(db, user, actual, motivo)
         elif actual is None:
-            _nuevo(db, user, {**base, "plantilla_id": datos["normal"]["plantilla_id"], "contexto_tipo": "NINGUNO"})
+            _nuevo(db, user, {**base, **n, "contexto_tipo": "NINGUNO"})
         else:
-            _editar(db, user, actual, {"plantilla_id": datos["normal"]["plantilla_id"], "motivo_cambio": motivo})
+            _editar(db, user, actual, {**n, "motivo_cambio": motivo})
     for x in datos.get("excepciones") or []:
         if x.get("id"):
             u = por_id.get(int(x["id"]))
@@ -640,11 +654,12 @@ def _propuesta(db: Session, user: Usuario, datos: dict) -> tuple[TipoEtiqueta, s
     cambios, quitar = [], {int(x) for x in datos.get("quitar") or []}
     normal = next((u for u in usos if u.contexto_tipo == "NINGUNO"), None)
     if "normal" in datos:
-        if not (datos["normal"] or {}).get("plantilla_id"):
+        n = _datos_normal(datos["normal"])
+        if n is None:
             if normal is not None:
                 quitar.add(normal.id)
         else:
-            u = UsoDiseno(**_limpiar(db, user, {**base, "plantilla_id": datos["normal"]["plantilla_id"]}))
+            u = UsoDiseno(**_limpiar(db, user, {**base, **n}))
             u.id = normal.id if normal is not None else None
             cambios.append(u)
     for i, x in enumerate(datos.get("excepciones") or []):
@@ -652,7 +667,7 @@ def _propuesta(db: Session, user: Usuario, datos: dict) -> tuple[TipoEtiqueta, s
         u.id = int(x["id"]) if x.get("id") else -(i + 1)
         cambios.append(u)
     for u in cambios:
-        u.plantilla = db.get(PlantillaEtiqueta, u.plantilla_id)
+        u.plantilla = db.get(PlantillaEtiqueta, u.plantilla_id) if u.plantilla_id else None
         u.tipo = tipo
     return tipo, nivel, destino_id, cambios, quitar
 
@@ -667,8 +682,8 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
 
     antes = Resolvedor(db, [tipo])
     despues = Resolvedor(db, [tipo], cambios=cambios, quitar=quitar)
-    res = {"tipo_etiqueta_id": tipo.id, "sujeto": tipo.sujeto, "cambian": 0, "ejemplos": [], "sin_diseno": 0, "alcance": None,
-           "excepciones": [], "trabajos": 0}
+    res = {"tipo_etiqueta_id": tipo.id, "sujeto": tipo.sujeto, "cambian": 0, "ejemplos": [], "sin_diseno": 0, "no_lleva": 0,
+           "alcance": None, "excepciones": [], "trabajos": 0}
     if tipo.sujeto != "ARTICULO":
         res["alcance"] = "todos"
         return res
@@ -681,6 +696,8 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
         e0, e1 = antes.elegir(s, tipo), despues.elegir(s, tipo)
         if e1.uso is None:
             res["sin_diseno"] += 1
+        elif e1.no_lleva:
+            res["no_lleva"] += 1
         if (e0.plantilla.id if e0.plantilla else None) != (e1.plantilla.id if e1.plantilla else None):
             res["cambian"] += 1
             if len(res["ejemplos"]) < 50:

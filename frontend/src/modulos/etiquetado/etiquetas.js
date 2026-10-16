@@ -29,8 +29,25 @@ export const CANTIDADES = () => ({
   POR_BULTO: t('One per package'), POR_DOCUMENTO: t('One per document'), MANUAL: t('Quantity entered by hand'),
 })
 // Dónde se pone un diseño (la fila de la matriz)
-export const NIVELES = () => ({ GENERAL: t('Whole company'), FAMILIA: t('Family'), PRODUCTO: t('Product'), SKU: t('Item (one size)'),
-  TIPO_EMPAQUE: t('Package type') })
+export const NIVELES = () => ({ GENERAL: t('Whole company'), FAMILIA: t('Family'), CATEGORIA: t('Category'), PRODUCTO: t('Product'),
+  SKU: t('Item (one size)'), TIPO_EMPAQUE: t('Package type') })
+// Dónde va la etiqueta (la regla o, por defecto, el tipo de etiqueta) y cuántas salen
+export const ALCANCES = () => ({
+  LINEA: t('Each line of the document'), POSICION_OC: t('Each PO position'), POSICION_PL: t('Each packing list position'),
+  ARTICULO: t('Each variant (size)'), PRODUCTO: t('Each generic item'), DOCUMENTO: t('The document'), OC: t('Each PO'),
+  PL: t('Each packing list'), EMPAQUE: t('Each package'),
+})
+export const ALCANCES_DE = { ARTICULO: ['LINEA', 'POSICION_OC', 'POSICION_PL', 'ARTICULO', 'PRODUCTO'], DOCUMENTO: ['DOCUMENTO', 'OC', 'PL'],
+  BULTO: ['EMPAQUE'] }
+export const CANTIDADES_REGLA = () => ({ UNA: t('One'), POR_UNIDAD: t('One per unit'), MANUAL: t('By hand') })
+export const CANTIDADES_REGLA_DE = { ARTICULO: ['UNA', 'POR_UNIDAD', 'MANUAL'], DOCUMENTO: ['UNA', 'MANUAL'], BULTO: ['UNA', 'MANUAL'] }
+// La salida de una regla en pocas palabras: «Diseño A · cada variante · una por unidad» o «No lleva»
+export function textoSalida(u) {
+  if (!u) return ''
+  if (u.accion === 'NO_LLEVA') return t('Does not carry this label')
+  return [u.plantilla ? tx(u.plantilla) : '', u.alcance && ALCANCES()[u.alcance], u.cantidad && CANTIDADES_REGLA()[u.cantidad],
+    u.prioridad ? t('priority {0}', [u.prioridad]) : ''].filter(Boolean).join(' · ')
+}
 // Excepciones: la primera parte de la frase «Si … usar …»
 export const CONTEXTOS = () => ({
   PAIS_DESTINO: t('the destination country is'), CENTRO_DESTINO: t('the destination center is'), SOCIEDAD: t('the buying company is'),
@@ -39,7 +56,7 @@ export const CONTEXTOS = () => ({
 // Dónde está el diseño elegido, en palabras («Por la familia Calzado»)
 export function textoDonde(nivel, destino) {
   if (nivel === 'GENERAL') return t('Whole company')
-  const plantilla = { FAMILIA: t('Family {0}'), PRODUCTO: t('Product {0}'), SKU: t('Item {0}'), TIPO_EMPAQUE: t('Package type {0}') }[nivel]
+  const plantilla = { FAMILIA: t('Family {0}'), CATEGORIA: t('Category {0}'), PRODUCTO: t('Product {0}'), SKU: t('Item {0}'), TIPO_EMPAQUE: t('Package type {0}') }[nivel]
   return plantilla ? plantilla.replace('{0}', tx(destino || '')) : nivel
 }
 // La excepción en una frase: «Si el país destino es Panamá, Costa Rica»
@@ -65,6 +82,7 @@ export function textoVigencia(u) {
 export function textoPorque(e) {
   const p = e?.porque || {}
   if (!e || p.clase === 'sin_diseno') return t('No design applies')
+  if (p.no_lleva || e.no_lleva) return `${t('Does not carry this label')} · ${textoDonde(p.nivel, p.destino)}`
   if (p.clase === 'elegida') return t('Chosen for this job')
   const donde = textoDonde(p.nivel, p.destino)
   if (p.clase === 'oc') return t('Special design for PO {0}', [p.oc])
@@ -90,6 +108,16 @@ export const OPERADORES = () => ({
 export const SIN_VALOR = ['existe', 'vacio']
 export const NUMERICOS = ['mayor', 'mayor_igual', 'menor', 'menor_igual', 'entre']
 export const LISTAS = ['en', 'no_en']
+// Las condiciones como las espera el servidor: sin filas vacías y con el valor del tipo correcto
+export function condicionesLimpias(cs) {
+  return (cs || []).filter((c) => c.campo).map((c) => {
+    let valor = c.valor
+    if (SIN_VALOR.includes(c.op)) valor = null
+    else if (LISTAS.includes(c.op) && !Array.isArray(valor)) valor = String(valor || '').split(',').map((x) => x.trim()).filter(Boolean)
+    else if (NUMERICOS.includes(c.op) && c.op !== 'entre') valor = Number(valor)
+    return { campo: c.campo, op: c.op, valor }
+  })
+}
 
 // Clase de cada problema de un trabajo (generacion.CATEGORIAS)
 export const CATEGORIAS = () => ({

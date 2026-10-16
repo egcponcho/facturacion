@@ -400,14 +400,27 @@ def productos(db: Session, user: Usuario, q: str | None = None, familia: str | N
         Articulo.producto_id.in_([p.id for p in filas]), Articulo.activo.is_(True)).group_by(Articulo.producto_id)).all()) if filas else {}
     grupos_ = {g.id: g for g in db.scalars(select(GrupoArticulo))}
     familias_ = {f.id: f.nombre for f in db.scalars(select(FamiliaEtiquetado))}
+    # La categoría de etiquetado: la puesta a mano o la que reconocen las condiciones (con su primera talla)
+    from app.modulos.etiquetado import campos, reglas
+
+    primera = {}
+    for a in db.scalars(select(Articulo).where(Articulo.producto_id.in_([p.id for p in filas]), Articulo.activo.is_(True))
+                        .order_by(Articulo.id)) if filas else []:
+        primera.setdefault(a.producto_id, a)
+    cache: dict = {}
     res = []
     for p in filas:
+        a = primera.get(p.id)
+        cat = reglas.categoria_de(db, a, campos.valores_articulo(a), cache) if a is not None else None
         fg = grupos_[p.grupo_id].familia_etiquetado_id if p.grupo_id in grupos_ else None
         efectiva = p.familia_etiquetado_id or fg
         res.append({"id": p.id, "estilo": p.estilo, "color": p.color, "nombre": p.nombre, "codigo_generico": p.codigo_generico,
                     "grupo": grupos_[p.grupo_id].nombre if p.grupo_id in grupos_ else None, "tallas": tallas.get(p.id, 0),
                     "familia_propia_id": p.familia_etiquetado_id, "familia_id": efectiva, "familia": familias_.get(efectiva),
-                    "familia_origen": "PRODUCTO" if p.familia_etiquetado_id else ("GRUPO" if fg else None)})
+                    "familia_origen": "PRODUCTO" if p.familia_etiquetado_id else ("GRUPO" if fg else None),
+                    "categoria_id": cat.id if cat else None, "categoria": cat.nombre if cat else None,
+                    "categoria_propia_id": p.categoria_etiquetado_id,
+                    "categoria_origen": ("MANUAL" if cat and cat.id == p.categoria_etiquetado_id else "CONDICIONES") if cat else None})
     return {"total": total, "items": res}
 
 

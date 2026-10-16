@@ -34,7 +34,7 @@ SUJETO = Query(None, pattern="^(ARTICULO|BULTO|DOCUMENTO)$")
 def catalogos(db: Db, user: User):
     """Lo que la interfaz necesita para armar sus formularios: qué se etiqueta, cuántas salen,
     niveles y excepciones posibles, operadores de las condiciones, simbologías y tamaños."""
-    from app.modelos.etiquetado import CANTIDADES_DE, CONTEXTOS, NIVELES_DE
+    from app.modelos.etiquetado import ALCANCES_DE, CANTIDADES_DE, CONTEXTOS, NIVELES_DE
     from app.modulos.etiquetado import codigos, reglas
 
     exigir_alguno(user, "etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.configurar")
@@ -42,7 +42,8 @@ def catalogos(db: Db, user: User):
             "orden_contexto": list(reglas.ORDEN_CONTEXTO), "operadores": list(reglas.OPERADORES),
             "operadores_simples": list(reglas.OPERADORES_SIMPLES), "simbologias": codigos.catalogo(),
             "tamanos": plantillas.tamanos(), "sugeridos": tipos.SUGERIDOS, "origenes": dict(trabajos.SUJETOS_DE),
-            "completables": list(trabajos.COMPLETABLES)}
+            "completables": list(trabajos.COMPLETABLES), "alcances": {k: list(v) for k, v in ALCANCES_DE.items()},
+            "cantidades_regla": {k: list(v) for k, v in usos.CANTIDADES_DE_SUJETO.items()}}
 
 
 @router.get("/etiquetas/campos")

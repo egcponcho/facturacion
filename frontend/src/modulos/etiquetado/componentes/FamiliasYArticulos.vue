@@ -14,9 +14,10 @@ import { fmtNum } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
+import CategoriasFamilia from '@/modulos/etiquetado/componentes/CategoriasFamilia.vue'
 import CeldaEtiquetado from '@/modulos/etiquetado/componentes/CeldaEtiquetado.vue'
 import FormFamilia from '@/modulos/etiquetado/componentes/FormFamilia.vue'
-import { textoDonde } from '@/modulos/etiquetado/etiquetas.js'
+import { textoDonde, textoSalida } from '@/modulos/etiquetado/etiquetas.js'
 
 // Familias de etiquetado y qué es de cada una. A la izquierda el árbol (solo
 // nombres y cuántos artículos tienen); a la derecha la ficha de la elegida
@@ -76,12 +77,30 @@ async function cargarMatriz() {
   }
 }
 onMounted(cargarMatriz)
-alCambiar(() => cargarMatriz(), ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias'])
+alCambiar(() => cargarMatriz(), ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias', '/etiquetas/categorias'])
 const filaMatriz = computed(() => (matriz.value?.filas || []).find((f) => f.nivel === 'FAMILIA' && String(f.id) === elegida.value))
 const celda = ref(null)
 function abrirCelda(tipo) {
   const f = filaMatriz.value
   celda.value = { tipo, nivel: 'FAMILIA', destinoId: f.id, nombre: tx(f.nombre) }
+}
+// La celda de una categoría de la familia (sus reglas, más específicas que las de la familia)
+function abrirCeldaCategoria(c) {
+  celda.value = c
+}
+// Las categorías de la familia elegida (para ponerlas a mano en productos)
+const categorias = ref([])
+const categoriaDestino = ref('')
+async function asignarCategoria(categoria) {
+  try {
+    const r = await api.post('/etiquetas/productos/categoria', { categoria_id: categoria ? Number(categoria) : null, ids: seleccion.value })
+    avisar(t('{0} changed.', [fmtNum(r.cambiados)]))
+    categoriaDestino.value = ''
+    cargarMatriz()
+    recargar()
+  } catch (e) {
+    errorApi(e)
+  }
 }
 function celdaGuardada() {
   celda.value = null
@@ -150,6 +169,7 @@ const columnas = computed(() => (que.value === 'productos' ? [
   { clave: 'grupo', texto: t('Group'), prioridad: 3, ordenable: false, filtro: false },
   { clave: 'tallas', texto: t('Sizes'), num: true, prioridad: 3, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
+  { clave: 'categoria', texto: t('Labeling category'), prioridad: 2, ordenable: false, filtro: false },
 ] : que.value === 'articulos' ? [
   { clave: 'sku', texto: t('SKU'), fija: true, prioridad: 1, ordenable: false, filtro: false },
   { clave: 'descripcion', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
@@ -307,9 +327,9 @@ async function mover(f, delta) {
             <button v-for="tp in matriz.tipos" :key="tp.id" type="button" class="fa-etiqueta" :class="{ falta: filaMatriz.celdas[tp.id].falta }"
                     :title="t('Change the design of {0} for this family', [tx(tp.nombre)])" @click="abrirCelda(tp)">
               <span class="fa-etiqueta-tipo">{{ tx(tp.nombre) }}</span>
-              <span v-if="filaMatriz.celdas[tp.id].normal" class="fa-etiqueta-diseno"><Icono nombre="etiqueta" :tam="13" />{{ tx(filaMatriz.celdas[tp.id].normal.plantilla) }}</span>
+              <span v-if="filaMatriz.celdas[tp.id].normal" class="fa-etiqueta-diseno"><Icono :nombre="filaMatriz.celdas[tp.id].normal.accion === 'NO_LLEVA' ? 'cerrar' : 'etiqueta'" :tam="13" />{{ textoSalida(filaMatriz.celdas[tp.id].normal) }}</span>
               <span v-else-if="filaMatriz.celdas[tp.id].falta" class="fa-etiqueta-diseno aviso"><Icono nombre="alerta" :tam="13" />{{ t('No design (required)') }}</span>
-              <span v-else-if="filaMatriz.celdas[tp.id].hereda" class="fa-etiqueta-diseno apagado">↳ {{ tx(filaMatriz.celdas[tp.id].hereda.plantilla) }}
+              <span v-else-if="filaMatriz.celdas[tp.id].hereda" class="fa-etiqueta-diseno apagado">↳ {{ textoSalida(filaMatriz.celdas[tp.id].hereda) }}
                 <small>({{ textoDonde(filaMatriz.celdas[tp.id].hereda.nivel, filaMatriz.celdas[tp.id].hereda.destino) }})</small></span>
               <span v-else class="fa-etiqueta-diseno apagado">—</span>
               <span v-if="filaMatriz.celdas[tp.id].excepciones" class="fa-etiqueta-extra">{{ t('{0} exceptions', [filaMatriz.celdas[tp.id].excepciones]) }}</span>
@@ -317,6 +337,8 @@ async function mover(f, delta) {
           </div>
           <p v-if="familiaElegida.campos?.length" class="ayuda fa-campos-txt">{{ t('Fields') }}:
             {{ familiaElegida.campos.map((c) => c.campo + (c.obligatorio ? ' *' : '')).join(' · ') }}</p>
+          <CategoriasFamilia v-if="!celda" :familia="familiaElegida" :matriz="matriz" @celda="abrirCeldaCategoria" @cambio="cargarMatriz"
+                             @cargadas="categorias = $event" />
         </div>
         <div v-else class="fa-titulo">
           <h3>{{ tituloDerecha }}</h3>
@@ -355,6 +377,11 @@ async function mover(f, delta) {
               <span v-if="x.familia && x.familia_origen" class="sub">{{ ORIGEN()[x.familia_origen] }}</span>
               <span v-if="!x.familia" class="etiqueta aviso ms-0">{{ t('Without family') }}</span>
             </template>
+            <template #celda-categoria="{ fila: x }">
+              <template v-if="x.categoria"><span class="etiqueta ms-0">{{ tx(x.categoria) }}</span>
+                <span class="sub">{{ x.categoria_origen === 'MANUAL' ? t('set by hand') : t('by its conditions') }}</span></template>
+              <span v-else class="apagado">—</span>
+            </template>
             <template #vacio>{{ modo === 'agregar' ? t('Nothing to add here: everything already has a family.') : t('Nothing here.') }}</template>
           </TablaDatos>
           <TablaDatos v-else tabla="etiquetas_grupos" :columnas="columnas" :filas="grupos" :cargando="cargando" :seleccionable="editable"
@@ -382,6 +409,16 @@ async function mover(f, delta) {
       </Seleccion>
       <button type="button" class="btn" :disabled="!destino" @click="asignar(destino)"><Icono nombre="check" :tam="15" />{{ t('Apply') }}</button>
       <button v-if="elegida !== 'sin'" type="button" class="btn" @click="asignar('ninguna')"><Icono nombre="cerrar" :tam="15" />{{ t('Remove the family') }}</button>
+      <!-- La categoría a mano (solo productos de una familia con categorías) -->
+      <template v-if="que === 'productos' && familiaElegida && categorias.length">
+        <Seleccion v-model="categoriaDestino" class="fa-destino" :aria-label="t('Labeling category')">
+          <option value="">{{ t('Category…') }}</option>
+          <option value="auto">{{ t('Recognize by its conditions') }}</option>
+          <option v-for="c in categorias.filter((x) => x.activa)" :key="c.id" :value="c.id">{{ tx(c.nombre) }}</option>
+        </Seleccion>
+        <button type="button" class="btn" :disabled="!categoriaDestino" @click="asignarCategoria(categoriaDestino === 'auto' ? null : categoriaDestino)">
+          <Icono nombre="check" :tam="15" />{{ t('Set category') }}</button>
+      </template>
     </template>
   </BarraSeleccion>
 </template>

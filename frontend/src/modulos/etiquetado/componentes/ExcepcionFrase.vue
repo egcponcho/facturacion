@@ -7,17 +7,19 @@ import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import { fmtNum } from '@/nucleo/utils'
+import EditorCondiciones from '@/modulos/etiquetado/componentes/EditorCondiciones.vue'
+import SalidaRegla from '@/modulos/etiquetado/componentes/SalidaRegla.vue'
 import SelectorDiseno from '@/modulos/etiquetado/componentes/SelectorDiseno.vue'
-import { CONTEXTOS, LISTAS, NUMERICOS, OPERADORES, SIN_VALOR } from '@/modulos/etiquetado/etiquetas.js'
+import { CONTEXTOS } from '@/modulos/etiquetado/etiquetas.js'
 
 // Agregar o cambiar una excepción, escrita como frase:
-// «Si [el país destino es] [Panamá] usar [diseño] desde … hasta … porque …».
-// Sin prioridades: el orden lo da la clase de excepción (centro, país,
-// sociedad, proveedor, condiciones). «Aplicar también a» copia la excepción en
-// otras filas de la misma columna.
+// «Si [el país destino es] [Panamá] usar [diseño] (o no lleva) desde … hasta … porque …».
+// El orden lo da la clase de excepción (centro, país, sociedad, proveedor,
+// condiciones); dentro de la misma clase, la prioridad. «Aplicar también a»
+// copia la excepción en otras filas de la misma columna.
 const props = defineProps({
   modelValue: { type: Object, required: true },
-  tipoId: { type: Number, required: true },
+  tipo: { type: Object, required: true }, // el tipo de etiqueta (id, sujeto, cantidad, alcance_efectivo)
   campos: { type: Array, default: () => [] }, // campos para las condiciones (Avanzado)
   operadores: { type: Array, default: () => [] }, // operadores simples del servidor
   otras: { type: Array, default: () => [] }, // otras filas de la columna: { nivel, destino_id, nombre }
@@ -36,19 +38,14 @@ watch(() => x.contexto_tipo, async (c, antes) => {
     opciones.value = await api.get('/etiquetas/usos/valores', { contexto: c }).catch(() => [])
   }
 }, { immediate: true })
-const operadores = computed(() => {
-  const todos = OPERADORES()
-  return (props.operadores.length ? props.operadores : Object.keys(todos)).map((op) => [op, todos[op] || op])
-})
-const agregarCondicion = () => x.condiciones.push({ campo: '', op: 'igual', valor: '' })
-const listo = computed(() => x.plantilla_id && (x.motivo || '').trim()
+const listo = computed(() => (x.plantilla_id || x.accion === 'NO_LLEVA') && (x.motivo || '').trim()
   && (CON_VALORES.includes(x.contexto_tipo) ? x.contexto_valores.length > 0
     : x.contexto_tipo === 'CONDICION' ? x.condiciones.some((c) => c.campo) || x.vigente_desde || x.vigente_hasta : false))
 // Al aceptar, la frase se muestra con los nombres (Panamá, el diseño), no con los códigos
 const selector = ref(null)
 function aceptar() {
   x.contexto_nombres = x.contexto_valores.map((v) => opciones.value.find((o) => String(o.valor) === String(v))?.texto || v)
-  if (selector.value?.elegido) x.plantilla = selector.value.elegido.nombre
+  if (x.accion !== 'NO_LLEVA' && selector.value?.elegido) x.plantilla = selector.value.elegido.nombre
   emit('aceptar')
 }
 function alternarOtra(o) {
@@ -67,22 +64,13 @@ function alternarOtra(o) {
       <SelectBusqueda v-if="CON_VALORES.includes(x.contexto_tipo)" v-model="x.contexto_valores" multiple :opciones="opciones"
                       :etiqueta="t('Values')" :prefijo="false" :placeholder="t('Choose one or more…')" class="frase-valores" />
     </div>
-    <fieldset v-if="x.contexto_tipo === 'CONDICION'" class="frase-condiciones">
-      <legend>{{ t('Conditions (all must be met)') }}</legend>
-      <div v-for="(c, i) in x.condiciones" :key="i" class="condicion">
-        <Seleccion v-model="c.campo" :aria-label="t('Field')"><option value="">{{ t('Field…') }}</option>
-          <option v-for="f in campos" :key="f.clave" :value="f.clave">{{ tx(f.etiqueta) }}</option></Seleccion>
-        <Seleccion v-model="c.op" :aria-label="t('Operator')"><option v-for="[op, txt] in operadores" :key="op" :value="op">{{ txt }}</option></Seleccion>
-        <input v-if="!SIN_VALOR.includes(c.op)" v-model="c.valor" :type="NUMERICOS.includes(c.op) ? 'number' : 'text'" :aria-label="t('Value')"
-               :placeholder="LISTAS.includes(c.op) ? t('values separated by commas') : ''" />
-        <button type="button" class="btn-icono" :aria-label="t('Remove')" @click="x.condiciones.splice(i, 1)"><Icono nombre="cerrar" :tam="14" /></button>
+    <EditorCondiciones v-if="x.contexto_tipo === 'CONDICION'" :model-value="x.condiciones" :campos="campos" :operadores="operadores" />
+    <SalidaRegla :model-value="x" :tipo="tipo" prioridad>
+      <div class="frase-linea">
+        <span class="frase-palabra">{{ t('use') }}</span>
+        <SelectorDiseno ref="selector" v-model="x.plantilla_id" :tipo-id="tipo.id" :miniatura="false" class="frase-diseno" />
       </div>
-      <button type="button" class="btn btn-chico" @click="agregarCondicion"><Icono nombre="mas" :tam="14" />{{ t('Add a condition') }}</button>
-    </fieldset>
-    <div class="frase-linea">
-      <span class="frase-palabra">{{ t('use') }}</span>
-      <SelectorDiseno ref="selector" v-model="x.plantilla_id" :tipo-id="tipoId" :miniatura="false" class="frase-diseno" />
-    </div>
+    </SalidaRegla>
     <div class="frase-linea">
       <label class="frase-fecha"><span>{{ t('from') }}</span><CampoFecha v-model="x.vigente_desde" :aria-label="t('From')" /></label>
       <label class="frase-fecha"><span>{{ t('until') }}</span><CampoFecha v-model="x.vigente_hasta" :aria-label="t('Until')" /></label>
@@ -115,11 +103,8 @@ function alternarOtra(o) {
 .frase-motivo { flex: 1 1 240px; }
 .frase-motivo input { flex: 1; min-width: 0; }
 .frase-otras { font-size: 0.86rem; }
-.frase-condiciones { border: 1px dashed var(--linea); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-.condicion { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) auto; gap: 6px; align-items: center; }
 .frase-pie { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.86rem; }
 .ok-txt { color: var(--ok); }
 .aviso-txt { color: var(--aviso); }
 .error-txt { color: var(--error); }
-@media (max-width: 600px) { .condicion { grid-template-columns: 1fr auto; } }
 </style>

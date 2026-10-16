@@ -8,10 +8,12 @@ import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { CANTIDADES, SUJETOS, catalogos } from '@/modulos/etiquetado/etiquetas.js'
+import { ALCANCES, ALCANCES_DE, CANTIDADES, SUJETOS, catalogos } from '@/modulos/etiquetado/etiquetas.js'
 
 // Tipos de etiqueta de la empresa: qué se etiqueta (artículo, bulto o
-// documento), cuántas salen de cada uno y si es obligatoria. Son las columnas
+// documento), dónde va por defecto (cada línea, posición, variante, artículo
+// genérico, OC, lista de empaque…), cuántas salen y si es obligatoria; cada
+// regla puede cambiar dónde va y cuántas. Son las columnas
 // de «Qué diseño lleva cada cosa».
 const emit = defineEmits(['cambio'])
 const lista = ref([])
@@ -43,6 +45,7 @@ const columnas = computed(() => [
   { clave: 'orden', texto: '#', num: true, prioridad: 2, filtro: false },
   { clave: 'nombre', texto: t('Label type'), fija: true, prioridad: 1 },
   { clave: 'sujeto', texto: t('What is labeled'), prioridad: 1, textoValor: (v) => SUJETOS()[v] || v },
+  { clave: 'alcance_efectivo', texto: t('Where it goes'), prioridad: 2, textoValor: (v) => ALCANCES()[v] || v },
   { clave: 'cantidad', texto: t('How many'), prioridad: 2, textoValor: (v) => CANTIDADES()[v] || v },
   { clave: 'empaques', texto: t('Goes on'), prioridad: 3, filtro: false, ordenable: false },
   { clave: 'obligatoria', texto: t('Required'), prioridad: 2, opciones: [[true, t('Yes')], [false, t('No')]] },
@@ -55,13 +58,14 @@ const columnas = computed(() => [
 const edicion = ref(null)
 const formulario = ref(null)
 function editar(x) {
-  edicion.value = x ? { ...x, empaques: [...(x.empaques || [])] }
-    : { codigo: '', nombre: '', descripcion: '', sujeto: 'ARTICULO', cantidad: 'POR_UNIDAD', obligatoria: false, activo: true, empaques: [] }
+  edicion.value = x ? { ...x, alcance: x.alcance || '', empaques: [...(x.empaques || [])] }
+    : { codigo: '', nombre: '', descripcion: '', sujeto: 'ARTICULO', cantidad: 'POR_UNIDAD', alcance: '', obligatoria: false, activo: true, empaques: [] }
   nextTick(() => formulario.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
 }
 watch(() => edicion.value?.sujeto, (s) => {
   const e = edicion.value
   if (e && s && cantidadesDe.value[s] && !cantidadesDe.value[s].includes(e.cantidad)) e.cantidad = cantidadesDe.value[s][0]
+  if (e && e.alcance && !(ALCANCES_DE[s] || []).includes(e.alcance)) e.alcance = ''
 })
 // El código sale del nombre mientras no se escriba uno
 function sugerirCodigo() {
@@ -72,7 +76,7 @@ function sugerirCodigo() {
 async function guardar() {
   const e = edicion.value
   const datos = { codigo: e.codigo, nombre: e.nombre, descripcion: e.descripcion, sujeto: e.sujeto, cantidad: e.cantidad,
-    obligatoria: e.obligatoria, activo: e.activo, empaques: e.sujeto === 'BULTO' ? e.empaques : [] }
+    obligatoria: e.obligatoria, activo: e.activo, empaques: e.sujeto === 'BULTO' ? e.empaques : [], alcance: e.alcance || null }
   try {
     if (e.id) await api.patch(`/etiquetas/tipos/${e.id}`, { ...datos, version: e.version })
     else await api.post('/etiquetas/tipos', datos)
@@ -139,6 +143,12 @@ const conDisenos = computed(() => edicion.value?.id && edicion.value.disenos > 0
         <Seleccion v-model="edicion.cantidad">
           <option v-for="c in cantidadesDe[edicion.sujeto] || []" :key="c" :value="c">{{ CANTIDADES()[c] }}</option>
         </Seleccion></label>
+      <label v-if="(ALCANCES_DE[edicion.sujeto] || []).length > 1" class="campo"><span>{{ t('Where it goes by default') }}</span>
+        <Seleccion v-model="edicion.alcance">
+          <option value="">{{ t('Automatic (according to how many)') }}</option>
+          <option v-for="a in ALCANCES_DE[edicion.sujeto]" :key="a" :value="a">{{ ALCANCES()[a] }}</option>
+        </Seleccion>
+        <small class="ayuda">{{ t('One label for each of these. A rule of a family, category or product can change it.') }}</small></label>
       <label class="check"><input v-model="edicion.obligatoria" type="checkbox" /> {{ t('Required: every record must have a design of this type to print') }}</label>
       <label class="campo"><span>{{ t('Description') }}</span><textarea v-model="edicion.descripcion" rows="2" maxlength="300"></textarea></label>
       <label v-if="edicion.id" class="check"><input v-model="edicion.activo" type="checkbox" /> {{ t('Active (shown in the screens and the matrix)') }}</label>

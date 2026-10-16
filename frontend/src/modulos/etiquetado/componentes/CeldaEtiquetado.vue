@@ -9,8 +9,9 @@ import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import EfectoCambio from '@/modulos/etiquetado/componentes/EfectoCambio.vue'
 import ExcepcionFrase from '@/modulos/etiquetado/componentes/ExcepcionFrase.vue'
+import SalidaRegla from '@/modulos/etiquetado/componentes/SalidaRegla.vue'
 import SelectorDiseno from '@/modulos/etiquetado/componentes/SelectorDiseno.vue'
-import { LISTAS, NUMERICOS, SIN_VALOR, catalogos, textoDonde, textoExcepcion, textoVigencia } from '@/modulos/etiquetado/etiquetas.js'
+import { catalogos, condicionesLimpias, textoDonde, textoExcepcion, textoSalida, textoVigencia } from '@/modulos/etiquetado/etiquetas.js'
 
 // Una celda de la matriz (fila × tipo de etiqueta), en la misma página (sin ventana): su diseño
 // normal (o heredar), sus excepciones escritas como frase y los productos con
@@ -26,7 +27,10 @@ const props = defineProps({
 const emit = defineEmits(['cerrar', 'guardado'])
 const editable = computed(() => puede('etiquetas.configurar'))
 const celda = ref(null)
-const normal = ref('')
+// La regla normal del lugar: un diseño (dónde va, cuántas) o «no lleva»; sin diseño = heredar
+const salida = (u) => ({ accion: u?.accion || 'USAR', plantilla_id: u?.plantilla_id || '', alcance: u?.alcance || '', cantidad: u?.cantidad || '',
+  prioridad: u?.prioridad || 0 })
+const normal = ref(salida(null))
 const excepciones = ref([]) // copias editables (con `cambiada`) de las que hay + las nuevas
 const quitar = ref([])
 const editando = ref(null) // índice en excepciones, o 'nueva'
@@ -39,8 +43,8 @@ async function cargar() {
   try {
     const c = await api.get('/etiquetas/celda', { tipo: props.tipo.id, nivel: props.nivel, destino_id: props.destinoId ?? undefined })
     celda.value = c
-    normal.value = c.normal?.plantilla_id || ''
-    excepciones.value = c.excepciones.map((u) => ({ ...u, condiciones: (u.condiciones || []).map((x) => ({ ...x })), aplicar: [], cambiada: false }))
+    normal.value = salida(c.normal)
+    excepciones.value = c.excepciones.map((u) => ({ ...u, ...salida(u), condiciones: (u.condiciones || []).map((x) => ({ ...x })), aplicar: [], cambiada: false }))
     quitar.value = []
     editando.value = null
     nueva.value = null
@@ -57,27 +61,26 @@ onMounted(() => {
 })
 
 const titulo = computed(() => `${props.nombre || textoDonde(props.nivel, celda.value?.destino)} · ${tx(props.tipo.nombre)}`)
-const normalCambiado = computed(() => celda.value && Number(normal.value || 0) !== Number(celda.value.normal?.plantilla_id || 0))
+const tipoCelda = computed(() => celda.value?.tipo || props.tipo)
+const claveSalida = (n) => (n.accion === 'NO_LLEVA' ? 'NO_LLEVA' : n.plantilla_id ? [Number(n.plantilla_id), n.alcance, n.cantidad].join('|') : '')
+const normalCambiado = computed(() => celda.value && claveSalida(normal.value) !== claveSalida(salida(celda.value.normal)))
+function normalPedido() {
+  const n = normal.value
+  if (n.accion === 'NO_LLEVA') return { accion: 'NO_LLEVA' }
+  return n.plantilla_id ? { accion: 'USAR', plantilla_id: Number(n.plantilla_id), alcance: n.alcance || null, cantidad: n.cantidad || null } : null
+}
 const visibles = computed(() => excepciones.value.filter((x) => !quitar.value.includes(x.id)))
 const cambios = computed(() => normalCambiado.value || quitar.value.length > 0 || excepciones.value.some((x) => x.cambiada || !x.id))
 
 // Lo que se manda (al simular y al guardar): solo lo que cambió
-function condicionesLimpias(cs) {
-  return (cs || []).filter((c) => c.campo).map((c) => {
-    let valor = c.valor
-    if (SIN_VALOR.includes(c.op)) valor = null
-    else if (LISTAS.includes(c.op) && !Array.isArray(valor)) valor = String(valor || '').split(',').map((x) => x.trim()).filter(Boolean)
-    else if (NUMERICOS.includes(c.op) && c.op !== 'entre') valor = Number(valor)
-    return { campo: c.campo, op: c.op, valor }
-  })
-}
 const limpia = (x) => ({ ...(x.id && { id: x.id, version: x.version }), contexto_tipo: x.contexto_tipo, contexto_valores: x.contexto_valores,
-  oc_id: x.oc_id || undefined, plantilla_id: x.plantilla_id, condiciones: condicionesLimpias(x.condiciones),
+  oc_id: x.oc_id || undefined, accion: x.accion || 'USAR', plantilla_id: x.accion === 'NO_LLEVA' ? null : x.plantilla_id,
+  alcance: x.alcance || null, cantidad: x.cantidad || null, prioridad: Number(x.prioridad) || 0, condiciones: condicionesLimpias(x.condiciones),
   vigente_desde: x.vigente_desde || null, vigente_hasta: x.vigente_hasta || null, motivo: x.motivo })
 function pedido(extra = {}) {
   const enviadas = excepciones.value.filter((x) => (x.cambiada || !x.id) && !quitar.value.includes(x.id))
   return { tipo_etiqueta_id: props.tipo.id, nivel: props.nivel, destino_id: props.destinoId,
-    ...(normalCambiado.value && { normal: normal.value ? { plantilla_id: Number(normal.value) } : null }),
+    ...(normalCambiado.value && { normal: normalPedido() }),
     excepciones: enviadas.map(limpia), quitar: quitar.value, ...extra }
 }
 
@@ -113,7 +116,7 @@ watch([normal, excepciones, quitar], () => {
 let esperaFrase = null
 watch(nueva, (x) => {
   clearTimeout(esperaFrase)
-  if (!x || !x.plantilla_id || !(x.motivo || '').trim()) return
+  if (!x || (!x.plantilla_id && x.accion !== 'NO_LLEVA') || !(x.motivo || '').trim()) return
   esperaFrase = setTimeout(async () => {
     const r = await simular({ tipo_etiqueta_id: props.tipo.id, nivel: props.nivel, destino_id: props.destinoId, excepciones: [limpia(x)] }, false)
     coinciden.value = { ...coinciden.value, nueva: r?.excepciones?.[0]?.coinciden ?? null }
@@ -127,13 +130,13 @@ onBeforeUnmount(() => {
 // Dos excepciones iguales en la misma celda no se pueden guardar
 function conflicto(x) {
   if (!['PAIS_DESTINO', 'CENTRO_DESTINO', 'SOCIEDAD', 'PROVEEDOR'].includes(x.contexto_tipo)) return ''
-  const otra = visibles.value.find((y) => y !== x && y.contexto_tipo === x.contexto_tipo && !y.vigente_desde && !y.vigente_hasta
+  const otra = visibles.value.find((y) => y !== x && y.contexto_tipo === x.contexto_tipo && Number(y.prioridad || 0) === Number(x.prioridad || 0) && !y.vigente_desde && !y.vigente_hasta
     && !x.vigente_desde && !x.vigente_hasta && y.contexto_valores.some((v) => x.contexto_valores.includes(v)))
   return otra ? t('There is already an exception for {0} in this place.', [otra.contexto_valores.filter((v) => x.contexto_valores.includes(v)).join(', ')]) : ''
 }
 
 function agregar() {
-  nueva.value = { contexto_tipo: 'PAIS_DESTINO', contexto_valores: [], plantilla_id: '', condiciones: [], vigente_desde: '', vigente_hasta: '',
+  nueva.value = { contexto_tipo: 'PAIS_DESTINO', contexto_valores: [], ...salida(null), condiciones: [], vigente_desde: '', vigente_hasta: '',
     motivo: '', aplicar: [] }
   editando.value = 'nueva'
   coinciden.value = { ...coinciden.value, nueva: null }
@@ -220,11 +223,13 @@ const autor = (x) => [x.creado_por, x.creado_en && fmtFecha(x.creado_en)].filter
     <div v-if="!celda" class="vacio">{{ t('Loading…') }}</div>
     <div v-else class="celda">
       <section>
-        <h4>{{ t('Normal design') }}</h4>
-        <SelectorDiseno v-if="editable" v-model="normal" :tipo-id="tipo.id"
-                        :vacio="celda.hereda ? t('Inherit from “{0}” ({1})', [textoDonde(celda.hereda.nivel, celda.hereda.destino), tx(celda.hereda.plantilla)])
-                          : nivel === 'GENERAL' ? t('No design') : t('Inherit (there is no design above: none)')" />
-        <p v-else>{{ celda.normal ? tx(celda.normal.plantilla) : celda.hereda ? t('Inherits {0}', [tx(celda.hereda.plantilla)]) : t('No design') }}</p>
+        <h4>{{ t('Normal rule') }}</h4>
+        <SalidaRegla v-if="editable" :key="celda.firma" :model-value="normal" :tipo="tipoCelda">
+          <SelectorDiseno v-model="normal.plantilla_id" :tipo-id="tipo.id"
+                          :vacio="celda.hereda ? t('Inherit from “{0}” ({1})', [textoDonde(celda.hereda.nivel, celda.hereda.destino), textoSalida(celda.hereda) || t('No design')])
+                            : nivel === 'GENERAL' ? t('No design') : t('Inherit (there is no design above: none)')" />
+        </SalidaRegla>
+        <p v-else>{{ celda.normal ? textoSalida(celda.normal) : celda.hereda ? t('Inherits {0}', [textoSalida(celda.hereda)]) : t('No design') }}</p>
         <p class="ayuda">{{ nivel === 'GENERAL' ? t('{0} items. Families without a design of their own use this one.', [fmtNum(celda.articulos || 0)])
           : celda.articulos != null ? t('{0} items in this place.', [fmtNum(celda.articulos)]) : '' }}</p>
       </section>
@@ -236,11 +241,11 @@ const autor = (x) => [x.creado_por, x.creado_en && fmtFecha(x.creado_en)].filter
         </div>
         <ol v-if="visibles.length || nueva" class="excepciones">
           <li v-for="x in visibles" :key="x.id || x.motivo">
-            <ExcepcionFrase v-if="editando === excepciones.indexOf(x)" :model-value="x" :tipo-id="tipo.id" :campos="campos" :operadores="operadores"
+            <ExcepcionFrase v-if="editando === excepciones.indexOf(x)" :model-value="x" :tipo="tipoCelda" :campos="campos" :operadores="operadores"
                             :conflicto="conflicto(x)" @aceptar="aceptarEdicion(excepciones.indexOf(x))" @cancelar="cancelarEdicion(excepciones.indexOf(x))" />
             <div v-else class="excepcion">
               <div class="excepcion-texto">
-                <strong>{{ textoExcepcion(x) }}</strong> → {{ x.plantilla ? tx(x.plantilla) : t('chosen design') }}
+                <strong>{{ textoExcepcion(x) }}</strong> → <span :class="{ 'no-lleva': x.accion === 'NO_LLEVA' }">{{ textoSalida(x) || t('chosen design') }}</span>
                 <span v-if="textoVigencia(x)" class="etiqueta ms-0">{{ textoVigencia(x) }}</span>
                 <span v-if="x.vigente === false" class="etiqueta aviso ms-0">{{ t('Not in force today') }}</span>
                 <span v-if="x.contexto_tipo === 'OC'" class="etiqueta info ms-0">{{ t('for one PO') }}</span>
@@ -254,7 +259,7 @@ const autor = (x) => [x.creado_por, x.creado_en && fmtFecha(x.creado_en)].filter
             </div>
           </li>
           <li v-if="nueva">
-            <ExcepcionFrase :model-value="nueva" :tipo-id="tipo.id" :campos="campos" :operadores="operadores" :otras="otras"
+            <ExcepcionFrase :model-value="nueva" :tipo="tipoCelda" :campos="campos" :operadores="operadores" :otras="otras"
                             :coinciden="coinciden.nueva" :conflicto="conflicto(nueva)" @aceptar="aceptarNueva" @cancelar="nueva = null; editando = null" />
           </li>
         </ol>
@@ -298,6 +303,7 @@ const autor = (x) => [x.creado_por, x.creado_en && fmtFecha(x.creado_en)].filter
 .excepcion-texto { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 0.9rem; }
 .excepcion-texto small { flex-basis: 100%; }
 .excepcion-acciones { display: flex; gap: 2px; flex: none; }
+.no-lleva { color: var(--tinta-3); font-style: italic; }
 .propios { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .propios li { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid var(--linea); border-radius: 8px; padding: 6px 10px; font-size: 0.88rem; }
 </style>

@@ -9,10 +9,10 @@ import { fmtNum } from '@/nucleo/utils'
 import { puede } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
 import CeldaEtiquetado from '@/modulos/etiquetado/componentes/CeldaEtiquetado.vue'
-import { CANTIDADES, SUJETOS_PLURAL, textoDonde } from '@/modulos/etiquetado/etiquetas.js'
+import { ALCANCES, CANTIDADES, SUJETOS_PLURAL, textoDonde } from '@/modulos/etiquetado/etiquetas.js'
 
 // «Qué diseño lleva cada cosa»: la pantalla principal para asignar diseños.
-// Filas: toda la empresa, las familias en árbol y los artículos sin familia
+// Filas: toda la empresa, las familias en árbol (con sus categorías) y los artículos sin familia
 // (o los tipos de empaque, para las cajas); columnas: los tipos de etiqueta.
 // Cada celda (también las heredadas) se abre en la misma página, en lugar de la tabla.
 const emit = defineEmits(['familias'])
@@ -50,10 +50,15 @@ watch(sujeto, cargar)
 alCambiar(() => {
   cargarSujetos()
   cargar()
-}, ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias'])
+}, ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias', '/etiquetas/categorias'])
 
 const normal = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const nombreFila = (f) => (f.nivel === 'GENERAL' ? t('Whole company') : f.nivel === 'SIN_FAMILIA' ? t('Without family') : tx(f.nombre))
+// Dónde va, si la regla de la celda lo cambia respecto del tipo de etiqueta
+const dondeVa = (c, tp) => {
+  const a = (c.normal || c.hereda)?.alcance
+  return a && a !== tp.alcance_efectivo ? ALCANCES()[a] : ''
+}
 const conProblema = (f) => Object.values(f.celdas).some((c) => c.falta)
 const filas = computed(() => (datos.value?.filas || []).filter((f) => (!q.value || f.nivel === 'GENERAL' || normal(`${f.nombre} ${f.codigo || ''}`).includes(normal(q.value)))
   && (!soloProblemas.value || conProblema(f))))
@@ -109,11 +114,12 @@ function guardado(opciones) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="f in filas" :key="`${f.nivel}:${f.id}`" :class="{ 'mz-general': f.nivel === 'GENERAL' }">
+        <tr v-for="f in filas" :key="`${f.nivel}:${f.id}`" :class="{ 'mz-general': f.nivel === 'GENERAL', 'mz-categoria': f.nivel === 'CATEGORIA' }">
           <th scope="row" class="mz-fila" :style="{ paddingInlineStart: `${10 + Math.max(f.profundidad - 1, 0) * 18}px` }">
             <span v-if="f.profundidad > 1" class="mz-rama" aria-hidden="true">└</span>
             <button v-if="f.nivel === 'SIN_FAMILIA'" type="button" class="enlace mz-nombre" @click="emit('familias', 'sin')">{{ nombreFila(f) }}</button>
             <span v-else class="mz-nombre">{{ nombreFila(f) }}</span>
+            <span v-if="f.nivel === 'CATEGORIA'" class="etiqueta ms-1">{{ t('category') }}</span>
             <span v-if="f.articulos != null" class="mz-cuenta">{{ t('{0} items', [fmtNum(f.articulos)]) }}</span>
           </th>
           <td v-for="tp in datos.tipos" :key="tp.id" :data-tipo="tx(tp.nombre)">
@@ -121,14 +127,17 @@ function guardado(opciones) {
             <span v-if="f.celdas[tp.id].no_aplica" class="mz-celda mz-no-aplica" :title="t('This label does not go on this package type')">{{ t('Does not go here') }}</span>
             <button v-else type="button" class="mz-celda" :class="{ falta: f.celdas[tp.id].falta, propio: f.celdas[tp.id].normal }"
                     :aria-label="`${nombreFila(f)} · ${tx(tp.nombre)}`" @click="abrir(f, tp)">
-              <template v-if="f.celdas[tp.id].normal">
+              <span v-if="f.celdas[tp.id].normal?.accion === 'NO_LLEVA'" class="mz-no-lleva"><Icono nombre="cerrar" :tam="13" />{{ t('Does not carry it') }}</span>
+              <template v-else-if="f.celdas[tp.id].normal">
                 <span class="mz-diseno"><Icono nombre="etiqueta" :tam="14" />{{ tx(f.celdas[tp.id].normal.plantilla) }}</span>
                 <span v-if="!f.celdas[tp.id].normal.version_id" class="etiqueta aviso ms-0">{{ t('Not approved') }}</span>
               </template>
               <span v-else-if="f.celdas[tp.id].falta" class="mz-falta"><Icono nombre="alerta" :tam="14" />{{ t('No design (required)') }}</span>
+              <span v-else-if="f.celdas[tp.id].hereda?.accion === 'NO_LLEVA'" class="mz-hereda">↳ {{ t('Does not carry it') }}</span>
               <span v-else-if="f.celdas[tp.id].hereda" class="mz-hereda" :title="t('Inherited from {0}', [textoDonde(f.celdas[tp.id].hereda.nivel, f.celdas[tp.id].hereda.destino)])">
                 ↳ {{ tx(f.celdas[tp.id].hereda.plantilla) }}</span>
               <span v-else class="apagado">—</span>
+              <span v-if="dondeVa(f.celdas[tp.id], tp)" class="mz-extra"><Icono nombre="flecha" :tam="12" />{{ dondeVa(f.celdas[tp.id], tp) }}</span>
               <span v-if="f.celdas[tp.id].excepciones || f.celdas[tp.id].propios" class="mz-extra">
                 <template v-if="f.celdas[tp.id].excepciones">{{ t('{0} exceptions', [f.celdas[tp.id].excepciones]) }}</template>
                 <template v-if="f.celdas[tp.id].excepciones && f.celdas[tp.id].propios"> · </template>
@@ -144,6 +153,7 @@ function guardado(opciones) {
   <p class="ayuda mz-leyenda">
     <span><Icono nombre="etiqueta" :tam="13" /> {{ t('design of this place') }}</span>
     <span>↳ {{ t('inherited from the row above') }}</span>
+    <span><Icono nombre="cerrar" :tam="13" /> {{ t('the label does not go there (decided by a rule)') }}</span>
     <span><Icono nombre="alerta" :tam="13" /> {{ t('a required label has no design') }}</span>
     <span v-if="!puede('etiquetas.configurar')">· {{ t('Read only: you can see the cells but not change them.') }}</span>
   </p>
@@ -176,6 +186,8 @@ function guardado(opciones) {
 .mz-celda.falta { background: var(--aviso-fondo); }
 .mz-diseno { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; }
 .mz-hereda { color: var(--tinta-3); }
+.mz-no-lleva { display: inline-flex; gap: 5px; align-items: center; color: var(--tinta-2); font-style: italic; }
+.mz-categoria .mz-fila { font-weight: 400; color: var(--tinta-2); }
 .mz-no-aplica { color: var(--tinta-3); font-size: 0.78rem; font-style: italic; cursor: default; background: repeating-linear-gradient(135deg, transparent 0 6px, var(--superficie-2) 6px 8px); }
 .mz-falta { color: var(--aviso); display: inline-flex; gap: 5px; align-items: center; font-weight: 600; }
 .mz-extra { font-size: 0.75rem; color: var(--tinta-2); }

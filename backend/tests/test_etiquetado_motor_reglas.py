@@ -155,3 +155,40 @@ def test_tipo_dice_donde_va_por_defecto_y_documento_por_oc(interno, admin):
         ocs = {x.factura_linea.posicion_oc.oc_id for x in pl.lineas}
     tr = trabajo(interno, "PACKING", {"pl_id": pls[0]["id"], "tipos": [doc["id"]]})
     assert {r["oc_id"] for r in _registros(tr)} == ocs and all(r["clave"].split("-")[-1].startswith("oc") for r in _registros(tr))
+
+
+def test_celda_guarda_la_regla_completa_y_prioridad_permite_cruces(interno, admin):
+    t = tipo(interno, "MR_CELDA", cantidad="POR_LINEA")
+    d = aprobada(interno, admin, "MR cell", t["id"], TEXTO)
+    d2 = aprobada(interno, admin, "MR cell 2", t["id"], TEXTO)
+    fam = interno.post("/etiquetas/familias", {"codigo": "MRCEL", "nombre": "Cell family"}).json()
+    base = {"tipo_etiqueta_id": t["id"], "nivel": "FAMILIA", "destino_id": fam["id"]}
+    # La regla normal de la celda: un diseño con dónde va y cuántas
+    c = interno.get("/etiquetas/celda", params={"tipo": t["id"], "nivel": "FAMILIA", "destino_id": fam["id"]}).json()
+    r = interno.put("/etiquetas/usos/celda", {**base, "firma": c["firma"],
+                                               "normal": {"plantilla_id": d["id"], "alcance": "PRODUCTO", "cantidad": "UNA"}})
+    assert r.status_code == 200 and r.json()["normal"]["alcance"] == "PRODUCTO" and r.json()["normal"]["cantidad"] == "UNA", r.text
+    # Simular «no lleva» no guarda nada; guardarlo deja la regla sin diseño
+    s = interno.post("/etiquetas/usos/simular", {**base, "normal": {"accion": "NO_LLEVA"}})
+    assert s.status_code == 200 and "no_lleva" in s.json(), s.text
+    r = interno.put("/etiquetas/usos/celda", {**base, "firma": r.json()["firma"], "normal": {"accion": "NO_LLEVA"}})
+    assert r.status_code == 200 and r.json()["normal"]["accion"] == "NO_LLEVA" and r.json()["normal"]["plantilla_id"] is None, r.text
+    # Dos excepciones iguales del mismo lugar: con la misma prioridad chocan; con otra, la prioridad decide
+    exc = {"contexto_tipo": "CONDICION", "condiciones": [{"campo": "articulo.sku", "op": "existe"}], "motivo": "test",
+           "plantilla_id": d["id"]}
+    r = interno.put("/etiquetas/usos/celda", {**base, "firma": r.json()["firma"], "excepciones": [exc]})
+    assert r.status_code == 200, r.text
+    choque = interno.put("/etiquetas/usos/celda", {**base, "firma": r.json()["firma"], "excepciones": [{**exc, "plantilla_id": d2["id"]}]})
+    assert choque.status_code == 409, choque.text
+    r = interno.put("/etiquetas/usos/celda", {**base, "firma": r.json()["firma"],
+                                               "excepciones": [{**exc, "plantilla_id": d2["id"], "prioridad": 5}]})
+    assert r.status_code == 200 and sorted(x["prioridad"] for x in r.json()["excepciones"]) == [0, 5], r.text
+    # Heredar otra vez (normal null) y el catálogo dice dónde puede ir cada etiqueta
+    r = interno.put("/etiquetas/usos/celda", {**base, "firma": r.json()["firma"], "normal": None,
+                                               "quitar": [x["id"] for x in r.json()["excepciones"]]})
+    assert r.status_code == 200 and r.json()["normal"] is None and not r.json()["excepciones"], r.text
+    cat = interno.get("/etiquetas/catalogos").json()
+    assert "PRODUCTO" in cat["alcances"]["ARTICULO"] and cat["cantidades_regla"]["BULTO"] == ["UNA", "MANUAL"]
+    # La lista de productos dice la categoría de cada uno (o ninguna)
+    p = interno.get("/etiquetas/productos", params={"size": 5}).json()["items"][0]
+    assert {"categoria", "categoria_id", "categoria_origen"} <= set(p)
