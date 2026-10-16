@@ -18,7 +18,8 @@ prioridad numérica) y queda como historial.
 | **Tipo de etiqueta** | Lo que la empresa imprime: colgante, sticker de precio, etiqueta de caja, hoja de contenido… Cada uno dice **qué se etiqueta** (sujeto: `ARTICULO`, `BULTO` o `DOCUMENTO`), **cuántas salen** (`POR_UNIDAD`, `POR_LINEA`, `POR_ARTICULO`, `POR_BULTO`, `POR_DOCUMENTO` o `MANUAL`) y si es **obligatoria** (todo registro debe tener diseño para imprimir). Cada empresa crea los suyos. |
 | **Diseño** | Una plantilla de un tipo, con versiones que se aprueban. El editor ofrece solo los datos del sujeto de su tipo. |
 | **Familia de etiquetado** | Agrupa artículos para darles el mismo diseño. Se asigna al **producto** (estilo-color; la heredan sus tallas), al **grupo de artículos** o a una **talla**. Puede tener subfamilias, que heredan sus diseños y campos obligatorios. |
-| **Uso de diseño** | Dice qué diseño lleva un lugar. Un lugar es una **celda**: tipo × nivel × destino. Los niveles son toda la empresa (`GENERAL`), `FAMILIA`, `PRODUCTO`, una talla (`SKU`) y, para bultos, el `TIPO_EMPAQUE`. Cada celda tiene a lo sumo un **diseño normal** y las **excepciones** que haga falta. |
+| **Categoría de etiquetado** | Dentro de una familia (calzado → sandalias, prepacks…). Se reconoce por **condiciones** sobre los datos del artículo y del producto, o se pone **a mano** en el producto. Es más específica que su familia y más general que el producto. Ver §12. |
+| **Uso de diseño (regla)** | Dice qué lleva un lugar. Un lugar es una **celda**: tipo × nivel × destino. Los niveles son toda la empresa (`GENERAL`), `FAMILIA`, `CATEGORIA`, `PRODUCTO`, una talla (`SKU`) y, para bultos, el `TIPO_EMPAQUE`. Cada celda tiene a lo sumo una **regla normal** y las **excepciones** que haga falta. Cada regla dice si la etiqueta **va (con qué diseño) o no va**, y puede cambiar **dónde va** y **cuántas** salen (§12). |
 | **Excepción** | Un diseño distinto en una celda cuando se cumple algo: la OC es X (`OC`), el centro de destino (`CENTRO_DESTINO`), el país de destino (`PAIS_DESTINO`), la sociedad compradora (`SOCIEDAD`), el proveedor (`PROVEEDOR`) o condiciones sobre los datos (`CONDICION`), con vigencia opcional y motivo. |
 | **Trabajo de etiquetado** | El único camino para generar: se crea desde una OC, una lista de empaque, unos artículos o una familia; se revisa, se corrige y se genera en ejecuciones. |
 
@@ -32,11 +33,11 @@ Para un registro (un artículo, un bulto o un documento) y un tipo:
 
 1. Si hay una **excepción de la OC** del registro que aplica hoy, gana.
 2. Si no, se recorre de lo más específico a lo general: **talla → producto →
-   familia** (cada subfamilia antes que sus familias padre) → **tipo de
-   empaque** (bultos) → **toda la empresa**.
+   categoría → familia** (cada subfamilia antes que sus familias padre) →
+   **tipo de empaque** (bultos) → **toda la empresa**.
 3. En cada celda se miran sus excepciones en orden **centro, país,
-   sociedad, proveedor, condiciones**; la primera que se cumple y está
-   vigente gana. Si ninguna se cumple, se usa el **diseño normal** de la
+   sociedad, proveedor, condiciones**; dentro de la misma clase, la de
+   mayor **prioridad**; la primera que se cumple y está vigente gana. Si ninguna se cumple, se usa el **diseño normal** de la
    celda.
 4. Una celda que solo tiene excepciones que no se cumplen no detiene la
    búsqueda: sigue la de arriba.
@@ -92,6 +93,19 @@ motivo) y **0079** `tipos_etiqueta_empaques` (en qué tipos de empaque va un
 tipo de etiqueta de bulto; tabla nueva y vacía, con RLS y llaves de
 coherencia; no convierte datos). Probada ida y vuelta y sobre la base de
 demostración existente.
+
+**0080** `etiquetado_motor_reglas` (aditiva, no convierte datos): tabla
+`categorias_etiquetado` (familia, código, nombre, condiciones, orden,
+activa; RLS y llaves de coherencia), `productos.categoria_etiquetado_id`
+(categoría puesta a mano), `tipos_etiqueta.alcance` (dónde va por defecto)
+y, en `usos_diseno`, `categoria_id`, `accion` (`USAR` o `NO_LLEVA`;
+`plantilla_id` pasa a ser opcional solo para `NO_LLEVA`), `alcance`,
+`cantidad` y `prioridad` (0 por defecto). Las reglas existentes quedan
+igual (`USAR`, sin alcance ni cantidad propios, prioridad 0) y se
+comportan como antes. El downgrade se niega si ya hay reglas de categoría
+o «no lleva», para no perderlas en silencio. Probada en base nueva
+(`alembic check`), ida y vuelta, y sobre una copia de la base de
+demostración.
 
 ## 3. Pantallas
 
@@ -351,6 +365,72 @@ jerarquía de empaque (y la etiqueta logística GS1, un SSCC por unidad): la
 etiqueta del inner, la de la caja y la del pallet son tipos distintos, cada
 uno en su nivel. Se descartó un sujeto fijo por nivel (INNER, CAJA, PALLET):
 los niveles los define cada empresa.
+
+## 12. Motor de reglas (como clasificación, sin base oficial)
+
+La empresa decide todo: qué diseño va en cada lugar, si una etiqueta va o
+no, **dónde** se pone y **cuántas** salen, según familias, categorías y
+reglas. El orden de lo más específico a lo general es **talla → producto →
+categoría → familia → toda la empresa**, con excepciones (centro, país,
+sociedad, proveedor, condiciones, OC) en cada lugar.
+
+**Categorías.** En la ficha de la familia (Configuración → Familias y
+artículos) está la sección **Categorías**: se crean con código, nombre y
+condiciones sobre los datos del artículo y del producto (por ejemplo
+«descripción contiene prepack»). **Probar** dice, sin guardar, cuántos
+artículos de la familia caerían en ella, cuántos ya están en otra (gana la
+primera de la lista) y algunos ejemplos. Sin condiciones, la categoría solo
+se pone a mano: en la tabla de productos de la familia, con lo elegido →
+**Poner categoría** (o «Reconocer por sus condiciones» para quitarla). Una
+categoría con reglas (también las dadas de baja, que quedan en el
+historial) o con productos no se borra: se desactiva, sale de la matriz y
+sus artículos vuelven a las reglas de la familia. Cada categoría
+muestra sus etiquetas y se abre como cualquier celda; en la matriz es una
+fila debajo de su familia.
+
+**Qué decide una regla** (regla normal o excepción, en la misma pantalla de
+la celda):
+
+| Decisión | Opciones |
+|---|---|
+| ¿Va? | **Sí, con este diseño** o **No lleva esta etiqueta** (no sale registro y no es un error, aunque el tipo sea obligatorio). |
+| Dónde va | Artículos: cada línea del documento, cada posición de la OC, cada posición de la lista de empaque, cada variante (talla) o cada artículo genérico (producto). Documentos: el documento, cada OC o cada lista de empaque. Bultos: cada empaque. Vacío = lo que diga el tipo de etiqueta. |
+| Cuántas | Una, una por unidad (solo artículos) o a mano. Vacío = lo que diga el tipo. |
+| Prioridad | Solo excepciones, de −1000 a 1000: si dos de la misma clase aplican, gana la mayor. Dos excepciones iguales con distinta prioridad ya no chocan. |
+
+**Cómo se generan los registros.** Primero cada registro fino (línea de la
+lista de empaque, posición de la OC o artículo elegido) recibe su regla;
+los «no lleva» se quitan; después se juntan según **dónde va**: una
+etiqueta por posición, por variante, por producto (sumando sus unidades),
+por OC (desde una lista de empaque, una por cada OC que trae) o por lista.
+Si el origen no tiene ese lugar (posición de la lista de empaque desde una
+OC), el trabajo lo avisa (`alcance_no_aplica`). Los empaques (inner, caja,
+pallet…) siguen eligiéndose por tipo de empaque y por «Va en» del tipo de
+etiqueta (§11).
+
+**Dónde se ve.** Tipo de etiqueta: «Dónde va por defecto». Matriz: filas
+de categoría, «No la lleva» y el lugar cuando la regla lo cambia. Pestaña
+Etiquetas del producto: su categoría, lo que le toca a la mayoría de sus
+tallas y las tallas con otro resultado (con su porqué). «Qué cambia al
+guardar» cuenta aparte los artículos que no llevarán la etiqueta.
+
+**Endpoints nuevos:** `GET/POST /etiquetas/categorias`,
+`POST /etiquetas/categorias/probar`, `PATCH/DELETE /etiquetas/categorias/{id}`,
+`POST /etiquetas/productos/categoria`. `PUT /etiquetas/usos/celda` acepta
+`normal: {accion, plantilla_id, alcance, cantidad}`; las excepciones y
+`POST /etiquetas/usos` aceptan además `prioridad`. `GET /etiquetas/catalogos`
+trae `alcances` y `cantidades_regla` por sujeto.
+
+**Pruebas:** `test_etiquetado_motor_reglas.py` (categorías por condiciones y
+a mano, «no lleva», dónde va por producto con unidades, aviso de lugar que
+el origen no tiene, validaciones, prioridad, tipo con lugar por defecto,
+documento por OC desde una lista de empaque y celda con la regla completa);
+en el navegador, `frontend/e2e/etiquetado.mjs` crea una categoría, la
+prueba, le pone «no lleva», la ve en la matriz y la desactiva.
+
+**Límites:** la categoría de un producto en la lista se calcula con sus
+tallas activas (puede ser «depende de la talla»); el asistente de nueva
+familia no crea categorías (se hacen después en la ficha de la familia).
 
 ## Permisos
 

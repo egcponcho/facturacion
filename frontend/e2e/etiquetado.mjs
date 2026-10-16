@@ -29,6 +29,7 @@ const api = (ctx) => ({
   get: async (u) => (await ctx.request.get(`${BASE}/api${u}`, { headers: H })).json(),
   post: async (u, d) => (await ctx.request.post(`${BASE}/api${u}`, { data: d, headers: H })),
   patch: async (u, d) => (await ctx.request.patch(`${BASE}/api${u}`, { data: d, headers: H })),
+  put: async (u, d) => (await ctx.request.put(`${BASE}/api${u}`, { data: d, headers: H })),
   del: async (u) => (await ctx.request.delete(`${BASE}/api${u}`, { headers: H })),
 })
 
@@ -126,6 +127,58 @@ await quieto()
   if (fam) {
     if (sinFamilia) await a.post('/etiquetas/productos/familia', { familia_id: null, ids: [sinFamilia.id] })
     await a.del(`/etiquetas/familias/${fam.id}`)
+  }
+}
+
+// ---- Motor de reglas: categoría con condiciones, probar, «no lleva» y matriz -----------------------
+{
+  const fam = (await a.get('/etiquetas/familias')).find((f) => f.activa && f.articulos > 0)
+  const art1 = fam && (await a.get(`/etiquetas/articulos?familia=${fam.id}&size=1`)).items?.[0]
+  if (fam && art1) {
+    const codigo = `E2E${Date.now() % 1000000}`
+    const nombre = `E2E category ${codigo}`
+    await p.goto(`${BASE}/etiquetas/configuracion?paso=familias&familia=${fam.id}`)
+    await quieto()
+    await p.getByRole('button', { name: /^(New category|Nueva categoría)$/ }).click()
+    const form = p.locator('.cats-form')
+    await form.locator('input').nth(0).fill(codigo)
+    await form.locator('input').nth(1).fill(nombre)
+    const cond = form.locator('.condicion').first()
+    await cond.locator('button.sb-boton').first().click()
+    await p.getByRole('option', { name: /^(Item SKU|SKU|SKU del artículo)$/i }).first().click()
+    await cond.locator(':scope > input').fill(art1.sku)
+    await form.getByRole('button', { name: /Test with the items|Probar con los artículos/ }).click()
+    await quieto()
+    revisar(/\b1 (of|de)\b/.test(await form.locator('.cats-prueba').innerText()), 'probar dice cuántos artículos caen en la categoría antes de guardar')
+    revisar(!(await a.get(`/etiquetas/categorias?familia_id=${fam.id}`)).some((c) => c.codigo === codigo), 'probar no guarda nada')
+    await form.getByRole('button', { name: /^(Create category|Crear categoría)$/ }).click()
+    await quieto()
+    const cat = (await a.get(`/etiquetas/categorias?familia_id=${fam.id}`)).find((c) => c.codigo === codigo)
+    revisar(cat?.articulos === 1, `la categoría se crea y reconoce su artículo (${cat?.articulos})`)
+    // Su primera etiqueta: «no lleva»
+    const tipo = (await a.get('/etiquetas/tipos')).find((x) => x.sujeto === 'ARTICULO')
+    await p.locator('.cats-lista > li', { hasText: nombre }).locator('.cats-etiqueta').first().click()
+    await quieto()
+    await p.getByLabel(/Does not carry this label|No lleva esta etiqueta/).check()
+    await quieto()
+    revisar(await p.locator('.efecto').getByText(/will not carry|no llevarán/).isVisible(), '«qué cambia» cuenta los que no llevarán la etiqueta')
+    await p.locator('.celda-pie .btn-primario').click()
+    await quieto()
+    const celda = await a.get(`/etiquetas/celda?tipo=${tipo.id}&nivel=CATEGORIA&destino_id=${cat.id}`)
+    revisar(celda.normal?.accion === 'NO_LLEVA', 'la celda de la categoría guarda «no lleva»')
+    const el = (await a.get(`/etiquetas/resolver?articulo_id=${art1.id}`)).elecciones.find((x) => x.tipo_etiqueta_id === tipo.id)
+    revisar(el?.no_lleva === true, 'su artículo ya no lleva esa etiqueta (sin error)')
+    await p.goto(`${BASE}/etiquetas/configuracion?paso=matriz`)
+    await quieto()
+    const filaCat = p.locator('tr.mz-categoria', { hasText: nombre })
+    revisar(await filaCat.isVisible() && await filaCat.getByText(/Does not carry it|No la lleva/).isVisible(), 'la matriz muestra la categoría bajo su familia con «no la lleva»')
+    // Deja la demostración como estaba
+    await a.put('/etiquetas/usos/celda', { tipo_etiqueta_id: tipo.id, nivel: 'CATEGORIA', destino_id: cat.id, firma: celda.firma, normal: null })
+    // La regla dada de baja queda en el historial: la categoría no se borra, se desactiva
+    revisar((await a.del(`/etiquetas/categorias/${cat.id}`)).status() === 409, 'una categoría con historial de reglas no se borra')
+    await a.patch(`/etiquetas/categorias/${cat.id}`, { activa: false })
+    const m = await a.get('/etiquetas/matriz')
+    revisar(!m.filas.some((f) => f.nivel === 'CATEGORIA' && f.id === cat.id), 'desactivada, sale de la matriz y sus artículos vuelven a la familia')
   }
 }
 
