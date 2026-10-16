@@ -82,7 +82,6 @@ export function textoVigencia(u) {
 export function textoPorque(e) {
   const p = e?.porque || {}
   if (!e || p.clase === 'sin_diseno') return t('No design applies')
-  if (p.no_lleva || e.no_lleva) return `${t('Does not carry this label')} · ${textoDonde(p.nivel, p.destino)}`
   if (p.clase === 'elegida') return t('Chosen for this job')
   const donde = textoDonde(p.nivel, p.destino)
   if (p.clase === 'oc') return t('Special design for PO {0}', [p.oc])

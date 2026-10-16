@@ -11,7 +11,7 @@ import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import EfectoCambio from '@/modulos/etiquetado/componentes/EfectoCambio.vue'
 import SelectorDiseno from '@/modulos/etiquetado/componentes/SelectorDiseno.vue'
-import { textoExcepcion, textoPorque } from '@/modulos/etiquetado/etiquetas.js'
+import { textoExcepcion, textoPorque, textoSalida } from '@/modulos/etiquetado/etiquetas.js'
 
 // La pestaña Etiquetas del producto: su familia de etiquetado, qué diseño
 // lleva en cada tipo de etiqueta y por qué, las excepciones que pueden
@@ -112,6 +112,9 @@ const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { o
         <strong v-if="datos.familia">{{ tx(datos.familia.nombre) }}</strong><span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span>
         <span v-if="datos.familia" class="ayuda">({{ ORIGEN()[datos.familia.origen] }})</span>
         <button v-if="puede('etiquetas.familias')" type="button" class="btn btn-chico" @click="abrirFamilia">{{ t('Change family') }}</button></span>
+      <span v-if="datos.categorias?.length" class="ep-familia">{{ t('Labeling category') }}:
+        <template v-for="c in datos.categorias" :key="c.id"><strong>{{ tx(c.nombre) }}</strong>
+          <span class="ayuda">({{ c.manual ? t('set by hand') : t('by its conditions') }}<template v-if="datos.categorias.length > 1 || c.tallas < datos.articulos.length">, {{ t('{0} sizes', [c.tallas]) }}</template>)</span></template></span>
     </div>
 
     <!-- Diseño propio: en la página, encima de las tarjetas (no en una ventana) -->
@@ -139,18 +142,27 @@ const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { o
         <div class="ep-diseno">
           <div class="ep-mini"><img v-if="miniatura(x.eleccion)" :src="miniatura(x.eleccion)" :alt="t('Preview of {0}', [x.eleccion.plantilla])" /></div>
           <div>
-            <strong v-if="x.eleccion?.plantilla">{{ tx(x.eleccion.plantilla) }}</strong>
+            <strong v-if="x.eleccion?.no_lleva" class="apagado">{{ t('Does not carry this label') }}</strong>
+            <strong v-else-if="x.eleccion?.plantilla">{{ tx(x.eleccion.plantilla) }}</strong>
             <span v-else class="etiqueta aviso ms-0">{{ x.tipo.obligatoria ? t('No design (required)') : t('No design') }}</span>
             <p class="ayuda">{{ x.propio ? t('Own design of this product') : t('By: {0}', [textoPorque(x.eleccion)]) }}</p>
             <span v-if="x.eleccion?.plantilla && !x.eleccion.aprobada" class="etiqueta aviso ms-0">{{ t('Not approved yet') }}</span>
           </div>
         </div>
         <ul v-if="x.excepciones.length" class="ep-excepciones">
-          <li v-for="u in x.excepciones" :key="u.id">{{ t('Exception') }}: {{ textoExcepcion(u) }} → {{ tx(u.plantilla) }}</li>
+          <li v-for="u in x.excepciones" :key="u.id">{{ t('Exception') }}: {{ textoExcepcion(u) }} → {{ textoSalida(u) }}</li>
         </ul>
+        <template v-if="x.distintas?.length">
+          <p class="ayuda">{{ t('Sizes with another result') }}:</p>
+          <ul class="ep-tallas">
+            <li v-for="s in x.distintas" :key="s.articulo_id">{{ s.talla || s.sku }} →
+              {{ s.eleccion.no_lleva ? t('Does not carry this label') : s.eleccion.plantilla ? tx(s.eleccion.plantilla) : t('No design') }}
+              <span class="ayuda">({{ textoPorque(s.eleccion) }})</span></li>
+          </ul>
+        </template>
         <p v-if="x.tallas.length" class="ayuda">{{ t('Sizes with their own design') }}:</p>
         <ul v-if="x.tallas.length" class="ep-tallas">
-          <li v-for="s in x.tallas" :key="s.uso_id">{{ s.talla || s.sku }} → {{ tx(s.plantilla) }}
+          <li v-for="s in x.tallas" :key="s.uso_id">{{ s.talla || s.sku }} → {{ s.no_lleva ? t('Does not carry this label') : tx(s.plantilla) }}
             <button v-if="configurable" type="button" class="btn btn-chico btn-texto" @click="heredar(s.uso_id, t('Size {0} goes back to the design of the product.', [s.talla || s.sku]))">{{ t('Inherit again') }}</button></li>
         </ul>
         <div v-if="configurable" class="ep-acciones">

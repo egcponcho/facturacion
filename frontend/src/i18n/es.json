@@ -7268,5 +7268,10 @@
 "set by hand": "puesta a mano",
 "the label does not go there (decided by a rule)": "la etiqueta no va ahí (lo decide una regla)",
 "{0} are already in another category (the first one wins)": "{0} ya están en otra categoría (gana la primera)",
-"{0} of {1} items fall in it": "{0} de {1} artículos caen en ella"
+"{0} of {1} items fall in it": "{0} de {1} artículos caen en ella",
+"{0} items will not carry this label (a rule decides it; it is not an error).": "{0} artículos no llevarán esta etiqueta (lo decide una regla; no es un error).",
+"{0} items change.": "{0} artículos cambian.",
+"only some sizes": "solo algunas tallas",
+"depends on the size": "depende de la talla",
+"Sizes with another result": "Tallas con otro resultado"
 }

@@ -19,9 +19,10 @@ const verArticulos = ref(false)
     <template v-else-if="efecto">
       <template v-if="efecto.sujeto === 'ARTICULO'">
         <p>
-          <strong>{{ t('{0} items change design.', [fmtNum(efecto.cambian)]) }}</strong>
+          <strong>{{ t('{0} items change.', [fmtNum(efecto.cambian)]) }}</strong>
           <span v-if="efecto.alcance" class="ayuda"> {{ t('({0} items in this place)', [fmtNum(efecto.alcance)]) }}</span>
         </p>
+        <p v-if="efecto.no_lleva" class="ayuda"><Icono nombre="cerrar" :tam="14" /> {{ t('{0} items will not carry this label (a rule decides it; it is not an error).', [fmtNum(efecto.no_lleva)]) }}</p>
         <p v-if="efecto.sin_diseno" class="aviso-txt"><Icono nombre="alerta" :tam="14" /> {{ t('{0} items are left without a design of this type.', [fmtNum(efecto.sin_diseno)]) }}</p>
         <p v-else class="ayuda">{{ t('No item is left without a design.') }}</p>
       </template>

@@ -379,7 +379,9 @@ async function mover(f, delta) {
             </template>
             <template #celda-categoria="{ fila: x }">
               <template v-if="x.categoria"><span class="etiqueta ms-0">{{ tx(x.categoria) }}</span>
-                <span class="sub">{{ x.categoria_origen === 'MANUAL' ? t('set by hand') : t('by its conditions') }}</span></template>
+                <span class="sub">{{ x.categoria_parcial ? t('only some sizes') : x.categoria_origen === 'MANUAL' ? t('set by hand') : t('by its conditions') }}</span></template>
+              <template v-else-if="x.categorias?.length"><span v-for="c in x.categorias" :key="c" class="etiqueta ms-0">{{ tx(c) }}</span>
+                <span class="sub">{{ t('depends on the size') }}</span></template>
               <span v-else class="apagado">—</span>
             </template>
             <template #vacio>{{ modo === 'agregar' ? t('Nothing to add here: everything already has a family.') : t('Nothing here.') }}</template>

@@ -892,24 +892,38 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
     arts = list(db.scalars(select(Articulo).where(Articulo.producto_id == p.id, Articulo.activo.is_(True)).order_by(Articulo.sku)))
     r = Resolvedor(db)
     familia = familia_producto(db, p)
+    cats: dict = {}
+    for a in arts:
+        c = r.categoria(Sujeto("ARTICULO", articulo=a))
+        if c is not None:
+            cats.setdefault(c.id, {"id": c.id, "nombre": c.nombre, "manual": c.id == p.categoria_etiquetado_id, "tallas": 0})["tallas"] += 1
     res = {"producto": {"id": p.id, "estilo": p.estilo, "color": p.color, "nombre": p.nombre},
+           "categorias": list(cats.values()),
            "familia": {"id": familia.id, "nombre": familia.nombre,
                        "origen": "PRODUCTO" if p.familia_etiquetado_id else "GRUPO"} if familia else None,
            "articulos": [{"id": a.id, "sku": a.sku, "talla": a.talla, "familia_propia": a.familia_etiquetado_id is not None}
                          for a in arts], "tipos": []}
     for t in r.tipos_de("ARTICULO"):
-        base = None
-        tallas = []
+        tallas, resto = [], []
         for a in arts:
             e = r.elegir(Sujeto("ARTICULO", articulo=a), t)
             if e.porque.get("nivel") == "SKU":
                 tallas.append({"articulo_id": a.id, "sku": a.sku, "talla": a.talla, "uso_id": e.uso.id,
                                "plantilla_id": e.plantilla.id if e.plantilla else None,
                                "plantilla": e.plantilla.nombre if e.plantilla else None, "no_lleva": e.no_lleva})
-            elif base is None:
-                base = e
+            else:
+                resto.append((a, e))
+        # Lo del producto es lo que le toca a la mayoría de sus tallas; las que salen distinto
+        # (por una categoría, por ejemplo) se listan aparte con su porqué
+        clave = lambda e: (e.uso.id if e.uso else None, e.plantilla.id if e.plantilla else None)  # noqa: E731
+        cuenta: dict = {}
+        for _, e in resto:
+            cuenta[clave(e)] = cuenta.get(clave(e), 0) + 1
+        mayor = max(cuenta, key=lambda k: cuenta[k]) if cuenta else None
+        base = next((e for _, e in resto if clave(e) == mayor), None)
         if base is None and arts:
             base = r.elegir(Sujeto("ARTICULO", articulo=arts[0]), t)
+        distintas = [{"articulo_id": a.id, "sku": a.sku, "talla": a.talla, "eleccion": e.dict()} for a, e in resto if clave(e) != mayor]
         escalones = r.escalones(Sujeto("ARTICULO", articulo=arts[0])) if arts else [("PRODUCTO", p.id), ("GENERAL", None)]
         excepciones = []
         for nivel, sid in escalones:
@@ -920,7 +934,8 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
             UsoDiseno.celda == celda_de(t.id, "PRODUCTO", p.id), UsoDiseno.eliminado_en.is_(None),
             UsoDiseno.contexto_tipo == "NINGUNO"))), None)
         res["tipos"].append({"tipo": tipos.dict_tipo(db, t), "eleccion": base.dict() if base else None,
-                             "propio": dict_uso(db, propio) if propio else None, "excepciones": excepciones, "tallas": tallas})
+                             "propio": dict_uso(db, propio) if propio else None, "excepciones": excepciones, "tallas": tallas,
+                             "distintas": distintas})
     return res
 
 

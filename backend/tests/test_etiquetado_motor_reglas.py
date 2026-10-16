@@ -57,6 +57,8 @@ def test_categorias_reglas_no_lleva_y_donde_va(interno, admin):
         m = interno.get("/etiquetas/matriz").json()
         fila = next(f for f in m["filas"] if f["nivel"] == "CATEGORIA" and f["id"] == cat["id"])
         assert fila["padre_id"] == fam["id"] and fila["celdas"][str(t["id"])]["normal"]["plantilla_id"] == d_cat["id"]
+        c = interno.get("/etiquetas/celda", params={"tipo": t["id"], "nivel": "CATEGORIA", "destino_id": cat["id"]})
+        assert c.status_code == 200 and c.json()["normal"]["plantilla_id"] == d_cat["id"], c.text
         # «No lleva»: la categoría dice que esta etiqueta no va; sus artículos no tienen registro y no es un error
         r = interno.post("/etiquetas/usos", {"tipo_etiqueta_id": t["id"], "accion": "NO_LLEVA", "nivel": "CATEGORIA",
                                              "destino_id": cat["id"], "contexto_tipo": "NINGUNO", "reemplazar": True})
@@ -96,6 +98,8 @@ def test_categorias_reglas_no_lleva_y_donde_va(interno, admin):
         assert interno.post("/etiquetas/productos/categoria", {"categoria_id": cat["id"], "ids": [otro_p["id"]]}).status_code == 200
         el = interno.get("/etiquetas/resolver", params={"articulo_id": otro}).json()["elecciones"]
         assert next(x for x in el if x["tipo_etiqueta_id"] == t["id"])["porque"].get("categoria") == "Rules category"
+        ficha = interno.get(f"/etiquetas/productos/{otro_p['id']}").json()
+        assert [(c["nombre"], c["manual"]) for c in ficha["categorias"]] == [("Rules category", True)], ficha["categorias"]
         interno.post("/etiquetas/productos/categoria", {"categoria_id": None, "ids": [otro_p["id"]]})
         # Una categoría en uso no se borra
         assert interno.delete_(f"/etiquetas/categorias/{cat['id']}").status_code == 409

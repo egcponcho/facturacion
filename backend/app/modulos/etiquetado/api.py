@@ -101,7 +101,7 @@ def matriz(db: Db, user: User, sujeto: str = Query("ARTICULO", pattern="^(ARTICU
 
 
 @router.get("/etiquetas/celda")
-def ver_celda(db: Db, user: User, tipo: int, nivel: str = Query(..., pattern="^(GENERAL|FAMILIA|PRODUCTO|SKU|TIPO_EMPAQUE)$"),
+def ver_celda(db: Db, user: User, tipo: int, nivel: str = Query(..., pattern="^(GENERAL|FAMILIA|CATEGORIA|PRODUCTO|SKU|TIPO_EMPAQUE)$"),
               destino_id: int | None = None):
     """Una celda: su diseño normal, lo que heredaría, sus excepciones, los productos con diseño propio y su firma."""
     return usos.celda(db, user, tipo, nivel, destino_id)
