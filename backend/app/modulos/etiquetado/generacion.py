@@ -71,6 +71,9 @@ class Grupo:
     procedencia: dict = field(default_factory=dict)  # campo lógico → campo del que salió su valor
     omitido: bool = False  # el tipo no es obligatorio y no hay diseño para este registro
     item: GeneracionItem | None = None  # ya generado
+    unidades: float = 0.0  # unidades de las líneas que junta (para «una por unidad»)
+    unidad: str | None = None
+    variantes: set = field(default_factory=set)  # variantes distintas que junta (artículo genérico)
 
     def problema(self, nivel: str, codigo: str, mensaje: str, campo: str | None = None) -> None:
         self.problemas.append({"nivel": nivel, "codigo": codigo, "mensaje": mensaje, "elemento": None, **({"campo": campo} if campo else {})})
@@ -164,61 +167,113 @@ def _manual(pedido: dict, clave: str, defecto: int = 0) -> int:
     return _entero((pedido.get("cantidades") or {}).get(clave), defecto)
 
 
+class _Decide:
+    """Resuelve la regla de cada registro fino (una línea, un artículo, un
+    empaque, un documento) una sola vez: qué diseño, si la etiqueta va o no,
+    dónde va y cuántas. Los valores se leen como en la generación."""
+
+    def __init__(self, db: Session, tipos: list[TipoEtiqueta]):
+        self.db = db
+        self.motor = reglas.Resolvedor(db, sorted(tipos, key=lambda t: (t.orden, t.id)))
+        self.org = campos.valores_organizacion(db)
+        self.de_oc: dict = {}
+        self.no_lleva: dict = {}  # tipo → registros a los que una regla dice que no va
+
+    def __call__(self, t: TipoEtiqueta, articulo=None, oc=None, posicion=None, bulto=None, pl=None) -> reglas.Eleccion:
+        if oc is not None and oc.id not in self.de_oc:
+            self.de_oc[oc.id] = campos.valores_oc(self.db, oc)
+        v = datos.valores(self.db, t.sujeto, articulo, oc, posicion, bulto, self.org, pl, self.de_oc.get(oc.id) if oc else None)
+        s = reglas.Sujeto(t.sujeto, articulo=articulo, oc=oc, tipo_empaque_id=bulto.tipo_empaque_id if bulto else None, valores=v)
+        e = self.motor.elegir(s, t)
+        if e.no_lleva:
+            self.no_lleva[t.id] = self.no_lleva.get(t.id, 0) + 1
+        return e
+
+
+ALCANCE_TXT = {"LINEA": "the document line", "POSICION_OC": "the PO line", "POSICION_PL": "the packing list line",
+               "ARTICULO": "each variant", "PRODUCTO": "the generic item", "DOCUMENTO": "the document", "OC": "the PO",
+               "PL": "the packing list", "EMPAQUE": "each package"}
+
+
 def _grupos_articulo(db: Session, user: Usuario, pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | None,
-                     pl: PackingList | None) -> list[Grupo]:
-    """Etiquetas de artículo: de las líneas de la OC, de las líneas de la lista de
-    empaque o de los artículos elegidos. El diseño no depende del origen."""
-    res: list[Grupo] = []
+                     pl: PackingList | None, decide: _Decide, avisos: list) -> list[Grupo]:
+    """Etiquetas de artículo. Primero cada registro fino (línea de la lista de
+    empaque, posición de la OC o artículo elegido) con su regla; después se
+    juntan según dónde dice la regla que va la etiqueta: la línea del
+    documento, la posición de la OC, la línea de la lista de empaque, cada
+    variante o el artículo genérico. Una regla «no lleva» no deja registro."""
     pref = f"t{t.id}-"
+    finos = []  # (clave de la línea, referencia, artículo, posición, oc, unidades, unidad)
     if pl is not None:
-        vistos: dict = {}
         for x in sorted(pl.lineas, key=lambda x: x.id):
             p = x.factura_linea.posicion_oc
-            k = f"{pref}l{x.id}"
-            cant = float(x.cantidad or 0)
-            if t.cantidad == "POR_ARTICULO":
-                ka = f"{pref}a{p.articulo_id}" if p.articulo_id else f"{pref}c{p.codigo_articulo}"
-                if ka in vistos:
-                    continue
-                vistos[ka] = True
-                res.append(Grupo(ka, p.codigo_articulo, 1, t, articulo=p.articulo, posicion=p, oc=p.oc))
+            finos.append((f"l{x.id}", f"{pl.numero} · {p.codigo_articulo}", p.articulo, p, p.oc, float(x.cantidad or 0), p.unidad))
+    elif oc is not None:
+        for p in _posiciones_oc(db, oc, pedido):
+            finos.append((f"p{p.id}", f"{p.posicion} · {p.codigo_articulo}", p.articulo, p, oc, float(p.cantidad or 0), p.unidad))
+    else:
+        for x in pedido.get("articulos") or []:
+            a = datos.cargar_articulo(db, user, x.get("articulo_id"))
+            finos.append((f"a{a.id}", a.sku, a, None, None, float(_entero(x.get("cantidad"), 1)), a.unidad))
+    res: dict[str, Grupo] = {}
+    no_aplica: dict = {}
+    for linea, ref, a, p, oc_, unidades, unidad in finos:
+        e = decide(t, a, oc_, p, None, pl)
+        if e.no_lleva:
+            continue
+        alcance = e.alcance
+        codigo = (p.codigo_articulo if p else None) or (a.sku if a else "")
+        if alcance == "LINEA":
+            clave, referencia = linea, ref
+        elif alcance == "POSICION_OC":
+            if p is None:
+                no_aplica[alcance] = no_aplica.get(alcance, 0) + 1
                 continue
-            g = Grupo(k, f"{pl.numero} · {p.codigo_articulo}", 1, t, articulo=p.articulo, posicion=p, oc=p.oc)
-            if t.cantidad == "POR_UNIDAD":
-                g.cantidad, motivo = _no_contable_cant(p, cant, p.unidad)
-                if motivo:
-                    g.problema("error", "unidad_no_contable", motivo)
-            elif t.cantidad == "MANUAL":
-                g.cantidad = _manual(pedido, k)
-            res.append(g)
-        return res
-    if oc is not None:
-        posiciones = _posiciones_oc(db, oc, pedido)
-        if t.cantidad == "POR_ARTICULO":
-            vistos = {}
-            for p in posiciones:
-                vistos.setdefault(p.articulo_id or p.codigo_articulo, p)
-            return [Grupo(f"{pref}a{p.articulo_id}" if p.articulo_id else f"{pref}c{p.codigo_articulo}", p.codigo_articulo, 1, t,
-                          articulo=p.articulo, posicion=p, oc=oc) for p in vistos.values()]
-        for p in posiciones:
-            k = f"{pref}p{p.id}"
-            g = Grupo(k, f"{p.posicion} · {p.codigo_articulo}", 1, t, articulo=p.articulo, posicion=p, oc=oc)
-            if t.cantidad == "POR_UNIDAD":
-                g.cantidad, motivo = _no_contable_cant(p, float(p.cantidad or 0), p.unidad)
-                if motivo:
-                    g.problema("error", "unidad_no_contable", motivo)
-            elif t.cantidad == "MANUAL":
-                g.cantidad = _manual(pedido, k)
-            res.append(g)
-        return res
-    for x in pedido.get("articulos") or []:
-        a = datos.cargar_articulo(db, user, x.get("articulo_id"))
-        n = _entero(x.get("cantidad"), 1) if t.cantidad in ("POR_UNIDAD", "MANUAL") else 1
-        res.append(Grupo(f"{pref}a{a.id}", a.sku, n, t, articulo=a))
-    return res
+            clave, referencia = f"p{p.id}", f"{p.oc.numero} · {p.posicion} · {codigo}"
+        elif alcance == "POSICION_PL":
+            if pl is None:
+                no_aplica[alcance] = no_aplica.get(alcance, 0) + 1
+                continue
+            clave, referencia = linea, ref
+        elif alcance == "PRODUCTO" and a is not None and a.producto_id:
+            prod = a.producto
+            clave, referencia = f"r{a.producto_id}", " · ".join(x for x in (prod.estilo, prod.color) if x)
+        else:  # ARTICULO (o PRODUCTO de un artículo sin producto: cada variante)
+            clave = f"a{a.id}" if a is not None else f"c{codigo}"
+            referencia = codigo
+        k = pref + clave
+        g = res.get(k)
+        if g is None:
+            g = res[k] = Grupo(k, referencia, 0, t, articulo=a, posicion=p, oc=oc_)
+            g.eleccion, g.unidades, g.variantes = e, 0.0, set()
+            g.unidad = unidad
+        elif (g.eleccion.uso.id if g.eleccion.uso else None) != (e.uso.id if e.uso else None):
+            g.problema("advertencia", "reglas_distintas", "Lines grouped here follow different rules: the first one is used.")
+        g.unidades += unidades
+        g.variantes.add(a.id if a is not None else codigo)
+        if g.posicion is not None and p is not None and g.posicion.id != p.id:
+            g.posicion = None  # varias líneas: los datos de una sola línea no aplican
+    sueltos = pl is None and oc is None  # artículos elegidos: su cantidad es la que se escribió
+    for g in res.values():
+        cantidad = g.eleccion.cantidad
+        if sueltos and cantidad in ("POR_UNIDAD", "MANUAL"):
+            g.cantidad = _manual(pedido, g.clave, int(g.unidades)) if cantidad == "MANUAL" else int(g.unidades)
+        elif cantidad == "POR_UNIDAD":
+            g.cantidad, motivo = _no_contable_cant(g.posicion, g.unidades, g.unidad)
+            if motivo:
+                g.problema("error", "unidad_no_contable", motivo)
+        elif cantidad == "MANUAL":
+            g.cantidad = _manual(pedido, g.clave)
+        else:
+            g.cantidad = 1
+    for alcance, n in no_aplica.items():
+        avisos.append({"nivel": "advertencia", "codigo": "alcance_no_aplica", "elemento": None, "tipo_etiqueta_id": t.id,
+                       "mensaje": f"{t.nombre}: {n} records go on {ALCANCE_TXT[alcance]}, which this origin does not have."})
+    return list(res.values())
 
 
-def _grupos_bulto(db: Session, pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | None, pl: PackingList | None) -> list[Grupo]:
+def _grupos_bulto(db: Session, pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | None, pl: PackingList | None,
+                  decide: _Decide | None = None) -> list[Grupo]:
     """Una etiqueta por bulto. Un bulto con un solo artículo lleva sus datos; con
     varios, los campos de artículo quedan vacíos (la tabla del contenido los muestra)."""
     if pl is not None:
@@ -252,18 +307,47 @@ def _grupos_bulto(db: Session, pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | 
                   bulto=u, oc=oc_bulto)
         if not lineas:
             g.problema("advertencia", "sin_contenido", "The package has no items: the PO and item fields stay empty.")
+        if decide is not None:
+            g.eleccion = decide(t, articulo, oc_bulto, una, u, pl)
+            if g.eleccion.no_lleva:
+                continue
+            if g.eleccion.cantidad == "MANUAL":
+                g.cantidad = _manual(pedido, g.clave, 1)
         res.append(g)
     return res
 
 
-def _grupos_documento(pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | None, pl: PackingList | None) -> list[Grupo]:
-    if pl is not None:
+def _grupos_documento(pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | None, pl: PackingList | None,
+                      decide: _Decide, avisos: list, ocs_pl: list | None = None) -> list[Grupo]:
+    """Etiquetas de documento: según la regla, la del documento de origen, la de
+    la OC (una por cada OC que trae la lista de empaque) o la de la lista."""
+    e = decide(t, None, oc, None, None, pl)
+    if e.no_lleva:
+        return []
+    alcance = e.alcance
+    res = []
+    if alcance == "PL" or (alcance == "DOCUMENTO" and pl is not None):
+        if pl is None:
+            avisos.append({"nivel": "advertencia", "codigo": "alcance_no_aplica", "elemento": None, "tipo_etiqueta_id": t.id,
+                           "mensaje": f"{t.nombre}: it goes on the packing list, and these labels come from a PO."})
+            return []
         k = f"t{t.id}-pl{pl.id}"
-        return [Grupo(k, pl.numero, _manual(pedido, k, 1) if t.cantidad == "MANUAL" else 1, t, pl=pl, oc=oc)]
-    if oc is not None:
-        k = f"t{t.id}-oc{oc.id}"
-        return [Grupo(k, oc.numero, _manual(pedido, k, 1) if t.cantidad == "MANUAL" else 1, t, oc=oc)]
-    return []
+        g = Grupo(k, pl.numero, 1, t, pl=pl, oc=oc)
+        g.eleccion = e
+        res.append(g)
+    else:  # la OC, o el documento de origen desde una OC
+        for o in ([oc] if oc is not None else []) if pl is None else (ocs_pl or []):
+            eo = e if o is oc else decide(t, None, o, None, None, pl)
+            if eo.no_lleva:
+                continue
+            k = f"t{t.id}-oc{o.id}"
+            g = Grupo(k, o.numero, 1, t, oc=o, pl=pl)
+            g.eleccion = eo
+            res.append(g)
+    for g in res:
+        if g.eleccion.cantidad == "MANUAL":
+            g.cantidad = _manual(pedido, g.clave, 1)
+    return res
 
 
 def tipos_del_pedido(db: Session, pedido: dict) -> list[TipoEtiqueta]:
@@ -292,14 +376,21 @@ def armar(db: Session, user: Usuario, pedido: dict) -> tuple[OrdenCompra | None,
         ocs = {x.factura_linea.posicion_oc.oc_id for x in pl.lineas}
         oc = db.get(OrdenCompra, next(iter(ocs))) if len(ocs) == 1 else None
     grupos, avisos = [], []
-    for t in tipos_del_pedido(db, pedido):
+    tipos = tipos_del_pedido(db, pedido)
+    decide = _Decide(db, tipos)
+    ocs_pl = sorted({x.factura_linea.posicion_oc.oc for x in pl.lineas}, key=lambda o: o.id) if pl is not None else None
+    for t in tipos:
+        antes = len(avisos)
         if t.sujeto == "ARTICULO":
-            nuevos = _grupos_articulo(db, user, pedido, t, oc if origen == "OC" else None, pl)
+            nuevos = _grupos_articulo(db, user, pedido, t, oc if origen == "OC" else None, pl, decide, avisos)
         elif t.sujeto == "BULTO":
-            nuevos = _grupos_bulto(db, pedido, t, oc if origen == "OC" else None, pl)
+            nuevos = _grupos_bulto(db, pedido, t, oc if origen == "OC" else None, pl, decide)
         else:
-            nuevos = _grupos_documento(pedido, t, oc, pl)
-        if not nuevos:
+            nuevos = _grupos_documento(pedido, t, oc, pl, decide, avisos, ocs_pl)
+        if not nuevos and decide.no_lleva.get(t.id):
+            avisos.append({"nivel": "info", "codigo": "no_lleva", "elemento": None, "tipo_etiqueta_id": t.id,
+                           "mensaje": f"{t.nombre}: the rules say it does not go on any of these records."})
+        elif not nuevos and len(avisos) == antes:
             avisos.append({"nivel": "advertencia", "codigo": "tipo_no_aplica", "elemento": None, "tipo_etiqueta_id": t.id,
                            "mensaje": (f"{t.nombre}: there is nothing to label here (packages need a packing list, "
                                        "documents need a PO or a packing list).") if origen == "ARTICULOS" or t.sujeto != "ARTICULO"
@@ -365,8 +456,10 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
             if p is None or p.tipo_etiqueta_id != g.tipo.id or p.estado != "ACTIVA":
                 g.problema("error", "sin_plantilla", "The chosen design is not of this label type or is archived.")
                 continue
-            uso = SimpleNamespace(plantilla=p, id=None, motivo=None)
+            uso = SimpleNamespace(plantilla=p, id=None, motivo=None, accion="USAR", alcance=None, cantidad=None, prioridad=0)
             g.eleccion = reglas.Eleccion(g.tipo, uso, {"clase": "elegida"})
+        elif g.eleccion is not None:
+            pass  # la regla ya se resolvió al armar los registros (decidió dónde va y cuántas)
         else:
             s = reglas.Sujeto(sujeto, articulo=g.articulo, oc=g.oc, tipo_empaque_id=g.bulto.tipo_empaque_id if g.bulto else None,
                               valores=g.valores)

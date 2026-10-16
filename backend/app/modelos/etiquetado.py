@@ -40,11 +40,26 @@ CANTIDADES = ("POR_UNIDAD", "POR_LINEA", "POR_ARTICULO", "POR_BULTO", "POR_DOCUM
 CANTIDADES_DE = {"ARTICULO": ("POR_UNIDAD", "POR_LINEA", "POR_ARTICULO", "MANUAL"), "BULTO": ("POR_BULTO",),
                  "DOCUMENTO": ("POR_DOCUMENTO", "MANUAL")}
 # Dónde se pone un diseño, de lo más específico a lo más general (reglas.py)
-NIVELES = ("SKU", "PRODUCTO", "FAMILIA", "TIPO_EMPAQUE", "GENERAL")
-NIVELES_DE = {"ARTICULO": ("SKU", "PRODUCTO", "FAMILIA", "GENERAL"), "BULTO": ("TIPO_EMPAQUE", "GENERAL"),
+NIVELES = ("SKU", "PRODUCTO", "CATEGORIA", "FAMILIA", "TIPO_EMPAQUE", "GENERAL")
+NIVELES_DE = {"ARTICULO": ("SKU", "PRODUCTO", "CATEGORIA", "FAMILIA", "GENERAL"), "BULTO": ("TIPO_EMPAQUE", "GENERAL"),
               "DOCUMENTO": ("GENERAL",)}
 # Columna del destino de cada nivel
-DESTINO_DE = {"SKU": "articulo_id", "PRODUCTO": "producto_id", "FAMILIA": "familia_id", "TIPO_EMPAQUE": "tipo_empaque_id"}
+DESTINO_DE = {"SKU": "articulo_id", "PRODUCTO": "producto_id", "CATEGORIA": "categoria_id", "FAMILIA": "familia_id",
+              "TIPO_EMPAQUE": "tipo_empaque_id"}
+# Dónde va la etiqueta (a qué se pega), según lo que lleva el diseño:
+# - artículo: la línea del documento de origen (posición de la OC desde una OC,
+#   línea de la lista de empaque desde una lista), la posición de la OC, la
+#   línea de la lista de empaque, cada variante (SKU) o el artículo genérico
+#   (producto estilo-color);
+# - documento: el de origen, la OC o la lista de empaque;
+# - bulto: cada empaque (inner, caja, pallet…; ver tipos_etiqueta_empaques).
+ALCANCES_DE = {"ARTICULO": ("LINEA", "POSICION_OC", "POSICION_PL", "ARTICULO", "PRODUCTO"),
+               "DOCUMENTO": ("DOCUMENTO", "OC", "PL"), "BULTO": ("EMPAQUE",)}
+ALCANCES = tuple(dict.fromkeys(a for v in ALCANCES_DE.values() for a in v))
+# Cuántas salen de cada lugar, dicho en una regla: una, una por unidad o a mano
+CANTIDADES_REGLA = ("UNA", "POR_UNIDAD", "MANUAL")
+# Una regla usa un diseño o dice que ese tipo de etiqueta no va ahí
+ACCIONES = ("USAR", "NO_LLEVA")
 # Excepciones: NINGUNO es el diseño normal de la celda; OC manda sobre todo;
 # las demás se revisan en este orden dentro de su celda
 CONTEXTOS = ("NINGUNO", "OC", "CENTRO_DESTINO", "PAIS_DESTINO", "SOCIEDAD", "PROVEEDOR", "CONDICION")
@@ -60,6 +75,18 @@ ESTADOS_REGISTRO = ("LISTO", "ADVERTENCIA", "ERROR", "GENERADO", "OMITIDO")
 
 def _en(col: str, valores) -> str:
     return f"{col} IN ({', '.join(repr(v) for v in valores)})"
+
+
+def _solo(nivel: str, columna: str | None) -> str:
+    otras = [c for c in ("familia_id", "categoria_id", "producto_id", "articulo_id", "tipo_empaque_id") if c != columna]
+    return "(" + " AND ".join([f"nivel = '{nivel}'"] + ([f"{columna} IS NOT NULL"] if columna else [])
+                              + [f"{c} IS NULL" for c in otras]) + ")"
+
+
+# Cada nivel lleva solo su destino (el de toda la empresa, ninguno)
+CK_DESTINO_USO = " OR ".join([_solo("GENERAL", None), _solo("FAMILIA", "familia_id"), _solo("CATEGORIA", "categoria_id"),
+                              _solo("PRODUCTO", "producto_id"), _solo("SKU", "articulo_id"),
+                              _solo("TIPO_EMPAQUE", "tipo_empaque_id")])
 
 
 class FamiliaEtiquetado(DeOrganizacion, Base):
@@ -104,6 +131,7 @@ class TipoEtiqueta(DeOrganizacion, Base):
         UniqueConstraint("id", "organizacion_id", name="uq_tipos_etiqueta_id_org"),
         CheckConstraint(_en("sujeto", SUJETOS), name="ck_tipos_etiqueta_sujeto"),
         CheckConstraint(_en("cantidad", CANTIDADES), name="ck_tipos_etiqueta_cantidad"),
+        CheckConstraint("alcance IS NULL OR " + _en("alcance", ALCANCES), name="ck_tipos_etiqueta_alcance"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(30))
@@ -115,11 +143,37 @@ class TipoEtiqueta(DeOrganizacion, Base):
     obligatoria: Mapped[bool] = mapped_column(Boolean, default=False)
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Dónde va por defecto (ALCANCES_DE[sujeto]); vacío: lo de antes (la línea o el documento de origen,
+    # o cada variante si sale una por artículo). Una regla puede decir otro lugar.
+    alcance: Mapped[str | None] = mapped_column(String(12))
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     actualizado_en: Mapped[datetime | None] = mapped_column(DateTime)
     version: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class CategoriaEtiquetado(DeOrganizacion, Base):
+    """Una categoría dentro de una familia de etiquetado (sandalias, botas…;
+    camisas, pantalones…), como en la clasificación: se reconoce sola por
+    condiciones sobre los datos del artículo y del producto, o se pone a mano
+    en el producto. Sin condiciones, solo se pone a mano. Las reglas pueden ir
+    a una categoría: más específica que su familia, más general que el producto."""
+
+    __tablename__ = "categorias_etiquetado"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_categorias_etiquetado_org_codigo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    familia_id: Mapped[int] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
+    codigo: Mapped[str] = mapped_column(String(20))
+    nombre: Mapped[str] = mapped_column(String(100))
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    # [{"campo": "articulo.descripcion", "op": "contiene", "valor": "sandal"}]: todas deben cumplirse
+    condiciones: Mapped[list] = mapped_column(JSON, default=list)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
+    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    familia: Mapped[FamiliaEtiquetado] = relationship()
 
 
 class TipoEtiquetaEmpaque(DeOrganizacion, Base):
@@ -212,16 +266,11 @@ class UsoDiseno(DeOrganizacion, Base):
     __table_args__ = (
         CheckConstraint(_en("nivel", NIVELES), name="ck_usos_diseno_nivel"),
         CheckConstraint(_en("contexto_tipo", CONTEXTOS), name="ck_usos_diseno_contexto_tipo"),
-        CheckConstraint(
-            "(nivel = 'GENERAL' AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL AND tipo_empaque_id IS NULL)"
-        " OR (nivel = 'FAMILIA' AND familia_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL"
-        " AND tipo_empaque_id IS NULL)"
-        " OR (nivel = 'PRODUCTO' AND producto_id IS NOT NULL AND familia_id IS NULL AND articulo_id IS NULL"
-        " AND tipo_empaque_id IS NULL)"
-        " OR (nivel = 'SKU' AND articulo_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL"
-        " AND tipo_empaque_id IS NULL)"
-        " OR (nivel = 'TIPO_EMPAQUE' AND tipo_empaque_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL"
-        " AND articulo_id IS NULL)", name="ck_usos_diseno_destino"),
+        CheckConstraint(CK_DESTINO_USO, name="ck_usos_diseno_destino"),
+        CheckConstraint(_en("accion", ACCIONES), name="ck_usos_diseno_accion"),
+        CheckConstraint("(accion = 'USAR') = (plantilla_id IS NOT NULL)", name="ck_usos_diseno_plantilla"),
+        CheckConstraint("alcance IS NULL OR " + _en("alcance", ALCANCES), name="ck_usos_diseno_alcance"),
+        CheckConstraint("cantidad IS NULL OR " + _en("cantidad", CANTIDADES_REGLA), name="ck_usos_diseno_cantidad"),
         CheckConstraint("(contexto_tipo = 'OC') = (oc_id IS NOT NULL)", name="ck_usos_diseno_oc"),
         CheckConstraint("contexto_tipo <> 'NINGUNO' OR (vigente_desde IS NULL AND vigente_hasta IS NULL)",
                         name="ck_usos_diseno_normal_sin_vigencia"),
@@ -235,9 +284,11 @@ class UsoDiseno(DeOrganizacion, Base):
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     tipo_etiqueta_id: Mapped[int] = mapped_column(ForeignKey("tipos_etiqueta.id"), index=True)
-    plantilla_id: Mapped[int] = mapped_column(ForeignKey("plantillas_etiqueta.id"), index=True)
+    # Vacío cuando la regla dice que ese tipo de etiqueta no va ahí (accion NO_LLEVA)
+    plantilla_id: Mapped[int | None] = mapped_column(ForeignKey("plantillas_etiqueta.id"), index=True)
     nivel: Mapped[str] = mapped_column(String(12))
     familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
+    categoria_id: Mapped[int | None] = mapped_column(ForeignKey("categorias_etiquetado.id"), index=True)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
     tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"), index=True)
@@ -250,6 +301,13 @@ class UsoDiseno(DeOrganizacion, Base):
     condiciones: Mapped[list] = mapped_column(JSON, default=list)
     vigente_desde: Mapped[date | None] = mapped_column(Date)
     vigente_hasta: Mapped[date | None] = mapped_column(Date)
+    # Lo que decide la regla además del diseño: si la etiqueta va (USAR) o no (NO_LLEVA), dónde va
+    # (ALCANCES; vacío = lo del tipo), cuántas salen (CANTIDADES_REGLA; vacío = lo del tipo) y, entre
+    # reglas del mismo lugar que aplican a la vez, cuál gana (mayor prioridad; si empatan, la más antigua)
+    accion: Mapped[str] = mapped_column(String(8), default="USAR", server_default="USAR")
+    alcance: Mapped[str | None] = mapped_column(String(12))
+    cantidad: Mapped[str | None] = mapped_column(String(10))
+    prioridad: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     motivo: Mapped[str | None] = mapped_column(String(300))
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
@@ -259,7 +317,7 @@ class UsoDiseno(DeOrganizacion, Base):
     eliminado_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
-    plantilla: Mapped[PlantillaEtiqueta] = relationship()
+    plantilla: Mapped[PlantillaEtiqueta | None] = relationship()
     tipo: Mapped[TipoEtiqueta] = relationship()
 
     @property

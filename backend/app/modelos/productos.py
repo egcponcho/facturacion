@@ -44,6 +44,9 @@ class Producto(DeOrganizacion, Base):
     # Familia de etiquetado del estilo-color: la heredan sus tallas que no tienen una propia
     familia_etiquetado_id: Mapped[int | None] = mapped_column(
         ForeignKey("familias_etiquetado.id", name="fk_productos_familia_etiquetado_id"), index=True)
+    # Categoría de etiquetado puesta a mano (si no, se reconoce sola por las condiciones de las categorías)
+    categoria_etiquetado_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categorias_etiquetado.id", name="fk_productos_categoria_etiquetado_id"), index=True)
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
     codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)

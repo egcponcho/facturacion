@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
+    CategoriaEtiquetado,
     Centro,
     FamiliaEtiquetado,
     GrupoArticulo,
@@ -38,7 +39,7 @@ from app.modelos import (
     UsoDiseno,
     Usuario,
 )
-from app.modelos.etiquetado import CONTEXTOS, DESTINO_DE, NIVELES_DE
+from app.modelos.etiquetado import ACCIONES, ALCANCES_DE, CANTIDADES_REGLA, CONTEXTOS, DESTINO_DE, NIVELES_DE
 from app.modulos.acceso.permisos import exigir, exigir_alguno
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import reglas, tipos
@@ -48,10 +49,25 @@ MAX_VALORES = 50
 MAX_SIMULACION = 20000  # artículos que se revisan al simular un cambio
 OC_ABIERTAS = ("BORRADOR", "EN_APROBACION", "RECHAZADA", "APROBADA")
 CON_VALORES = ("CENTRO_DESTINO", "PAIS_DESTINO", "SOCIEDAD", "PROVEEDOR")
-_MODELO_DESTINO = {"FAMILIA": FamiliaEtiquetado, "PRODUCTO": Producto, "SKU": Articulo, "TIPO_EMPAQUE": TipoEmpaque}
+_MODELO_DESTINO = {"FAMILIA": FamiliaEtiquetado, "CATEGORIA": CategoriaEtiquetado, "PRODUCTO": Producto, "SKU": Articulo,
+                   "TIPO_EMPAQUE": TipoEmpaque}
+# Cuántas puede decir una regla según lo que se etiqueta (por unidad solo en artículos)
+CANTIDADES_DE_SUJETO = {"ARTICULO": CANTIDADES_REGLA, "DOCUMENTO": ("UNA", "MANUAL"), "BULTO": ("UNA", "MANUAL")}
+MAX_PRIORIDAD = 1000
 
 
 # ---- Lectura ---------------------------------------------------------------------------------
+def campos_articulo(a: Articulo) -> dict:
+    from app.modulos.etiquetado import campos
+
+    return campos.valores_articulo(a)
+
+
+def _nombre_p(u: UsoDiseno) -> str | None:
+    """El diseño de una regla, o nada si dice que la etiqueta no va."""
+    return u.plantilla.nombre if u.plantilla is not None else None
+
+
 def _usuario(db: Session, uid: int | None) -> str | None:
     u = db.get(Usuario, uid) if uid else None
     return (u.nombre or u.email) if u else None
@@ -88,7 +104,8 @@ def dict_uso(db: Session, u: UsoDiseno, hoy: date | None = None) -> dict:
             "condiciones": u.condiciones or [], "vigente_desde": u.vigente_desde, "vigente_hasta": u.vigente_hasta,
             "vigente": reglas.vigente(u, hoy or hoy_empresa()), "motivo": u.motivo, "creado_por": _usuario(db, u.creado_por),
             "creado_en": u.creado_en, "actualizado_por": _usuario(db, u.actualizado_por), "actualizado_en": u.actualizado_en,
-            "eliminado_en": u.eliminado_en, "eliminado_por": _usuario(db, u.eliminado_por), "version": u.version}
+            "eliminado_en": u.eliminado_en, "eliminado_por": _usuario(db, u.eliminado_por), "version": u.version,
+            "accion": u.accion or "USAR", "alcance": u.alcance, "cantidad": u.cantidad, "prioridad": u.prioridad or 0}
 
 
 def cargar(db: Session, uso_id: int, bloquear: bool = False) -> UsoDiseno:
@@ -234,11 +251,33 @@ def _limpiar(db: Session, user: Usuario, datos: dict, actual: UsoDiseno | None =
     tipo = tipos.cargar(db, int(dato("tipo_etiqueta_id") or 0))
     if not tipo.activo and actual is None:
         raise ErrorNegocio("The label type is not active.", 422, "validacion")
-    plantilla = db.get(PlantillaEtiqueta, int(dato("plantilla_id") or 0))
-    if plantilla is None or plantilla.tipo_etiqueta_id != tipo.id:
-        raise ErrorNegocio("Choose a design of this label type.", 422, "validacion", [{"campo": "plantilla_id", "mensaje": tipo.nombre}])
-    if plantilla.estado != "ACTIVA":
-        raise ErrorNegocio("The design is archived.", 422, "validacion", [{"campo": "plantilla_id", "mensaje": plantilla.nombre}])
+    # Qué decide la regla: usar un diseño o que esta etiqueta no va; dónde va, cuántas y su prioridad
+    accion = str(dato("accion") or "USAR").upper()
+    if accion not in ACCIONES:
+        raise ErrorNegocio("Choose whether the label goes (with a design) or does not go.", 422, "validacion",
+                           [{"campo": "accion", "mensaje": accion}])
+    plantilla = None
+    if accion == "USAR":
+        plantilla = db.get(PlantillaEtiqueta, int(dato("plantilla_id") or 0))
+        if plantilla is None or plantilla.tipo_etiqueta_id != tipo.id:
+            raise ErrorNegocio("Choose a design of this label type.", 422, "validacion", [{"campo": "plantilla_id", "mensaje": tipo.nombre}])
+        if plantilla.estado != "ACTIVA":
+            raise ErrorNegocio("The design is archived.", 422, "validacion", [{"campo": "plantilla_id", "mensaje": plantilla.nombre}])
+    alcance = (str(dato("alcance") or "").upper() or None) if accion == "USAR" else None
+    if alcance and alcance not in ALCANCES_DE[tipo.sujeto]:
+        raise ErrorNegocio("This label cannot go there: choose a place for what it labels.", 422, "validacion",
+                           [{"campo": "alcance", "mensaje": ", ".join(ALCANCES_DE[tipo.sujeto])}])
+    cantidad = (str(dato("cantidad") or "").upper() or None) if accion == "USAR" else None
+    if cantidad and cantidad not in CANTIDADES_DE_SUJETO[tipo.sujeto]:
+        raise ErrorNegocio("Choose how many labels: one, one per unit (items only) or by hand.", 422, "validacion",
+                           [{"campo": "cantidad", "mensaje": ", ".join(CANTIDADES_DE_SUJETO[tipo.sujeto])}])
+    try:
+        prioridad = int(dato("prioridad") or 0)
+    except (TypeError, ValueError):
+        prioridad = None
+    if prioridad is None or abs(prioridad) > MAX_PRIORIDAD:
+        raise ErrorNegocio(f"The priority is a whole number between -{MAX_PRIORIDAD} and {MAX_PRIORIDAD}.", 422, "validacion",
+                           [{"campo": "prioridad", "mensaje": str(dato("prioridad"))}])
     nivel = str(dato("nivel") or "GENERAL").upper()
     if nivel not in NIVELES_DE[tipo.sujeto]:
         raise ErrorNegocio("A design of this label type cannot go there.", 422, "validacion", [{"campo": "nivel", "mensaje": nivel}])
@@ -272,10 +311,11 @@ def _limpiar(db: Session, user: Usuario, datos: dict, actual: UsoDiseno | None =
             raise ErrorNegocio("An exception by conditions needs at least one condition or a date range.", 422, "validacion",
                                [{"campo": "condiciones", "mensaje": "Required."}])
     col = DESTINO_DE.get(nivel)
-    res = {"tipo_etiqueta_id": tipo.id, "plantilla_id": plantilla.id, "nivel": nivel, "familia_id": None, "producto_id": None,
-           "articulo_id": None, "tipo_empaque_id": None, "celda": celda_de(tipo.id, nivel, destino_id), "contexto_tipo": contexto,
-           "contexto_valores": valores, "oc_id": oc_id, "condiciones": condiciones, "vigente_desde": desde, "vigente_hasta": hasta,
-           "motivo": motivo}
+    res = {"tipo_etiqueta_id": tipo.id, "plantilla_id": plantilla.id if plantilla else None, "nivel": nivel, "familia_id": None,
+           "categoria_id": None, "producto_id": None, "articulo_id": None, "tipo_empaque_id": None,
+           "celda": celda_de(tipo.id, nivel, destino_id), "contexto_tipo": contexto, "contexto_valores": valores, "oc_id": oc_id,
+           "condiciones": condiciones, "vigente_desde": desde, "vigente_hasta": hasta, "motivo": motivo,
+           "accion": accion, "alcance": alcance, "cantidad": cantidad, "prioridad": prioridad}
     if col:
         res[col] = destino_id
     return res
@@ -318,7 +358,8 @@ def _revisar_cruces(db: Session, u: UsoDiseno) -> None:
 def _foto(u: UsoDiseno) -> dict:
     return {"plantilla_id": u.plantilla_id, "nivel": u.nivel, "destino_id": u.destino_id, "contexto_tipo": u.contexto_tipo,
             "contexto_valores": u.contexto_valores, "oc_id": u.oc_id, "condiciones": u.condiciones,
-            "vigente_desde": u.vigente_desde, "vigente_hasta": u.vigente_hasta, "motivo": u.motivo}
+            "vigente_desde": u.vigente_desde, "vigente_hasta": u.vigente_hasta, "motivo": u.motivo,
+            "accion": u.accion or "USAR", "alcance": u.alcance, "cantidad": u.cantidad, "prioridad": u.prioridad or 0}
 
 
 # ---- Escritura -------------------------------------------------------------------------------
@@ -365,7 +406,8 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
         limpio = _limpiar(db, user, datos)
         actual = next((x for x in _usos_celda(db, limpio["celda"], bloquear=True) if x.contexto_tipo == "NINGUNO"), None)
         if actual is not None:
-            return dict_uso(db, _editar(db, user, actual, {"plantilla_id": limpio["plantilla_id"]}))
+            return dict_uso(db, _editar(db, user, actual, {k: limpio[k] for k in ("plantilla_id", "accion", "alcance",
+                                                                                   "cantidad", "prioridad")}))
     return dict_uso(db, _nuevo(db, user, datos))
 
 
@@ -422,12 +464,22 @@ def _cadena(db: Session, nivel: str, destino_id: int | None) -> list[tuple[str, 
         if a is not None:
             if a.producto_id:
                 res.append(("PRODUCTO", a.producto_id))
+            cat = reglas.categoria_de(db, a, campos_articulo(a))
+            if cat is not None:
+                res.append(("CATEGORIA", cat.id))
             f = a.familia_efectiva
             res += [("FAMILIA", x.id) for x in reversed(f.ruta())] if f else []
     elif nivel == "PRODUCTO":
         p = db.get(Producto, destino_id)
         f = familia_producto(db, p) if p else None
+        a = db.scalar(select(Articulo).where(Articulo.producto_id == destino_id).order_by(Articulo.id).limit(1)) if p else None
+        cat = reglas.categoria_de(db, a, campos_articulo(a)) if a is not None else None
+        if cat is not None:
+            res.append(("CATEGORIA", cat.id))
         res += [("FAMILIA", x.id) for x in reversed(f.ruta())] if f else []
+    elif nivel == "CATEGORIA":
+        c = db.get(CategoriaEtiquetado, destino_id)
+        res += [("FAMILIA", x.id) for x in reversed(c.familia.ruta())] if c else []
     elif nivel == "FAMILIA":
         f = db.get(FamiliaEtiquetado, destino_id)
         res += [("FAMILIA", x.id) for x in reversed(f.ruta()[:-1])] if f else []
@@ -452,8 +504,9 @@ def hereda(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> dic
     for n, d in _cadena(db, nivel, destino_id):
         u = _normal(db, tipo_id, n, d)
         if u is not None:
-            return {"uso_id": u.id, "plantilla_id": u.plantilla_id, "plantilla": u.plantilla.nombre,
-                    "version_id": u.plantilla.version_vigente_id, "nivel": n, "destino_id": d, "destino": nombre_destino(db, n, d)}
+            return {"uso_id": u.id, "plantilla_id": u.plantilla_id, "plantilla": _nombre_p(u),
+                    "version_id": u.plantilla.version_vigente_id if u.plantilla else None, "nivel": n, "destino_id": d,
+                    "destino": nombre_destino(db, n, d), "accion": u.accion or "USAR", "alcance": u.alcance, "cantidad": u.cantidad}
     return None
 
 
@@ -468,6 +521,9 @@ def _articulos_de(db: Session, nivel: str, destino_id: int | None, limite: int =
     arts = list(db.scalars(c.order_by(Articulo.id).limit(limite)))
     if nivel == "FAMILIA":
         arts = [a for a in arts if a.familia_efectiva is not None and destino_id in {f.id for f in a.familia_efectiva.ruta()}]
+    elif nivel == "CATEGORIA":
+        cache: dict = {}
+        arts = [a for a in arts if (c := reglas.categoria_de(db, a, campos_articulo(a), cache)) is not None and c.id == destino_id]
     return arts
 
 
@@ -492,7 +548,7 @@ def _propios(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> l
         elif nivel == "GENERAL":
             continue
         res.append({"uso_id": u.id, "nivel": u.nivel, "destino_id": u.destino_id, "destino": nombre_destino(db, u.nivel, u.destino_id),
-                    "plantilla_id": u.plantilla_id, "plantilla": u.plantilla.nombre})
+                    "plantilla_id": u.plantilla_id, "plantilla": _nombre_p(u), "accion": u.accion or "USAR"})
     return res
 
 
@@ -690,10 +746,20 @@ def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
         for f in familias:
             hijos.setdefault(f.padre_id if f.padre_id in {x.id for x in familias} else None, []).append(f)
 
+        cats_de: dict = {}
+        for c in db.scalars(select(CategoriaEtiquetado).where(CategoriaEtiquetado.activa.is_(True))
+                            .order_by(CategoriaEtiquetado.orden, CategoriaEtiquetado.id)):
+            cats_de.setdefault(c.familia_id, []).append(c)
+        por_cat = _articulos_por_categoria(db) if cats_de else {}
+
         def poner(padre, nivel):
             for f in hijos.get(padre, []):
                 filas.append({"nivel": "FAMILIA", "id": f.id, "nombre": f.nombre, "codigo": f.codigo, "padre_id": f.padre_id,
                               "profundidad": nivel, "articulos": conteo.get(f.id, 0)})
+                # Sus categorías, debajo de la familia (más específicas que ella)
+                for c in cats_de.get(f.id, []):
+                    filas.append({"nivel": "CATEGORIA", "id": c.id, "nombre": c.nombre, "codigo": c.codigo, "padre_id": f.id,
+                                  "profundidad": nivel + 1, "articulos": por_cat.get(c.id, 0)})
                 poner(f.id, nivel + 1)
         poner(None, 1)
         filas[0]["articulos"] = sum(conteo.values())
@@ -722,6 +788,10 @@ def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
             if efectivo is None:
                 cadena = []
                 p = padres.get(fila["id"]) if fila["nivel"] == "FAMILIA" else None
+                if fila["nivel"] == "CATEGORIA":  # una categoría hereda de su familia y de las de arriba
+                    p = padres.get(fila["padre_id"])
+                    if p is not None:
+                        cadena.append(("FAMILIA", p["id"], p["nombre"]))
                 while p is not None and p.get("padre_id") in padres:
                     p = padres[p["padre_id"]]
                     cadena.append(("FAMILIA", p["id"], p["nombre"]))
@@ -733,15 +803,20 @@ def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
                         efectivo, de = x, {"nivel": n, "destino_id": d, "destino": nombre}
                         break
             propios = propios_familia.get((t.id, fila["id"]), 0) if fila["nivel"] in ("FAMILIA", "SIN_FAMILIA") else 0
+            if fila["nivel"] == "FAMILIA":  # los artículos de sus categorías con un diseño propio ya están cubiertos
+                propios += sum(x.get("articulos", 0) for x in filas if x["nivel"] == "CATEGORIA" and x["padre_id"] == fila["id"]
+                               and any(u.contexto_tipo == "NINGUNO" for u in por_celda.get(celda_de(t.id, "CATEGORIA", x["id"]), [])))
             sin_cubrir = max(fila.get("articulos", 0) - propios, 0) if sujeto == "ARTICULO" else 1
             falta = efectivo is None and t.obligatoria and fila["nivel"] != "GENERAL" and sin_cubrir > 0
-            if falta and sujeto == "ARTICULO":
+            if falta and sujeto == "ARTICULO" and fila["nivel"] != "CATEGORIA":  # sus artículos ya cuentan en la familia
                 faltan_total += sin_cubrir
             fila["celdas"][t.id] = {
-                "normal": {"uso_id": normal.id, "plantilla_id": normal.plantilla_id, "plantilla": normal.plantilla.nombre,
-                           "version_id": normal.plantilla.version_vigente_id} if normal else None,
-                "hereda": {"plantilla_id": efectivo.plantilla_id, "plantilla": efectivo.plantilla.nombre,
-                           "version_id": efectivo.plantilla.version_vigente_id, **de} if normal is None and efectivo else None,
+                "normal": {"uso_id": normal.id, "plantilla_id": normal.plantilla_id, "plantilla": _nombre_p(normal),
+                           "version_id": normal.plantilla.version_vigente_id if normal.plantilla else None,
+                           "accion": normal.accion or "USAR", "alcance": normal.alcance, "cantidad": normal.cantidad} if normal else None,
+                "hereda": {"plantilla_id": efectivo.plantilla_id, "plantilla": _nombre_p(efectivo),
+                           "version_id": efectivo.plantilla.version_vigente_id if efectivo.plantilla else None,
+                           "accion": efectivo.accion or "USAR", "alcance": efectivo.alcance, **de} if normal is None and efectivo else None,
                 "excepciones": len([u for u in lista if u.contexto_tipo != "NINGUNO"]),
                 "propios": propios,
                 "falta": falta}
@@ -752,6 +827,18 @@ def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
     else:
         cobertura = None
     return {"sujeto": sujeto, "tipos": [tipos.dict_tipo(db, t) for t in ts], "filas": filas, "cobertura": cobertura}
+
+
+def _articulos_por_categoria(db: Session) -> dict:
+    """Artículos activos por su categoría de etiquetado (la puesta a mano o la que se reconoce)."""
+    res: dict = {}
+    cache: dict = {}
+    for a in db.scalars(select(Articulo).where(Articulo.activo.is_(True)).options(
+            selectinload(Articulo.producto), selectinload(Articulo.grupo), selectinload(Articulo.familia_etiquetado))):
+        c = reglas.categoria_de(db, a, campos_articulo(a), cache)
+        if c is not None:
+            res[c.id] = res.get(c.id, 0) + 1
+    return res
 
 
 def _propios_por_familia(db: Session, usos: list[UsoDiseno]) -> dict:
@@ -800,7 +887,8 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
             e = r.elegir(Sujeto("ARTICULO", articulo=a), t)
             if e.porque.get("nivel") == "SKU":
                 tallas.append({"articulo_id": a.id, "sku": a.sku, "talla": a.talla, "uso_id": e.uso.id,
-                               "plantilla_id": e.plantilla.id, "plantilla": e.plantilla.nombre})
+                               "plantilla_id": e.plantilla.id if e.plantilla else None,
+                               "plantilla": e.plantilla.nombre if e.plantilla else None, "no_lleva": e.no_lleva})
             elif base is None:
                 base = e
         if base is None and arts:

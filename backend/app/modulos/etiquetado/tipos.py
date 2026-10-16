@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import PlantillaEtiqueta, TipoEmpaque, TipoEtiqueta, TipoEtiquetaEmpaque, UsoDiseno, Usuario
-from app.modelos.etiquetado import CANTIDADES_DE, SUJETOS
+from app.modelos.etiquetado import ALCANCES_DE, CANTIDADES_DE, SUJETOS
 from app.modulos.acceso.permisos import exigir, exigir_alguno
 from app.modulos.comun.historial import registrar
 
@@ -47,7 +47,14 @@ def dict_tipo(db: Session, t: TipoEtiqueta) -> dict:
         UsoDiseno.tipo_etiqueta_id == t.id, UsoDiseno.eliminado_en.is_(None))) or 0
     return {"id": t.id, "codigo": t.codigo, "nombre": t.nombre, "descripcion": t.descripcion, "sujeto": t.sujeto,
             "cantidad": t.cantidad, "obligatoria": t.obligatoria, "orden": t.orden, "activo": t.activo, "version": t.version,
-            "disenos": disenos, "usos": usos, "empaques": empaques_de(db, t.id) if t.sujeto == "BULTO" else []}
+            "disenos": disenos, "usos": usos, "empaques": empaques_de(db, t.id) if t.sujeto == "BULTO" else [],
+            "alcance": t.alcance, "alcance_efectivo": _alcance_efectivo(t)}
+
+
+def _alcance_efectivo(t: TipoEtiqueta) -> str:
+    from app.modulos.etiquetado.reglas import alcance_tipo
+
+    return alcance_tipo(t)
 
 
 def cargar(db: Session, tipo_id: int) -> TipoEtiqueta:
@@ -104,6 +111,13 @@ def _validar(db: Session, datos: dict, actual: TipoEtiqueta | None) -> dict:
             limpio["orden"] = max(int(datos["orden"]), 0)
         except (TypeError, ValueError):
             errores.append({"campo": "orden", "mensaje": "Write a whole number."})
+    if "alcance" in datos:
+        alcance = (str(datos.get("alcance") or "").upper()) or None
+        if alcance and alcance not in ALCANCES_DE.get(sujeto, ()):
+            errores.append({"campo": "alcance", "mensaje": "Choose where this label goes for what it labels."})
+        limpio["alcance"] = alcance
+    elif actual is not None and "sujeto" in limpio and limpio["sujeto"] != actual.sujeto:
+        limpio["alcance"] = None  # otro sujeto: el lugar de antes ya no sirve
     if "empaques" in datos:
         ids = datos.get("empaques") or []
         if sujeto != "BULTO" and ids:

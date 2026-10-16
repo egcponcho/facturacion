@@ -12,6 +12,7 @@ from app.modulos.etiquetado import (
     buscadores,
     campos,
     campos_logicos,
+    categorias,
     familias,
     generacion,
     plantillas,
@@ -251,6 +252,43 @@ def actualizar_familia(familia_id: int, db: Db, user: User, datos: dict[str, Any
 def eliminar_familia(familia_id: int, db: Db, user: User):
     """Borra una familia sin uso (si se usa, se desactiva)."""
     return ejecutar(db, user, None, lambda: familias.eliminar(db, user, familia_id))
+
+
+# ---- Categorías de etiquetado (dentro de una familia) --------------------------------------
+@router.get("/etiquetas/categorias")
+def listar_categorias(db: Db, user: User, familia_id: int | None = None):
+    """Categorías de etiquetado (de una familia) con sus condiciones y cuántos artículos caen en cada una."""
+    return categorias.listar(db, user, familia_id)
+
+
+@router.post("/etiquetas/categorias")
+def crear_categoria(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Nueva categoría: familia, código, nombre, descripción, condiciones de reconocimiento y orden."""
+    return ejecutar(db, user, clave, lambda: categorias.crear(db, user, datos))
+
+
+@router.post("/etiquetas/categorias/probar")
+def probar_categoria(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Qué artículos de la familia caerían en una categoría con estas condiciones (sin guardar)."""
+    return categorias.probar(db, user, datos)
+
+
+@router.patch("/etiquetas/categorias/{categoria_id}")
+def actualizar_categoria(categoria_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Cambia la categoría (nombre, condiciones, orden, activa…)."""
+    return ejecutar(db, user, None, lambda: categorias.actualizar(db, user, categoria_id, datos))
+
+
+@router.delete("/etiquetas/categorias/{categoria_id}")
+def eliminar_categoria(categoria_id: int, db: Db, user: User):
+    """Borra una categoría sin uso (si tiene reglas o productos, se desactiva)."""
+    return ejecutar(db, user, None, lambda: categorias.eliminar(db, user, categoria_id))
+
+
+@router.post("/etiquetas/productos/categoria")
+def asignar_categoria_productos(db: Db, user: User, categoria_id: int | None = Body(None), ids: list[int] = Body(...)):
+    """Pone a mano la categoría de varios productos (o la quita, con categoría vacía)."""
+    return ejecutar(db, user, None, lambda: categorias.asignar_productos(db, user, categoria_id, ids))
 
 
 @router.get("/etiquetas/articulos")

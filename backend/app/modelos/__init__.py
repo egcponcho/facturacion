@@ -69,6 +69,7 @@ from app.modelos.empaque import (
 from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
 from app.modelos.etiquetado import (
     CampoEtiqueta,
+    CategoriaEtiquetado,
     FamiliaEtiquetado,
     GeneracionEtiquetas,
     GeneracionItem,
@@ -139,6 +140,7 @@ _aplicar_referencias(_Base.metadata)
 
 __all__ = [
     "CampoEtiqueta",
+    "CategoriaEtiquetado",
     "FamiliaEtiquetado",
     "GeneracionEtiquetas",
     "GeneracionItem",

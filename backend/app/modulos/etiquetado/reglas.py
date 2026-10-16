@@ -32,12 +32,13 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
+    CategoriaEtiquetado,
     Centro,
     FamiliaEtiquetado,
     OrdenCompra,
@@ -47,7 +48,7 @@ from app.modelos import (
     TipoEtiqueta,
     UsoDiseno,
 )
-from app.modelos.etiquetado import NIVELES_DE
+from app.modelos.etiquetado import ALCANCES_DE, NIVELES_DE
 
 # Excepciones de una celda, en el orden en que se revisan (OC va antes, aparte)
 ORDEN_CONTEXTO = ("CENTRO_DESTINO", "PAIS_DESTINO", "SOCIEDAD", "PROVEEDOR", "CONDICION")
@@ -278,7 +279,22 @@ class Eleccion:
 
     @property
     def plantilla(self) -> PlantillaEtiqueta | None:
-        return self.uso.plantilla if self.uso else None
+        return self.uso.plantilla if self.uso and (self.uso.accion or "USAR") == "USAR" else None
+
+    @property
+    def no_lleva(self) -> bool:
+        """Una regla dice que este tipo de etiqueta no va en este registro."""
+        return bool(self.uso and self.uso.accion == "NO_LLEVA")
+
+    @property
+    def alcance(self) -> str:
+        """Dónde va: lo que dice la regla o, si no dice, lo del tipo."""
+        return (self.uso.alcance if self.uso and self.uso.alcance else None) or alcance_tipo(self.tipo)
+
+    @property
+    def cantidad(self) -> str:
+        """UNA, POR_UNIDAD o MANUAL: lo que dice la regla o, si no dice, lo del tipo."""
+        return (self.uso.cantidad if self.uso and self.uso.cantidad else None) or cantidad_tipo(self.tipo)
 
     @property
     def motivo(self) -> str:
@@ -286,9 +302,11 @@ class Eleccion:
         p = self.porque
         if p.get("clase") == "sin_diseno":
             return f"No design of {self.tipo.nombre} applies."
+        if self.no_lleva:
+            return f"A rule says {self.tipo.nombre} does not go here" + (f" ({self.uso.motivo})." if self.uso.motivo else ".")
         if p.get("clase") == "elegida":
             return "Chosen by the user for this job."
-        donde = {"GENERAL": "Whole company", "FAMILIA": "Labeling family {0}",
+        donde = {"GENERAL": "Whole company", "FAMILIA": "Labeling family {0}", "CATEGORIA": "Category {0}",
                  "PRODUCTO": "Product {0}", "SKU": "Item {0}", "TIPO_EMPAQUE": "Package type {0}"}[p["nivel"]]
         donde = donde.replace("{0}", str(p.get("destino") or ""))
         if p["clase"] == "oc":
@@ -302,7 +320,8 @@ class Eleccion:
         return {"tipo_etiqueta_id": self.tipo.id, "tipo": self.tipo.nombre, "uso_id": self.uso.id if self.uso else None,
                 "plantilla_id": p.id if p else None, "plantilla": p.nombre if p else None,
                 "version_id": p.version_vigente_id if p else None, "aprobada": bool(p and p.version_vigente_id),
-                "porque": self.porque, "motivo": self.motivo}
+                "porque": self.porque, "motivo": self.motivo, "no_lleva": self.no_lleva, "alcance": self.alcance,
+                "cantidad": self.cantidad}
 
 
 @dataclass
@@ -310,6 +329,44 @@ class _Celda:
     normal: UsoDiseno | None = None
     excepciones: list = field(default_factory=list)
     de_oc: dict = field(default_factory=dict)  # oc_id → [usos]
+
+
+def alcance_tipo(t: TipoEtiqueta) -> str:
+    """Dónde va un tipo por defecto: el suyo o, sin uno, lo de antes (la línea o el documento de
+    origen; cada variante si sale una por artículo; cada empaque si es de bulto)."""
+    if t.alcance and t.alcance in ALCANCES_DE.get(t.sujeto, ()):
+        return t.alcance
+    if t.sujeto == "ARTICULO":
+        return "ARTICULO" if t.cantidad == "POR_ARTICULO" else "LINEA"
+    return "DOCUMENTO" if t.sujeto == "DOCUMENTO" else "EMPAQUE"
+
+
+def cantidad_tipo(t: TipoEtiqueta) -> str:
+    return {"POR_UNIDAD": "POR_UNIDAD", "MANUAL": "MANUAL"}.get(t.cantidad, "UNA")
+
+
+def categoria_de(db: Session, a: Articulo | None, valores: dict, cache: dict | None = None) -> CategoriaEtiquetado | None:
+    """La categoría de etiquetado de un artículo, como en la clasificación: la
+    puesta a mano en su producto (si es de su familia o de una familia
+    superior) o, si no, la primera que se reconoce por sus condiciones,
+    empezando por la familia más específica y en el orden de cada familia.
+    Una categoría sin condiciones solo se pone a mano."""
+    if a is None or a.familia_efectiva is None:
+        return None
+    familias = [f.id for f in reversed(a.familia_efectiva.ruta())]
+    clave = ("cats", tuple(familias))
+    if cache is None or clave not in cache:
+        cats = list(db.scalars(select(CategoriaEtiquetado).where(CategoriaEtiquetado.familia_id.in_(familias),
+                                                                   CategoriaEtiquetado.activa.is_(True))))
+        cats.sort(key=lambda c: (familias.index(c.familia_id), c.orden, c.id))
+        if cache is None:
+            cache = {}
+        cache[clave] = cats
+    cats = cache[clave]
+    manual = a.producto.categoria_etiquetado_id if a.producto is not None else None
+    if manual:
+        return next((c for c in cats if c.id == manual), None)
+    return next((c for c in cats if c.condiciones and all(cumple_condicion(x, valores) for x in c.condiciones)), None)
 
 
 def celda_de(tipo_id: int, nivel: str, destino_id: int | None) -> str:
@@ -336,14 +393,16 @@ class Resolvedor:
         self.tipos = tipos if tipos is not None else list(db.scalars(
             select(TipoEtiqueta).where(TipoEtiqueta.activo.is_(True)).order_by(TipoEtiqueta.orden, TipoEtiqueta.id)))
         ids = [t.id for t in self.tipos]
-        c = (select(UsoDiseno).join(PlantillaEtiqueta, PlantillaEtiqueta.id == UsoDiseno.plantilla_id)
-             .where(UsoDiseno.eliminado_en.is_(None), UsoDiseno.tipo_etiqueta_id.in_(ids), PlantillaEtiqueta.estado == "ACTIVA")
+        # Las reglas con un diseño activo y las que dicen que la etiqueta no va
+        c = (select(UsoDiseno).outerjoin(PlantillaEtiqueta, PlantillaEtiqueta.id == UsoDiseno.plantilla_id)
+             .where(UsoDiseno.eliminado_en.is_(None), UsoDiseno.tipo_etiqueta_id.in_(ids),
+                    or_(UsoDiseno.accion == "NO_LLEVA", PlantillaEtiqueta.estado == "ACTIVA"))
              .options(selectinload(UsoDiseno.plantilla)))
         reemplazados = {u.id for u in cambios or [] if u.id}
         quitar = set(quitar or set()) | reemplazados
         usos = [u for u in db.scalars(c) if u.id not in quitar] if ids else []
-        usos += [u for u in cambios or [] if u.tipo_etiqueta_id in ids and u.plantilla is not None
-                 and u.plantilla.estado == "ACTIVA"]
+        usos += [u for u in cambios or [] if u.tipo_etiqueta_id in ids and (u.accion == "NO_LLEVA" or (
+                 u.plantilla is not None and u.plantilla.estado == "ACTIVA"))]
         self.celdas: dict[tuple, _Celda] = {}
         for u in usos:
             x = self.celdas.setdefault((u.tipo_etiqueta_id, u.nivel, u.destino_id), _Celda())
@@ -353,10 +412,28 @@ class Resolvedor:
                 x.de_oc.setdefault(u.oc_id, []).append(u)
             else:
                 x.excepciones.append(u)
+        # Dentro de una celda: por clase de excepción; en la misma clase, la de mayor prioridad y luego la más antigua
         for x in self.celdas.values():
-            x.excepciones.sort(key=lambda u: (ORDEN_CONTEXTO.index(u.contexto_tipo), u.id or 0))
+            x.excepciones.sort(key=lambda u: (ORDEN_CONTEXTO.index(u.contexto_tipo), -(u.prioridad or 0), u.id or 0))
+            for lista in x.de_oc.values():
+                lista.sort(key=lambda u: (-(u.prioridad or 0), u.id or 0))
         self._paises: dict | None = None
         self._nombres: dict = {}
+        self._cache: dict = {}
+        self._categorias: dict = {}
+
+    def categoria(self, s: Sujeto) -> CategoriaEtiquetado | None:
+        a = s.articulo
+        if a is None:
+            return None
+        if a.id not in self._categorias:
+            valores = s.valores
+            if not any(k.startswith("articulo.") for k in valores):
+                from app.modulos.etiquetado import campos  # los datos del artículo, si no vinieron (matriz, ficha del producto)
+
+                valores = {**campos.valores_articulo(a), **valores}
+            self._categorias[a.id] = categoria_de(self.db, a, valores, self._cache)
+        return self._categorias[a.id]
 
     # ---- Datos del registro -----------------------------------------------------------------
     def _pais_de_centro(self, codigo: str | None) -> str | None:
@@ -383,6 +460,10 @@ class Resolvedor:
                 res.append(("SKU", a.id))
             elif nivel == "PRODUCTO" and a is not None and a.producto_id:
                 res.append(("PRODUCTO", a.producto_id))
+            elif nivel == "CATEGORIA" and a is not None:
+                cat = self.categoria(s)
+                if cat is not None:
+                    res.append(("CATEGORIA", cat.id))
             elif nivel == "FAMILIA" and a is not None and a.familia_efectiva is not None:
                 res += [("FAMILIA", f.id) for f in reversed(a.familia_efectiva.ruta())]
             elif nivel == "TIPO_EMPAQUE" and s.tipo_empaque_id:
@@ -405,11 +486,23 @@ class Resolvedor:
         """Otras excepciones del mismo peso (misma celda y tipo) que también aplican con otro diseño: gana la
         más antigua, pero la configuración es ambigua (p. ej. dos excepciones por condiciones que se cumplen a
         la vez) y se avisa. Las que se cruzan siempre (mismos valores y condiciones) ya no se pueden guardar."""
-        return [{"uso_id": u.id, "plantilla": u.plantilla.nombre, "contexto_texto": texto_contexto(u)}
+        return [{"uso_id": u.id, "plantilla": u.plantilla.nombre if u.plantilla else None, "contexto_texto": texto_contexto(u)}
                 for u in candidatos if u is not gana and u.contexto_tipo == gana.contexto_tipo
-                and u.plantilla_id != gana.plantilla_id and self.coincide(u, s, ctx)]
+                and (u.prioridad or 0) == (gana.prioridad or 0) and (u.plantilla_id, u.accion) != (gana.plantilla_id, gana.accion)
+                and self.coincide(u, s, ctx)]
 
     def elegir(self, s: Sujeto, tipo: TipoEtiqueta) -> Eleccion:
+        """El diseño (o «no lleva»), dónde va y cuántas, con la evidencia: la regla que ganó y la categoría del artículo."""
+        e = self._elegir(s, tipo)
+        cat = self.categoria(s) if s.sujeto == "ARTICULO" else None
+        if cat is not None:
+            e.porque["categoria"] = cat.nombre
+            e.porque["categoria_id"] = cat.id
+        if e.no_lleva:
+            e.porque["no_lleva"] = True
+        return e
+
+    def _elegir(self, s: Sujeto, tipo: TipoEtiqueta) -> Eleccion:
         escalones = self.escalones(s)
         ctx = self.contexto(s)
         if s.oc is not None:
@@ -455,6 +548,9 @@ def nombre_destino(db: Session, nivel: str, destino_id: int | None) -> str | Non
     if nivel == "FAMILIA":
         f = db.get(FamiliaEtiquetado, destino_id)
         return f.nombre if f else None
+    if nivel == "CATEGORIA":
+        c = db.get(CategoriaEtiquetado, destino_id)
+        return c.nombre if c else None
     if nivel == "PRODUCTO":
         p = db.get(Producto, destino_id)
         return " · ".join(x for x in (p.nombre or p.estilo, p.color) if x) if p else None
