@@ -23,7 +23,7 @@ from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
 from app.modulos.documentos.partes import partes
-from app.modulos.empaque import empaques
+from app.modulos.empaque import empaques, recetas
 from app.modulos.facturacion.cantidades import (
     asignado_por_linea,
     cbm_caja,
@@ -94,7 +94,9 @@ def _nodo(db: Session, pl: PackingList, num: int, items: list[tuple], plantilla:
     plantilla o, si no hay, del tipo de empaque. Si las líneas tienen inner pack
     y el tipo admite un empaque interno con producto, se arman los inner packs
     como empaques físicos dentro de cada caja (con su propia tara)."""
-    tipo = tipo or _tipo(db, None, plantilla)
+    de_receta = _tipos_receta(db, items[0][0].factura_linea) if len(items) == 1 else (None, None)
+    tipo = tipo or (plantilla.tipo_empaque if plantilla and plantilla.tipo_empaque else None) or de_receta[0] \
+        or _tipo(db, None, plantilla)
     base = plantilla or tipo
     g = GrupoCajas(num_cajas=num, tipo_empaque=tipo,
                    largo=getattr(base, "largo", None), ancho=getattr(base, "ancho", None),
@@ -104,7 +106,8 @@ def _nodo(db: Session, pl: PackingList, num: int, items: list[tuple], plantilla:
     for k, v in extra.items():
         setattr(g, k, v)
     pl.grupos.append(g)
-    interior = empaques.tipo_interior(tipo)
+    # El empaque interior lo dice la receta de la línea; sin receta, el que el tipo puede contener
+    interior = de_receta[1] if de_receta[0] is tipo and de_receta[1] is not None else empaques.tipo_interior(tipo)
     for pll, cant in items:
         n = inner_de(pll.factura_linea)
         if interior and n and cant % n == 0:
@@ -116,6 +119,18 @@ def _nodo(db: Session, pl: PackingList, num: int, items: list[tuple], plantilla:
         else:
             g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=cant))
     return g
+
+
+def _tipos_receta(db: Session, fl) -> tuple[TipoEmpaque | None, TipoEmpaque | None]:
+    """(bulto, interior) según la receta de la línea: el primer nivel que cuenta
+    como bulto y el nivel justo dentro de él."""
+    niveles = (fl.receta_foto or {}).get("niveles") or []
+    i = next((k for k, n in enumerate(niveles) if n.get("cuenta_como") == "BULTO"), None)
+    if i is None:
+        return None, None
+    bulto = db.get(TipoEmpaque, niveles[i]["tipo_empaque_id"])
+    interior = db.get(TipoEmpaque, niveles[i - 1]["tipo_empaque_id"]) if i > 0 else None
+    return (bulto if bulto and bulto.activo else None), (interior if interior and interior.activo else None)
 
 
 def _bultos_propios(pl: PackingList, pll: PLLinea) -> list[GrupoCajas]:
@@ -559,6 +574,9 @@ def definir_inner(db: Session, user: Usuario, pl_id: int, pl_linea_id: int, dato
             raise ErrorNegocio(f"The quantity ({malas[0]}) must be a multiple of the inner pack ({n}): "
                                "all inner packs carry the same quantity.", 422, "validacion")
     fl.inner_pack = n
+    # La receta de la línea sigue al casepack y al inner pack (empaque/recetas.py)
+    r = recetas.receta_para_datos(db, fl.casepack, n) if fl.casepack else None
+    fl.receta_id, fl.receta_foto = (r.id, recetas.foto(r)) if r is not None else (None, None)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "inner_pack", {"linea": fl.codigo_articulo, "inner_pack": n})
     return {"version": pl.version}
@@ -713,6 +731,162 @@ def aplicar_empaque(db: Session, user: Usuario, pl_id: int, datos) -> dict:
               {"plantillas": sorted({f["plantilla"] or "casepack" for f in filas if "omitida" not in f}),
                "sobrante": datos.sobrante, **resumen}, factura_id=pl.factura_id)
     return {"resumen": resumen, "version": pl.version}
+
+
+# ---- Empacar según la receta ------------------------------------------------
+# Cada fila se empaca con los niveles de su receta (la foto que trae la línea de
+# factura desde la OC): N unidades completas del nivel más externo con todo lo
+# de adentro y, con lo que sobra, una unidad parcial que lleva lo que cabe en
+# los niveles de abajo. Así un pallet de 40 cajas de 2 inners de 12 se arma en
+# un paso, y el resto queda en un pallet parcial con sus cajas y, si hace
+# falta, una caja o un inner parcial (o sin caja, según `sobrante`).
+def _niveles_receta(fl, con_opcionales: bool) -> list[dict]:
+    niveles = (fl.receta_foto or {}).get("niveles") or []
+    niveles = [n for n in niveles if con_opcionales or not n.get("opcional")]
+    unidades, res = 1, []
+    for n in niveles:  # unidades acumuladas de los niveles que quedan
+        unidades *= n["cantidad"]
+        res.append({**n, "unidades": unidades})
+    return res
+
+
+def _armar_receta(niveles: list[dict], cantidad: int, crear, padre=None, sobrante: str = "caja_parcial") -> int:
+    """Arma `cantidad` unidades del artículo con los niveles (del más interno al
+    más externo) llamando a `crear(nivel, num, padre, por_unidad, parcial)`.
+    Devuelve lo que queda sin empacar."""
+    externo = niveles[-1]
+    completos, resto = divmod(cantidad, externo["unidades"])
+    if completos:
+        nodo, num = padre, completos
+        for i in range(len(niveles) - 1, -1, -1):
+            if i < len(niveles) - 1:
+                num *= niveles[i + 1]["cantidad"]
+            nodo = crear(niveles[i], num, nodo, niveles[i]["cantidad"] if i == 0 else None, False)
+    if not resto:
+        return 0
+    if len(niveles) == 1:
+        if sobrante != "caja_parcial":
+            return resto
+        crear(externo, 1, padre, resto, True)
+        return 0
+    parcial = crear(externo, 1, padre, None, True)
+    return _armar_receta(niveles[:-1], resto, crear, parcial, sobrante)
+
+
+def _contar_receta(niveles: list[dict], cantidad: int, sobrante: str) -> tuple[list[dict], int]:
+    """Cuántas unidades de cada nivel saldrían (completas y parciales), sin guardar."""
+    nodos: list[dict] = []
+
+    def crear(nivel, num, padre, por_unidad, parcial):
+        n = {"nivel": nivel, "num": num, "padre": padre, "items": por_unidad, "parcial": parcial}
+        nodos.append(n)
+        return n
+
+    queda = _armar_receta(niveles, cantidad, crear, None, sobrante)
+    vivos = [n for n in nodos if n["items"] is not None]  # sin los parciales que quedaron vacíos
+    con_algo = {id(x) for n in vivos for x in _cadena(n)}
+    cuenta: dict[int, dict] = {}
+    for n in nodos:
+        if id(n) not in con_algo:
+            continue
+        c = cuenta.setdefault(n["nivel"]["orden"], {"orden": n["nivel"]["orden"], "nombre": n["nivel"]["nombre"],
+                                                    "completas": 0, "parciales": 0})
+        c["parciales" if n["parcial"] else "completas"] += n["num"]
+    return sorted(cuenta.values(), key=lambda x: -x["orden"]), queda
+
+
+def _cadena(n: dict) -> list[dict]:
+    res = []
+    while n is not None:
+        res.append(n)
+        n = n["padre"]
+    return res
+
+
+def _filas_receta(pl: PackingList, datos) -> list[PLLinea]:
+    if datos.pl_linea_ids:
+        return [_linea(pl, i) for i in dict.fromkeys(datos.pl_linea_ids)]
+    return [pll for pll in pl.lineas if pll.factura_linea.receta_foto]
+
+
+def _previa_receta(pl: PackingList, datos, sobrante: str = "caja_parcial") -> list[dict]:
+    res = []
+    for pll in _filas_receta(pl, datos):
+        fl = pll.factura_linea
+        niveles = _niveles_receta(fl, datos.con_opcionales)
+        libre = sin_caja(pll)
+        if datos.reemplazar:
+            libre += sum(n * b.num_cajas for b in _bultos_propios(pl, pll) for _, n in empaques.contenido(pl, b))
+        f = {"pl_linea_id": pll.id, "ref": _ref(pll), "unidad": fl.unidad, "sin_caja": libre,
+             "receta": (fl.receta_foto or {}).get("nombre"), "niveles": [], "queda": 0}
+        if not niveles:
+            f["omitida"] = "The PO line has no packing recipe."
+        elif libre == 0:
+            f["omitida"] = "It is already packed."
+        elif libre != int(libre):
+            f["omitida"] = "A recipe packs whole units; this row has a fraction."
+        else:
+            f["niveles"], f["queda"] = _contar_receta(niveles, int(libre), sobrante)
+        res.append(f)
+    return res
+
+
+def empaque_receta_previa(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    """Qué armaría «Empacar según la receta» en cada fila; no guarda."""
+    pl = cargar_pl(db, user, pl_id)
+    filas = _previa_receta(pl, datos)
+    return {"filas": filas, "version": pl.version, "por_tipo": _total_niveles(filas)}
+
+
+def _total_niveles(filas: list[dict]) -> list[dict]:
+    total: dict[str, dict] = {}
+    for f in filas:
+        for n in f["niveles"]:
+            t = total.setdefault(n["nombre"], {"nombre": n["nombre"], "completas": 0, "parciales": 0})
+            t["completas"] += n["completas"]
+            t["parciales"] += n["parciales"]
+    return list(total.values())
+
+
+def aplicar_empaque_receta(db: Session, user: Usuario, pl_id: int, datos) -> dict:
+    """Arma en un paso el árbol completo de cada fila según su receta."""
+    pl = _editable(db, user, pl_id, datos.version)
+    if datos.reemplazar:
+        for pll in _filas_receta(pl, datos):
+            if pll.factura_linea.receta_foto:
+                _desempacar_propio(pl, pll)
+        db.flush()
+        for pll in pl.lineas:
+            db.expire(pll, ["items"])
+    filas = [f for f in _previa_receta(pl, datos.model_copy(update={"reemplazar": False}), datos.sobrante)
+             if "omitida" not in f]
+    if not filas:
+        raise ErrorNegocio("There is nothing to pack with a recipe.", 422, "sin_pendiente")
+    tipos = {t.id: t for t in db.scalars(select(TipoEmpaque))}
+    for f in filas:
+        pll = _linea(pl, f["pl_linea_id"])
+
+        def crear(nivel, num, padre, por_unidad, parcial, pll=pll):
+            t = tipos.get(nivel["tipo_empaque_id"])
+            g = GrupoCajas(num_cajas=num, tipo_empaque=t, padre=padre, es_parcial=parcial,
+                           largo=nivel.get("largo"), ancho=nivel.get("ancho"),
+                           # El alto de un soporte armado (pallet con su carga) se mide
+                           alto=None if nivel.get("cuenta_como") == "SOPORTE" else nivel.get("alto"),
+                           tara=nivel.get("tara"))
+            if por_unidad is not None:
+                g.items.append(GrupoCajasItem(pl_linea=pll, cantidad_por_caja=por_unidad))
+            pl.grupos.append(g)
+            return g
+
+        _armar_receta(_niveles_receta(pll.factura_linea, datos.con_opcionales), int(f["sin_caja"]), crear, None,
+                      datos.sobrante)
+    _limpiar_vacios(pl)
+    _rehacer(db, pl)
+    tocar(pl)
+    total = _total_niveles(filas)
+    registrar(db, user, "packing_list", pl.id, "empacar_receta",
+              {"filas": len(filas), "niveles": total, "sobrante": datos.sobrante}, factura_id=pl.factura_id)
+    return {"filas": len(filas), "por_tipo": total, "version": pl.version}
 
 
 def crear_caja(db: Session, user: Usuario, pl_id: int, datos) -> dict:
@@ -1130,6 +1304,9 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "unidad_componentes": _unidad_componentes(fl),
             "centro_destino": fl.centro_destino,
             "regla": regla_empaque(fl)[0],
+            # Receta de empaque de la línea (la foto que viene de la OC)
+            "receta": (fl.receta_foto or {}).get("nombre"),
+            "receta_resumen": recetas.resumen(fl.receta_foto),
             "cantidad": pll.cantidad,
             "en_cajas": en_cajas,
             "en_parcial": en_parcial,

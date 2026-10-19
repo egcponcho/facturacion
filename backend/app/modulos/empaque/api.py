@@ -8,6 +8,8 @@ from app.esquemas import (
     EliminarCajas,
     EmpaqueAplicar,
     EmpaquePrevia,
+    EmpaqueRecetaAplicar,
+    EmpaqueRecetaPrevia,
     Finalizar,
     GuardarPlantilla,
     InnerPackIn,
@@ -66,6 +68,18 @@ def empaque_previa(pl_id: int, datos: EmpaquePrevia, db: Db, user: User):
 def empaque_aplicar(pl_id: int, datos: EmpaqueAplicar, db: Db, user: User, clave: Clave = None):
     """Crea las cajas completas de cada fila con su plantilla; el sobrante va en caja parcial o sin caja."""
     return ejecutar(db, user, clave, lambda: svc.aplicar_empaque(db, user, pl_id, datos))
+
+
+@router.post("/{pl_id}/empaque-receta/previa")
+def empaque_receta_previa(pl_id: int, datos: EmpaqueRecetaPrevia, db: Db, user: User):
+    """Qué armaría «Empacar según la receta» en cada fila (unidades completas y parciales por nivel); no guarda."""
+    return svc.empaque_receta_previa(db, user, pl_id, datos)
+
+
+@router.post("/{pl_id}/empaque-receta")
+def empaque_receta(pl_id: int, datos: EmpaqueRecetaAplicar, db: Db, user: User, clave: Clave = None):
+    """Arma en un paso el árbol de cada fila con los niveles de su receta (inner, caja, pallet…)."""
+    return ejecutar(db, user, clave, lambda: svc.aplicar_empaque_receta(db, user, pl_id, datos))
 
 
 @router.post("/{pl_id}/cajas")

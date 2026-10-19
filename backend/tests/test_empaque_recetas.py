@@ -228,3 +228,51 @@ def test_migracion_crea_recetas_desde_el_casepack():
         assert c.execute("SELECT casepack, inner_pack FROM posiciones_oc WHERE id = 1").fetchone() == (12, 6)
         assert not c.execute("SELECT name FROM sqlite_master WHERE name = 'recetas_empaque'").fetchall()
         c.close()
+
+
+def test_armar_segun_la_receta_completas_y_parciales():
+    from app.modulos.empaque.packing import _contar_receta
+
+    niveles = [{"orden": 1, "nombre": "Inner", "cantidad": 12, "unidades": 12},
+               {"orden": 2, "nombre": "Master", "cantidad": 2, "unidades": 24},
+               {"orden": 3, "nombre": "Pallet", "cantidad": 40, "unidades": 960}]
+    # 1000 = 1 pallet (40 masters, 80 inners) + pallet parcial con 1 master, 1 master parcial con 1 inner y 1 inner de 4
+    cuenta, queda = _contar_receta(niveles, 1000, "caja_parcial")
+    assert queda == 0
+    assert {c["nombre"]: (c["completas"], c["parciales"]) for c in cuenta} == {"Pallet": (1, 1), "Master": (41, 1),
+                                                                                "Inner": (83, 1)}
+    # Sin caja parcial: los 4 quedan sin empacar y no se arma nada vacío
+    cuenta, queda = _contar_receta(niveles, 1000, "sin_caja")
+    assert queda == 4 and {c["nombre"]: c["parciales"] for c in cuenta}["Inner"] == 0
+    cuenta, queda = _contar_receta(niveles, 4, "sin_caja")
+    assert queda == 4 and cuenta == []
+
+
+def test_packing_list_se_arma_segun_la_receta(admin, vans):
+    pallet = _receta(admin, "PL-40X2X12", [("INNER", 12), ("CAJA", 2), ("PALLET", 40)])
+    sku = _oc(admin, "4400003901")["posiciones"][0]["codigo_articulo"]
+    cab = {"proveedor": "VANS", "oc": "PO-RECETA-PL", "sociedad": "8000", "moneda": "USD", "centro_destino": "2220",
+           "liberacion_comercial": "C", "liberacion_logistica": "300"}
+    r = admin.post("/ordenes", {"cabecera": cab, "lineas": [{"codigo_articulo": sku, "cantidad": 1008, "precio": 10}]})
+    assert r.status_code == 200, r.text
+    oc_id = r.json()["oc_id"]
+    pos = admin.get(f"/ordenes/{oc_id}/posiciones").json()["posiciones"][0]
+    assert admin.put(f"/ordenes/{oc_id}/posiciones/{pos['id']}/receta", {"receta_id": pallet["id"]}).status_code == 200
+    fid = vans.post("/facturas", {"lineas": [{"posicion_id": pos["id"], "cantidad": 1008}]}).json()["id"]
+    pl_id = vans.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
+    previa = vans.post(f"/packing-lists/{pl_id}/empaque-receta/previa", {}).json()
+    fila = previa["filas"][0]
+    assert fila["receta"] == pallet["nombre"] and fila["queda"] == 0
+    assert {n["nombre"]: (n["completas"], n["parciales"]) for n in fila["niveles"]} == {
+        "Pallet": (1, 1), "Master carton": (42, 0), "Inner pack": (84, 0)}
+    version = vans.get(f"/packing-lists/{pl_id}").json()["version"]
+    r = vans.post(f"/packing-lists/{pl_id}/empaque-receta", {"version": version})
+    assert r.status_code == 200, r.text
+    pl = vans.get(f"/packing-lists/{pl_id}").json()
+    por_tipo = {t["codigo"]: t["unidades"] for t in pl["totales"]["por_tipo"]}
+    assert por_tipo == {"PALLET": 2, "CAJA": 42, "INNER": 84}
+    assert pl["totales"]["cajas"] == 42 and pl["totales"]["pallets"] == 2
+    assert all(ln["sin_caja"] == 0 for ln in pl["lineas"])
+    # Ya empacada: no hay nada más que armar
+    r = vans.post(f"/packing-lists/{pl_id}/empaque-receta", {"version": pl["version"]})
+    assert r.status_code == 422

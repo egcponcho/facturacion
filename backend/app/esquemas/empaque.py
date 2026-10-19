@@ -66,6 +66,18 @@ class EmpaqueAplicar(EmpaquePrevia):
     sobrante: Literal["caja_parcial", "sin_caja"] = "caja_parcial"
 
 
+class EmpaqueRecetaPrevia(BaseModel):
+    """Empacar según la receta de cada fila (sus niveles: inner, caja, pallet…)."""
+    pl_linea_ids: list[int] | None = None  # sin filas: todas las que tienen receta y algo sin empacar
+    con_opcionales: bool = True  # incluir los niveles opcionales de la receta (p. ej. el pallet)
+    reemplazar: bool = False
+
+
+class EmpaqueRecetaAplicar(EmpaqueRecetaPrevia):
+    version: int
+    sobrante: Literal["caja_parcial", "sin_caja"] = "caja_parcial"
+
+
 class ValoresCaja(BaseModel):
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)

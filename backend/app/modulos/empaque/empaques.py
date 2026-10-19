@@ -217,13 +217,14 @@ def totales(pl: PackingList) -> dict:
     por_tipo: dict[str, dict] = {}
     for g in pl.grupos:
         k = g.tipo_empaque.codigo if g.tipo_empaque else "CAJA"
-        d = por_tipo.setdefault(k, {"codigo": k, "nombre": nombre_tipo(g), "cuenta_como": cuenta_como(g), "unidades": 0})
+        d = por_tipo.setdefault(k, {"codigo": k, "nombre": nombre_tipo(g), "cuenta_como": cuenta_como(g), "unidades": 0,
+                                    "nivel": g.tipo_empaque.nivel if g.tipo_empaque else 0})
         d["unidades"] += g.num_cajas
     return {
         "bultos": sum(g.num_cajas for g in pl.grupos if cuenta_como(g) == "BULTO"),
         "soportes": sum(g.num_cajas for g in pl.grupos if cuenta_como(g) == "SOPORTE"),
         "peso_neto": round(neto, 3), "peso_bruto": round(bruto, 3), "cbm": round(cbm, 4),
-        "sin_peso": sin_peso, "por_tipo": sorted(por_tipo.values(), key=lambda x: x["codigo"]),
+        "sin_peso": sin_peso, "por_tipo": sorted(por_tipo.values(), key=lambda x: (-x["nivel"], x["codigo"])),
     }
 
 

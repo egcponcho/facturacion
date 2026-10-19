@@ -97,7 +97,29 @@ casepack.
   Así el packing list, los documentos y los exportes siguen funcionando igual.
 - El downgrade quita solo lo agregado.
 
-## 5. API
+## 5. Packing list
+
+- **Empacar según la receta** (opción recomendada cuando las líneas tienen
+  receta): cada fila se arma con todos los niveles de su receta en un paso.
+  - Se crean N unidades completas del nivel más externo, con todo lo de adentro.
+  - Lo que sobra va en una unidad parcial que lleva lo que cabe en los niveles
+    de abajo: pallet parcial con sus cajas y, si hace falta, una caja o un
+    inner parcial.
+  - Opciones: con o sin los niveles opcionales (el pallet), y lo que no llena
+    el nivel más interno queda en una unidad parcial o sin empacar.
+  - Ejemplo: 1008 pares con la receta Pallet 40 × Master 2 × Inner 12 dan
+    2 pallets (1 parcial), 42 masters y 84 inners.
+- **Totales por tipo de empaque.** La cabecera muestra «Pallet 2 · Master
+  carton 42 · Inner pack 84» con los nombres del catálogo, no «Cajas» y
+  «Pallets» fijos.
+- **Sin roles adivinados para las líneas con receta.** El empaque automático
+  por plantilla toma de la receta cuál es la caja y cuál el inner. Sin receta
+  sigue como antes: el primer tipo que cuenta como bulto y el interior que
+  puede contener.
+- **Inner pack.** Definir el inner pack en el packing list también actualiza
+  la receta de la línea de factura.
+
+## 6. API
 
 | Ruta | Para qué |
 |---|---|
@@ -109,17 +131,18 @@ casepack.
 | `POST /api/reglas-empaque/impacto` | Cuántas líneas abiertas cambiarían al guardar o quitar una regla |
 | `POST /api/reglas-empaque/reaplicar` | Aplica las reglas a las líneas abiertas que las siguen |
 | `PUT /api/ordenes/{oc}/posiciones/{id}/receta` | Elegir la receta a mano o devolverla a las reglas |
+| `POST /api/packing-lists/{id}/empaque-receta/previa` y `POST /api/packing-lists/{id}/empaque-receta` | Qué armaría y armar el árbol de cada fila según su receta |
 
 Permisos:
 - Recetas y reglas: `catalogos.ver` y `catalogos.editar`.
 - Receta de una línea: `oc.empaque`.
 
-## 6. Fases
+## 7. Fases
 
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Recetas, reglas de empaque, receta en la línea de OC y conversión del casepack | **Hecha** (este documento) |
-| 2 | Packing list genérico: «Empacar según receta» con N niveles, textos y totales por tipo, sin roles adivinados (`empaques.tipo_bulto/tipo_interior`, `definir_inner`) | Pendiente |
+| 2 | Packing list genérico: «Empacar según la receta» con N niveles, totales por tipo de empaque, caja e inner tomados de la receta de la línea | **Hecha en lo principal**. Pendiente: columnas de la tabla de cajas por nivel y el alta manual de un tipo sin receta |
 | 3 | Grupos de producto compartidos (familias y categorías en un árbol) y motor de reglas común | Pendiente; el evaluador de condiciones ya es común |
 | 4 | Etiquetado sobre el árbol físico: «¿Dónde se pega?», reglas en lista y Probar unificado | Pendiente |
 | 5 | Limpieza: retirar columnas y pantallas viejas, con migración e informe | Pendiente |

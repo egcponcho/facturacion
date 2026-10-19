@@ -280,6 +280,35 @@ function sugerida(l) {
 // Con casepack o prepack la plantilla solo aporta medidas y pesos: sirve cualquiera
 const plantillasFila = (f) => (f.regla === 'LIBRE' ? plantillasDe(f.unidad) : plantillas.value)
 
+// ---- Empacar según la receta: todos los niveles de cada fila en un paso -----
+const conReceta = computed(() => pendientes.value.filter((l) => l.receta))
+async function previaReceta() {
+  const m = modal.value
+  try {
+    m.previa = await api.post(url('/empaque-receta/previa'), { pl_linea_ids: m.ids, con_opcionales: m.con_opcionales })
+  } catch (e) {
+    errorApi(e)
+  }
+}
+function abrirReceta(soloSeleccion = false) {
+  const ids = (soloSeleccion ? selConPendiente.value.filter((l) => l.receta) : conReceta.value).map((l) => l.id)
+  modal.value = { tipo: 'receta', ids, con_opcionales: true, sobrante: 'caja_parcial', previa: null }
+  previaReceta()
+}
+const nivelesTxt = (niveles) => niveles.map((n) => (n.parciales
+  ? t('{0} {1} + {2}', [fmtNum(n.completas), tx(n.nombre), plural(n.parciales, t('partial'), t('partials'))])
+  : `${fmtNum(n.completas)} ${tx(n.nombre)}`)).join(' · ')
+function empacarReceta() {
+  const m = modal.value
+  accion(() => api.post(url('/empaque-receta'), { version: pl.value.version, pl_linea_ids: m.ids, con_opcionales: m.con_opcionales,
+    sobrante: m.sobrante }), (r) => {
+    selL.limpiar()
+    return t('Done: {0}.', [nivelesTxt(r.por_tipo.map((x) => ({ ...x })))])
+  }).then((r) => {
+    if (r && !pendientes.value.length) tab.value = 'revision'
+  })
+}
+
 // ---- Empaque automático: cada fila con su plantilla ------------------------
 function abrirAuto(soloSeleccion = false) {
   const filas = (soloSeleccion ? selConPendiente.value : pendientes.value).map((l) => ({
@@ -554,11 +583,14 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       </div>
       <div class="empaque-resumen">
         <Anillo :porcentaje="avanceEmpaque" :titulo="t('Packed')" :detalle="tx(pendientes.length ? t('{0} missing', [porUnidadTxt(pl.totales.por_unidad, 'sin_caja')]) : t('{0} in cartons', [porUnidadTxt(pl.totales.por_unidad, 'cantidad')]))" />
-        <div class="cifra"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
+        <template v-if="pl.totales.por_tipo?.length">
+          <div v-for="x in pl.totales.por_tipo" :key="x.codigo" class="cifra"><span>{{ tx(x.nombre) }}</span><b>{{ fmtNum(x.unidades) }}</b></div>
+        </template>
+        <div v-else class="cifra"><span>{{ t('Cartons') }}</span><b>{{ fmtNum(pl.totales.cajas) }}</b></div>
         <div class="cifra"><span>{{ t('Net weight') }}</span><b>{{ t('{0} kg', [fmtNum(pl.totales.peso_neto, 1)]) }}</b></div>
         <div class="cifra"><span>{{ t('Gross weight') }}</span><b>{{ t('{0} kg', [fmtNum(pl.totales.peso_bruto, 1)]) }}</b></div>
         <div class="cifra"><span>{{ t('Volume') }}</span><b>{{ fmtNum(pl.totales.cbm, 2) }} m³</b></div>
-        <div v-if="pl.totales.pallets" class="cifra"><span>{{ t('Pallets') }}</span><b>{{ tx(pl.totales.pallets) }}</b></div>
+
         <div class="cifra"><span>{{ t('Load unit') }}</span>
           <b v-if="pl.transporte" style="font-size: 0.95rem">{{ tx(pl.transporte.unidad) }} · {{ tx(pl.transporte.embarque) }} <EstadoBadge :estado="pl.transporte.asignacion" /></b>
           <b v-else class="apagado" style="font-size: 0.95rem">{{ t('Not assigned') }}</b>
@@ -612,9 +644,14 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       </div>
       <template v-else>
         <div class="opciones-empaque">
-          <button class="opcion recomendada" :disabled="!pendientes.length || (!plantillas.length && !pendientes.some((l) => l.regla !== 'LIBRE'))" @click="abrirAuto(selConPendiente.length > 0)">
+          <button v-if="conReceta.length" class="opcion recomendada" @click="abrirReceta(selConPendiente.length > 0)">
+            <span class="opcion-icono"><Icono nombre="capas" /></span>
+            <b>{{ t('Pack by recipe') }} <span class="etiqueta acento">{{ t('Recommended') }}</span></b>
+            <span>{{ t('{0} in one step with all the levels of each line\'s recipe (inner pack, carton, pallet…). What does not fill a unit goes in partial units.', [selConPendiente.length ? t('The {0} selected rows', [selConPendiente.length]) : t('The {0} rows with a recipe', [conReceta.length])]) }}</span>
+          </button>
+          <button class="opcion" :class="{ recomendada: !conReceta.length }" :disabled="!pendientes.length || (!plantillas.length && !pendientes.some((l) => l.regla !== 'LIBRE'))" @click="abrirAuto(selConPendiente.length > 0)">
             <span class="opcion-icono"><Icono nombre="varita" /></span>
-            <b>{{ t('Auto-pack') }} <span class="etiqueta acento">{{ t('Recommended') }}</span></b>
+            <b>{{ t('Auto-pack') }} <span v-if="!conReceta.length" class="etiqueta acento">{{ t('Recommended') }}</span></b>
             <span>{{ t('{0} in one step, following each line\'s casepack, inner pack or prepack. The template adds dimensions and weights; you decide what to do with leftovers.', [selConPendiente.length ? t('The {0} selected rows', [selConPendiente.length]) : t('All rows ({0})', [pendientes.length])]) }}</span>
             <span v-if="!plantillas.length" class="etiqueta aviso">{{ t('Create a template first') }}</span>
           </button>
@@ -902,6 +939,36 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <router-link class="btn btn-fantasma empuja-inicio" to="/plantillas">{{ t('Manage templates') }}</router-link>
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />{{ t('Pack') }}</button>
+    </template>
+  </Modal>
+
+  <Modal v-if="modal?.tipo === 'receta'" :titulo="t('Pack by recipe')" ancho="900px" @cerrar="modal = null">
+    <p class="ayuda mt-0">{{ t('Each row is packed with all the levels of its recipe: full units of the outermost level with everything inside, and what is left in partial units. The recipe comes from the PO line.') }}</p>
+    <label class="check"><input v-model="modal.con_opcionales" type="checkbox" @change="previaReceta" /> {{ t('Include the optional levels of the recipe (for example, the pallet)') }}</label>
+    <div v-if="modal.previa" class="tabla-marco tabla-captura alto-limitado mt">
+      <table class="tabla" v-tarjetas>
+        <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Recipe') }}</th><th class="num">{{ t('Not packed') }}</th><th>{{ t('Result') }}</th></tr></thead>
+        <tbody>
+          <tr v-for="f in modal.previa.filas" :key="f.pl_linea_id">
+            <td>{{ tx(f.ref) }}</td>
+            <td>{{ tx(f.receta || '—') }}</td>
+            <td class="num">{{ cantTxt(f.sin_caja, f.unidad) }}</td>
+            <td v-if="f.omitida" class="apagado">{{ tx(f.omitida) }}</td>
+            <td v-else>{{ nivelesTxt(f.niveles) }}<span v-if="f.queda" class="etiqueta aviso">{{ t('{0} left unpacked', [fmtNum(f.queda)]) }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div v-if="modal.previa?.por_tipo?.length" class="nota bloque"><b>{{ t('In total') }}:</b> {{ nivelesTxt(modal.previa.por_tipo) }}</div>
+    <div v-if="modal.previa?.filas.some((f) => f.niveles.some((n) => n.parciales))" class="nota aviso bloque">
+      {{ t('Some rows do not fill their last unit. What should we do with what does not fill the innermost level?') }}
+      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="caja_parcial" /> {{ t('A partial unit (you confirm its weight later)') }}</label>
+      <label class="check mt-chico"><input v-model="modal.sobrante" type="radio" value="sin_caja" /> {{ t('Leave it unpacked to build mixed cartons by hand') }}</label>
+    </div>
+    <template #pie>
+      <router-link class="btn btn-fantasma empuja-inicio" to="/empaque/recetas">{{ t('Manage recipes') }}</router-link>
+      <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
+      <button class="btn btn-primario" :disabled="ocupado || !modal.previa?.filas.some((f) => !f.omitida)" @click="empacarReceta"><Icono nombre="capas" :tam="15" />{{ t('Pack') }}</button>
     </template>
   </Modal>
 
