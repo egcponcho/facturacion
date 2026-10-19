@@ -14,11 +14,11 @@ RAIZ = Path(__file__).resolve().parent.parent / "app"
 # Documentos y plantillas para aduana/ERP, datos de demostración y textos oficiales: no se traducen aquí
 # (rutas dentro de app/; una carpeta omite todo lo que contiene)
 OMITIR = ("main.py", "core/config.py", "core/db.py", "core/seguridad.py", "web/dependencias.py",
-          "instalacion/migraciones.py", "instalacion/esquema.py", "instalacion/mantenimiento.py", "instalacion/base_organizacion.py", "core/organizacion.py", "modelos/", "esquemas/__init__.py", "instalacion/demo.py", "instalacion/inicial.py",
+          "instalacion/migraciones.py", "instalacion/esquema.py", "instalacion/mantenimiento.py", "instalacion/base_organizacion.py", "core/organizacion.py", "modelos/", "esquemas/__init__.py", "instalacion/demo.py", "instalacion/demo_etiquetado.py", "instalacion/inicial.py", "core/cambios.py",
           "modulos/documentos/documentos.py",
           "modulos/documentos/exportar.py", "modulos/documentos/plantillas.py", "modulos/acceso/sms.py",
           "modulos/clasificacion/especialista.py", "modulos/etiquetado/datos_campos.py",
-          "modulos/etiquetado/fuentes.py", "modulos/etiquetado/codigos.py", "modulos/etiquetado/salidas.py")
+          "modulos/etiquetado/fuentes.py", "modulos/etiquetado/escritura.py", "modulos/etiquetado/codigos.py", "modulos/etiquetado/salidas.py")
 MODELOS: set = set()
 ESPANOL = re.compile(r"[áéíóúñ¿¡]|\b(de|del|la|el|los|las|y|para|con|por|una|que)\b", re.I)
 
@@ -40,6 +40,8 @@ def es_texto(s: str) -> bool:
     if t.startswith("^") or t.startswith("attachment;") or t.startswith("\\b") or t.endswith("%") or "|\\(" in t:  # patrones
         return False
     if ESPANOL.search(t):
+        return False
+    if s.endswith("\n\n") or not re.search(r"\s", t) and ("|" in t or t.startswith("*")):  # flujo de eventos, patrones
         return False
     if re.fullmatch(r"\w+\.\w+", t) or t in MODELOS or "max-age" in t or "self'" in t:
         return False

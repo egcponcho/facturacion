@@ -17,7 +17,8 @@ const redondear = (v) => Math.round(v * 1000) / 1000
 export function crearEditor() {
   const ed = reactive({
     diseno: null,
-    modalidad: 'OC_ARTICULO',
+    sujeto: 'ARTICULO', // qué etiqueta el tipo del diseño (artículo, bulto, documento)
+    tipo_etiqueta_id: null,
     editable: false,
     disenador: false, // puede pedir dibujos al servidor con un diseño sin guardar
     seleccion: [],
@@ -26,7 +27,7 @@ export function crearEditor() {
     previa: null, // respuesta de la vista previa del servidor (svg, problemas, valores)
     ejemplos: {}, // valores de ejemplo por campo (para dibujar en el lienzo)
     tipos: {}, // tipo de cada campo
-    campos: [], // catálogo de campos de la modalidad
+    campos: [], // catálogo de campos del sujeto
     colecciones: [], // listas para las tablas (contenido del bulto, componentes…)
     portapapeles: null,
     // Datos de la vista previa: de ejemplo o reales (artículo, OC, línea y bulto)
@@ -92,6 +93,18 @@ export function crearEditor() {
     ultimaFoto = JSON.stringify(ed.diseno)
     ed.sucio = false
     queueMicrotask(() => (aplicando = false))
+  }
+
+  // Recuadros que se ajustan al contenido: si el usuario aún no cambió nada (recién abierto),
+  // el ajuste no cuenta como un cambio sin guardar ni entra en deshacer
+  function retocar(cambios) {
+    const silencioso = !ed.sucio
+    if (silencioso) aplicando = true
+    for (const [e, c] of cambios) Object.assign(e, { x: c.x, y: c.y, w: c.w, h: c.h })
+    if (silencioso) {
+      ultimaFoto = JSON.stringify(ed.diseno)
+      queueMicrotask(() => (aplicando = false))
+    }
   }
 
   // ---- Selección ------------------------------------------------------------------------
@@ -268,6 +281,23 @@ export function crearEditor() {
     if (!ed.editable) return
     for (const e of seleccionados.value) e.grupo = null
   }
+  // Los elegidos ya forman un solo grupo / se pueden agrupar (dos o más que no son ya el mismo grupo)
+  const agrupados = computed(() => seleccionados.value.some((e) => e.grupo))
+  const agrupables = computed(() => seleccionados.value.length > 1
+    && !(seleccionados.value.every((e) => e.grupo) && new Set(seleccionados.value.map((e) => e.grupo)).size === 1))
+  // Gira lo elegido sobre su centro (en pasos de 90°: etiquetas laterales)
+  function girar(grados) {
+    if (!ed.editable) return
+    for (const e of movibles()) e.rot = (((e.rot || 0) + grados) % 360 + 360) % 360
+  }
+  // Lleva lo elegido (como bloque) al centro de la etiqueta: horizontal, vertical o ambos
+  function centrar(eje = 'ambos') {
+    if (!ed.editable || !movibles().length) return
+    const c = caja(seleccionados.value)
+    const dx = eje !== 'v' ? (ed.diseno.ancho - (c.x2 - c.x1)) / 2 - c.x1 : 0
+    const dy = eje !== 'h' ? (ed.diseno.alto - (c.y2 - c.y1)) / 2 - c.y1 : 0
+    mover(dx, dy)
+  }
   function alternar(prop) {
     if (!ed.editable || !seleccionados.value.length) return
     const valor = prop === 'visible' ? !seleccionados.value.every((e) => e.visible !== false) : !seleccionados.value.every((e) => e.bloqueado)
@@ -286,7 +316,7 @@ export function crearEditor() {
     const elemento = { ...e, id: 'codigo', x: 0, y: 0, rot: 0, valor, condicion: null, grupo: null, bloqueado: false, visible: true }
     const diseno = { ancho: e.w, alto: e.h, margen: 0, fondo: e.relleno || ed.diseno?.fondo || '#ffffff', elementos: [elemento] }
     try {
-      const r = await servidor.post('/etiquetas/vista-previa', { modalidad: ed.modalidad, diseno })
+      const r = await servidor.post('/etiquetas/vista-previa', { tipo_etiqueta_id: ed.tipo_etiqueta_id, diseno })
       const ok = !(r.problemas || []).some((p) => p.nivel === 'error')
       codigos[clave] = ok ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(r.svg)}` : false
     } catch {
@@ -313,9 +343,9 @@ export function crearEditor() {
 
   const api = {
     estado: ed, elementos, seleccionados, unico, problemasDe, porId,
-    cargar, guardado, fotografiar, deshacer, rehacer, seleccionar, seleccionarTodo, ajustar,
+    cargar, guardado, fotografiar, retocar, deshacer, rehacer, seleccionar, seleccionarTodo, ajustar,
     agregar, eliminar, duplicar, copiar, pegar, mover, alinear, distribuir, igualar, ordenar, moverCapa,
-    agrupar, desagrupar, alternar, caja, codigos, codigoServidor, camposTodos, ejemplosTodos,
+    agrupar, desagrupar, agrupados, agrupables, girar, centrar, alternar, caja, codigos, codigoServidor, camposTodos, ejemplosTodos,
   }
   provide(CLAVE, api)
   return api

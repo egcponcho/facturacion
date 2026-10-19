@@ -17,7 +17,6 @@ import { useEdicion } from '@/composables/useEdicion'
 import Icono from '@/componentes/Icono.vue'
 import { puede as tienePermiso } from '@/stores/sesion'
 import Modal from '@/componentes/Modal.vue'
-import PanelLateral from '@/componentes/PanelLateral.vue'
 import TarjetaParte from '@/componentes/TarjetaParte.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
 import Pasos from '@/componentes/Pasos.vue'
@@ -26,8 +25,11 @@ import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { cantTxt, fmtNum, pct, plural, porUnidadTxt, unidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
 import { estado as leerEstado } from '@/nucleo/estados.js'
+import ResumenEtiquetas from '@/modulos/etiquetado/componentes/ResumenEtiquetas.vue'
 
 const props = defineProps({ id: String })
+// Las etiquetas de la lista: cuántas salen, con qué diseños y si ya pueden ser reales (si no, solo de prueba)
+const verEtiquetas = ref(false)
 const route = useRoute()
 const router = useRouter()
 
@@ -535,8 +537,8 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <EstadoBadge :estado="pl.estado" tipo="pl" />
         <span class="doc-sub">{{ tx(pl.factura.nombre) }} · {{ tx(pl.factura.proveedor) }}</span>
         <div class="doc-acciones">
-          <router-link v-if="tienePermiso('etiquetas.generar') && pl.estado !== 'CANCELADO'" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'PACKING', pl: pl.id } }" class="btn">
-            <Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
+          <button v-if="(tienePermiso('etiquetas.generar') || tienePermiso('etiquetas.ver')) && pl.estado !== 'CANCELADO'" type="button" class="btn" @click="verEtiquetas = true">
+            <Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
           <MasOpciones>
             <button class="btn btn-fantasma" :title="t('Packing list as PDF, ready to print and sign')" @click="descargar('pdf')"><Icono nombre="descargar" />PDF</button>
             <button class="btn btn-fantasma" :title="t('Packing list as Excel')" @click="descargar('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
@@ -852,7 +854,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
   <CargaMasiva v-if="modal?.tipo === 'estructura'" :titulo="t('Upload the physical structure')" :ruta="url('/estructura/importar')"
                :plantilla="url('/estructura/plantilla')" :ayuda="t('The columns are your packaging types. Leave empty the levels you do not use.')"
                @cerrar="modal = null" @cargado="modal = null; cargar(); tab = 'cajas'" />
-  <PanelLateral v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
+  <Modal v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
     <p class="ayuda">{{ t('Each row is packed into full cartons. If the PO line has a') }} <b>casepack</b>{{ t(', every carton carries exactly that quantity (no mixed sizes); a') }} <b>prepack</b> {{ t('goes one size run per master carton. Without a casepack, the template sets the quantity per carton. With an') }} <b>{{ t('inner pack') }}</b>{{ t(', cartons always carry whole inner packs. The template also adds dimensions and weights.') }}</p>
     <div class="fila-flex">
       <label v-for="u in unidadesAuto" :key="u" class="campo" style="min-width: 240px">
@@ -901,7 +903,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
       <button class="btn" @click="modal = null">{{ t('Cancel') }}</button>
       <button class="btn btn-primario" :disabled="ocupado || !calculoAuto.validas" @click="empacarAuto"><Icono nombre="varita" :tam="15" />{{ t('Pack') }}</button>
     </template>
-  </PanelLateral>
+  </Modal>
 
   <Modal v-if="modal?.tipo === 'caja'" :titulo="tx(modal.items.length > 1 ? t('Mixed carton') : t('Manual carton'))" ancho="700px" @cerrar="modal = null">
     <div class="rejilla-campos">
@@ -1095,6 +1097,7 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
     </template>
   </Modal>
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
+  <ResumenEtiquetas v-if="verEtiquetas && pl" origen="PACKING" :id="pl.id" :numero="pl.numero" @cerrar="verEtiquetas = false" />
 </template>
 
 <style scoped>

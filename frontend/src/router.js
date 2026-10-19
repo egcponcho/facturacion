@@ -21,13 +21,27 @@ const routes = [
   { path: '/aranceles', component: () => import('@/modulos/clasificacion/vistas/ArancelesView.vue'), meta: { permiso: 'aranceles.ver' } },
   { path: '/familias', component: () => import('@/modulos/clasificacion/vistas/FamiliasView.vue'), meta: { permiso: 'clasificacion.ver' } },
   { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
-  { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/EtiquetasView.vue'), meta: { permiso: 'etiquetas.ver' } },
-  { path: '/etiquetas/plantillas/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta' } },
+  // Etiquetado: Imprimir (trabajos), Diseños y Configuración (qué diseño lleva cada cosa, tipos, familias, campos, historial).
+  // Las direcciones con ?vista= de la pantalla anterior de 7 pestañas llevan a su lugar nuevo.
+  { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/ImprimirView.vue'), meta: { permiso: 'etiquetas.ver' },
+    beforeEnter: (to) => {
+      const v = to.query.vista
+      if (v === 'disenos' || v === 'plantillas') return '/etiquetas/disenos'
+      const destino = { asignaciones: 'matriz', familias: 'familias', articulos: 'familias', campos: 'campos', historial: 'historial' }[v]
+      if (destino) return { path: '/etiquetas/configuracion', query: { vista: destino, ...(to.query.familia && { familia: to.query.familia }) } }
+      if (v) return { path: '/etiquetas', query: {} }
+      return true
+    } },
+  { path: '/etiquetas/disenos', component: () => import('@/modulos/etiquetado/vistas/DisenosView.vue'), meta: { permiso: 'etiquetas.ver' } },
+  { path: '/etiquetas/disenos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta', lienzo: true } },
+  { path: '/etiquetas/plantillas/:id(\\d+)', redirect: (to) => `/etiquetas/disenos/${to.params.id}` },
+  { path: '/etiquetas/configuracion/familia/:id(\\d+|nueva|nueva-\\d+)', component: () => import('@/modulos/etiquetado/vistas/AsistenteFamiliaView.vue'), props: true, meta: { permiso: 'etiquetas.familias' } },
+  { path: '/etiquetas/configuracion', component: () => import('@/modulos/etiquetado/vistas/ConfiguracionEtiquetadoView.vue'), meta: { permiso: 'etiquetas.ver' } },
   // Asistente único de etiquetado (todas las entradas crean un trabajo); las rutas anteriores llevan a él
   { path: '/etiquetas/trabajos/nuevo', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
   { path: '/etiquetas/trabajos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
   { path: '/etiquetas/masiva', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo',
-    query: to.query.pl ? { origen: 'PACKING', pl: to.query.pl } : to.query.familia ? { origen: 'OC', familia: to.query.familia } : {} }) },
+    query: to.query.pl ? { origen: 'PACKING', pl: to.query.pl } : to.query.familia ? { origen: 'FAMILIA', familia: to.query.familia } : {} }) },
   { path: '/etiquetas/generar', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo',
     query: to.query.articulo ? { origen: 'ARTICULOS', articulos: to.query.articulo } : to.query.oc ? { origen: 'OC', oc: to.query.oc } : {} }) },
   { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: ['plantilla.editar', 'pl.editar'] } },

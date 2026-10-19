@@ -40,7 +40,7 @@ function alternar(e, prop) {
       <button type="button" class="btn btn-icono btn-chico" :disabled="!est.editable || !est.seleccion.length" :title="t('Bring forward')" :aria-label="t('Bring forward')" @click="ed.ordenar('subir')"><Icono nombre="arriba" :tam="16" /></button>
       <button type="button" class="btn btn-icono btn-chico" :disabled="!est.editable || !est.seleccion.length" :title="t('Send backward')" :aria-label="t('Send backward')" @click="ed.ordenar('bajar')"><Icono nombre="abajo" :tam="16" /></button>
       <button type="button" class="btn btn-icono btn-chico" :disabled="!est.editable || !est.seleccion.length" :title="t('Send to back')" :aria-label="t('Send to back')" @click="ed.ordenar('fondo')"><Icono nombre="fondo" :tam="16" /></button>
-      <button type="button" class="btn btn-icono btn-chico" :disabled="!est.editable || est.seleccion.length < 2" :title="t('Group (Ctrl+G)')" :aria-label="t('Group')" @click="ed.agrupar()"><Icono nombre="agrupar" :tam="16" /></button>
+      <button type="button" class="btn btn-icono btn-chico" :disabled="!est.editable || est.seleccion.length < 2" :title="t('Group (Ctrl+G)')" :aria-label="t('Group them')" @click="ed.agrupar()"><Icono nombre="agrupar" :tam="16" /></button>
       <button type="button" class="btn btn-chico" :disabled="!est.editable || !ed.seleccionados.value.some((e) => e.grupo)" @click="ed.desagrupar()">{{ t('Ungroup') }}</button>
     </div>
     <ol v-if="capas.length" class="capas-lista">

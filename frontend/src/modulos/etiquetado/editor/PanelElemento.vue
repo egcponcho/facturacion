@@ -1,11 +1,12 @@
 <script setup>
 import { t, tx } from '@/i18n/index.js'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import Icono from '@/componentes/Icono.vue'
+import Interruptor from '@/componentes/Interruptor.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import { errorApi } from '@/stores/ui'
-import { LISTAS, NUMERICOS, OPERADORES, SIMBOLOGIAS, SIN_VALOR, TRANSFORMACIONES } from '@/modulos/etiquetado/etiquetas.js'
+import { AJUSTABLES, AJUSTE_NORMAL, CRECIMIENTOS, CON_CONTENIDO, LISTAS, maquetar, seguidores, textoElemento, NUMERICOS, OPERADORES, PATRONES_FECHA, SIN_VALOR, TRANSFORMACIONES, catalogos, fechaConPatron } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -22,8 +23,10 @@ const u = computed(() => est.diseno?.unidad || 'mm')
 const bloqueado = computed(() => !est.editable || !!e.value?.bloqueado)
 const TIPOS = computed(() => ({ texto: t('Text'), campo: t('Field'), codigo: t('Code'), imagen: t('Image'), rect: t('Rectangle'), elipse: t('Ellipse'), linea: t('Line'), tabla: t('Table') }))
 
-const camposTexto = computed(() => ed.camposTodos.value.filter((c) => c.tipo !== 'imagen'))
-const camposImagen = computed(() => ed.camposTodos.value.filter((c) => c.tipo === 'imagen'))
+// Los campos que la empresa oculta no se ofrecen, salvo el que el elemento ya usa
+const ofrecido = (c) => !c.oculto || [e.value?.campo, e.value?.condicion?.campo].includes(c.clave)
+const camposTexto = computed(() => ed.camposTodos.value.filter((c) => c.tipo !== 'imagen' && ofrecido(c)))
+const camposImagen = computed(() => ed.camposTodos.value.filter((c) => c.tipo === 'imagen' && ofrecido(c)))
 const textoCampo = (c) => `${tx(props.grupos[c.grupo] || c.grupo)} · ${tx(c.etiqueta)}`
 const campoActual = computed(() => ed.camposTodos.value.find((c) => c.clave === e.value?.campo))
 const insertar = ref('')
@@ -35,6 +38,45 @@ function insertarCampo(prop, clave) {
 
 // Estilo y formato: se crean al primer cambio
 const estilo = computed(() => e.value?.estilo || {})
+// Recuadro que se ajusta al contenido: qué medidas son automáticas y qué opciones tiene cada tipo
+const anchoAuto = computed(() => {
+  const x = e.value
+  if (!x || !AJUSTABLES.includes(x.tipo)) return false
+  return x.tipo === 'imagen' ? x.ajustar === 'ancho' : ['texto', 'campo'].includes(x.tipo) && ['ancho', 'ambos'].includes(x.ajustar)
+})
+const altoAuto = computed(() => !!e.value && AJUSTABLES.includes(e.value.tipo) && ['alto', 'ambos'].includes(e.value.ajustar))
+// «Debajo de»: cualquier otro elemento que no lo siga ya (evita ciclos)
+const posiblesArriba = computed(() => {
+  if (!e.value) return []
+  const fuera = seguidores(ed.elementos.value, e.value.id)
+  return ed.elementos.value.filter((x) => x.id !== e.value.id && !fuera.has(x.id))
+})
+const nombreElemento = (x) => x.nombre || (x.tipo === 'campo' ? `{{${x.campo}}}` : x.tipo === 'texto' ? (x.contenido || '').slice(0, 30) : x.tipo)
+// Con el recuadro fijo, la letra que de verdad se dibuja (si se reduce para caber)
+const letraReducida = computed(() => {
+  const x = e.value
+  if (!x || !['texto', 'campo'].includes(x.tipo) || (x.ajustar && x.ajustar !== 'no')) return null
+  const est = { fuente: 'sans', tam: 10, interlineado: 1.15, espaciado: 0, relleno: 0, ajuste: 'reducir', tam_min: 6, ...(x.estilo || {}) }
+  if (est.ajuste !== 'reducir') return null
+  let txt = textoElemento(x, ed.ejemplosTodos.value, ed.estado.tipos) || (x.tipo === 'campo' ? `{{${x.campo}}}` : x.contenido || '')
+  if (est.mayusculas) txt = txt.toUpperCase()
+  const m = maquetar(txt, est, x.w, x.h)
+  return m.tam < est.tam - 0.01 ? Math.round(m.tam * 4) / 4 : null
+})
+// Recuadro automático (lo normal) o medidas fijas; si es automático, cómo crece
+const automatico = computed(() => !!e.value?.ajustar && e.value.ajustar !== 'no')
+const crecimientos = computed(() => CRECIMIENTOS()[['texto', 'campo'].includes(e.value?.tipo) ? 'texto' : e.value?.tipo] || [])
+function alternarAutomatico(si) {
+  if (bloqueado.value) return
+  e.value.ajustar = si ? AJUSTE_NORMAL[e.value.tipo] : 'no'
+}
+const ayudaAjuste = computed(() => ({
+  no: t('The box keeps its size; if the text does not fit, the option «If it does not fit» applies.'),
+  ambos: t('The box grows or shrinks with the text and its letter size, from its alignment, up to the safe area.'),
+  ancho: t('The width follows the text (one line); the height stays.'),
+  alto: e.value?.tipo === 'tabla' ? t('The height follows the number of rows of each label.')
+    : e.value?.tipo === 'imagen' ? t('The height follows the proportion of the image.') : t('The text is split into lines inside the width and the height follows them.'),
+})[e.value?.ajustar || 'no'])
 function poner(obj, prop, v) {
   if (bloqueado.value) return
   e.value[obj] = { ...(e.value[obj] || {}), [prop]: v }
@@ -84,7 +126,10 @@ function condicionValor(v) {
 
 // Ejemplo de campo dentro de un texto (en el script: en la plantilla cerraría la interpolación)
 const EJEMPLO = '{{articulo.sku}}'
-const simbologia = computed(() => SIMBOLOGIAS().find((s) => s[0] === e.value?.simbologia))
+// Simbologías del servidor (con su uso: GS1, matriciales…)
+const simbologias = ref([])
+onMounted(() => catalogos().then((c) => (simbologias.value = c.simbologias)).catch(() => {}))
+const simbologia = computed(() => simbologias.value.find((s) => s.codigo === e.value?.simbologia))
 
 // Imagen propia: se sube al servidor (PNG, JPEG o WebP) y el diseño guarda su número
 const subiendo = ref(false)
@@ -118,7 +163,6 @@ function fuenteImagen(v) {
 <template>
   <!-- Varios elementos -->
   <div v-if="ed.seleccionados.value.length > 1" class="panel-prop">
-    <p class="prop-titulo">{{ t('{0} elements selected', [ed.seleccionados.value.length]) }}</p>
     <h4>{{ t('Align') }}</h4>
     <div class="botonera">
       <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
@@ -133,7 +177,7 @@ function fuenteImagen(v) {
     </div>
     <p class="ayuda">{{ t('They align with each other; with a single element, it aligns to the label.') }}</p>
     <div class="botonera mt">
-      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.agrupar()"><Icono nombre="agrupar" :tam="15" />{{ t('Group') }}</button>
+      <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.agrupar()"><Icono nombre="agrupar" :tam="15" />{{ t('Group them') }}</button>
       <button type="button" class="btn btn-chico" :disabled="!est.editable" @click="ed.duplicar()"><Icono nombre="copiar" :tam="15" />{{ t('Duplicate') }}</button>
       <button type="button" class="btn btn-chico btn-peligro" :disabled="!est.editable" @click="ed.eliminar()"><Icono nombre="basura" :tam="15" />{{ t('Delete') }}</button>
     </div>
@@ -154,13 +198,38 @@ function fuenteImagen(v) {
     </div>
 
     <h4>{{ t('Position and size') }}</h4>
+    <div v-if="AJUSTABLES.includes(e.tipo)" class="auto-caja" :class="{ apagado: !automatico }">
+      <div class="auto-fila">
+        <Icono nombre="auto-caja" :tam="16" />
+        <span class="auto-texto"><strong>{{ t('Automatic box') }}</strong>
+          <small>{{ automatico ? ayudaAjuste : t('Fixed size: if the content does not fit, the option «If it does not fit» applies.') }}</small></span>
+        <Interruptor :model-value="automatico" :etiqueta="t('Automatic box')" :deshabilitado="bloqueado" @update:model-value="alternarAutomatico" />
+      </div>
+      <div v-if="automatico && crecimientos.length > 1" class="segmentos-mini" role="radiogroup" :aria-label="t('How it grows')">
+        <button v-for="[v, txt] in crecimientos" :key="v" type="button" role="radio" :aria-checked="e.ajustar === v" :disabled="bloqueado"
+                :class="{ activo: e.ajustar === v }" @click="e.ajustar = v">{{ txt }}</button>
+      </div>
+    </div>
     <div class="rejilla-2">
       <Medida v-model="e.x" etiqueta="X" :unidad="u" :disabled="bloqueado" />
-      <Medida v-model="e.y" etiqueta="Y" :unidad="u" :disabled="bloqueado" />
-      <Medida v-model="e.w" :etiqueta="t('Width')" :unidad="u" :min="0" :disabled="bloqueado" />
-      <Medida v-model="e.h" :etiqueta="t('Height')" :unidad="u" :min="0" :disabled="bloqueado" />
+      <Medida v-model="e.y" etiqueta="Y" :unidad="u" :disabled="bloqueado || !!e.debajo_de" />
+      <Medida v-model="e.w" :etiqueta="t('Width')" :unidad="u" :min="0" :disabled="bloqueado || anchoAuto" :title="anchoAuto ? t('Automatic: it follows the content') : null" />
+      <Medida v-model="e.h" :etiqueta="t('Height')" :unidad="u" :min="0" :disabled="bloqueado || altoAuto" :title="altoAuto ? t('Automatic: it follows the content') : null" />
       <Medida v-model="e.rot" :etiqueta="t('Rotation')" unidad="°" :min="-360" :max="360" :disabled="bloqueado" />
     </div>
+    <div class="rejilla-2 mt-chico">
+      <label class="campo-mini"><span>{{ t('Below') }}</span>
+        <Seleccion :model-value="e.debajo_de || ''" :disabled="bloqueado" :aria-label="t('Below')" @change="(v) => (e.debajo_de = v || null)">
+          <option value="">{{ t('Free position') }}</option>
+          <option v-for="x in posiblesArriba" :key="x.id" :value="x.id">{{ nombreElemento(x) }}</option>
+        </Seleccion>
+      </label>
+      <Medida v-if="e.debajo_de" :model-value="e.separacion ?? 1" :etiqueta="t('Gap')" :unidad="u" :min="0" :max="100" :disabled="bloqueado"
+              @update:model-value="(v) => (e.separacion = v)" />
+    </div>
+    <small v-if="e.debajo_de" class="ayuda">{{ t('It moves with the element above when it grows, shrinks or is not printed.') }}</small>
+    <label v-if="CON_CONTENIDO.includes(e.tipo)" class="check-linea mt-chico" :title="t('Without this, the preview and the job warn when it covers or is covered by another text, code, table or image.')">
+      <input type="checkbox" :checked="!!e.superponer" :disabled="bloqueado" @change="e.superponer = $event.target.checked" />{{ t('It can go over other elements') }}</label>
     <div class="botonera mt-chico">
       <button v-for="[m, i, txt] in [['izq', 'alin-izq', t('Left')], ['centro', 'alin-centro', t('Center')], ['der', 'alin-der', t('Right')], ['arriba', 'alin-arriba', t('Top')], ['medio', 'alin-medio', t('Middle')], ['abajo', 'alin-abajo', t('Bottom')]]"
               :key="m" type="button" class="btn btn-icono btn-chico" :disabled="bloqueado" :title="t('Align to the label: {0}', [txt])" :aria-label="txt" @click="ed.alinear(m)"><Icono :nombre="i" :tam="15" /></button>
@@ -203,12 +272,10 @@ function fuenteImagen(v) {
           <label class="check-linea"><input type="checkbox" :checked="formato.miles !== false" :disabled="bloqueado" @change="poner('formato', 'miles', $event.target.checked)" />{{ t('Thousands separator') }}</label>
         </template>
         <label v-if="formato.tipo === 'fecha'" class="campo-mini col-2"><span>{{ t('Date pattern') }}</span>
-          <Seleccion :model-value="formato.fecha" :disabled="bloqueado" :aria-label="t('Date pattern')" @change="(v) => poner('formato', 'fecha', v)">
-            <option value="dd/mm/aaaa">31/12/2026</option>
-            <option value="aaaa-mm-dd">2026-12-31</option>
-            <option value="mm/dd/aaaa">12/31/2026</option>
-            <option value="dd-mmm-aaaa">31-DEC-2026</option>
-          </Seleccion>
+          <input :value="formato.fecha || 'dd/mm/aaaa'" :disabled="bloqueado" maxlength="30" list="patrones-fecha" :aria-label="t('Date pattern')"
+                 @change="poner('formato', 'fecha', $event.target.value.trim() || 'dd/mm/aaaa')" />
+          <datalist id="patrones-fecha"><option v-for="x in PATRONES_FECHA" :key="x" :value="x">{{ fechaConPatron(2026, 12, 31, x) }}</option></datalist>
+          <small class="ayuda">{{ t('dd, d, mm, mmm, mmmm, aa, aaaa. E.g. {0}', [fechaConPatron(2026, 12, 31, formato.fecha || 'dd/mm/aaaa')]) }}</small>
         </label>
       </div>
     </template>
@@ -227,9 +294,9 @@ function fuenteImagen(v) {
     <template v-if="e.tipo === 'codigo'">
       <h4>{{ t('Code') }}</h4>
       <Seleccion v-model="e.simbologia" :disabled="bloqueado" :aria-label="t('Symbology')">
-        <option v-for="[v, n, d] in SIMBOLOGIAS()" :key="v" :value="v">{{ n }} — {{ d }}</option>
+        <option v-for="x in simbologias" :key="x.codigo" :value="x.codigo">{{ x.nombre }} — {{ tx(x.descripcion) }}</option>
       </Seleccion>
-      <p v-if="simbologia" class="ayuda">{{ simbologia[2] }}</p>
+      <p v-if="simbologia" class="ayuda">{{ tx(simbologia.descripcion) }}</p>
       <label class="check-linea"><input type="checkbox" :checked="conPartes" :disabled="bloqueado" @change="modoPartes($event.target.checked)" />{{ t('Compose the value from parts') }}</label>
       <template v-if="!conPartes">
         <label class="campo-mini"><span>{{ t('Value to encode') }}</span><input v-model="e.valor" maxlength="1000" :disabled="bloqueado" class="mono" /></label>
@@ -366,6 +433,8 @@ function fuenteImagen(v) {
         </label>
         <Medida :model-value="estilo.tam ?? 10" :etiqueta="t('Letter height')" unidad="pt" :min="3" :max="400" :disabled="bloqueado" @update:model-value="(v) => poner('estilo', 'tam', v)" />
       </div>
+      <p v-if="letraReducida" class="nota mt-chico">{{ t('The box is fixed: the letter is reduced to {0} pt to fit.', [letraReducida]) }}
+        <button v-if="!bloqueado" type="button" class="enlace" @click="e.ajustar = 'ambos'">{{ t('Turn on the automatic box') }}</button></p>
       <div class="botonera mt-chico">
         <button v-for="[p, txt, cls] in [['negrita', 'B', 'fw'], ['cursiva', 'I', 'it'], ['subrayado', 'U', 'ul'], ['tachado', 'S', 'st'], ['mayusculas', 'AA', '']]" :key="p" type="button"
                 class="btn btn-icono btn-chico btn-estilo" :class="[cls, { activo: estilo[p] }]" :aria-pressed="!!estilo[p]" :disabled="bloqueado"
@@ -423,6 +492,17 @@ function fuenteImagen(v) {
 </template>
 
 <style scoped>
+.auto-caja { border: 1px solid var(--acento-medio); background: var(--acento-claro); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.auto-caja.apagado { border-color: var(--linea); background: var(--superficie-2); }
+.auto-fila { display: flex; align-items: center; gap: 8px; }
+.auto-fila > :first-child { color: var(--acento-texto); flex: none; }
+.auto-caja.apagado .auto-fila > :first-child { color: var(--tinta-3); }
+.auto-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 0.82rem; }
+.auto-texto small { color: var(--tinta-3); font-size: 0.74rem; line-height: 1.3; }
+.segmentos-mini { display: flex; gap: 2px; margin-top: 8px; padding: 2px; border-radius: 7px; background: var(--superficie); border: 1px solid var(--linea); }
+.segmentos-mini button { flex: 1; border: 0; background: none; border-radius: 5px; padding: 4px 6px; font-size: 0.74rem; color: var(--tinta-2); cursor: pointer; }
+.segmentos-mini button.activo { background: var(--acento); color: #fff; }
+.segmentos-mini button:disabled { cursor: default; opacity: 0.6; }
 .panel-prop { display: flex; flex-direction: column; gap: 6px; }
 .panel-prop h4 { margin: 12px 0 2px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .prop-titulo { margin: 0; font-weight: 600; }

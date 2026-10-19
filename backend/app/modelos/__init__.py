@@ -68,14 +68,17 @@ from app.modelos.empaque import (
 )
 from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
 from app.modelos.etiquetado import (
-    AsignacionEtiqueta,
     CampoEtiqueta,
+    CategoriaEtiquetado,
     FamiliaEtiquetado,
     GeneracionEtiquetas,
     GeneracionItem,
     PlantillaEtiqueta,
+    TipoEtiqueta,
+    TipoEtiquetaEmpaque,
     TrabajoEtiquetas,
     TrabajoRegistro,
+    UsoDiseno,
     VersionPlantilla,
 )
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
@@ -136,12 +139,15 @@ _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
 
 __all__ = [
-    "AsignacionEtiqueta",
     "CampoEtiqueta",
+    "CategoriaEtiquetado",
     "FamiliaEtiquetado",
     "GeneracionEtiquetas",
     "GeneracionItem",
     "PlantillaEtiqueta",
+    "TipoEtiqueta",
+    "TipoEtiquetaEmpaque",
+    "UsoDiseno",
     "TrabajoEtiquetas",
     "TrabajoRegistro",
     "VersionPlantilla",

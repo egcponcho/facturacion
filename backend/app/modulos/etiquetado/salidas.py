@@ -8,9 +8,11 @@ import base64
 import io
 from functools import lru_cache
 
+from fontTools.pens.basePen import BasePen
 from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
 
+from app.modulos.etiquetado import escritura
 from app.modulos.etiquetado.fuentes import _registrada, archivo_fuente, avances
 from app.modulos.etiquetado.render import Lienzo, Prim
 
@@ -38,6 +40,41 @@ def _trazo_pdf(c, p: Prim):
         c.setDash([max(p.grosor, 0.18), 2 * p.grosor + 0.35])
     else:
         c.setDash()
+
+
+class _PlumaPdf(BasePen):
+    """Contorno de un glifo (unidades de la fuente) a un trazo de reportlab."""
+
+    def __init__(self, conjunto, trazo):
+        super().__init__(conjunto)
+        self.trazo = trazo
+
+    def _moveTo(self, p):
+        self.trazo.moveTo(*p)
+
+    def _lineTo(self, p):
+        self.trazo.lineTo(*p)
+
+    def _curveToOne(self, a, b, c):
+        self.trazo.curveTo(*a, *b, *c)
+
+    def _closePath(self):
+        self.trazo.close()
+
+
+def _contornos_pdf(c, texto: str, p: Prim, x: float, base: float) -> None:
+    """Una línea en escritura compleja: cada glifo ya con forma, como contorno relleno."""
+    tramos, _ = escritura.formar(texto, p.fuente, p.tam, p.espaciado)
+    for _fuente, glifo, gx, gy, upm, conjunto in escritura.contornos(tramos, x, base):
+        k = p.tam * PT_MM / upm
+        c.saveState()
+        c.translate(gx, gy)
+        c.scale(k, -k)
+        trazo = c.beginPath()
+        with escritura.CANDADO_GLIFOS:
+            conjunto[glifo].draw(_PlumaPdf(conjunto, trazo))
+        c.drawPath(trazo, stroke=0, fill=1, fillMode=0)  # regla de relleno distinta de cero (TrueType)
+        c.restoreState()
 
 
 def dibujar_pdf(c, lienzo: Lienzo, x0: float = 0, y0: float = 0) -> None:
@@ -80,15 +117,18 @@ def dibujar_pdf(c, lienzo: Lienzo, x0: float = 0, y0: float = 0) -> None:
             _registrada(p.fuente)
             c.setFillColor(HexColor(p.color))
             for texto, x, base, w in p.lineas:
-                c.saveState()
-                c.translate(x, base)
-                c.scale(PT_MM, -PT_MM)  # el texto se escribe en puntos y hacia arriba
-                t = c.beginText(0, 0)
-                t.setFont(p.fuente, p.tam)
-                t.setCharSpace(p.espaciado)
-                t.textOut(texto)
-                c.drawText(t)
-                c.restoreState()
+                if escritura.compleja(texto):
+                    _contornos_pdf(c, texto, p, x, base)
+                else:
+                    c.saveState()
+                    c.translate(x, base)
+                    c.scale(PT_MM, -PT_MM)  # el texto se escribe en puntos y hacia arriba
+                    t = c.beginText(0, 0)
+                    t.setFont(p.fuente, p.tam)
+                    t.setCharSpace(p.espaciado)
+                    t.textOut(texto)
+                    c.drawText(t)
+                    c.restoreState()
                 if p.subrayado or p.tachado:
                     c.setStrokeColor(HexColor(p.color))
                     c.setLineWidth(max(p.tam * PT_MM * 0.06, 0.1))
@@ -167,7 +207,19 @@ def _glifo(nombre: str, ch: str) -> str:
     if not g:
         return ""
     pen = SVGPathPen(glifos)
-    glifos[g].draw(pen)
+    with escritura.CANDADO_GLIFOS:
+        glifos[g].draw(pen)
+    return pen.getCommands()
+
+
+@lru_cache(maxsize=20000)
+def _glifo_id(fuente: str, glifo: str) -> str:
+    from fontTools.pens.svgPathPen import SVGPathPen
+
+    conjunto = escritura._glifos(fuente)[0]
+    pen = SVGPathPen(conjunto)
+    with escritura.CANDADO_GLIFOS:
+        conjunto[glifo].draw(pen)
     return pen.getCommands()
 
 
@@ -214,6 +266,14 @@ def svg(lienzo: Lienzo) -> str:
             escala = p.tam * PT_MM / upm
             partes = []
             for texto, x, base, w in p.lineas:
+                if escritura.compleja(texto):
+                    tramos, _ = escritura.formar(texto, p.fuente, p.tam, p.espaciado)
+                    for fuente, glifo, gx, gy, upm, _c in escritura.contornos(tramos, x, base):
+                        d = _glifo_id(fuente, glifo)
+                        k = p.tam * PT_MM / upm
+                        if d:
+                            partes.append(f'<path transform="translate({_n(gx)} {_n(gy)}) scale({k:.6f} {-k:.6f})" d="{d}"/>')
+                    continue
                 for ch, dx in zip(texto, avances(texto, p.fuente, p.tam, p.espaciado), strict=True):
                     d = _glifo(p.fuente, ch)
                     if d:
@@ -230,9 +290,11 @@ def svg(lienzo: Lienzo) -> str:
 
 # ---- PNG ---------------------------------------------------------------------------------
 @lru_cache(maxsize=256)
-def _fuente_png(nombre: str, tam_px: float):
+def _fuente_png(nombre: str, tam_px: float, forma: bool = False):
     from PIL import ImageFont
 
+    if forma:
+        return ImageFont.truetype(str(archivo_fuente(nombre)), size=tam_px, layout_engine=ImageFont.Layout.RAQM)
     return ImageFont.truetype(str(archivo_fuente(nombre)), size=tam_px)
 
 
@@ -265,6 +327,14 @@ def png(lienzo: Lienzo, dpi: int | None = None) -> bytes:
         elif p.tipo == "texto":
             fuente = _fuente_png(p.fuente, p.tam * dpi / 72)
             for texto, x, base_y, w in p.lineas:
+                if escritura.compleja(texto):
+                    # Cada tramo con su fuente Noto y el mismo motor de forma (raqm usa HarfBuzz)
+                    tramos, _ = escritura.formar(texto, p.fuente, p.tam, p.espaciado)
+                    for tr in tramos:
+                        f = _fuente_png(tr.fuente, p.tam * dpi / 72, True)
+                        d.text(((x + tr.x) * k, base_y * k), tr.texto, font=f, fill=p.color, anchor="ls",
+                               direction="rtl" if tr.de_derecha else "ltr")
+                    continue
                 for ch, dx in zip(texto, avances(texto, p.fuente, p.tam, p.espaciado), strict=True):
                     d.text(((x + dx) * k, base_y * k), ch, font=fuente, fill=p.color, anchor="ls")
                 grosor = max(round(p.tam * PT_MM * 0.06 * k), 1)

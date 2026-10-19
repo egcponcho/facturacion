@@ -41,7 +41,9 @@ RESTRICCIONES: dict[str, list[tuple[str, str]]] = {
     "tipos_empaque": _no_negativo("largo", "ancho", "alto", "tara", "peso_max", "max_unidades", "max_contenido"),
     "recepciones": _no_negativo("cantidad_recibida", "cantidad_danada") + [
         ("danada_hasta_recibida", "cantidad_danada IS NULL OR cantidad_danada <= cantidad_recibida")],
-    "asignaciones_etiqueta": [_vigencia(), ("prioridad", "prioridad BETWEEN 0 AND 100000")],
+    "tipos_etiqueta": [("sujeto", _en("sujeto", ("ARTICULO", "BULTO", "DOCUMENTO"))),
+                       ("cantidad", _en("cantidad", ("POR_UNIDAD", "POR_LINEA", "POR_ARTICULO", "POR_BULTO", "POR_DOCUMENTO",
+                                                     "MANUAL")))],
     "campos_etiqueta": [("tipo", _en("tipo", ("texto", "numero", "fecha"))),
                         ("politica", _en("politica", ("PRIMERA", "ADVERTIR", "BLOQUEAR")))],
     "trabajos_etiqueta": [("origen", _en("origen", ("OC", "ARTICULOS", "PACKING"))),

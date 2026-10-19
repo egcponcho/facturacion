@@ -18,20 +18,16 @@ const ed = usarEditor()
 const est = ed.estado
 const fuente = est.fuenteDatos
 const lineas = ref([])
-const bultos = ref(0)
 
-const usaOc = computed(() => est.modalidad !== 'ARTICULO')
-const usaArticulo = computed(() => est.modalidad === 'ARTICULO')
+// Qué datos reales sirven: un artículo (y si se quiere, su línea de una OC), un bulto de una OC o el documento de una OC
+const usaArticulo = computed(() => est.sujeto === 'ARTICULO')
 watch(() => fuente.oc_id, async (id) => {
   fuente.posicion_id = ''
   fuente.bulto = ''
   lineas.value = []
-  bultos.value = 0
-  if (!id) return
+  if (!id || est.sujeto !== 'ARTICULO') return
   try {
-    const r = await api.get(`/etiquetas/oc/${id}`)
-    lineas.value = r.lineas
-    bultos.value = r.bultos
+    lineas.value = (await api.get(`/ordenes/${id}`)).posiciones
   } catch (e) {
     errorApi(e)
   }
@@ -53,24 +49,21 @@ const fondo = ref('cuadros')
     </div>
     <div v-if="fuente.real" class="vp-datos">
       <SelectBusqueda v-if="usaArticulo" v-model="fuente.articulo_id" :buscar="buscarArticulos" :etiqueta="t('Item')" :vacio="t('Choose an item')" />
-      <template v-if="usaOc">
+      <template v-if="true">
         <SelectBusqueda v-model="fuente.oc_id" :buscar="buscarOrdenes" :etiqueta="t('PO')" :vacio="t('Choose a PO')" />
-        <Seleccion v-if="est.modalidad === 'OC_ARTICULO' && lineas.length" v-model="fuente.posicion_id" :aria-label="t('PO line')">
-          <option value="">{{ t('First line') }}</option>
-          <option v-for="l in lineas" :key="l.id" :value="l.id">{{ l.posicion }} · {{ l.codigo }} {{ [l.color, l.talla].filter(Boolean).join(' / ') }}</option>
+        <Seleccion v-if="usaArticulo && lineas.length" v-model="fuente.posicion_id" :aria-label="t('PO line')">
+          <option value="">{{ t('Without PO line') }}</option>
+          <option v-for="l in lineas" :key="l.id" :value="l.id">{{ l.posicion }} · {{ l.codigo_articulo }} {{ [l.color, l.talla].filter(Boolean).join(' / ') }}</option>
         </Seleccion>
-        <Seleccion v-if="bultos" v-model="fuente.bulto" :aria-label="t('Package')">
-          <option value="">{{ t('Without package data') }}</option>
-          <option v-for="n in bultos" :key="n" :value="n">{{ t('Package {0} of {1}', [n, bultos]) }}</option>
-        </Seleccion>
-        <p v-else-if="fuente.oc_id" class="ayuda">{{ t('This PO has no packing list: the package fields stay empty.') }}</p>
+        <label v-if="est.sujeto === 'BULTO' && fuente.oc_id" class="vp-bulto">{{ t('Package number') }}
+          <input v-model="fuente.bulto" type="number" min="1" :aria-label="t('Package number')" /></label>
       </template>
     </div>
 
     <div class="vp-lienzo" :class="[`fondo-${fondo}`, { cargando: props.cargando }]">
       <!-- SVG del propio servidor (mismo motor de la descarga) -->
       <!-- eslint-disable-next-line vue/no-v-html -->
-      <div v-if="est.previa?.svg" class="vp-svg" v-html="est.previa.svg" />
+      <div v-if="est.previa?.svg" class="vp-svg previa-etiqueta" v-html="est.previa.svg" />
       <p v-else class="ayuda">{{ t('Drawing…') }}</p>
     </div>
     <div class="vp-pie">
@@ -105,8 +98,8 @@ const fondo = ref('cuadros')
 .vp-lienzo.cargando { opacity: 0.6; }
 .fondo-cuadros { background: repeating-conic-gradient(#eef1f5 0 25%, #fff 0 50%) 0 0 / 14px 14px; }
 .fondo-liso { background: var(--superficie-2); }
-.vp-svg { width: 100%; display: flex; justify-content: center; }
-.vp-svg :deep(svg) { max-width: 100%; height: auto; max-height: 340px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
+.vp-svg { width: 100%; --previa-alto: 340px; }
+.vp-svg :deep(svg) { box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
 .vp-pie { display: flex; justify-content: space-between; align-items: center; margin-top: -4px; }
 .vp-problemas { display: flex; flex-direction: column; gap: 4px; }
 .vp-problema { display: flex; gap: 8px; align-items: flex-start; text-align: left; border: 1px solid; border-radius: 8px; padding: 7px 9px; font-size: 0.8rem; cursor: pointer;

@@ -109,38 +109,39 @@ def test_codigos_validados_sin_inventar_identificadores():
 
 
 def test_texto_largo_vacio_condiciones_y_limites():
+    """Con medidas fijas («ajustar»: «no»): reducir, cortar o desbordar; campo vacío, condiciones y límites."""
     largo = "Men's waterproof breathable rain jacket with adjustable hood"
-    base = {"x": 2, "y": 2, "w": 40, "h": 6, "estilo": {"tam": 12}}
-    reducido = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": "Men's waterproof rain jacket", **base,
+    base = {"ajustar": "no", "x": 2, "y": 2, "w": 40, "h": 6, "estilo": {"tam": 12}}
+    reducido = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": "Men's waterproof rain jacket", **base,
                                          "estilo": {"tam": 12, "tam_min": 6}}]), {})
     assert 6 <= reducido.prims[-1].tam < 12 and not reducido.advertencias
-    cortado = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": largo, **base,
+    cortado = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": largo, **base,
                                         "estilo": {"tam": 12, "ajuste": "cortar"}}]), {})
     assert cortado.prims[-1].lineas[0][0].endswith("…") and {p["codigo"] for p in cortado.advertencias} == {"texto_cortado"}
-    desborda = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": largo, **base,
+    desborda = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": largo, **base,
                                          "estilo": {"tam": 12, "ajuste": "ninguno"}}]), {})
     assert {p["codigo"] for p in desborda.advertencias} == {"texto_desborda"}
-    multilinea = render.componer(_diseno([{"id": "t", "tipo": "texto", "contenido": largo, "x": 2, "y": 2, "w": 40, "h": 30,
+    multilinea = render.componer(_diseno([{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": largo, "x": 2, "y": 2, "w": 40, "h": 30,
                                            "estilo": {"tam": 9, "multilinea": True}}]), {})
     assert len(multilinea.prims[-1].lineas) >= 3 and not multilinea.problemas
     # Campo vacío: advertir, ocultar, texto alternativo o error
-    campo = {"id": "c", "tipo": "campo", "campo": "articulo.color", "x": 2, "y": 2, "w": 40, "h": 8}
+    campo = {"id": "c", "tipo": "campo", "ajustar": "no", "campo": "articulo.color", "x": 2, "y": 2, "w": 40, "h": 8}
     assert {p["codigo"] for p in render.componer(_diseno([campo]), {}).advertencias} == {"campo_vacio"}
     assert not render.componer(_diseno([{**campo, "si_vacio": "ocultar"}]), {}).problemas
     alt = render.componer(_diseno([{**campo, "si_vacio": "alternativo", "alternativo": "N/A"}]), {})
     assert alt.prims[-1].lineas[0][0] == "N/A"
     assert {p["codigo"] for p in render.componer(_diseno([{**campo, "si_vacio": "error"}]), {}).errores} == {"campo_obligatorio"}
     # Condición: el elemento solo aparece si el campo tiene valor
-    cond = {"id": "x", "tipo": "texto", "contenido": "PREPACK", "x": 2, "y": 2, "w": 30, "h": 8,
+    cond = {"id": "x", "tipo": "texto", "ajustar": "no", "contenido": "PREPACK", "x": 2, "y": 2, "w": 30, "h": 8,
             "condicion": {"campo": "articulo.prepack", "op": "existe"}}
     assert len(render.componer(_diseno([cond]), {}).prims) == 1  # solo el fondo
     assert len(render.componer(_diseno([cond]), {"articulo.prepack": "PPK-6"}).prims) == 2
     # Límites
     fuera = render.componer(_diseno([{"id": "f", "tipo": "rect", "x": 120, "y": 2, "w": 10, "h": 5, "relleno": "#000000"}]), {})
     assert {p["codigo"] for p in fuera.errores} == {"fuera_de_la_etiqueta"}
-    parcial = render.componer(_diseno([{"id": "p", "tipo": "texto", "contenido": "x", "x": 95, "y": 2, "w": 10, "h": 5}]), {})
+    parcial = render.componer(_diseno([{"id": "p", "tipo": "texto", "ajustar": "no", "contenido": "x", "x": 95, "y": 2, "w": 10, "h": 5}]), {})
     assert {p["codigo"] for p in parcial.advertencias} == {"fuera_de_limites"}
-    pequeno = render.componer(_diseno([{"id": "s", "tipo": "texto", "contenido": "x", "x": 3, "y": 3, "w": 10, "h": 5,
+    pequeno = render.componer(_diseno([{"id": "s", "tipo": "texto", "ajustar": "no", "contenido": "x", "x": 3, "y": 3, "w": 10, "h": 5,
                                         "estilo": {"tam": 4, "tam_min": 3}}]), {})
     assert {p["codigo"] for p in pequeno.advertencias} == {"texto_pequeno"}
 
@@ -159,7 +160,7 @@ def test_hoja_de_varias_etiquetas_y_giro():
     d = svc_diseno.validar({"ancho": 60, "alto": 30, "hoja": {"modo": "hoja", "papel_ancho": 210, "papel_alto": 297,
                                                               "columnas": 3, "filas": 8, "margen_sup": 10, "margen_izq": 7,
                                                               "espacio_h": 2.5, "espacio_v": 4},
-                            "elementos": [{"id": "t", "tipo": "texto", "contenido": "{{etiqueta.numero}}", "x": 18, "y": 11, "w": 24,
+                            "elementos": [{"id": "t", "tipo": "texto", "ajustar": "no", "contenido": "{{etiqueta.numero}}", "x": 18, "y": 11, "w": 24,
                                            "h": 8, "rot": 90}]})
     lienzos = [render.componer(d, {"etiqueta.numero": i}) for i in range(1, 31)]
     with pdfplumber.open(io.BytesIO(salidas.pdf(lienzos, d["hoja"]))) as doc:
@@ -173,5 +174,182 @@ def test_hoja_de_varias_etiquetas_y_giro():
         assert im.convert("L").getextrema()[0] < 128  # hay texto oscuro (girado, dentro de la etiqueta)
     assert not lienzos[0].problemas
     girado = render.componer(svc_diseno.validar({"ancho": 60, "alto": 30, "elementos": [
-        {"id": "t", "tipo": "texto", "contenido": "x", "x": 5, "y": 5, "w": 30, "h": 10, "rot": 90}]}), {})
+        {"id": "t", "tipo": "texto", "ajustar": "no", "contenido": "x", "x": 5, "y": 5, "w": 30, "h": 10, "rot": 90}]}), {})
     assert {p["codigo"] for p in girado.advertencias} == {"fuera_de_limites"}  # girado, se sale por arriba
+
+
+def _texto_de(lienzo):
+    p = next(x for x in lienzo.prims if x.tipo == "texto")
+    return p.tam, p.lineas
+
+
+def test_recuadro_que_se_ajusta_al_contenido():
+    """Con «ajustar» el recuadro sigue al texto con su letra (no se reduce), crece desde su
+    alineación y nunca pasa del área segura; la tabla crece con sus filas y la imagen toma su
+    proporción. Sin ajuste, la letra se reduce para caber en el recuadro fijo."""
+    def campo(ajustar, tam, valor="SKU-12345", **estilo):
+        d = _diseno([{"id": "a", "tipo": "campo", "campo": "articulo.sku", "x": 30, "y": 10, "w": 20, "h": 6, "ajustar": ajustar,
+                      "estilo": {"tam": tam, **estilo}}])
+        lienzo = render.componer(d, {"articulo.sku": valor})
+        return _texto_de(lienzo), {p["codigo"] for p in lienzo.problemas}
+
+    # Fijo: a 30 pt no cabe en 20 × 6 mm y la letra se reduce
+    (tam, _), _ = campo("no", 30)
+    assert tam < 30
+    # Ambos: el recuadro crece y la letra se queda en 30 pt; más letra, más ancho
+    (tam, lineas), problemas = campo("ambos", 30)
+    assert tam == 30 and lineas[0][1] == pytest.approx(30) and not problemas
+    (_, lineas20), _ = campo("ambos", 20)
+    assert lineas20[0][3] < lineas[0][3]
+    # Centrado: crece hacia los dos lados (el centro queda en 40 mm)
+    (_, lineas), _ = campo("ambos", 30, alin="centro")
+    assert lineas[0][1] + lineas[0][3] / 2 == pytest.approx(40, abs=0.01)
+    # A la derecha: el borde derecho queda fijo
+    (_, lineas), _ = campo("ambos", 30, alin="der")
+    assert lineas[0][1] + lineas[0][3] == pytest.approx(50, abs=0.01)
+    # Un texto enorme llega hasta el área segura y ahí se aplica «si no cabe» (reducir)
+    (tam, lineas), _ = campo("ambos", 30, valor="X" * 60)
+    assert tam < 30 and lineas[0][1] + lineas[0][3] <= 98 + 0.01
+    # Alto: se parte en líneas dentro del ancho y crece hacia abajo
+    (tam, lineas), _ = campo("alto", 12, valor="uno dos tres cuatro cinco seis siete")
+    assert tam == 12 and len(lineas) > 1
+    # Ajuste solo en elementos que lo admiten
+    d = _diseno([{"id": "r", "tipo": "rect", "w": 10, "h": 10, "ajustar": "ambos"}])
+    assert d["elementos"][0]["ajustar"] == "no"
+
+    # Tabla: el alto sigue a las filas (encabezado + 3 filas = 4 filas de 5 mm)
+    tabla = {"id": "t", "tipo": "tabla", "x": 5, "y": 5, "w": 60, "h": 8, "alto_fila": 5, "coleccion": "bulto.lineas",
+             "columnas": [{"campo": "sku"}], "ajustar": "alto"}
+    lienzo = render.componer(_diseno([tabla]), {"bulto.lineas": [{"sku": "A"}, {"sku": "B"}, {"sku": "C"}]})
+    assert not [p for p in lienzo.problemas if p["codigo"] == "tabla_desborda"]
+    marco = [p for p in lienzo.prims if p.tipo == "rect" and p.borde][-1]
+    assert marco.h == pytest.approx(20)
+    # Sin ajuste, las mismas filas no caben en 8 mm
+    lienzo = render.componer(_diseno([{**tabla, "ajustar": "no"}]), {"bulto.lineas": [{"sku": "A"}, {"sku": "B"}, {"sku": "C"}]})
+    assert any(p["codigo"] == "tabla_desborda" for p in lienzo.problemas)
+
+    # Imagen: 40 × 20 px → con 30 mm de ancho, 15 mm de alto
+    buf = io.BytesIO()
+    Image.new("RGB", (40, 20), "#336699").save(buf, "PNG")
+    import base64
+
+    datos = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    img = {"id": "i", "tipo": "imagen", "x": 5, "y": 5, "w": 30, "h": 30, "fuente_imagen": "datos", "datos": datos, "ajustar": "alto"}
+    p = next(x for x in render.componer(_diseno([img]), {}).prims if x.tipo == "imagen")
+    assert (p.w, p.h) == (pytest.approx(30), pytest.approx(15))
+
+
+def test_chino_arabe_y_devanagari_con_forma_y_en_orden():
+    """Las letras que Liberation no tiene se escriben con Noto y con forma (HarfBuzz): el
+    árabe va de derecha a izquierda con sus números de izquierda a derecha, el devanagari
+    combina sus letras; las tres salidas dibujan los glifos (no cuadros vacíos)."""
+    from app.modulos.etiquetado import escritura
+
+    tramos, ancho = escritura.formar("Talla مقاس 40 / 尺码", "LiberationSans-Regular", 12)
+    assert [(t.texto, t.fuente.split("-")[0], t.de_derecha) for t in tramos] == [
+        ("Talla ", "LiberationSans", False), ("مقاس", "NotoSansArabic", True), (" 40 / ", "LiberationSans", False),
+        ("尺码", "NotoSansSC", False)]
+    tramos, _ = escritura.formar("مرحبا 123", "LiberationSans-Bold", 12)
+    assert [t.texto for t in tramos] == ["123", "مرحبا "] and tramos[1].fuente == "NotoSansArabic-Bold"
+    tramos, _ = escritura.formar("नमस्ते", "LiberationSans-Regular", 12)
+    assert len(tramos[0].glifos) < len("नमस्ते")  # la forma une letras (conjuntos)
+    # El ajuste del recuadro y la medida usan la forma real
+    assert render.ancho_texto("尺码尺码", "LiberationSans-Regular", 10) > render.ancho_texto("ab", "LiberationSans-Regular", 10)
+
+    d = _diseno([{"id": f"t{i}", "tipo": "texto", "contenido": t, "x": 3, "y": 3 + i * 11, "w": 90, "h": 10, "estilo": {"tam": 14}}
+                 for i, t in enumerate(["标签 尺码 42", "مرحبا بالعالم 123", "नमस्ते दुनिया"])], idioma="zh")
+    lienzo = render.componer(d, {})
+    assert not lienzo.problemas
+    # PDF: los glifos van como contornos rellenos
+    with pdfplumber.open(io.BytesIO(salidas.pdf([lienzo]))) as doc:
+        assert len(doc.pages[0].curves) + len(doc.pages[0].rects) > 20
+    # SVG: un trazo por glifo; PNG: hay tinta en cada renglón
+    assert salidas.svg(lienzo).count("<path") > 20
+    with Image.open(io.BytesIO(salidas.png(lienzo, 150))) as im:
+        gris = im.convert("L")
+        k = 150 / 25.4
+        for i in range(3):
+            franja = gris.crop((0, round((3 + i * 11) * k), gris.width, round((13 + i * 11) * k)))
+            assert franja.getextrema()[0] < 100
+    # Meses y sí/no en el idioma de la etiqueta
+    assert render.fecha_con_patron(render.date(2026, 3, 5), "d mmm aaaa", "zh") == "5 三月 2026"
+
+
+def test_elementos_debajo_de_otro_se_mueven_con_el():
+    """Un elemento «debajo de» otro toma su borde inferior más la separación: si el de arriba
+    crece (más letra o más líneas), baja; si el de arriba no se imprime, sube a su lugar."""
+    def lineas(valor, tam=10):
+        d = _diseno([
+            {"id": "a", "tipo": "campo", "campo": "articulo.descripcion", "si_vacio": "ocultar", "x": 5, "y": 5, "w": 60, "h": 5,
+             "ajustar": "alto", "estilo": {"tam": tam}},
+            {"id": "b", "tipo": "texto", "contenido": "SEGUNDO", "x": 5, "y": 12, "w": 40, "h": 5, "debajo_de": "a", "separacion": 2},
+            {"id": "c", "tipo": "texto", "contenido": "TERCERO", "x": 5, "y": 20, "w": 40, "h": 5, "debajo_de": "b", "separacion": 1},
+        ])
+        lz = render.componer(d, {"articulo.descripcion": valor})
+        pos = {}
+        for p in lz.prims:
+            if p.tipo == "texto":
+                for t, _x, base, _w in p.lineas:
+                    pos.setdefault(t, base)
+        return pos, lz
+
+    corto, _ = lineas("Shoe")
+    largo, _ = lineas("Running shoe with a long description that needs several lines to fit")
+    grande, _ = lineas("Shoe", tam=20)
+    assert largo["SEGUNDO"] > corto["SEGUNDO"] and largo["TERCERO"] > corto["TERCERO"]  # más líneas: bajan
+    assert grande["SEGUNDO"] > corto["SEGUNDO"]  # más letra: baja
+    assert largo["TERCERO"] - largo["SEGUNDO"] == pytest.approx(corto["TERCERO"] - corto["SEGUNDO"])  # la cadena se mantiene
+    vacio, _ = lineas(None)
+    assert "Shoe" not in vacio and vacio["SEGUNDO"] < corto["SEGUNDO"]  # sin el de arriba, sube a su lugar
+    # Una referencia que no existe se olvida; un ciclo no se acepta
+    d = _diseno([{"id": "x", "tipo": "texto", "contenido": "X", "debajo_de": "nada"}])
+    assert d["elementos"][0]["debajo_de"] is None
+    with pytest.raises(ErrorNegocio):
+        _diseno([{"id": "x", "tipo": "texto", "contenido": "X", "debajo_de": "y"},
+                 {"id": "y", "tipo": "texto", "contenido": "Y", "debajo_de": "x"}])
+
+
+def test_aviso_de_elementos_encimados_con_los_datos_reales():
+    """Dos elementos que se leen (textos, campos, códigos, tablas, imágenes) no deben taparse: con
+    los datos reales (ya ajustados y apilados) se avisa en el de arriba. Lo que solo ocupa espacio
+    vacío del recuadro no cuenta, los rectángulos y líneas de adorno tampoco, y un elemento puede
+    marcarse para ir encima de otros sin aviso."""
+    def encimados(valor, ajustar="ancho", **extra):
+        d = _diseno([
+            {"id": "a", "tipo": "campo", "campo": "articulo.descripcion", "x": 5, "y": 5, "w": 20, "h": 6, "ajustar": ajustar,
+             "estilo": {"tam": 10, "ajuste": "ninguno"}},
+            {"id": "b", "tipo": "codigo", "simbologia": "code128", "valor": "ABC123", "x": 50, "y": 4, "w": 40, "h": 20, **extra},
+            {"id": "fondo", "tipo": "rect", "x": 0, "y": 0, "w": 100, "h": 50, "relleno": "#eeeeee"},
+        ])
+        lz = render.componer(d, {"articulo.descripcion": valor})
+        return [(p["elemento"], p["mensaje"]) for p in lz.problemas if p["codigo"] == "elementos_encimados"]
+
+    assert encimados("Shoe") == []  # cabe: no toca el código (el rectángulo de fondo no cuenta)
+    largo = "Running shoe with a very long description"
+    assert encimados(largo) == [("b", "It overlaps articulo.descripcion: one covers the other.")]  # crece y llega al código
+    assert encimados(largo, superponer=True) == []  # puede ir encima
+    # Dentro de un recuadro grande, solo cuenta lo que el texto ocupa de verdad
+    d = _diseno([
+        {"id": "a", "tipo": "texto", "contenido": "SKU", "x": 5, "y": 5, "w": 60, "h": 20},
+        {"id": "b", "tipo": "texto", "contenido": "COLOR", "x": 40, "y": 18, "w": 30, "h": 6},
+    ])
+    assert not [p for p in render.componer(d, {}).problemas if p["codigo"] == "elementos_encimados"]
+    d = _diseno([
+        {"id": "a", "tipo": "texto", "contenido": "SKU", "x": 5, "y": 5, "w": 30, "h": 6},
+        {"id": "b", "tipo": "texto", "contenido": "COLOR", "nombre": "Color", "x": 6, "y": 6, "w": 30, "h": 6},
+    ])
+    assert [p["elemento"] for p in render.componer(d, {}).problemas if p["codigo"] == "elementos_encimados"] == ["b"]
+
+
+def test_glifos_a_la_vez_desde_varios_hilos():
+    """Varias miniaturas o PDF a la vez sobre la misma fuente recién abierta
+    (cada glifo se lee la primera vez que se dibuja) no se pisan."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    letras = [chr(c) for c in range(33, 127)] + list("áéíóúñÁÉÍÓÚÑ¿¡€")
+    for _ in range(10):
+        salidas._fuente_svg.cache_clear()
+        salidas._glifo.cache_clear()
+        with ThreadPoolExecutor(16) as hilos:
+            trazos = list(hilos.map(lambda ch: salidas._glifo("LiberationSans-Regular", ch), letras * 4))
+        assert all(isinstance(x, str) for x in trazos) and sum(1 for x in trazos if x) > len(letras)

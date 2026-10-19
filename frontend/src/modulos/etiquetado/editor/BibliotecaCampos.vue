@@ -4,33 +4,19 @@ import { computed, ref } from 'vue'
 import Icono from '@/componentes/Icono.vue'
 import { usarEditor } from './estado.js'
 
-// Lo que se puede poner en la etiqueta: elementos (texto, códigos, imagen,
-// formas) y los campos con datos reales, por grupo, con su origen y un
-// ejemplo. Clic agrega al centro; también se arrastran al lienzo. Arriba, los
-// campos habituales de la familia del diseño (los obligatorios marcados).
+// Los campos con datos reales, por grupo, con su origen y un ejemplo. Clic
+// agrega al centro; también se arrastran al lienzo. Arriba, los campos
+// habituales de la familia del diseño (los obligatorios marcados). Los
+// elementos (texto, códigos, imagen, formas) están en la barra del editor.
 const props = defineProps({ grupos: { type: Object, default: () => ({}) }, familia: { type: Object, default: null } })
 const ed = usarEditor()
 const est = ed.estado
 const q = ref('')
 
-const ELEMENTOS = computed(() => [
-  ['texto', t('Text'), 'texto', {}],
-  ['codigo', t('Barcode'), 'barras', {}],
-  ['codigo', t('QR code'), 'qr', { simbologia: 'qr', w: 20, h: 20, valor: '{{articulo.sku}}', legible: false }],
-  ['imagen', t('Image or logo'), 'imagen', {}],
-  ['rect', t('Rectangle'), 'cuadro', {}],
-  ['elipse', t('Ellipse'), 'circulo', {}],
-  ['linea', t('Line'), 'linea', {}],
-  ...(est.colecciones.length ? [['tabla', t('Table (list of rows)'), 'cuadricula', {
-    coleccion: est.colecciones[0].clave,
-    columnas: est.colecciones[0].columnas.slice(0, 3).map((c) => ({ campo: c.clave, titulo: c.etiqueta, ancho: 1, alin: c.tipo === 'numero' ? 'der' : 'izq' })),
-  }]] : []),
-])
-
 const normal = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const filtrados = computed(() => {
   const n = normal(q.value)
-  return ed.camposTodos.value.filter((c) => !n || normal(`${tx(c.etiqueta)} ${c.clave} ${c.origen}`).includes(n))
+  return ed.camposTodos.value.filter((c) => !c.oculto && (!n || normal(`${tx(c.etiqueta)} ${c.clave} ${c.origen}`).includes(n)))
 })
 const porGrupo = computed(() => {
   const r = {}
@@ -69,20 +55,9 @@ const textoEnSeleccion = computed(() => ed.unico.value?.tipo === 'texto')
 
 <template>
   <div class="biblioteca">
-    <section>
-      <h3 class="bib-titulo">{{ t('Elements') }}</h3>
-      <div class="bib-elementos">
-        <button v-for="[tipo, texto, icono, extra] in ELEMENTOS" :key="texto" type="button" class="bib-elemento" :disabled="!est.editable" draggable="true"
-                :title="t('Click to add it or drag it onto the label')" @click="ed.agregar(tipo, extra)" @dragstart="arrastrar($event, tipo, extra)">
-          <Icono :nombre="icono" :tam="18" /><span>{{ texto }}</span>
-        </button>
-      </div>
-    </section>
-
     <section class="bib-campos">
-      <h3 class="bib-titulo">{{ t('Data fields') }}</h3>
       <p class="ayuda">{{ textoEnSeleccion ? t('A text is selected: the field is inserted in it.') : t('Click to add, or drag onto the label.') }}</p>
-      <label class="buscador bib-buscar"><Icono nombre="buscar" :tam="15" />
+      <label class="buscador bib-buscar" @click.stop><Icono nombre="buscar" :tam="15" />
         <input v-model="q" type="search" :placeholder="t('Search field')" :aria-label="t('Search field')" /></label>
 
       <div v-if="habituales.length && !q" class="bib-grupo">
@@ -114,14 +89,10 @@ const textoEnSeleccion = computed(() => ed.unico.value?.tipo === 'texto')
 
 <style scoped>
 .biblioteca { display: flex; flex-direction: column; gap: 14px; }
-.bib-titulo { margin: 0 0 8px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
-.bib-elementos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-.bib-elemento { display: flex; align-items: center; gap: 7px; padding: 7px 8px; border: 1px solid var(--linea); border-radius: 8px; background: var(--superficie);
-  color: var(--tinta-2); font-size: 0.8rem; cursor: grab; text-align: left; }
-.bib-elemento:hover:not(:disabled) { border-color: var(--acento-medio); background: var(--acento-claro); color: var(--acento-texto); }
-.bib-elemento:disabled, .bib-campo:disabled { opacity: 0.55; cursor: default; }
+.bib-campo:disabled { opacity: 0.55; cursor: default; }
 .bib-campos .ayuda { margin: -4px 0 8px; font-size: 0.76rem; }
-.bib-buscar { width: 100%; margin-bottom: 6px; }
+.bib-buscar { width: 100%; max-width: 100%; box-sizing: border-box; margin-bottom: 6px; }
+.bib-buscar input { min-width: 0; width: 100%; }
 .bib-grupo { display: flex; flex-direction: column; margin-bottom: 4px; }
 .bib-grupo-titulo { display: flex; align-items: center; gap: 4px; padding: 6px 2px; border: 0; background: none; font-size: 0.8rem; font-weight: 600;
   color: var(--tinta); cursor: pointer; text-align: left; }

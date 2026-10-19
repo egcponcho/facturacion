@@ -1,299 +1,440 @@
 # Módulo de etiquetado
 
-> Reglas declarativas, campos lógicos, subfamilias, tablas, códigos compuestos y
-> trabajos de etiquetado (asistente único): ver `docs/ETIQUETADO_REDISENO.md`.
-
 Diseño, versionado, aprobación y generación de etiquetas con datos reales de
-artículos, órdenes de compra y bultos. Este documento es la entrega del
-módulo: arquitectura, base de datos, componentes, endpoints, reglas,
-formatos, pruebas ejecutadas y limitaciones conocidas.
+artículos, órdenes de compra, listas de empaque y bultos. Este documento es
+el manual del módulo tal como está hoy: conceptos, base de datos, pantallas,
+endpoints, cómo se elige el diseño, versiones, formatos, pruebas ejecutadas y
+limitaciones.
 
-## 1. Arquitectura
+La propuesta que llevó a este modelo y su registro de errores corregidos está
+en `docs/ETIQUETADO_EVALUACION.md` (revisión 2, §7 y §17).
+`docs/ETIQUETADO_REDISENO.md` describe la etapa anterior (reglas con
+prioridad numérica) y queda como historial.
 
-### Principios
+## 1. Conceptos
 
-- **Sin duplicar datos maestros.** Una etiqueta referencia el origen de sus
-  datos (artículo, línea de OC, OC, bulto) y los lee al generar; nunca copia
-  la ficha del producto. El artículo solo gana una referencia a su familia de
-  etiquetado. Solo la instantánea de los valores usados queda en el historial.
-- **Familia de etiquetado ≠ clasificación arancelaria.** Son catálogos y
-  reglas separados; asignar una familia de etiquetado no toca la partida.
-- **Un solo motor de dibujo en el servidor.** El mismo diseño produce PDF,
-  SVG y PNG con las mismas fuentes (Liberation Sans, Serif y Mono, incluidas
-  en `backend/app/data/fuentes`, licencia SIL OFL 1.1) y las mismas medidas.
-  El editor del navegador carga esas mismas fuentes; los códigos de barras y
-  QR del lienzo, y la vista previa exacta, los dibuja el servidor.
-- **Versiones inmutables una vez aprobadas.** Cada lote guarda la versión
-  exacta y la instantánea de los valores: volver a descargar un lote produce
-  el mismo archivo (se comprueba con la huella SHA-256) aunque el diseño o
-  los datos cambien después.
+| Concepto | Qué es |
+|---|---|
+| **Tipo de etiqueta** | Lo que la empresa imprime: colgante, sticker de precio, etiqueta de caja, hoja de contenido… Cada uno dice **qué se etiqueta** (sujeto: `ARTICULO`, `BULTO` o `DOCUMENTO`), **cuántas salen** (`POR_UNIDAD`, `POR_LINEA`, `POR_ARTICULO`, `POR_BULTO`, `POR_DOCUMENTO` o `MANUAL`) y si es **obligatoria** (todo registro debe tener diseño para imprimir). Cada empresa crea los suyos. |
+| **Diseño** | Una plantilla de un tipo, con versiones que se aprueban. El editor ofrece solo los datos del sujeto de su tipo. |
+| **Familia de etiquetado** | Agrupa artículos para darles el mismo diseño. Se asigna al **producto** (estilo-color; la heredan sus tallas), al **grupo de artículos** o a una **talla**. Puede tener subfamilias, que heredan sus diseños y campos obligatorios. |
+| **Categoría de etiquetado** | Dentro de una familia (calzado → sandalias, prepacks…). Se reconoce por **condiciones** sobre los datos del artículo y del producto, o se pone **a mano** en el producto. Es más específica que su familia y más general que el producto. Ver §12. |
+| **Uso de diseño (regla)** | Dice qué lleva un lugar. Un lugar es una **celda**: tipo × nivel × destino. Los niveles son toda la empresa (`GENERAL`), `FAMILIA`, `CATEGORIA`, `PRODUCTO`, una talla (`SKU`) y, para bultos, el `TIPO_EMPAQUE`. Cada celda tiene a lo sumo una **regla normal** y las **excepciones** que haga falta. Cada regla dice si la etiqueta **va (con qué diseño) o no va**, y puede cambiar **dónde va** y **cuántas** salen (§12). |
+| **Excepción** | Un diseño distinto en una celda cuando se cumple algo: la OC es X (`OC`), el centro de destino (`CENTRO_DESTINO`), el país de destino (`PAIS_DESTINO`), la sociedad compradora (`SOCIEDAD`), el proveedor (`PROVEEDOR`) o condiciones sobre los datos (`CONDICION`), con vigencia opcional y motivo. |
+| **Trabajo de etiquetado** | El único camino para generar: se crea desde una OC, una lista de empaque, unos artículos o una familia; se revisa, se corrige y se genera en ejecuciones. |
 
-### Capas
+**El artículo es el sujeto; el origen solo aporta contexto.** Un mismo SKU
+recibe el mismo diseño venga de una OC, de una lista de empaque o de una
+selección de artículos, salvo una excepción explícita.
 
-```
-Vue (frontend/src/modulos/etiquetado)
-  vistas/  EtiquetasView · EditorEtiquetaView · GenerarEtiquetasView
-  editor/  estado.js (selección, deshacer, alinear, capas) · LienzoEtiqueta
-           ElementoSvg · BibliotecaCampos · CapasEtiqueta · PanelElemento
-           PanelEtiqueta · VistaPrevia · VersionesEtiqueta · Medida · CampoColor
-  componentes/  ListaPlantillas · FamiliasEtiquetado · ArticulosFamilia
-           AsignacionesEtiqueta · HistorialEtiquetas · EtiquetadoProducto
-        │  JSON (/api/etiquetas/…)
-FastAPI (backend/app/modulos/etiquetado)
-  api.py          rutas y permisos
-  familias.py     familias y familia de cada artículo
-  plantillas.py   plantillas, versiones, aprobación, bitácora, imágenes
-  asignaciones.py dónde se aplica cada diseño y la resolución por prioridad
-  campos.py       catálogo de campos (origen tabla.columna) y valores reales
-  datos.py        carga con alcance (proveedor solo ve lo suyo)
-  diseno.py       esquema validado del diseño (pydantic)
-  render.py       composición: texto, formato, condiciones, códigos, límites
-  codigos.py      barras y QR (reportlab) · salidas.py PDF / SVG / PNG
-  previa.py       vista previa y miniaturas · generacion.py plan, lotes, ZIP
-        │
-PostgreSQL (RLS por organización) / SQLite en pruebas
-```
+### Cómo se elige el diseño (escalera)
 
-### Familias: grupos de artículos y artículos específicos
+Para un registro (un artículo, un bulto o un documento) y un tipo:
 
-Un **grupo de artículos** (Datos maestros → Categorías) pertenece a una
-familia de etiquetado y todos sus artículos la heredan. Un **artículo**
-puede tener su familia propia, que manda sobre la del grupo. La familia
-efectiva (propia o del grupo) es la que usan la prioridad de diseños, los
-datos `articulo.familia*`, los datos obligatorios de la familia, los conteos
-y los filtros. Desde el panel de la familia se agregan varios grupos a la
-vez (búsqueda, «todos los mostrados», aviso si pasan de otra familia) y la
-pestaña Artículos asigna artículos específicos en bloque.
+1. Si hay una **excepción de la OC** del registro que aplica hoy, gana.
+2. Si no, se recorre de lo más específico a lo general: **talla → producto →
+   categoría → familia** (cada subfamilia antes que sus familias padre) →
+   **tipo de empaque** (bultos) → **toda la empresa**.
+3. En cada celda se miran sus excepciones en orden **centro, país,
+   sociedad, proveedor, condiciones**; dentro de la misma clase, la de
+   mayor **prioridad**; la primera que se cumple y está vigente gana. Si ninguna se cumple, se usa el **diseño normal** de la
+   celda.
+4. Una celda que solo tiene excepciones que no se cumplen no detiene la
+   búsqueda: sigue la de arriba.
+5. Si nada aplica: el tipo obligatorio da **error** («Sin diseño
+   (obligatoria)»); el opcional queda **omitido**.
 
-### Generación masiva (`/etiquetas/masiva`)
+Siempre se muestra por qué se eligió (`porque`: clase, nivel, excepción) y
+desde qué fila se hereda. Solo cuentan diseños activos con versión
+aprobada; en **modo prueba**, quien tiene `etiquetas.disenar` también usa la
+última versión sin aprobar (que no esté rechazada ni archivada).
 
-Asistente en cinco pasos: qué etiquetar → elegir → diseño → revisión →
-generar. Siempre con un diseño elegido por el usuario y su versión aprobada.
-
-| Origen | Qué se genera | Archivo |
-|---|---|---|
-| Órdenes de compra (las de una familia; «elegir todas las del filtro») | Un lote por OC. Diseño de OC y artículo: una etiqueta por **artículo distinto** de la familia en esa OC (un artículo repetido en varias líneas va una sola vez); diseño de OC: una por OC. | ZIP con **un PDF por OC**, una etiqueta por página con las medidas del diseño (o carpetas de PNG). |
-| Artículos (los de una familia; «elegir todos») | Un lote con N etiquetas por artículo. | **Un solo PDF**, una etiqueta por página (o las PNG en un ZIP). |
-| Lista de empaque | Una etiqueta por unidad del **nivel de empaque** elegido (tarima, caja, inner…), con tipo, código (C3, P1), empaque que la contiene, contenido (incluido lo de los empaques interiores), pesos y medidas. | Un PDF (o PNG en ZIP). |
-
-Si el diseño usa datos de la lista de empaque (`bulto.*`) y lo que se
-etiqueta no tiene lista de empaque, se avisa: el usuario puede continuar y
-esos campos salen vacíos (igual con cualquier dato que falte). Las OC con
-errores se pueden omitir para generar las demás. Accesos: botón «Generación
-masiva» en Etiquetas, «Generar etiquetas» en cada familia y «Etiquetas» en la
-lista de empaque.
-
-### Campos que se escriben al generar
-
-Además del texto libre, un diseño puede declarar campos que no están en el
-sistema (lote, temporada, destino…): nombre, valor por defecto y si es
-obligatorio. Se usan como cualquier campo o como `{{manual.clave}}` dentro de
-un texto; ambos asistentes los piden antes de generar y el valor queda en la
-instantánea del lote.
+Dos usos que podrían aplicar al mismo registro con el mismo peso no se pueden
+guardar (`celda_ocupada`, `excepcion_repetida`); la comprobación bloquea las
+filas de la celda para que dos personas no la crucen a la vez. La celda se
+guarda entera con su **firma**: si alguien la cambió mientras estaba abierta,
+el servidor responde 409 y la pantalla la vuelve a cargar.
 
 ## 2. Base de datos y migraciones
 
-Migración `0070_etiquetado` (reversible; probada ida y vuelta en SQLite y
-PostgreSQL con las 6 políticas RLS):
+Migración **`0076_etiquetado_tipos_y_usos`** (reversible; probada ida y
+vuelta en SQLite y PostgreSQL):
 
-| Tabla | Para qué |
+| Tabla / columna | Para qué |
 |---|---|
-| `familias_etiquetado` | Familias propias (código, nombre, descripción, orden, activa) con sus campos habituales y obligatorios (`[{campo, obligatorio}]`). |
-| `articulos.familia_etiquetado_id` | La familia de cada artículo (variante). |
-| `plantillas_etiqueta` | Nombre único, modalidad de datos (ARTICULO, OC, OC_ARTICULO), unidad (ORDEN, LINEA, UNIDAD, BULTO, MANUAL), familia, estado, versión vigente y origen si es copia. |
-| `versiones_plantilla` | Número, estado, diseño JSON validado, medidas, resumen de cambios, base, autor, envío, revisión, aprobación, comentario y control de concurrencia (`version`). |
-| `asignaciones_etiqueta` | Ámbito GENERAL, FAMILIA, PRODUCTO, ARTICULO u OC (con restricción de destino), predeterminada, activa y motivo (obligatorio en la excepción de OC). |
-| `generaciones_etiqueta` | Lote: OC, modalidad, unidad, formato, estado (GENERADA o PRUEBA), total, parámetros, advertencias aceptadas, archivo y SHA-256. |
-| `generacion_items` | Por grupo: plantilla y versión exactas, artículo, línea, familia, referencia, cantidad, valores usados y motivo de la elección. |
+| `tipos_etiqueta` | Tipos de la empresa: código único, nombre, descripción, sujeto, cantidad, obligatoria, orden, activo y `version` (concurrencia). |
+| `plantillas_etiqueta.tipo_etiqueta_id` | Reemplaza `modalidad`, `unidad` y `familia_id` del diseño. |
+| `usos_diseno` | Tipo, diseño, nivel y destino (`familia_id`, `producto_id`, `articulo_id`, `tipo_empaque_id`), `celda`, `contexto_tipo`, `contexto_valores`, `oc_id`, `condiciones`, vigencia, motivo, autor, baja lógica (`eliminado_en`) y `version`. Reemplaza `asignaciones_etiqueta`. |
+| `productos.familia_etiquetado_id` | Familia del producto (la heredan sus tallas sin familia propia). |
+| `trabajo_etiqueta_registros.tipo_etiqueta_id`, `uso_id` | Cada registro del trabajo es de un tipo y recuerda el uso que lo decidió (en lugar de `regla_id`). |
+| `generacion_items.tipo_etiqueta_id`, `pl_id`, `grupo_cajas_id`, `bulto_indice` | El tipo y la identidad del bulto: «ya impreso» ya no se cruza por el texto de la clave. |
+| `campos_etiqueta.sujetos` | Los campos propios de la empresa por sujeto (antes `modalidades`). |
+| Permiso `etiquetas.asignar` → `etiquetas.configurar` | Mismo alcance, nombre nuevo. |
 
-Migración `0071_etiquetado_masivo` (reversible; probada en SQLite y
-PostgreSQL): `grupos_articulos.familia_etiquetado_id` (con su llave de
-coherencia), `generaciones_etiqueta.pl_id` y `lote`, y la unidad `ARTICULO`
-en `plantillas_etiqueta`. Las variables del diseño van en el JSON de la
-versión (`variables`), sin tabla propia.
+**Conversión de los datos existentes (opción A, automática con informe):**
+cada combinación (modalidad, unidad) de los diseños se convierte en un tipo;
+cada regla en un uso (GENERAL, FAMILIA, PRODUCTO, ARTICULO → su nivel; OC →
+excepción de esa OC; reglas con condiciones o vigencia → excepción por
+condición). Si en una celda quedaban varios diseños normales sigue el de mayor
+prioridad (luego el predeterminado, luego el más antiguo) y los demás quedan
+dados de baja. Cada conversión queda en el historial (entidad `uso_diseno`,
+acción `migrar`) con la regla original y qué pasó con ella. El downgrade
+vuelve a crear `asignaciones_etiqueta` (con sus restricciones e índices de
+0075) con una regla por uso vigente; los tipos, los usos dados de baja y la
+familia de los productos se pierden.
 
-Todas llevan `organizacion_id`, política RLS y llaves de coherencia
-`fk_<tabla>_<col>_org` (declaradas en `app/modelos/referencias.py`). La
-migración también da los permisos a los roles de fábrica. Los elementos del
-diseño no tienen tabla propia: son una lista tipada dentro de la versión.
+Siguen de antes: `familias_etiquetado` (con `padre_id`), `versiones_plantilla`,
+`generaciones_etiqueta`, `generacion_items`, `trabajos_etiqueta` y
+`trabajo_etiqueta_registros` (0070–0075). Todas llevan `organizacion_id`,
+política RLS y llaves de coherencia `fk_<tabla>_<col>_org`.
 
-## 3. Componentes de la interfaz
+Después: **0077** (revisión del módulo), **0078** (anular y reimprimir con
+motivo) y **0079** `tipos_etiqueta_empaques` (en qué tipos de empaque va un
+tipo de etiqueta de bulto; tabla nueva y vacía, con RLS y llaves de
+coherencia; no convierte datos). Probada ida y vuelta y sobre la base de
+demostración existente.
 
-- **Etiquetas** (`/etiquetas`): pestañas Diseños (tarjetas con miniatura,
-  versión en uso y la que está en curso), Familias de etiquetado, Artículos
-  (familia de cada variante, asignación en bloque), Dónde se aplica cada
-  diseño (con el probador «¿Qué diseño se usaría?») y Etiquetas generadas.
-- **Editor** (`/etiquetas/plantillas/:id`): lienzo a escala en mm con reglas,
-  cuadrícula, margen seguro, zoom y desplazamiento; mover, cambiar tamaño y
-  girar con guías inteligentes y ajuste a la cuadrícula (Alt lo desactiva);
-  selección por marco, alinear, distribuir, igualar, agrupar, capas (orden,
-  ocultar, bloquear, renombrar), copiar, pegar, duplicar, deshacer y rehacer
-  (100 pasos), edición del texto sobre la etiqueta y atajos de teclado (`?`).
-  Biblioteca de elementos y de campos reales por grupo con su origen y un
-  ejemplo, con los habituales de la familia arriba. Paneles de propiedades
-  del elemento (estilo del texto, formato del valor, qué hacer si está vacío,
-  condición para mostrarlo, códigos, imágenes, formas) y de la etiqueta
-  (medidas y unidad mm/cm/in, orientación, margen seguro, fondo, borde,
-  resolución, cuadrícula, impresión en hoja). Vista previa exacta con datos
-  de ejemplo o reales (artículo, OC, línea, bulto) y lista de problemas que
-  también se marcan en el lienzo. Barra de versión con guardado (control de
-  concurrencia), envío, aprobación y rechazo con comentario, versión nueva,
-  volver a una versión anterior, comparación visual y bitácora.
-- **Generar** (`/etiquetas/generar?oc=ID` o `?articulo=ID`): asistente en
-  cuatro pasos (origen, qué etiquetar, revisión del plan, formato) con
-  descarga y enlace al historial. Botón **Etiquetas** en la OC.
-- **Ficha del producto**: pestaña **Etiquetas** con la familia y el diseño
-  que usa cada variante, la vista previa y el acceso a generar.
+**0080** `etiquetado_motor_reglas` (aditiva, no convierte datos): tabla
+`categorias_etiquetado` (familia, código, nombre, condiciones, orden,
+activa; RLS y llaves de coherencia), `productos.categoria_etiquetado_id`
+(categoría puesta a mano), `tipos_etiqueta.alcance` (dónde va por defecto)
+y, en `usos_diseno`, `categoria_id`, `accion` (`USAR` o `NO_LLEVA`;
+`plantilla_id` pasa a ser opcional solo para `NO_LLEVA`), `alcance`,
+`cantidad` y `prioridad` (0 por defecto). Las reglas existentes quedan
+igual (`USAR`, sin alcance ni cantidad propios, prioridad 0) y se
+comportan como antes. El downgrade se niega si ya hay reglas de categoría
+o «no lleva», para no perderlas en silencio. Probada en base nueva
+(`alembic check`), ida y vuelta, y sobre una copia de la base de
+demostración.
+
+## 3. Pantallas
+
+Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**):
+
+- **Imprimir** (`/etiquetas`): trabajos de etiquetado (abiertos y
+  generados) y «Nuevo trabajo». Si la empresa no tiene tipos, el asistente
+  de **primer uso** pregunta qué etiquetas imprime (sugeridos u otro),
+  cómo agrupa sus artículos (por grupo de artículos → una familia por grupo,
+  por producto, o una sola etiqueta para todo) y crea los tipos, las
+  familias y un diseño en blanco de cada tipo para toda la empresa.
+- **Diseños** (`/etiquetas/disenos`): diseños agrupados por tipo, con
+  miniatura, versión, «Se usa en: …» y crear (tipo, tamaño del catálogo, en
+  blanco o copia de otro). Archivar avisa qué lugares dejan de usarlo.
+  El editor está en `/etiquetas/disenos/:id`.
+- **Configuración** (`/etiquetas/configuracion?paso=…`): una **guía en orden**,
+  sin pestañas. Cada paso muestra si está listo o qué le falta, calculado de
+  los datos reales, y abre en el primero que falta; abajo, «Siguiente: …».
+  1. **Tipos de etiqueta** (y las medidas de la empresa). Sin tipos, el
+     asistente de primer uso aparece aquí mismo, en la página.
+  2. **Familias y artículos**: árbol de familias a la izquierda; a la derecha
+     la ficha de la elegida (ruta, conteos, «Sus etiquetas» por tipo, editar
+     y un menú ⋯) y lo que pertenece a ella. «Agregar a esta familia» está
+     **arriba** de la lista; lo elegido se asigna con la **barra flotante**
+     (poner aquí, mover a otra, quitar). «Nueva familia» y «Configurar paso a
+     paso» abren el asistente de familia.
+  3. **Diseños**: por tipo, cuántos diseños aprobados tiene, sus miniaturas y
+     «Nuevo diseño» (abre Diseños con `?nuevo=<tipo>`).
+  4. **Qué diseño va en qué**: la **matriz** (filas: toda la empresa, familias
+     y subfamilias; columnas: tipos) con cobertura. Una celda se abre **en la
+     misma página**, en lugar de la matriz: diseño normal, excepciones como
+     frase, **qué cambia al guardar** y «aplicar también a» otras celdas.
+  5. **Nombres y origen de los campos** (opcional).
+  6. **Revisar e historial**.
+
+  Las direcciones anteriores (`?vista=familias`, `?vista=historial`…) llevan
+  al paso que corresponde. A la izquierda (o arriba en pantallas medianas)
+  aparecen **Tus borradores**.
+- **Asistente de familia** (`/etiquetas/configuracion/familia/:id`, o
+  `nueva`): 1 datos → 2 qué entra (productos, grupos o tallas, elegidos en
+  varias páginas y búsquedas; se ven arriba y en la barra flotante) → 3 su
+  diseño por tipo (heredar, con lo que heredaría, o uno propio) → 4 revisar.
+  **Nada se aplica mientras se avanza**: «Terminar y aplicar» lo hace de una
+  vez (`POST /familias/configurar`, todo o nada) y «Guardar borrador y salir»
+  lo deja como **borrador personal** (preferencias del usuario, sin tabla
+  nueva) que se retoma desde la guía o se descarta.
+- **Ficha del producto**, pestaña **Etiquetas**: la familia del producto,
+  qué diseño usa cada tipo (y por qué), «usar otro diseño para este
+  producto» (todo el producto o algunas tallas) y «volver a heredar».
+- **OC y lista de empaque**, botón **Etiquetas**: un panel con las etiquetas
+  de cada tipo, cuántas salen y qué falta; «Diseño especial para esta OC»
+  (se llena dentro del mismo panel; crea la excepción con motivo),
+  **Imprimir** e **Imprimir prueba**. En la OC se pueden elegir **líneas**
+  y «Etiquetas de estas líneas» (barra flotante) abre el trabajo solo con
+  esas posiciones.
+- **Asistente de trabajo** (`/etiquetas/trabajos/:id`), tres pasos:
+  1. **Qué**: origen, selección (OC completa o **posiciones elegidas**,
+     lista de empaque y **qué empaques llevan etiqueta** —varios niveles a la
+     vez: exteriores, cajas, inners, pallets—, artículos, familia), tipos a
+     imprimir con su conteo y modo Real/Prueba.
+  2. **Revisar**: problemas agrupados por causa con su arreglo («Elegir
+     diseño» lo usa solo en este trabajo o lo guarda como regla para los
+     siguientes; «Completar el dato» escribe en el maestro del artículo el
+     UPC, SKU del proveedor, peso o unidad que falta, un valor por
+     artículo), datos que pide el diseño, una pestaña por tipo con la
+     **cantidad siempre editable** (y en bloque desde la barra flotante) y
+     vista previa con anterior/siguiente. Los formularios amplios
+     (elegir diseño, completar datos, reimprimir) se abren debajo de su fila,
+     no en ventanas.
+  3. **Generar**: archivo de cada ejecución, contenido y reparto del ZIP,
+     ejecuciones, marcar como impresas, **reimprimir** (copias idénticas de
+     todo o de grupos y rangos, con motivo) y **anular** (con motivo: sus
+     registros vuelven a pendientes) y «Nuevo trabajo, igual». Si lo que se
+     va a imprimir cambió desde la revisión (un SKU, el contenido de una
+     caja, el diseño), generar avisa con cada cambio (409 `datos_cambiaron`)
+     antes de imprimir: revisar de nuevo o generar con los datos nuevos.
+
+  Desde la OC: `?origen=OC&oc=…&tipos=…&prueba=1` crea el trabajo y entra
+  directo a Revisar. Las rutas anteriores (`/etiquetas?vista=…`,
+  `/etiquetas/plantillas/:id`, `/etiquetas/generar`, `/etiquetas/masiva`)
+  llevan a su lugar nuevo.
 
 ## 4. Endpoints (`/api/etiquetas`, etiqueta «Etiquetado» en `/docs`)
 
 | Método y ruta | Uso |
 |---|---|
-| `GET /campos?modalidad=` | Campos por grupo con origen y ejemplo. |
-| `GET, POST /familias` · `PUT /familias/orden` · `PATCH, DELETE /familias/{id}` | Familias (no se borra una en uso: se desactiva). |
-| `GET /articulos` (q, familia, marca_id, grupo_id, producto_id, ids) · `POST /articulos/familia` | Familia de los artículos (elegidos o todos los del filtro). |
-| `GET, POST /plantillas` · `GET, PATCH /plantillas/{id}` | Diseños. |
-| `POST /plantillas/{id}/duplicar · /archivar · /reactivar · /versiones` | Copia independiente, archivo, versión nueva. |
-| `GET /plantillas/{id}/bitacora` | Quién hizo qué, con fecha y motivo. |
-| `GET /versiones/{id}` · `PUT /versiones/{id}/diseno` | Leer y guardar un borrador (con `version`). |
-| `POST /versiones/{id}/{enviar·retirar·aprobar·rechazar·archivar·usar}` | Flujo de aprobación. |
-| `GET /versiones/{id}/miniatura.svg` · `POST /vista-previa` | Miniatura y vista previa exacta con problemas. |
-| `GET, POST /asignaciones` · `PATCH, DELETE /asignaciones/{id}` · `GET /resolver` | Dónde se aplica y qué diseño se usaría. |
+| `GET /catalogos` · `PUT /tamanos` | Sujetos con sus cantidades, niveles por sujeto, contextos y su orden, operadores de condición, simbologías, medidas de etiqueta, tipos sugeridos y orígenes; medidas propias de la empresa. |
+| `GET, POST /tipos` · `PATCH /tipos/{id}` · `POST /tipos/sugeridos` | Tipos de etiqueta (`todos=true` suma los inactivos); el sujeto no cambia si el tipo ya tiene diseños; `empaques` (ids de tipo de empaque, solo bultos; vacío = todos). |
+| `GET /matriz` · `GET /celda` | La matriz con cobertura y una celda con su firma, lo que hereda y cuántos artículos tiene. |
+| `PUT /usos/celda` · `POST /usos/simular` · `POST /usos/lote` | Guardar la celda entera (con `firma`), «qué cambia» sin guardar, la misma excepción en varias celdas. |
+| `GET, POST /usos` · `PATCH /usos/{id}` · `POST /usos/{id}/baja` · `GET /usos/{id}/historial` · `GET /usos/valores?contexto=` | Usos sueltos (desde el producto, la OC o el asistente), baja lógica con motivo, historial y valores para las excepciones. |
+| `GET /resolver` · `GET /resumen` | Qué diseño lleva un artículo, bulto o documento y por qué; resumen de etiquetas de una OC o lista de empaque. |
+| `GET, POST /familias` · `PUT /familias/orden` · `PATCH, DELETE /familias/{id}` · `POST /familias/desde-grupos` | Familias (no se borra una en uso: se desactiva). |
+| `GET /articulos` · `POST /articulos/familia` · `GET /productos` · `GET /productos/{id}` · `POST /productos/familia` · `GET /grupos-articulos` · `POST /grupos-articulos/familia` | Familia de tallas, productos y grupos (en bloque); pestaña Etiquetas del producto. |
+| `GET /campos?sujeto=` · `GET, POST /campos-logicos` · `PATCH, DELETE /campos-logicos/{id}` | Campos por grupo con origen y ejemplo; campos propios. |
+| `GET, POST /plantillas` · `GET, PATCH /plantillas/{id}` · `POST /plantillas/{id}/duplicar · archivar · reactivar · versiones` · `GET /plantillas/{id}/bitacora` | Diseños. |
+| `GET /versiones/{id}` · `PUT /versiones/{id}/diseno` · `POST /versiones/{id}/{enviar·retirar·aprobar·rechazar·archivar·usar}` · `GET /versiones/{id}/miniatura.svg` · `POST /vista-previa` | Versiones, aprobación y vista previa exacta. |
+| `GET, POST /trabajos` · `GET, PATCH /trabajos/{id}` · `POST /trabajos/{id}/validar · generar · cancelar` · `GET /trabajos/{id}/estado · archivo` · `GET /trabajos/{id}/registros/{r}/vista-previa` | Trabajos de etiquetado (el único camino de generación). |
+| `GET /generaciones` · `GET /generaciones/{id}` · `GET /generaciones/{id}/archivo` · `POST /generaciones/{id}/impresion` | Historial de lo generado, descarga reproducible (`X-Identico`) y marca de impresión. |
+| `POST /generaciones/{id}/reimprimir` · `POST /generaciones/{id}/anular` | Reimpresión con motivo (todo o `seleccion` [{item_id, desde, hasta}]) y anulación con motivo. |
+| `POST /familias/configurar` | Termina el asistente de una familia en una operación: `familia` (con `id` si existe), `productos`, `grupos`, `articulos` e ids, `disenos` [{tipo_etiqueta_id, plantilla_id\|null}]. |
+| `GET /api/perfil/borradores?prefijo=` · `PUT, DELETE /api/perfil/borradores/{clave}` | Borradores personales de los asistentes ({titulo, datos}; hasta 30 de 100 KB). No viajan en `/auth/me`. |
+| `GET /usos/migracion` | Cómo quedaron las reglas anteriores al convertirse en usos (migración 0076). |
+| `GET /ordenes` · `GET /packing` · `GET /packing/{id}` | Listados para elegir en el asistente. |
 | `POST /imagenes` · `GET /imagenes/{id}` · `GET /fuentes/{archivo}` | Logos del diseño y fuentes del editor. |
-| `GET /oc/{id}` · `POST /plan` | Resumen de la OC y plan de generación. |
-| `GET /grupos-articulos` · `POST /grupos-articulos/familia` | Grupos de artículos con su familia; asignar varios a la vez. |
-| `GET /masivo/ordenes` (familia_id, q, estado, solo_ids) | OC con artículos de la familia: líneas, artículos distintos, bultos y lotes ya generados. |
-| `GET /masivo/packing` · `GET /masivo/packing/{id}` | Listas de empaque y sus niveles de empaque con cuántas unidades tiene cada uno. |
-| `POST /masivo/plan` · `POST /masivo` · `GET /masivo/{lote}/archivo?formato=` | Plan, generación y descarga de la generación masiva. |
-| `POST, GET /generaciones` · `GET /generaciones/{id}` · `GET /generaciones/{id}/archivo?formato=` | Generar, historial y descarga reproducible (encabezado `X-Identico`). |
 
-## 5. Reglas de prioridad
+Se retiraron: `/asignaciones`, `/plan`, `/oc/{id}`, `POST /generaciones`,
+`/masivo*` y el generador directo; todo pasa por los trabajos.
 
-Para una modalidad y un artículo (o una OC):
+## 5. Generación
 
-1. Excepción asignada a la OC (con motivo obligatorio).
-2. Asignada al artículo (variante).
-3. Asignada al producto (estilo: todas sus variantes).
-4. De la familia de etiquetado del artículo.
-5. General de la organización.
-
-Solo cuentan plantillas activas con una versión aprobada vigente y de la
-misma modalidad. En el primer nivel con candidatas: una → se usa; varias →
-la marcada como predeterminada; si aun así hay empate, el usuario elige en la
-revisión. Siempre se muestran el diseño, la familia, la versión y el motivo
-(«Asignado al artículo …», «Diseño de la familia …»…). Se advierte si el
-artículo no tiene familia o si el diseño es de otra familia, y la familia
-puede exigir datos obligatorios (error si faltan).
+- Claves de registro estables: `oc{id}:t{tipo}-p{posición}` (artículos de
+  una OC), `pl{id}:t{tipo}-pl{línea}-g{grupo}-u{bulto}` (bultos) y
+  equivalentes para documentos. Cantidades y diseños elegidos en el trabajo
+  se guardan por esa clave.
+- Desde **artículos sueltos**, la cantidad escrita cuenta solo en los tipos
+  `POR_UNIDAD` y `MANUAL`; `POR_LINEA` y `POR_ARTICULO` dan una.
+- Desde una lista de empaque, `niveles` (lista: `0` = bultos exteriores, o
+  ids de tipo de empaque) imprime varios niveles en un mismo trabajo; cada
+  unidad física sale una vez aunque esté en dos niveles elegidos. Sigue
+  aceptándose `tipo_empaque_id` (un nivel) de los trabajos anteriores.
+- Una lista de empaque en **borrador** solo da etiquetas de prueba
+  (regla `ETIQUETAS_PL_SIN_FINALIZAR` para permitir reales).
+- Un bulto con varios artículos deja vacíos los campos del artículo y lo
+  avisa: el contenido completo está en `bulto.lineas` y `bulto.componentes`;
+  `bulto.mixto` y `bulto.parcial` son sí/no reales.
+- Empaques interiores que no se reparten en partes iguales: cada unidad se
+  calcula por separado, sin fracciones. `ETIQUETAS_VALIDAR_EMPAQUE` decide si
+  se avisa cuando la lista de empaque difiere del casepack o inner de la OC.
+- La fecha de la etiqueta es la de la empresa (zona horaria de la
+  organización), no la del servidor.
+- Límites por regla de empresa: `ETIQUETAS_MAXIMO_TRABAJO`,
+  `ETIQUETAS_ASINCRONO_DESDE` (en segundo plano con arriendo y latido),
+  `ETIQUETAS_GENERACION_PARCIAL` y `ETIQUETAS_CUATRO_OJOS`.
+- Generar sin nada pendiente: 409 `ya_generado` si algo ya se generó; si
+  no, 422 «No hay nada que generar en este trabajo de etiquetado».
 
 ## 6. Versiones y aprobación
 
-1. Una plantilla nace con la versión 1 en borrador.
+1. Un diseño nace con la versión 1 en borrador.
 2. Un borrador (o una versión rechazada) se guarda cuantas veces haga falta;
    el servidor rechaza un guardado sobre una versión que otra persona cambió.
 3. Solo se envía un borrador sin errores; mientras espera aprobación no se
    edita (se puede retirar).
 4. Aprobar o rechazar requiere `etiquetas.aprobar`; el rechazo lleva
-   comentario. Con la regla `ETIQUETAS_CUATRO_OJOS` quien creó o envió la
-   versión no la aprueba.
+   comentario. Con `ETIQUETAS_CUATRO_OJOS` quien creó o envió la versión no
+   la aprueba.
 5. Una versión aprobada no cambia nunca: los cambios van en una versión nueva
-   basada en ella, que no reemplaza a la vigente hasta aprobarse.
-6. Hay a lo sumo una versión abierta por plantilla.
-7. Una versión aprobada anterior (aunque esté archivada) puede volver a
-   usarse sin borrar las demás; la vigente no se archiva.
-8. Cada acción (crear, guardar, enviar, retirar, aprobar, rechazar, archivar,
-   usar, nueva versión, editar datos, duplicar) queda en la bitácora con su
-   autor, fecha y motivo.
+   que no reemplaza a la vigente hasta aprobarse.
+6. Hay a lo sumo una versión abierta por diseño.
+7. Una versión aprobada anterior puede volver a usarse.
+8. Cada acción queda en la bitácora con autor, fecha y motivo.
 9. Lo ya generado no cambia: cada lote guarda la versión y los valores.
+10. Un diseño en uso solo cambia de tipo a otro del mismo sujeto.
 
 ## 7. Formatos
 
-- **PDF** (reportlab, sin escalado de impresión, determinista): una etiqueta
-  por página o varias por hoja con columnas, filas, márgenes y separación.
-- **PNG** (Pillow) a la resolución del diseño (203, 300 o 600 dpi); varias
-  etiquetas van en un ZIP.
-- **SVG** con el texto convertido en trazos (fontTools): se ve igual sin las
-  fuentes instaladas.
-- **ZIP** con PDF, PNG y `lote.json` (datos del lote).
-- **Códigos**: Code 128, Code 39, EAN-13, EAN-8, UPC-A y QR (con corrección
-  L/M/Q/H), con validación del valor y del dígito verificador GS1, zona en
-  blanco, ancho mínimo de módulo y contraste. No se inventan identificadores:
-  el código usa el dato real del campo.
-- **ZPL no se implementó**: no hay impresora Zebra para comprobar que lo
-  impreso coincida con el PDF, y la regla del proyecto es no declarar algo
-  funcional sin probarlo. Las etiquetadoras térmicas imprimen el PDF a 203 o
-  300 dpi con la opción «una por página».
+- **PDF** (reportlab, determinista): una etiqueta por página o varias por
+  hoja; un único PDF no mezcla medidas distintas.
+- **PNG** (Pillow) a la resolución del diseño; **SVG** con el texto en
+  trazos. **ZIP** del trabajo: un PDF por diseño y versión, por carpeta,
+  uno solo, o un archivo por etiqueta (PNG y SVG siempre uno por archivo),
+  con carpetas (hasta 3 niveles), patrón de nombres y texto para «sin
+  valor» configurables.
+- **Códigos**: Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF-14, GS1-128 (con
+  identificadores de aplicación), SSCC (dígito verificador), QR,
+  DataMatrix, GS1 DataMatrix y PDF417. El catálogo lo sirve el servidor.
+- **Recuadro que se ajusta al contenido** (por elemento): medidas fijas, o
+  el recuadro sigue al texto con su tamaño de letra (ancho, alto con líneas,
+  o ambos) desde su alineación y hasta el área segura; la tabla crece con
+  sus filas y la imagen toma su proporción. Se recalcula con los datos de
+  cada etiqueta y el editor lo muestra en vivo. **Debajo de**: un elemento
+  sigue el borde inferior de otro (más una separación); si el de arriba crece,
+  baja; si no se imprime, sube a su lugar. Si con los datos reales dos
+  elementos que se leen se tapan, la vista previa y el trabajo avisan
+  (`elementos_encimados`), salvo los marcados «Puede ir encima de otros».
+- **Escrituras**: latín, griego y cirílico con Liberation; chino, árabe
+  (de derecha a izquierda, letras unidas) y devanagari con Noto y forma
+  HarfBuzz (`escritura.py`). En el PDF esas líneas van como contornos.
+- **Regional por diseño**: idioma de meses y sí/no (en, es, pt, fr, zh, ar, hi),
+  separador de miles y decimal, y patrón de fecha libre (`dd`, `d`, `mm`,
+  `mmm`, `mmmm`, `aa`, `aaaa`).
+- **Marca de prueba** traducida según el idioma del diseño.
+- **ZPL no se implementó** (no hay impresora para comprobarlo).
 
-## 8. Pruebas ejecutadas
+## 8. Datos de demostración
 
-Servidor (`pytest`): **615 pasan, 3 omitidas** en la suite completa; las del
-módulo son 41 en cinco archivos más las de traducción:
+`app/instalacion/demo_etiquetado.py`, creado con los mismos servicios que la
+pantalla: tipos Colgante (obligatorio), Sticker de precio, Etiqueta de caja
+(obligatoria) y Hoja de contenido de OC; familias Calzado (con la subfamilia
+Calzado técnico) y Ropa, puestas a un grupo de artículos, a un producto y a
+un producto concreto (la mochila queda sin familia y con diseño propio);
+diseños aprobados de cada tipo, uno con una versión nueva esperando
+aprobación; usos generales, por familia y por producto, una excepción por
+país de destino (Panamá → colgante bilingüe), una de OC (franja de pedido
+especial) y un uso dado de baja con su historial; y cinco trabajos de
+ejemplo (desde una OC ya generado, artículos sueltos en prueba, una lista de
+empaque validada, una familia en borrador y uno con un dato pendiente).
 
-- `test_etiquetado_familias.py` (4): alta, cambio, orden y desactivación;
-  asignación a artículos (elegidos, filtro, `ids`) sin tocar la
-  clasificación; permisos y proveedor; campos con origen por modalidad.
-- `test_etiquetado_familias.py` también prueba la familia por grupos de
-  artículos (varios a la vez, el artículo con familia propia la conserva,
-  conteos, prioridad y que una familia con grupos no se borra).
-- `test_etiquetado_masivo.py` (5): OC de una familia con un artículo
-  repetido en dos líneas (una sola etiqueta), ZIP con un PDF por OC y página
-  del tamaño del diseño, PNG; artículos de una familia en un solo PDF y en
-  PNG; lista de empaque con tarima y cajas (contenido de la tarima, código
-  del contenedor, numeración por nivel); aviso de datos de empaque vacíos que
-  pide confirmar; campos que se escriben al generar (obligatorio, valor por
-  defecto, valor en el PDF).
-- `test_etiquetado_render.py` (13): validación del diseño; PDF, PNG y SVG
-  con medidas, colores y fuentes reales; **lectura con zxing-cpp** de
-  Code 128, EAN-13, UPC-A, EAN-8, Code 39 y QR; códigos inválidos; texto
-  largo, vacío, condiciones y límites; formatos de número y fecha; hoja de
-  varias etiquetas y giro.
-- `test_etiquetado_plantillas.py` (7): ciclo completo de versiones con
-  concurrencia, permisos, rechazo con comentario, volver a una versión y
-  bitácora (también por la API); diseño con errores; cuatro ojos;
-  duplicación independiente; prioridad en los cinco niveles y desempate;
-  vista previa con datos de ejemplo y reales; imágenes.
-- `test_etiquetado_generacion.py` (11): sin plantilla aprobada no se genera;
-  por línea, unidad y cantidad manual; ZIP con PNG y SVG y código legible;
-  familia con dato obligatorio; advertencias y duplicados que piden
-  confirmar; unidad no contable; **reproducción de un lote histórico**
-  idéntica tras cambiar versión y datos; prueba con versión sin aprobar; por
-  bulto desde las listas de empaque; **lote de 2000 etiquetas** y tope;
-  alcance del proveedor.
+## 9. Pruebas ejecutadas
 
-Interfaz: ESLint sin observaciones; `npm run build` correcto; recorrido
-`npm run e2e` con administrador, interno y dos proveedores a 1440 px y
-390 px, incluidas las cinco pestañas de etiquetas, el asistente y el editor,
-**sin errores**. Además se probaron en el navegador, con capturas: mover,
-cambiar tamaño, girar, deshacer, selección por marco, agregar campos, capas,
-guardar, enviar, aprobar con comentario, versión nueva, comparar versiones,
-bitácora y la generación desde una OC con descarga del PDF.
+Ver la sección de entrega en `docs/ETIQUETADO_EVALUACION.md` (§17) con los
+comandos y resultados reales de esta versión. Archivos del módulo:
+`test_etiquetado_reglas.py` (escalera, celda con firma, simulación, lote,
+matriz, tipos, patrones), `_generacion`, `_trabajos` (incluye la migración
+0075 → 0076 → 0075 → 0076 con datos), `_contenido`, `_durable`, `_familias`,
+`_integracion`, `_origenes`, `_plantillas` y `_render`; en el navegador
+`frontend/e2e/etiquetado.mjs` y el recorrido general `frontend/e2e/recorrido.mjs`.
 
-## 9. Limitaciones conocidas
+## 10. Limitaciones conocidas
 
-- **Plantillas por organización.** Cada empresa diseña las suyas (RLS); no
-  hay plantillas del sistema compartidas entre organizaciones.
-- **Lotes** de hasta `ETIQUETAS_MAXIMO_LOTE` (5000) etiquetas por pedido
-  directo; los trabajos de etiquetado generan en segundo plano desde
-  `ETIQUETAS_ASINCRONO_DESDE` (ver ETIQUETADO_REDISENO.md §10.5).
-- **Empaques con contenido mixto**: la etiqueta de OC y artículo toma los
-  datos del primer artículo del empaque (y lo avisa); el contenido completo
-  está en las tablas `bulto.lineas` y `bulto.componentes`.
-- **Generación masiva** (API anterior): hasta 200 OC y 2000 artículos por
-  vez, síncrona; la pantalla usa ahora el asistente de trabajos.
-- **Idioma**: un diseño tiene un solo juego de textos fijos; no hay
-  plantillas con variantes por idioma.
-- **Editor**: en el lienzo el texto se mide con las mismas fuentes que el
-  servidor, pero la referencia es la vista previa del servidor. Quien no
-  diseña ve en el lienzo el dibujo del servidor. Una línea girada se ajusta
-  desde el panel, no con sus extremos.
-- **Formatos**: sin ZPL ni EPL (ver §7); sin GS1-128 con identificadores de
-  aplicación ni DataMatrix.
+La lista completa de deficiencias y sugerencias, con prioridad, está en
+`docs/ETIQUETADO_EVALUACION.md` §18.
+
+- **Escrituras**: sin coreano, hebreo ni tailandés; el orden bidireccional
+  es básico (sin espejar paréntesis); no se suben fuentes propias.
+- **Recuadros automáticos**: «Debajo de» mueve un elemento en vertical; no
+  hay flujo horizontal ni aviso de solapamiento.
+- **Completar**: solo cuatro datos del artículo; lo demás se corrige donde se
+  origina.
+- **Escalera fija**: el orden de niveles y de excepciones no se configura
+  por empresa (decisión D3).
 - **Imágenes**: PNG, JPEG o WebP de hasta 2 MB y 4000 px.
-- **Familias**: los campos obligatorios se comprueban con los datos del
-  artículo y del producto; no hay reglas condicionales entre campos.
+- **Borradores**: son personales; otra persona no ve ni continúa el borrador
+  de una familia.
+
+## 11. Niveles de empaque: análisis y propuesta
+
+**Cómo está hoy.** La lista de empaque es un árbol de empaques de tipos que
+define cada empresa (`TipoEmpaque`: inner, caja, pallet, bolsa, tambor…, con
+nivel, prefijo, `cuenta_como` BULTO/INTERIOR/SOPORTE e identificador
+SERIAL/SSCC). Las etiquetas de sujeto **Bulto** se resuelven con la fila del
+tipo de empaque en la matriz («Qué diseño va en qué» → Bultos) y, si no hay,
+con la de toda la empresa. Los datos de la OC y de la lista (número de PL,
+caja n de N, contenedor, pesos, medidas, contenido, mixto/parcial) ya están
+como campos `bulto.*`, `oc.*` y `linea.*`; lo específico de una OC se cubre
+con excepciones por OC, cliente o destino.
+
+**Lo que se hizo.**
+
+- Un trabajo puede imprimir **varios niveles a la vez** (cajas + pallets + inners).
+- Cada tipo de etiqueta de bulto dice **en qué empaques va** («Va en», tabla
+  `tipos_etiqueta_empaques`, migración **0079**; sin filas = en todos, como
+  antes, así que nada existente cambió):
+  - la generación solo crea etiquetas de ese tipo en esos empaques;
+  - en la matriz de bultos, las celdas de los otros empaques dicen «No va
+    aquí» (ni heredan ni cuentan como faltantes) y no admiten diseño;
+  - no se puede quitar un empaque que ya tiene un diseño de ese tipo (se
+    quita primero en la matriz);
+  - `GET /resolver` de un bulto omite los tipos que no van en su empaque;
+  - al imprimir desde una lista de empaque, los niveles se marcan solos según
+    los tipos elegidos, cada nivel dice qué etiquetas lleva y se avisa si un
+    tipo elegido no va en ninguno de los niveles marcados.
+
+Así se cubre lo que hacen BarTender, NiceLabel/Loftware o un WMS con la
+jerarquía de empaque (y la etiqueta logística GS1, un SSCC por unidad): la
+etiqueta del inner, la de la caja y la del pallet son tipos distintos, cada
+uno en su nivel. Se descartó un sujeto fijo por nivel (INNER, CAJA, PALLET):
+los niveles los define cada empresa.
+
+## 12. Motor de reglas (como clasificación, sin base oficial)
+
+La empresa decide todo: qué diseño va en cada lugar, si una etiqueta va o
+no, **dónde** se pone y **cuántas** salen, según familias, categorías y
+reglas. El orden de lo más específico a lo general es **talla → producto →
+categoría → familia → toda la empresa**, con excepciones (centro, país,
+sociedad, proveedor, condiciones, OC) en cada lugar.
+
+**Categorías.** En la ficha de la familia (Configuración → Familias y
+artículos) está la sección **Categorías**: se crean con código, nombre y
+condiciones sobre los datos del artículo y del producto (por ejemplo
+«descripción contiene prepack»). **Probar** dice, sin guardar, cuántos
+artículos de la familia caerían en ella, cuántos ya están en otra (gana la
+primera de la lista) y algunos ejemplos. Sin condiciones, la categoría solo
+se pone a mano: en la tabla de productos de la familia, con lo elegido →
+**Poner categoría** (o «Reconocer por sus condiciones» para quitarla). Una
+categoría con reglas (también las dadas de baja, que quedan en el
+historial) o con productos no se borra: se desactiva, sale de la matriz y
+sus artículos vuelven a las reglas de la familia. Cada categoría
+muestra sus etiquetas y se abre como cualquier celda; en la matriz es una
+fila debajo de su familia.
+
+**Qué decide una regla** (regla normal o excepción, en la misma pantalla de
+la celda):
+
+| Decisión | Opciones |
+|---|---|
+| ¿Va? | **Sí, con este diseño** o **No lleva esta etiqueta** (no sale registro y no es un error, aunque el tipo sea obligatorio). |
+| Dónde va | Artículos: cada línea del documento, cada posición de la OC, cada posición de la lista de empaque, cada variante (talla) o cada artículo genérico (producto). Documentos: el documento, cada OC o cada lista de empaque. Bultos: cada empaque. Vacío = lo que diga el tipo de etiqueta. |
+| Cuántas | Una, una por unidad (solo artículos) o a mano. Vacío = lo que diga el tipo. |
+| Prioridad | Solo excepciones, de −1000 a 1000: si dos de la misma clase aplican, gana la mayor. Dos excepciones iguales con distinta prioridad ya no chocan. |
+
+**Cómo se generan los registros.** Primero cada registro fino (línea de la
+lista de empaque, posición de la OC o artículo elegido) recibe su regla;
+los «no lleva» se quitan; después se juntan según **dónde va**: una
+etiqueta por posición, por variante, por producto (sumando sus unidades),
+por OC (desde una lista de empaque, una por cada OC que trae) o por lista.
+Si el origen no tiene ese lugar (posición de la lista de empaque desde una
+OC), el trabajo lo avisa (`alcance_no_aplica`). Los empaques (inner, caja,
+pallet…) siguen eligiéndose por tipo de empaque y por «Va en» del tipo de
+etiqueta (§11).
+
+**Dónde se ve.** Tipo de etiqueta: «Dónde va por defecto». Matriz: filas
+de categoría, «No la lleva» y el lugar cuando la regla lo cambia. Pestaña
+Etiquetas del producto: su categoría, lo que le toca a la mayoría de sus
+tallas y las tallas con otro resultado (con su porqué). «Qué cambia al
+guardar» cuenta aparte los artículos que no llevarán la etiqueta.
+
+**Endpoints nuevos:** `GET/POST /etiquetas/categorias`,
+`POST /etiquetas/categorias/probar`, `PATCH/DELETE /etiquetas/categorias/{id}`,
+`POST /etiquetas/productos/categoria`. `PUT /etiquetas/usos/celda` acepta
+`normal: {accion, plantilla_id, alcance, cantidad}`; las excepciones y
+`POST /etiquetas/usos` aceptan además `prioridad`. `GET /etiquetas/catalogos`
+trae `alcances` y `cantidades_regla` por sujeto.
+
+**Pruebas:** `test_etiquetado_motor_reglas.py` (categorías por condiciones y
+a mano, «no lleva», dónde va por producto con unidades, aviso de lugar que
+el origen no tiene, validaciones, prioridad, tipo con lugar por defecto,
+documento por OC desde una lista de empaque y celda con la regla completa);
+en el navegador, `frontend/e2e/etiquetado.mjs` crea una categoría, la
+prueba, le pone «no lleva», la ve en la matriz y la desactiva.
+
+**Límites:** la categoría de un producto en la lista se calcula con sus
+tallas activas (puede ser «depende de la talla»); el asistente de nueva
+familia no crea categorías (se hacen después en la ficha de la familia).
 
 ## Permisos
 
 `etiquetas.ver`, `etiquetas.generar` (todos, incluido el proveedor sobre sus
-propias OC), `etiquetas.disenar`, `etiquetas.asignar`, `etiquetas.familias`
-(equipo interno) y `etiquetas.aprobar` (administración). El módulo se puede
-apagar como los demás (Configuración → Empresa → Módulos).
+propias OC), `etiquetas.disenar`, `etiquetas.configurar` (tipos, usos,
+familias, medidas), `etiquetas.familias` y `etiquetas.aprobar`. El módulo se
+puede apagar como los demás (Configuración → Empresa → Módulos).

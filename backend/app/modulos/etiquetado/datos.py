@@ -1,10 +1,10 @@
 """Los valores reales de una etiqueta: se leen de la OC, la línea, el
 artículo, el bulto y la organización en el momento de generar, dentro del
 alcance del usuario (un proveedor solo ve lo suyo)."""
-from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app.core.empresa import hoy
 from app.core.errores import ErrorNegocio
 from app.modelos import Articulo, OrdenCompra, PosicionOC, Usuario
 from app.modulos.acceso.permisos import asegurar_proveedor, proveedor_filtro
@@ -35,17 +35,24 @@ def cargar_posicion(db: Session, user: Usuario, posicion_id: int) -> PosicionOC:
     return p
 
 
-def valores(db: Session, modalidad: str, articulo: Articulo | None = None, oc: OrdenCompra | None = None,
-            posicion: PosicionOC | None = None, bulto: campos.Bulto | None = None, organizacion: dict | None = None) -> dict:
-    """Todos los valores de una etiqueta (sin la numeración, que pone la generación)."""
+def valores(db: Session, sujeto: str, articulo: Articulo | None = None, oc: OrdenCompra | None = None,
+            posicion: PosicionOC | None = None, bulto: campos.Bulto | None = None, organizacion: dict | None = None,
+            pl=None, de_oc: dict | None = None) -> dict:
+    """Todos los valores de una etiqueta (sin la numeración, que pone la generación).
+    El artículo lleva sus datos siempre y los de la OC y su línea si viene de una
+    (el mismo artículo, con o sin OC, es la misma etiqueta: solo cambian esos
+    datos). `de_oc`: los valores de la OC ya leídos (una vez por OC, no por registro)."""
     v = dict(organizacion if organizacion is not None else campos.valores_organizacion(db))
-    if oc is not None and modalidad in ("OC", "OC_ARTICULO"):
-        v.update(campos.valores_oc(db, oc))
-    if posicion is not None and modalidad == "OC_ARTICULO":
+    grupos = campos.POR_SUJETO[sujeto]
+    if oc is not None and "oc" in grupos:
+        v.update(de_oc if de_oc is not None else campos.valores_oc(db, oc))
+    if posicion is not None and "linea" in grupos:
         v.update(campos.valores_linea(posicion))
-    if articulo is not None and modalidad in ("ARTICULO", "OC_ARTICULO"):
+    if articulo is not None and "articulo" in grupos:
         v.update(campos.valores_articulo(articulo))
+    if pl is not None and "pl" in grupos:
+        v.update(campos.valores_pl(pl))
     if bulto is not None:
         v.update(bulto.valores)
-    v["etiqueta.fecha"] = date.today().isoformat()
+    v["etiqueta.fecha"] = hoy().isoformat()
     return v

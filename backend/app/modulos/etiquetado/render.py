@@ -15,18 +15,37 @@ from __future__ import annotations
 import io
 import math
 import re
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from app.modulos.etiquetado.codigos import barras
+from app.modulos.etiquetado.codigos import MATRICIALES, barras
 from app.modulos.etiquetado.diseno import CAMPO
 from app.modulos.etiquetado.fuentes import MARCA_PRUEBA, ancho_texto, nombre_fuente
 
 MM_PT = 72 / 25.4
 PT_MM = 25.4 / 72
-MESES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+# Meses y sí/no en el idioma de la etiqueta (propiedad del diseño); otro idioma usa el inglés
+MESES = {
+    "en": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre",
+           "diciembre"],
+    "pt": ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro",
+           "dezembro"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre",
+           "décembre"],
+    "zh": [f"{n}月" for n in ("一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二")],
+    "ar": ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"],
+    "hi": ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"],
+}
+# Idiomas cuyo mes corto (mmm) son sus tres primeras letras en mayúsculas; en los demás, el mes completo
+MES_CORTO_3 = {"en", "es", "pt", "fr"}
+SI_NO = {"en": ("Yes", "No"), "es": ("Sí", "No"), "pt": ("Sim", "Não"), "fr": ("Oui", "Non"), "zh": ("是", "否"),
+         "ar": ("نعم", "لا"), "hi": ("हाँ", "नहीं")}
+_REGIONAL: ContextVar[dict | None] = ContextVar("regional_etiqueta", default=None)
 # Ancho mínimo del módulo (la barra más fina) para leerse con un lector común, en mm
-MODULO_MINIMO = {"ean13": 0.264, "ean8": 0.264, "upca": 0.264, "code128": 0.19, "code39": 0.19, "qr": 0.25}
+MODULO_MINIMO = {"ean13": 0.264, "ean8": 0.264, "upca": 0.264, "code128": 0.19, "code39": 0.19, "qr": 0.25, "itf14": 0.495,
+                 "gs1_128": 0.495, "sscc": 0.495, "datamatrix": 0.25, "gs1_datamatrix": 0.25, "pdf417": 0.19}
 TEXTO_MINIMO_PT = 5
 CONTRASTE_MINIMO = 3.0
 
@@ -78,10 +97,11 @@ class Lienzo:
         return [p for p in self.problemas if p["nivel"] == "advertencia"]
 
 
-def _problema(lista, nivel, codigo, elemento, mensaje):
+def _problema(lista, nivel, codigo, elemento, mensaje, campo: str | None = None):
+    """Un problema del dibujo; `campo` es el dato que falta (para completarlo desde el trabajo)."""
     lista.append({"nivel": nivel, "codigo": codigo, "elemento": elemento.get("id") if elemento else None,
                   "nombre": (elemento.get("nombre") or elemento.get("campo") or elemento.get("tipo")) if elemento else None,
-                  "mensaje": mensaje})
+                  "mensaje": mensaje, **({"campo": campo} if campo else {})})
 
 
 # ---- Valores -----------------------------------------------------------------------------
@@ -98,10 +118,29 @@ def _fecha(v):
         return None
 
 
+def fecha_con_patron(d: date, patron: str, idioma: str = "en") -> str:
+    """La fecha con un patrón de dd, d, mm, mmm, mmmm, aa y aaaa (los meses en el idioma de la etiqueta)."""
+    meses = MESES.get(idioma, MESES["en"])
+    piezas = {"aaaa": f"{d.year:04d}", "aa": f"{d.year % 100:02d}", "mmmm": meses[d.month - 1],
+              "mmm": meses[d.month - 1][:3].upper() if idioma in MES_CORTO_3 else meses[d.month - 1], "mm": f"{d.month:02d}", "dd": f"{d.day:02d}", "d": str(d.day)}
+    return re.sub(r"aaaa|aa|mmmm|mmm|mm|dd|d", lambda m: piezas[m.group(0)], patron)
+
+
+def numero_con_separadores(n: float, dec: int, miles: bool = True) -> str:
+    r = _REGIONAL.get() or {}
+    txt = f"{n:,.{dec}f}" if miles else f"{n:.{dec}f}"
+    return txt.replace(",", "\0").replace(".", r.get("separador_decimal", ".")).replace("\0", r.get("separador_miles", ","))
+
+
 def formatear(v, formato: dict | None, tipo: str = "texto") -> str | None:
-    """El valor como se imprime: número con decimales y miles, fecha con su patrón, mayúsculas…"""
-    if vacio(v):
+    """El valor como se imprime: número con decimales y miles, fecha con su patrón, sí/no, mayúsculas…
+    (con el idioma y los separadores del diseño)."""
+    if v is None or (isinstance(v, str) and not v.strip()):
         return None
+    regional = _REGIONAL.get() or {}
+    if isinstance(v, bool) or tipo == "si_no":
+        si, no = SI_NO.get(regional.get("idioma", "en"), SI_NO["en"])
+        return si if v in (True, "yes", "true", 1) else no
     f = formato or {}
     t = f.get("tipo", "auto")
     if t == "numero" or (t == "auto" and (tipo == "numero" or isinstance(v, (int, float))) and not isinstance(v, bool)):
@@ -110,15 +149,12 @@ def formatear(v, formato: dict | None, tipo: str = "texto") -> str | None:
         except (TypeError, ValueError):
             return str(v)
         dec = f.get("decimales", 0) if t == "numero" else (0 if n == int(n) else 2)
-        txt = f"{n:,.{dec}f}" if f.get("miles", True) else f"{n:.{dec}f}"
-        return txt
+        return numero_con_separadores(n, dec, f.get("miles", True))
     if t == "fecha" or (t == "auto" and tipo == "fecha"):
         d = _fecha(v)
         if d is None:
             return str(v)
-        patron = f.get("fecha", "dd/mm/aaaa")
-        return {"dd/mm/aaaa": d.strftime("%d/%m/%Y"), "aaaa-mm-dd": d.isoformat(), "mm/dd/aaaa": d.strftime("%m/%d/%Y"),
-                "dd-mmm-aaaa": f"{d.day:02d}-{MESES[d.month - 1]}-{d.year}"}[patron]
+        return fecha_con_patron(d, f.get("fecha", "dd/mm/aaaa"), regional.get("idioma", "en"))
     s = str(v)
     if t == "mayus":
         return s.upper()
@@ -208,8 +244,32 @@ def validar_codigo(simbologia: str, valor: str) -> tuple[str | None, str | None]
         if len(v) > 80 or any(not 32 <= ord(c) <= 126 for c in v):
             return None, "CODE 128 takes up to 80 printable ASCII characters (no accents)."
         return v, None
-    if len(v.encode("utf-8")) > 1200:
-        return None, "The QR content is too long (up to 1,200 bytes)."
+    if simbologia == "itf14":
+        if not v.isdigit() or len(v) not in (13, 14):
+            return None, f"ITF-14 needs 13 or 14 digits (it got «{v}»)."
+        if len(v) == 14 and int(v[-1]) != _digito_gs1(v[:-1]):
+            return None, f"The check digit of «{v}» is wrong for ITF-14."
+        return v[:13] + str(_digito_gs1(v[:13])), None
+    if simbologia == "sscc":
+        digitos = re.sub(r"^\(00\)", "", v).replace(" ", "")
+        if not digitos.isdigit() or len(digitos) not in (17, 18):
+            return None, f"An SSCC has 17 digits plus its check digit (it got «{v}»)."
+        if len(digitos) == 18 and int(digitos[-1]) != _digito_gs1(digitos[:-1]):
+            return None, f"The check digit of «{v}» is wrong for SSCC."
+        return f"(00){digitos[:17]}{_digito_gs1(digitos[:17])}", None
+    if simbologia in ("gs1_128", "gs1_datamatrix"):
+        if not re.fullmatch(r"(\(\d{2,4}\)[^()]{1,90})+", v) or len(v) > 200:
+            return None, "GS1 data is written with application identifiers in brackets, like (01)09501101530003(17)261231."
+        try:
+            from app.modulos.etiquetado.codigos import barras as dibujar
+
+            dibujar(simbologia, v)
+        except Exception:  # noqa: BLE001 - el lector de GS1 dice que no es válido
+            return None, "The GS1 data is not valid (check the application identifiers and their lengths)."
+        return v, None
+    limite = {"pdf417": 800, "datamatrix": 1000}.get(simbologia, 1200)
+    if len(v.encode("utf-8")) > limite:
+        return None, f"The content is too long for this code (up to {limite} bytes)."
     return v, None
 
 
@@ -292,6 +352,69 @@ def _texto(e: dict, texto: str, prims: list, problemas: list) -> None:
                       espaciado=esp, subrayado=est["subrayado"], tachado=est["tachado"], **_giro(e)))
 
 
+# ---- Recuadro que se ajusta al contenido ------------------------------------------------------
+ANCLA_H = {"izq": "ini", "centro": "centro", "der": "fin"}
+ANCLA_V = {"arriba": "ini", "medio": "centro", "abajo": "fin"}
+
+
+def _anclar(inicio: float, largo: float, nuevo: float, ancla: str, minimo: float, maximo: float) -> tuple[float, float]:
+    """Nueva posición y largo desde su anclaje (inicio, centro o final fijos), sin pasar del área segura."""
+    disponible = {"ini": maximo - inicio, "fin": inicio + largo - minimo,
+                  "centro": 2 * min(inicio + largo / 2 - minimo, maximo - inicio - largo / 2)}[ancla]
+    nuevo = max(min(nuevo, max(disponible, 1.0)), 0.5)
+    return {"ini": inicio, "centro": inicio + (largo - nuevo) / 2, "fin": inicio + largo - nuevo}[ancla], nuevo
+
+
+def medida_texto(e: dict, texto: str, ancho: float | None = None) -> tuple[float, float]:
+    """Ancho y alto (mm, con el relleno) que ocupa el texto con su estilo y su letra sin reducir.
+    Con `ancho`, el texto se parte en líneas para caber en él."""
+    est = e["estilo"]
+    if est.get("mayusculas"):
+        texto = texto.upper()
+    nombre = nombre_fuente(est["fuente"], est["negrita"], est["cursiva"])
+    tam, esp, rel = est["tam"], est["espaciado"], est["relleno"]
+    if ancho is not None:
+        lineas = _partir(texto, nombre, tam, esp, max(ancho - 2 * rel, 0.1))
+    else:
+        lineas = texto.split("\n") if est["multilinea"] else texto.split("\n")[:1]
+    w = max((ancho_texto(x, nombre, tam, esp) for x in lineas), default=0) + 2 * rel
+    h = (len(lineas) - 1) * tam * est["interlineado"] * PT_MM + tam * PT_MM + 2 * rel
+    return w, h
+
+
+def ajustar_caja(e: dict, W: float, H: float, margen: float, texto: str | None = None, filas: int | None = None,
+                 proporcion: float | None = None) -> dict:
+    """El elemento con su recuadro ajustado al contenido (e["ajustar"]): el texto con su letra
+    (no se reduce mientras quepa en el área segura), la tabla con sus filas, la imagen con su
+    proporción (alto / ancho). Devuelve una copia; sin ajuste, el mismo elemento."""
+    modo = e.get("ajustar") or "no"
+    if modo == "no":
+        return e
+    x, y, w, h = e["x"], e["y"], e["w"], e["h"]
+    lim_x, lim_y = (margen, W - margen), (margen, H - margen)
+    est = e.get("estilo") or {}
+    nuevo = {**e}
+    if e["tipo"] in ("texto", "campo") and texto is not None:
+        if modo in ("ancho", "ambos"):
+            w_nat, _ = medida_texto(e, texto)
+            x, w = _anclar(x, w, w_nat, ANCLA_H[est["alin"]], *lim_x)
+        if modo in ("alto", "ambos"):
+            # Alto: el texto se parte en líneas dentro del ancho; ambos: solo donde hay saltos de línea
+            nuevo["estilo"] = {**est, "multilinea": True}
+            _, h_nat = medida_texto(nuevo, texto, w if modo == "alto" else None)
+            y, h = _anclar(y, h, h_nat, ANCLA_V[est["valign"]], *lim_y)
+    elif e["tipo"] == "tabla" and filas is not None and modo in ("alto", "ambos"):
+        fijas = int(bool(e.get("encabezado"))) + int(bool(e.get("totales")))
+        y, h = _anclar(y, h, e["alto_fila"] * max(filas + fijas, 1), "ini", *lim_y)
+    elif e["tipo"] == "imagen" and proporcion:
+        if modo == "ancho":
+            x, w = _anclar(x, w, h / proporcion, "ini", *lim_x)
+        else:
+            y, h = _anclar(y, h, w * proporcion, "ini", *lim_y)
+    nuevo.update(x=x, y=y, w=w, h=h)
+    return nuevo
+
+
 def caja_girada(e: dict) -> tuple[float, float, float, float]:
     """Caja que ocupa el elemento una vez girado sobre su centro (x1, y1, x2, y2)."""
     if not e.get("rot"):
@@ -309,6 +432,17 @@ def _giro(e: dict) -> dict:
 
 
 # ---- Imágenes ----------------------------------------------------------------------------
+def _proporcion(img: bytes) -> float | None:
+    """Alto / ancho de la imagen (None si no es una imagen)."""
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(img)) as im:
+            return im.size[1] / im.size[0] if im.size[0] else None
+    except Exception:  # noqa: BLE001 - un archivo que no es imagen
+        return None
+
+
 def _encaje(img: bytes, e: dict) -> tuple[float, float, float, float] | None:
     from PIL import Image
 
@@ -330,25 +464,162 @@ def componer(diseno: dict, valores: dict, tipos: dict | None = None, imagen_adju
 
     tipos: campo → texto | numero | fecha | imagen (para formatear).
     imagen_adjunta(adjunto_id) → bytes | None: lee una imagen subida."""
+    marca = _REGIONAL.set({k: diseno.get(k) for k in ("idioma", "separador_miles", "separador_decimal") if diseno.get(k) is not None})
+    try:
+        return _componer(diseno, valores, tipos, imagen_adjunta, prueba)
+    finally:
+        _REGIONAL.reset(marca)
+
+
+def _preparar(e: dict, valores: dict, tipos: dict, imagen_adjunta, W: float, H: float, margen: float) -> dict:
+    """Lo que un elemento va a dibujar: si se muestra, su contenido (texto o imagen), los problemas de su
+    contenido y su recuadro (ajustado al contenido si lo pide). No dibuja nada."""
+    r = {"e": e, "mostrar": True, "texto": None, "imagen": None, "problemas": []}
+    probs = r["problemas"]
+    if not e.get("visible", True) or not cumple(e.get("condicion"), valores):
+        r["mostrar"] = False
+        return r
+    t = e["tipo"]
+    ajusta = e.get("ajustar", "no") != "no"
+    if t in ("texto", "campo"):
+        if t == "texto":
+            texto, vacios = sustituir(e.get("contenido") or "", valores, tipos)
+            for c in vacios:
+                _problema(probs, "advertencia", "campo_vacio", e, f"The field {c} is empty.", campo=c)
+        else:
+            v = formatear(valores.get(e["campo"]), e.get("formato"), tipos.get(e["campo"], "texto"))
+            if v is None:
+                regla = e.get("si_vacio", "advertir")
+                if regla == "error":
+                    _problema(probs, "error", "campo_obligatorio", e, f"The field {e['campo']} is required and empty.",
+                              campo=e["campo"])
+                if regla in ("ocultar", "error"):
+                    r["mostrar"] = False
+                    return r
+                if regla == "alternativo":
+                    v = e.get("alternativo") or ""
+                else:
+                    _problema(probs, "advertencia", "campo_vacio", e, f"The field {e['campo']} is empty.", campo=e["campo"])
+                    v = ""
+            texto = f"{e.get('prefijo') or ''}{v}{e.get('sufijo') or ''}" if v else v
+        if not texto:
+            r["mostrar"] = False
+            return r
+        r["texto"] = texto
+        if ajusta:
+            r["e"] = ajustar_caja(e, W, H, margen, texto=texto)
+    elif t == "imagen":
+        from app.modulos.etiquetado.salidas import datos_imagen
+
+        if e.get("fuente_imagen") == "adjunto":
+            img = imagen_adjunta(e["adjunto_id"]) if imagen_adjunta else None
+        elif e.get("fuente_imagen") == "campo":
+            img = datos_imagen(valores.get(e["campo"]))
+        else:
+            img = datos_imagen(e.get("datos"))
+        proporcion = _proporcion(img) if img else None
+        if not proporcion:
+            if e.get("si_vacio") == "error":
+                _problema(probs, "error", "imagen_faltante", e, "The image is missing.")
+            elif e.get("si_vacio") != "ocultar":
+                _problema(probs, "advertencia", "imagen_faltante", e, "The image is missing.")
+            r["mostrar"] = False
+            return r
+        r["imagen"] = img
+        if ajusta:
+            r["e"] = ajustar_caja(e, W, H, margen, proporcion=proporcion)
+    elif t == "tabla" and ajusta:
+        filas = valores.get(e["coleccion"])
+        r["e"] = ajustar_caja(e, W, H, margen, filas=len(filas) if isinstance(filas, list) else 0)
+    return r
+
+
+def _apilar(elementos: list[dict], prep: dict) -> None:
+    """Los elementos que van debajo de otro (debajo_de) toman su borde inferior más la separación; si el
+    de arriba no se muestra (vacío, oculto o con su condición sin cumplir), suben a su lugar. En cadena."""
+    listos: set[str] = set()
+
+    def colocar(eid: str, camino: tuple = ()) -> None:
+        if eid in listos or eid in camino:
+            return
+        p = prep[eid]
+        ref = p["e"].get("debajo_de")
+        if ref and ref in prep:
+            colocar(ref, (*camino, eid))
+            arriba = prep[ref]
+            ea = arriba["e"]
+            y = ea["y"] + ea["h"] + (p["e"].get("separacion") or 0) if arriba["mostrar"] else ea["y"]
+            p["e"] = {**p["e"], "y": y}
+        listos.add(eid)
+
+    for e in elementos:
+        colocar(e["id"])
+
+
+CON_CONTENIDO = ("texto", "campo", "imagen", "codigo", "tabla")  # los que se leen: no deben taparse entre sí
+TOLERANCIA_ENCIMA = 0.2  # mm que dos elementos pueden tocarse sin avisar
+
+
+def _huella(e: dict, prims: list[Prim]) -> tuple[float, float, float, float]:
+    """Lo que el elemento ocupa de verdad (x1, y1, x2, y2): un texto sin fondo ni giro, sus líneas; lo demás, su caja."""
+    texto = next((p for p in prims if p.tipo == "texto"), None) if e["tipo"] in ("texto", "campo") else None
+    if texto and texto.lineas and not e.get("rot") and not e["estilo"].get("fondo"):
+        alto = texto.tam * PT_MM
+        return (min(x for _, x, _, _ in texto.lineas), texto.lineas[0][2] - alto * 0.8,
+                max(x + w for _, x, _, w in texto.lineas), texto.lineas[-1][2] + alto * 0.2)
+    imagen = next((p for p in prims if p.tipo == "imagen"), None) if e["tipo"] == "imagen" else None
+    if imagen:
+        return caja_girada({**e, "x": imagen.x, "y": imagen.y, "w": imagen.w, "h": imagen.h})
+    return caja_girada(e)
+
+
+def _encimados(huellas: list[tuple[dict, tuple]], problemas: list) -> None:
+    """Avisa cuando dos elementos con contenido se tapan (con los datos reales, ya ajustados y apilados):
+    el de arriba en las capas lleva el aviso. Los que pueden ir encima (superponer) no avisan."""
+    for i, (e, (a1, b1, a2, b2)) in enumerate(huellas):
+        for otro, (c1, d1, c2, d2) in huellas[:i]:
+            if e.get("superponer") or otro.get("superponer"):
+                continue
+            if min(a2, c2) - max(a1, c1) > TOLERANCIA_ENCIMA and min(b2, d2) - max(b1, d1) > TOLERANCIA_ENCIMA:
+                nombre = otro.get("nombre") or otro.get("campo") or otro["id"]
+                _problema(problemas, "advertencia", "elementos_encimados", e, f"It overlaps {nombre}: one covers the other.")
+                break
+
+
+def _componer(diseno: dict, valores: dict, tipos: dict | None, imagen_adjunta, prueba: bool) -> Lienzo:
     tipos = tipos or {}
     prims: list[Prim] = []
     problemas: list[dict] = []
     W, H, margen, fondo = diseno["ancho"], diseno["alto"], diseno["margen"], diseno["fondo"]
     prims.append(Prim("rect", 0, 0, W, H, relleno=fondo))
-    for e in diseno.get("elementos", []):
-        if not e.get("visible", True) or not cumple(e.get("condicion"), valores):
-            continue
+    def dentro(e: dict) -> bool:
         # Límites (de la caja ya girada): fuera de la etiqueta es un error; fuera del área segura, una advertencia
         x1, y1, x2, y2 = caja_girada(e)
         if x2 <= 0 or y2 <= 0 or x1 >= W or y1 >= H:
             _problema(problemas, "error", "fuera_de_la_etiqueta", e, "The element is outside the label.")
-            continue
+            return False
         if x1 < -0.01 or y1 < -0.01 or x2 > W + 0.01 or y2 > H + 0.01:
             _problema(problemas, "advertencia", "fuera_de_limites", e, "Part of the element is outside the label.")
         elif e["tipo"] != "rect" and (x1 < margen - 0.01 or y1 < margen - 0.01 or x2 > W - margen + 0.01
                                       or y2 > H - margen + 0.01):
             _problema(problemas, "advertencia", "fuera_area_segura", e, "The element is outside the safe print area.")
-        t = e["tipo"]
+        return True
+
+    # 1) Cada elemento con su contenido y su recuadro (ajustado al contenido si lo pide);
+    # 2) los que van debajo de otro siguen su borde inferior; 3) se dibujan en el orden de las capas
+    elementos = diseno.get("elementos", [])
+    prep = {e["id"]: _preparar(e, valores, tipos, imagen_adjunta, W, H, margen) for e in elementos}
+    _apilar(elementos, prep)
+    huellas: list[tuple[dict, tuple]] = []
+    for e0 in elementos:
+        p = prep[e0["id"]]
+        problemas += p["problemas"]
+        if not p["mostrar"]:
+            continue
+        e, t = p["e"], e0["tipo"]
+        if not dentro(e):
+            continue
+        desde = len(prims)
         if t == "rect":
             prims.append(Prim("rect", e["x"], e["y"], e["w"], e["h"], relleno=e.get("relleno"), borde=e.get("borde"),
                               grosor=e["grosor"], radio=e["radio"], trazo=e["trazo"], **_giro(e)))
@@ -359,57 +630,24 @@ def componer(diseno: dict, valores: dict, tipos: dict | None = None, imagen_adju
             prims.append(Prim("linea", e["x"], e["y"], e["w"], e["h"], borde=e["color"], grosor=e["grosor"], trazo=e["trazo"],
                               **_giro(e)))
         elif t in ("texto", "campo"):
-            if t == "texto":
-                texto, vacios = sustituir(e.get("contenido") or "", valores, tipos)
-                for c in vacios:
-                    _problema(problemas, "advertencia", "campo_vacio", e, f"The field {c} is empty.")
-            else:
-                v = formatear(valores.get(e["campo"]), e.get("formato"), tipos.get(e["campo"], "texto"))
-                if v is None:
-                    regla = e.get("si_vacio", "advertir")
-                    if regla == "ocultar":
-                        continue
-                    if regla == "error":
-                        _problema(problemas, "error", "campo_obligatorio", e, f"The field {e['campo']} is required and empty.")
-                        continue
-                    if regla == "alternativo":
-                        v = e.get("alternativo") or ""
-                    else:
-                        _problema(problemas, "advertencia", "campo_vacio", e, f"The field {e['campo']} is empty.")
-                        v = ""
-                texto = f"{e.get('prefijo') or ''}{v}{e.get('sufijo') or ''}" if v else v
-            if texto:
-                _texto(e, texto, prims, problemas)
+            _texto(e, p["texto"], prims, problemas)
         elif t == "imagen":
-            from app.modulos.etiquetado.salidas import datos_imagen
-
-            img = None
-            if e.get("fuente_imagen") == "adjunto":
-                img = imagen_adjunta(e["adjunto_id"]) if imagen_adjunta else None
-            elif e.get("fuente_imagen") == "campo":
-                img = datos_imagen(valores.get(e["campo"]))
-            else:
-                img = datos_imagen(e.get("datos"))
-            caja = _encaje(img, e) if img else None
-            if caja is None:
-                if e.get("si_vacio") == "error":
-                    _problema(problemas, "error", "imagen_faltante", e, "The image is missing.")
-                elif e.get("si_vacio") != "ocultar":
-                    _problema(problemas, "advertencia", "imagen_faltante", e, "The image is missing.")
-                continue
-            x, y, w, h = caja
-            prims.append(Prim("imagen", x, y, w, h, imagen=img, **_giro(e)))
+            x, y, w, h = _encaje(p["imagen"], e)
+            prims.append(Prim("imagen", x, y, w, h, imagen=p["imagen"], **_giro(e)))
         elif t == "codigo":
             _codigo(e, valores, tipos, fondo, prims, problemas)
         elif t == "tabla":
             _tabla(e, valores, tipos, prims, problemas)
+        if t in CON_CONTENIDO and len(prims) > desde:
+            huellas.append((e, _huella(e, prims[desde:])))
+    _encimados(huellas, problemas)
     if diseno.get("borde"):
         b = diseno["borde"]
         prims.append(Prim("rect", b["grosor"] / 2, b["grosor"] / 2, W - b["grosor"], H - b["grosor"], borde=b["color"],
                           grosor=b["grosor"], radio=b["radio"]))
     if prueba:
         tam = max(min(W, H) / 4 * MM_PT, 6)
-        txt = MARCA_PRUEBA
+        txt = MARCA_PRUEBA.get((_REGIONAL.get() or {}).get("idioma", "en"), MARCA_PRUEBA["en"])
         nombre = nombre_fuente("sans", True, False)
         while ancho_texto(txt, nombre, tam) > math.hypot(W, H) * 0.85 and tam > 4:
             tam -= 0.5
@@ -460,7 +698,7 @@ def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, proble
     simb = e["simbologia"]
     crudo, vacios = valor_codigo(e, valores, tipos)
     if vacios:
-        _problema(problemas, "error", "codigo_sin_valor", e, f"The code has no value: {', '.join(vacios)} is empty.")
+        _problema(problemas, "error", "codigo_sin_valor", e, f"The code has no value: {', '.join(vacios)} is empty.", campo=vacios[0])
         return
     valor, error = validar_codigo(simb, crudo)
     if error:
@@ -476,18 +714,21 @@ def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, proble
         prims.append(Prim("rect", e["x"], e["y"], e["w"], e["h"], relleno=e["relleno"], **_giro(e)))
     rects, ancho_mod, alto_mod, modulos = barras(simb, valor, e.get("correccion", "M"))
     texto_legible = None
-    if simb == "qr":
-        lado = min(caja_w, caja_h)
-        modulo = lado / modulos
-        x0, y0 = e["x"] + m + (caja_w - lado) / 2, e["y"] + m + (caja_h - lado) / 2
-        alto_barras = lado
+    matricial = simb in MATRICIALES
+    if matricial:
+        # Módulos cuadrados: el código ocupa lo que permite la caja sin deformarse
+        modulo = min(caja_w / ancho_mod, caja_h / alto_mod)
+        x0 = e["x"] + m + (caja_w - ancho_mod * modulo) / 2
+        y0 = e["y"] + m + (caja_h - alto_mod * modulo) / 2
+        alto_barras = alto_mod * modulo
     else:
         modulo = caja_w / ancho_mod
         alto_texto = 0
         if e.get("legible"):
             tam = max(min(caja_h * 0.22 * MM_PT, 10), 4)
             # Los GS1 se leen con su dígito verificador
-            texto_legible = (crudo if simb in ("code128", "code39") else valor + str(_digito_gs1(valor)), tam)
+            texto_legible = (crudo if simb in ("code128", "code39") else valor if simb in ("gs1_128", "sscc", "itf14")
+                             else valor + str(_digito_gs1(valor)), tam)
             alto_texto = tam * PT_MM * 1.15
         alto_barras = caja_h - alto_texto
         x0, y0 = e["x"] + m, e["y"] + m
@@ -499,13 +740,13 @@ def _codigo(e: dict, valores: dict, tipos: dict, fondo: str, prims: list, proble
                   f"The narrowest bar is {modulo:.3f} mm; {simb.upper()} needs at least {minimo} mm: make the code larger.")
     giro = _giro(e)
     for x, y, w, h in rects:
-        if simb == "qr":
+        if matricial:
             prims.append(Prim("rect", x0 + x * modulo, y0 + (alto_mod - y - h) * modulo, w * modulo, h * modulo, relleno=e["color"], **giro))
         else:
             prims.append(Prim("rect", x0 + x * modulo, y0, w * modulo, alto_barras, relleno=e["color"], **giro))
     if texto_legible:
         txt, tam = texto_legible
-        nombre = nombre_fuente("mono" if simb in ("code128", "code39") else "sans", False, False)
+        nombre = nombre_fuente("mono" if simb in ("code128", "code39", "gs1_128", "sscc") else "sans", False, False)
         w = ancho_texto(txt, nombre, tam)
         prims.append(Prim("texto", lineas=[(txt, e["x"] + m + (caja_w - w) / 2, y0 + alto_barras + tam * PT_MM * 0.95, w)],
                           fuente=nombre, tam=tam, color=e["color"], **giro))
@@ -613,7 +854,7 @@ def _tabla(e: dict, valores: dict, tipos: dict, prims: list, problemas: list) ->
               for c in cols], y, nombre)
         y += alto_fila
     if resto:
-        fila([f"… +{resto}"] + [""] * (len(cols) - 1), y, nombre)
+        fila([f"… +{numero_con_separadores(resto, 0)}"] + [""] * (len(cols) - 1), y, nombre)
         y += alto_fila
     if hay_totales:
         textos = []

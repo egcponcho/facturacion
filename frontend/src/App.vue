@@ -71,8 +71,16 @@ const gruposAjustes = computed(() => {
 // Barra lateral: compacta (solo íconos) o completa; se recuerda por navegador
 const leer = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === '1' } catch { return d } }
 const guardar = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0') } catch { /* sin almacenamiento */ } }
+// En los editores de lienzo (diseño de etiquetas) se contrae sola, sin cambiar la preferencia guardada
 const compacta = ref(leer('lateral-compacta', false))
 watch(compacta, (v) => guardar('lateral-compacta', v))
+const abiertaEnLienzo = ref(false)
+watch(() => route.meta.lienzo, () => (abiertaEnLienzo.value = false))
+const plegada = computed(() => (route.meta.lienzo ? !abiertaEnLienzo.value : compacta.value))
+function plegar() {
+  if (route.meta.lienzo) abiertaEnLienzo.value = !abiertaEnLienzo.value
+  else compacta.value = !compacta.value
+}
 const ajustesAbierto = ref(leer('lateral-ajustes', false))
 watch(ajustesAbierto, (v) => guardar('lateral-ajustes', v))
 const enAjustes = computed(() => ajustes.value.some((i) => route.path.startsWith(i.to)))
@@ -121,7 +129,7 @@ async function volverAMiOrganizacion() {
 </script>
 
 <template>
-  <div v-if="route.name !== 'login' && !route.meta.sinMarco && sesion.usuario" class="marco" :class="{ compacta }">
+  <div v-if="route.name !== 'login' && !route.meta.sinMarco && sesion.usuario" class="marco" :class="{ compacta: plegada, lienzo: route.meta.lienzo }">
     <div class="progreso-ruta" :class="{ activo: ui.navegando }" aria-hidden="true"></div>
     <aside class="lateral" :class="{ abierta: menuAbierto }" :aria-label="t('Main')">
       <div class="lateral-cabeza">
@@ -134,12 +142,12 @@ async function volverAMiOrganizacion() {
       </div>
       <nav class="lateral-nav">
         <router-link v-for="i in navegacion" :key="i.to" :to="i.to" class="lateral-item" :class="{ activo: activo(i.to) }"
-                     :aria-current="activo(i.to) ? 'page' : undefined" :title="compacta ? tx(i.texto) : undefined">
+                     :aria-current="activo(i.to) ? 'page' : undefined" :title="plegada ? tx(i.texto) : undefined">
           <Icono :nombre="i.icono" :tam="18" /><span class="lateral-texto">{{ tx(i.texto) }}</span>
           <span v-if="i.cuenta" class="nav-cuenta">{{ tx(i.cuenta) }}</span>
         </router-link>
         <template v-if="ajustes.length">
-          <button type="button" class="lateral-seccion" :aria-expanded="ajustesAbierto" :title="compacta ? t('Settings') : undefined" @click="ajustesAbierto = !ajustesAbierto">
+          <button type="button" class="lateral-seccion" :aria-expanded="ajustesAbierto" :title="plegada ? t('Settings') : undefined" @click="ajustesAbierto = !ajustesAbierto">
             <Icono nombre="engrane" :tam="18" /><span class="lateral-texto">{{ t('Settings') }}</span>
             <Icono :nombre="ajustesAbierto ? 'arriba' : 'abajo'" :tam="14" class="lateral-flecha" />
           </button>
@@ -147,7 +155,7 @@ async function volverAMiOrganizacion() {
             <template v-for="g in gruposAjustes" :key="g.nombre">
               <div class="lateral-grupo">{{ tx(g.nombre) }}</div>
               <router-link v-for="i in g.items" :key="i.to" :to="i.to" class="lateral-item lateral-sub" :class="{ activo: route.path.startsWith(i.to) }"
-                           :title="compacta ? tx(i.texto) : tx(i.detalle)">
+                           :title="plegada ? tx(i.texto) : tx(i.detalle)">
                 <Icono :nombre="i.icono" :tam="16" /><span class="lateral-texto">{{ tx(i.texto) }}</span>
               </router-link>
             </template>
@@ -156,8 +164,8 @@ async function volverAMiOrganizacion() {
       </nav>
       <div class="lateral-pie">
         <div class="lateral-preferencias"><SelectorIdioma /><SelectorTema /></div>
-        <button type="button" class="lateral-item lateral-plegar" :title="compacta ? t('Expand menu') : t('Collapse menu')" @click="compacta = !compacta">
-          <Icono :nombre="compacta ? 'derecha' : 'atras'" :tam="16" /><span class="lateral-texto">{{ t('Collapse menu') }}</span>
+        <button type="button" class="lateral-item lateral-plegar" :title="plegada ? t('Expand menu') : t('Collapse menu')" @click="plegar">
+          <Icono :nombre="plegada ? 'derecha' : 'atras'" :tam="16" /><span class="lateral-texto">{{ t('Collapse menu') }}</span>
         </button>
       </div>
     </aside>

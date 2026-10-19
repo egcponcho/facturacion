@@ -23,14 +23,13 @@ from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Adjunto,
-    AsignacionEtiqueta,
-    FamiliaEtiquetado,
     PlantillaEtiqueta,
+    TipoEtiqueta,
+    UsoDiseno,
     Usuario,
     VersionPlantilla,
     ahora,
 )
-from app.modelos.etiquetado import MODALIDADES, UNIDADES
 from app.modulos.acceso.permisos import exigir, exigir_alguno, tiene
 from app.modulos.comun.historial import registrar, requerir_motivo
 from app.modulos.comun.texto import filtro_texto
@@ -39,10 +38,52 @@ from app.modulos.etiquetado import diseno as svc_diseno
 from app.modulos.etiquetado import render
 
 ABIERTAS = ("BORRADOR", "PENDIENTE", "RECHAZADA")
+# Tamaños que se ofrecen al crear un diseño; cada empresa los reemplaza por los suyos
+TAMANOS = [{"nombre": "100 × 50 mm", "ancho": 100, "alto": 50},
+           {"nombre": "4 × 6 in", "ancho": 101.6, "alto": 152.4},
+           {"nombre": "4 × 3 in", "ancho": 101.6, "alto": 76.2},
+           {"nombre": "3 × 2 in", "ancho": 76.2, "alto": 50.8},
+           {"nombre": "60 × 40 mm", "ancho": 60, "alto": 40},
+           {"nombre": "50 × 25 mm", "ancho": 50, "alto": 25},
+           {"nombre": "1.5 × 1 in", "ancho": 38.1, "alto": 25.4},
+           {"nombre": "70 × 37 mm", "ancho": 70, "alto": 37}]
+MAX_TAMANOS = 40
+
+
+def tamanos() -> list[dict]:
+    """Los tamaños de etiqueta de la empresa (Configuración → Etiquetado) o los de fábrica."""
+    from app.core.empresa import configuracion_actual
+
+    return ((configuracion_actual().get("etiquetado") or {}).get("tamanos")) or TAMANOS
+
+
+def guardar_tamanos(db: Session, user: Usuario, lista) -> list[dict]:
+    """Reemplaza la lista de tamaños de la empresa (vacía: vuelven los de fábrica)."""
+    from app.modulos.empresa.organizacion import actual
+
+    exigir(user, "etiquetas.configurar")
+    if not isinstance(lista, list) or len(lista) > MAX_TAMANOS:
+        raise ErrorNegocio(f"Up to {MAX_TAMANOS} label sizes.", 422, "validacion")
+    limpio = []
+    for i, x in enumerate(lista):
+        try:
+            nombre = str(x.get("nombre") or "").strip()[:40]
+            ancho, alto = float(x["ancho"]), float(x["alto"])
+        except (AttributeError, KeyError, TypeError, ValueError):
+            raise ErrorNegocio("Each size needs a name, a width and a height.", 422, "validacion",
+                               [{"campo": f"tamanos.{i}", "mensaje": str(x)[:80]}]) from None
+        if not nombre or not (0 < ancho <= 1000 and 0 < alto <= 1000):
+            raise ErrorNegocio("Each size needs a name and measures between 0 and 1000 mm.", 422, "validacion",
+                               [{"campo": f"tamanos.{i}", "mensaje": nombre}])
+        limpio.append({"nombre": nombre, "ancho": round(ancho, 2), "alto": round(alto, 2)})
+    o = actual(db)
+    conf = dict(o.configuracion or {})
+    conf["etiquetado"] = {**(conf.get("etiquetado") or {}), "tamanos": limpio}
+    o.configuracion = conf
+    db.flush()
+    registrar(db, user, "plantilla_etiqueta", 0, "tamanos", {"tamanos": len(limpio)})
+    return limpio or TAMANOS
 EDITABLES = ("BORRADOR", "RECHAZADA")
-# Qué representa cada etiqueta según la modalidad de datos
-UNIDADES_VALIDAS = {"ARTICULO": {"UNIDAD", "MANUAL"}, "OC": {"ORDEN", "BULTO", "MANUAL"},
-                    "OC_ARTICULO": {"LINEA", "ARTICULO", "UNIDAD", "BULTO", "MANUAL"}}
 
 
 def _nombre_usuario(db: Session, uid: int | None) -> str | None:
@@ -67,25 +108,31 @@ def dict_version(db: Session, v: VersionPlantilla, con_diseno: bool = False) -> 
 
 def dict_plantilla(db: Session, p: PlantillaEtiqueta, completo: bool = False) -> dict:
     ultima = p.versiones[-1] if p.versiones else None
-    r = {"id": p.id, "nombre": p.nombre, "descripcion": p.descripcion, "modalidad": p.modalidad, "unidad": p.unidad,
-         "familia_id": p.familia_id, "familia": p.familia.nombre if p.familia else None, "estado": p.estado,
+    usos = _usos(db, p.id)
+    r = {"id": p.id, "nombre": p.nombre, "descripcion": p.descripcion, "tipo_etiqueta_id": p.tipo_etiqueta_id,
+         "tipo": p.tipo.nombre if p.tipo else None, "sujeto": p.tipo.sujeto if p.tipo else None, "estado": p.estado,
          "origen_id": p.origen_id, "creada_en": p.creada_en, "actualizada_en": p.actualizada_en,
          "vigente": {"id": p.vigente.id, "numero": p.vigente.numero, "ancho_mm": p.vigente.ancho_mm, "alto_mm": p.vigente.alto_mm}
          if p.vigente else None,
          "ultima": {"id": ultima.id, "numero": ultima.numero, "estado": ultima.estado, "ancho_mm": ultima.ancho_mm,
                     "alto_mm": ultima.alto_mm} if ultima else None,
-         "asignaciones": len([a for a in _asignaciones(db, p.id) if a.activa])}
+         "usos": len(usos), "se_usa_en": _donde(db, usos)}
     if completo:
         r["versiones"] = [dict_version(db, v) for v in reversed(p.versiones)]
-        from app.modulos.etiquetado.asignaciones import dict_asignacion
-
-        r["lista_asignaciones"] = [dict_asignacion(db, a) for a in _asignaciones(db, p.id)]
     return r
 
 
-def _asignaciones(db: Session, plantilla_id: int) -> list[AsignacionEtiqueta]:
-    return list(db.scalars(select(AsignacionEtiqueta).where(AsignacionEtiqueta.plantilla_id == plantilla_id)
-                           .order_by(AsignacionEtiqueta.id)))
+def _usos(db: Session, plantilla_id: int) -> list[UsoDiseno]:
+    return list(db.scalars(select(UsoDiseno).where(UsoDiseno.plantilla_id == plantilla_id, UsoDiseno.eliminado_en.is_(None))
+                           .order_by(UsoDiseno.nivel, UsoDiseno.id)))
+
+
+def _donde(db: Session, usos: list[UsoDiseno]) -> list[dict]:
+    """Dónde se usa el diseño (para mostrar «Se usa en: Calzado, Ropa · 2 excepciones»)."""
+    from app.modulos.etiquetado.reglas import nombre_destino
+
+    return [{"uso_id": u.id, "nivel": u.nivel, "destino_id": u.destino_id, "destino": nombre_destino(db, u.nivel, u.destino_id),
+             "excepcion": u.contexto_tipo != "NINGUNO", "contexto_tipo": u.contexto_tipo} for u in usos[:50]]
 
 
 def cargar(db: Session, plantilla_id: int) -> PlantillaEtiqueta:
@@ -103,16 +150,16 @@ def cargar_version(db: Session, version_id: int, bloquear: bool = False) -> Vers
     return v
 
 
-def listar(db: Session, user: Usuario, q=None, modalidad=None, familia_id=None, estado="ACTIVA", estado_version=None,
+def listar(db: Session, user: Usuario, q=None, tipo_etiqueta_id=None, sujeto=None, estado="ACTIVA", estado_version=None,
            page: int = 1, size: int = 50) -> dict:
     exigir(user, "etiquetas.ver")
     c = select(PlantillaEtiqueta)
     if estado:
         c = c.where(PlantillaEtiqueta.estado == estado.upper())
-    if modalidad:
-        c = c.where(PlantillaEtiqueta.modalidad == modalidad.upper())
-    if familia_id:
-        c = c.where(PlantillaEtiqueta.familia_id == familia_id)
+    if tipo_etiqueta_id:
+        c = c.where(PlantillaEtiqueta.tipo_etiqueta_id == tipo_etiqueta_id)
+    if sujeto:
+        c = c.where(PlantillaEtiqueta.tipo_etiqueta_id.in_(select(TipoEtiqueta.id).where(TipoEtiqueta.sujeto == sujeto.upper())))
     if estado_version:
         c = c.where(PlantillaEtiqueta.id.in_(select(VersionPlantilla.plantilla_id)
                                              .where(VersionPlantilla.estado == estado_version.upper())))
@@ -159,39 +206,32 @@ def _validar_meta(db: Session, datos: dict, actual: PlantillaEtiqueta | None) ->
         limpio["nombre"] = nombre
     if "descripcion" in datos:
         limpio["descripcion"] = (datos.get("descripcion") or "").strip()[:500] or None
-    if "modalidad" in datos or actual is None:
-        modalidad = (datos.get("modalidad") or "").upper()
-        if modalidad not in MODALIDADES:
-            errores.append({"campo": "modalidad", "mensaje": "Choose where the data comes from: item, PO or PO and item."})
-        elif actual and modalidad != actual.modalidad and actual.version_vigente_id:
-            errores.append({"campo": "modalidad", "mensaje": "An approved design keeps its data mode: duplicate it to change it."})
-        limpio["modalidad"] = modalidad
-    modalidad = limpio.get("modalidad") or (actual.modalidad if actual else None)
-    if "unidad" in datos or actual is None:
-        unidad = (datos.get("unidad") or ("UNIDAD" if modalidad == "ARTICULO" else "ORDEN" if modalidad == "OC" else "LINEA")).upper()
-        if unidad not in UNIDADES or (modalidad in UNIDADES_VALIDAS and unidad not in UNIDADES_VALIDAS[modalidad]):
-            errores.append({"campo": "unidad", "mensaje": "That label unit does not apply to this data mode."})
-        limpio["unidad"] = unidad
-    if "familia_id" in datos:
-        fid = datos.get("familia_id")
-        if fid and not db.get(FamiliaEtiquetado, fid):
-            errores.append({"campo": "familia_id", "mensaje": "The labeling family does not exist."})
-        limpio["familia_id"] = fid or None
+    if "tipo_etiqueta_id" in datos or actual is None:
+        tipo = db.get(TipoEtiqueta, int(datos.get("tipo_etiqueta_id") or 0))
+        if tipo is None:
+            errores.append({"campo": "tipo_etiqueta_id", "mensaje": "Choose the label type."})
+        elif actual is not None and tipo.id != actual.tipo_etiqueta_id:
+            if tipo.sujeto != actual.tipo.sujeto:
+                errores.append({"campo": "tipo_etiqueta_id",
+                                "mensaje": "The new type labels something else: duplicate the design to change it."})
+            elif _usos(db, actual.id):
+                errores.append({"campo": "tipo_etiqueta_id", "mensaje": "The design is in use: remove it from the families first."})
+        limpio["tipo_etiqueta_id"] = tipo.id if tipo else None
     if errores:
         raise ErrorNegocio("Check the label design.", 422, "validacion", errores)
     return limpio
 
 
-def validar_contenido(db: Session, user: Usuario, modalidad: str, diseno: dict) -> dict:
-    """Diseño limpio cuyos campos existen en la modalidad y cuyas imágenes son de la organización."""
+def validar_contenido(db: Session, user: Usuario, sujeto: str, diseno: dict) -> dict:
+    """Diseño limpio cuyos campos existen para lo que se etiqueta y cuyas imágenes son de la organización."""
     limpio = svc_diseno.validar(diseno)
-    colecciones = {c.clave: c for c in svc_campos.colecciones(modalidad)}
-    disponibles = ({c.clave for c in svc_campos.catalogo(db, modalidad)} | {f"manual.{v['clave']}" for v in limpio["variables"]}
+    colecciones = {c.clave: c for c in svc_campos.colecciones(sujeto, db)}
+    disponibles = ({c.clave for c in svc_campos.catalogo(db, sujeto)} | {f"manual.{v['clave']}" for v in limpio["variables"]}
                    | set(colecciones))
     ajenos = sorted(c for c in svc_diseno.campos_usados(limpio) if c not in disponibles)
     if ajenos:
-        raise ErrorNegocio("The design uses fields that this data mode does not have.", 422, "validacion",
-                           [{"campo": "elementos", "mensaje": f"Not available for this data mode: {', '.join(ajenos)}."}])
+        raise ErrorNegocio("The design uses fields that this label type does not have.", 422, "validacion",
+                           [{"campo": "elementos", "mensaje": f"Not available for this label type: {', '.join(ajenos)}."}])
     for e in limpio["elementos"]:
         if e["tipo"] == "tabla":
             col = colecciones[e["coleccion"]]
@@ -222,11 +262,11 @@ def imagen_adjunta(db: Session):
     return leer
 
 
-def revisar(db: Session, modalidad: str, diseno: dict, valores: dict | None = None, prueba: bool = False) -> render.Lienzo:
+def revisar(db: Session, sujeto: str, diseno: dict, valores: dict | None = None, prueba: bool = False) -> render.Lienzo:
     """La etiqueta con datos reales o, sin ellos, con los valores de ejemplo de cada campo."""
-    tipos = svc_campos.tipos(db, modalidad)
+    tipos = svc_campos.tipos(db, sujeto)
     if valores is None:
-        valores = {**svc_campos.ejemplos(db, modalidad), "etiqueta.numero": 1, "etiqueta.total": 1, "etiqueta.numero_lote": 1,
+        valores = {**svc_campos.ejemplos(db, sujeto), "etiqueta.numero": 1, "etiqueta.total": 1, "etiqueta.numero_lote": 1,
                    "etiqueta.total_lote": 1}
         valores.update(svc_campos.valores_organizacion(db))
         valores.update(svc_diseno.valores_manuales(diseno, ejemplo=True))
@@ -237,7 +277,9 @@ def revisar(db: Session, modalidad: str, diseno: dict, valores: dict | None = No
 def crear(db: Session, user: Usuario, datos: dict) -> dict:
     exigir(user, "etiquetas.disenar")
     limpio = _validar_meta(db, datos, None)
-    contenido = validar_contenido(db, user, limpio["modalidad"], datos.get("diseno") or svc_diseno.inicial())
+    sujeto = db.get(TipoEtiqueta, limpio["tipo_etiqueta_id"]).sujeto
+    contenido = validar_contenido(db, user, sujeto, datos.get("diseno") or svc_diseno.inicial(**{k: v for k, v in (datos.get("tamano") or {}).items()
+                                                                                    if k in ("ancho", "alto")}))
     p = PlantillaEtiqueta(creada_por=user.id, estado="ACTIVA", **limpio)
     db.add(p)
     db.flush()
@@ -246,7 +288,7 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
     db.add(v)
     db.flush()
     db.refresh(p)
-    registrar(db, user, "plantilla_etiqueta", p.id, "crear", {"nombre": p.nombre, "modalidad": p.modalidad})
+    registrar(db, user, "plantilla_etiqueta", p.id, "crear", {"nombre": p.nombre, "tipo": p.tipo.nombre})
     return dict_plantilla(db, p, completo=True)
 
 
@@ -275,8 +317,7 @@ def duplicar(db: Session, user: Usuario, plantilla_id: int, datos: dict) -> dict
         raise ErrorNegocio("The version is not of this design.", 422, "validacion")
     nombre = (datos.get("nombre") or "").strip() or f"{origen.nombre} (copy)"
     nueva = crear(db, user, {"nombre": nombre, "descripcion": datos.get("descripcion", origen.descripcion),
-                             "modalidad": origen.modalidad, "unidad": origen.unidad,
-                             "familia_id": datos.get("familia_id", origen.familia_id), "diseno": v.diseno})
+                             "tipo_etiqueta_id": datos.get("tipo_etiqueta_id") or origen.tipo_etiqueta_id, "diseno": v.diseno})
     copia = cargar(db, nueva["id"])
     copia.origen_id = origen.id
     db.flush()
@@ -329,7 +370,7 @@ def guardar_diseno(db: Session, user: Usuario, version_id: int, diseno: dict, ve
     if v.estado not in EDITABLES:
         raise ErrorNegocio("Only a draft can be edited: an approved version never changes, create a new version.",
                            409, "no_editable")
-    contenido = validar_contenido(db, user, v.plantilla.modalidad, diseno)
+    contenido = validar_contenido(db, user, v.plantilla.tipo.sujeto, diseno)
     base = db.get(VersionPlantilla, v.basada_en_id) if v.basada_en_id else None
     v.diseno, v.ancho_mm, v.alto_mm = contenido, contenido["ancho"], contenido["alto"]
     v.cambios = svc_diseno.resumen_cambios(base.diseno if base else None, contenido)
@@ -342,7 +383,7 @@ def guardar_diseno(db: Session, user: Usuario, version_id: int, diseno: dict, ve
 
 
 def _bloqueantes(db: Session, v: VersionPlantilla) -> list[dict]:
-    lz = revisar(db, v.plantilla.modalidad, v.diseno)
+    lz = revisar(db, v.plantilla.tipo.sujeto, v.diseno)
     return [p for p in lz.problemas if p["nivel"] == "error"]
 
 

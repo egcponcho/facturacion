@@ -1,6 +1,7 @@
 <script setup>
 import { t } from '@/i18n/index.js'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, watchEffect } from 'vue'
+import { ajustarCaja, apilar, fuenteImagen, textoElemento } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import ElementoSvg from './ElementoSvg.vue'
 
@@ -10,7 +11,7 @@ import ElementoSvg from './ElementoSvg.vue'
 // Al mover, el elemento se pega a los bordes y centros de la etiqueta y de los
 // otros elementos (guías) o a la cuadrícula; Alt lo desactiva.
 const props = defineProps({ fuentes: { type: Number, default: 0 } })
-const emit = defineEmits(['zoom'])
+const emit = defineEmits(['zoom', 'menu'])
 const ed = usarEditor()
 const est = ed.estado
 const PX_MM = 96 / 25.4
@@ -24,6 +25,41 @@ const vb = computed(() => `${-pad.value} ${-pad.value} ${d.value.ancho + 2 * pad
 const tamPx = computed(() => ({ width: `${(d.value.ancho + 2 * pad.value) * s.value}px`, height: `${(d.value.alto + 2 * pad.value) * s.value}px` }))
 const px = (n) => n / s.value // n píxeles de pantalla en mm
 const valores = computed(() => ({ ...ed.ejemplosTodos.value, ...(est.previa?.datos === 'reales' ? est.previa.valores : {}) }))
+
+// ---- Recuadros que se ajustan al contenido -------------------------------------------------
+// Con los valores que se ven en el lienzo (de ejemplo o reales); al generar, el servidor
+// vuelve a ajustarlos con los datos de cada etiqueta (render.ajustar_caja).
+const proporciones = reactive({})
+function proporcion(src) {
+  if (!src) return null
+  if (!(src in proporciones)) {
+    proporciones[src] = null
+    const im = new Image()
+    im.onload = () => (proporciones[src] = im.naturalWidth ? im.naturalHeight / im.naturalWidth : null)
+    im.src = src
+  }
+  return proporciones[src]
+}
+watchEffect(() => {
+  void props.fuentes
+  if (!est.editable || !d.value) return
+  const cajas = {}
+  for (const e of ed.elementos.value) {
+    cajas[e.id] = { x: e.x, y: e.y, w: e.w, h: e.h }
+    if (!e.ajustar || e.ajustar === 'no') continue
+    const v = valores.value
+    const opciones = e.tipo === 'tabla' ? { filas: Array.isArray(v[e.coleccion]) ? v[e.coleccion].length : 0 }
+      : e.tipo === 'imagen' ? { proporcion: proporcion(fuenteImagen(e, v)) }
+        : { texto: textoElemento(e, v, est.tipos) || (e.tipo === 'campo' ? `{{${e.campo}}}` : e.contenido || '') }
+    const c = ajustarCaja(e, d.value, opciones)
+    if (c) cajas[e.id] = c
+  }
+  // «Debajo de»: el borde inferior del de arriba más la separación (render._apilar)
+  apilar(ed.elementos.value, cajas)
+  const cambios = ed.elementos.value.filter((e) => ['x', 'y', 'w', 'h'].some((k) => Math.abs(cajas[e.id][k] - e[k]) > 0.005))
+    .map((e) => [e, cajas[e.id]])
+  if (cambios.length) ed.retocar(cambios)
+})
 
 // ---- Reglas -----------------------------------------------------------------------------
 const FACTOR = { mm: 1, cm: 10, in: 25.4 }
@@ -86,6 +122,12 @@ function alPresionarElemento(ev, e) {
 function alPresionarAsa(ev, e, hx, hy) {
   ev.stopPropagation()
   if (!est.editable || e.bloqueado) return
+  // La medida que se arrastra deja de ser automática (la otra sigue ajustándose al contenido)
+  if (e.ajustar && e.ajustar !== 'no') {
+    const ancho = ['ancho', 'ambos'].includes(e.ajustar) && !hx
+    const alto = ['alto', 'ambos'].includes(e.ajustar) && !hy
+    e.ajustar = ancho && alto ? 'ambos' : ancho ? 'ancho' : alto ? 'alto' : 'no'
+  }
   const c = { x: e.x + e.w / 2, y: e.y + e.h / 2 }
   const local = { x: (-hx * e.w) / 2, y: (-hy * e.h) / 2 }
   const r = rotar(local.x, local.y, e.rot || 0)
@@ -276,11 +318,16 @@ function alArrastrarEncima(ev) {
 // ---- Zoom -------------------------------------------------------------------------------
 function ajustarZoom() {
   if (!marco.value || !d.value) return
-  const ancho = marco.value.clientWidth - 48
-  const alto = marco.value.clientHeight - 48
-  const z = Math.min(ancho / ((d.value.ancho + 8) * PX_MM), alto / ((d.value.alto + 8) * PX_MM))
+  // Las reglas ocupan 26 px a cada lado (pad) y se deja un respiro de 24 px
+  const ancho = marco.value.clientWidth - 2 * 26 - 24
+  const alto = marco.value.clientHeight - 2 * 26 - 24
+  const z = Math.min(ancho / (d.value.ancho * PX_MM), alto / (d.value.alto * PX_MM))
   emit('zoom', Math.max(0.1, Math.min(Math.round(z * 100) / 100, 8)))
 }
+// Otra medida (o pasar a vertical): la etiqueta vuelve a caber entera
+watch(() => d.value && `${d.value.ancho}x${d.value.alto}`, (nueva, vieja) => {
+  if (vieja && nueva !== vieja) nextTick(ajustarZoom)
+})
 function alRueda(ev) {
   if (!ev.ctrlKey && !ev.metaKey) return
   ev.preventDefault()
@@ -320,6 +367,12 @@ onBeforeUnmount(() => {
   window.removeEventListener('keyup', teclaEspacio)
   observador?.disconnect()
 })
+// Clic derecho: sobre un elemento no elegido, lo elige; sobre el fondo, deja de elegir; luego el menú
+function alMenu(ev, e = null) {
+  if (e && !est.seleccion.includes(e.id)) ed.seleccionar(e.id)
+  if (!e) ed.seleccionar(null)
+  emit('menu', { x: ev.clientX, y: ev.clientY })
+}
 defineExpose({ ajustarZoom, centro: () => ({ x: d.value.ancho / 2, y: d.value.alto / 2 }) })
 
 // ---- Selección y asas ---------------------------------------------------------------------
@@ -344,7 +397,7 @@ const cursor = computed(() => (espacio.value ? 'grab' : 'default'))
   <div ref="marco" class="lienzo-marco" :style="{ cursor }" @wheel="alRueda" @dragover="alArrastrarEncima" @drop="alSoltarAqui">
     <div class="lienzo-hoja">
       <svg ref="svg" class="lienzo" :viewBox="vb" :style="tamPx" role="application" :aria-label="t('Label canvas')"
-           @pointerdown="alPresionarFondo" @pointermove="alMover" @pointerup="alSoltar" @pointercancel="alSoltar">
+           @pointerdown="alPresionarFondo" @pointermove="alMover" @pointerup="alSoltar" @pointercancel="alSoltar" @contextmenu.prevent="alMenu($event)">
         <!-- Reglas -->
         <g class="regla" :font-size="px(9.5)">
           <rect :x="-pad" :y="-pad" :width="d.ancho + 2 * pad" :height="px(18)" class="regla-fondo" />
@@ -388,7 +441,7 @@ const cursor = computed(() => (espacio.value ? 'grab' : 'default'))
         <g>
           <rect v-for="e in visibles" :key="`h${e.id}`" v-bind="golpe(e)" :transform="giro(e)" class="golpe"
                 :class="{ bloqueado: e.bloqueado, movible: est.editable && !e.bloqueado }"
-                @pointerdown="alPresionarElemento($event, e)" @dblclick="alDobleClic(e)">
+                @pointerdown="alPresionarElemento($event, e)" @dblclick="alDobleClic(e)" @contextmenu.prevent.stop="alMenu($event, e)">
             <title>{{ e.nombre || e.campo || e.tipo }}</title>
           </rect>
         </g>

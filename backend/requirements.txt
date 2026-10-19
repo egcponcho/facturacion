@@ -10,3 +10,4 @@ reportlab>=4.0
 anthropic>=1.9
 fonttools>=4.50
 zxing-cpp>=2.2  # lee los códigos de barras y QR dibujados para verificarlos al validar un trabajo de etiquetas
+uharfbuzz>=0.39  # da forma al texto en escrituras complejas (árabe, devanagari) de las etiquetas

@@ -415,7 +415,20 @@
    "{0}: no",
    "· DAI {0}%",
    "· {0} pallets",
-   "campos_etiqueta[{0}]: {1}"
+   "campos_etiqueta[{0}]: {1}",
+   "1.5 × 1 in",
+   "100 × 50 mm",
+   "3 × 2 in",
+   "4 × 3 in",
+   "4 × 6 in",
+   "50 × 25 mm",
+   "60 × 40 mm",
+   "70 × 37 mm",
+   "Non",
+   "Oui",
+   "Real",
+   "Sim",
+   "Hindi"
   ]
  }
 }

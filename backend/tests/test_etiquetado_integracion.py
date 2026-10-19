@@ -3,6 +3,7 @@ las etiquetas lee las OC, sus líneas, las listas de empaque y la recepción,
 pero no cambia cantidades, saldos, estados ni movimientos. Y en los datos de
 la etiqueta lo pedido (OC) y lo empacado (bulto) no se confunden."""
 import pytest
+from etiquetado_util import aprobada, tipo, uso
 from sqlalchemy import text
 
 from app.core.db import engine
@@ -21,29 +22,34 @@ def _foto() -> dict:
 
 @pytest.fixture(scope="module")
 def regla(interno, admin):
-    p = interno.post("/etiquetas/plantillas", {"nombre": "Integration design", "modalidad": "OC_ARTICULO", "diseno": DISENO}).json()
-    v = p["versiones"][0]["id"]
-    assert interno.post(f"/etiquetas/versiones/{v}/enviar", {}).status_code == 200
-    assert admin.post(f"/etiquetas/versiones/{v}/aprobar", {}).status_code == 200
-    r = interno.post("/etiquetas/asignaciones", {"plantilla_id": p["id"], "ambito": "REGLA", "prioridad": 9991, "nombre": "Integration",
-                                                 "condiciones": [{"campo": "contexto.origen", "op": "existe"}]}).json()
-    yield p
-    interno.c.delete(f"/api/etiquetas/asignaciones/{r['id']}", headers=interno.h)
+    """Tipos de esta prueba (artículo por unidad y caja) con su diseño en toda la empresa."""
+    art = tipo(interno, "INT_UNIDAD", cantidad="POR_UNIDAD")
+    caja = tipo(interno, "INT_CAJA", sujeto="BULTO", cantidad="POR_BULTO")
+    for t in (art, caja):
+        uso(interno, t["id"], aprobada(interno, admin, f"Integration design {t['codigo']}", t["id"], DISENO["elementos"],
+                                         ancho=DISENO["ancho"], alto=DISENO["alto"])["id"])
+    return {"articulo": art, "caja": caja}
+
+
+def _ordenes(interno, n=2):
+    res = []
+    for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
+        d = interno.get(f"/ordenes/{o['id']}").json()
+        lineas = [x for x in d["posiciones"] if x.get("codigo_articulo")]
+        if d["oc"]["estado"] != "BORRADOR" and lineas:
+            res.append((o["id"], lineas))
+        if len(res) == n:
+            break
+    return res
 
 
 def test_generar_no_modifica_ordenes_listas_ni_recepcion(interno, regla):
-    ocs = []
-    for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
-        lineas = [x for x in interno.get(f"/etiquetas/oc/{o['id']}").json()["lineas"] if x["articulo_id"] and not x["bloqueada"]]
-        if lineas:
-            ocs.append((o["id"], lineas))
-        if len(ocs) == 2:
-            break
+    ocs = _ordenes(interno)
     assert ocs, "the demo has POs with items"
     antes = _foto()
     # Trabajo desde varias OC: validar, generar, descargar el ZIP y confirmar la impresión
     t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {
-        "oc_ids": [o for o, _ in ocs], "posiciones": [x["id"] for _, ls in ocs for x in ls[:2]], "unidad": "UNIDAD"}}).json()
+        "oc_ids": [o for o, _ in ocs], "posiciones": [x["id"] for _, ls in ocs for x in ls[:2]], "tipos": [regla["articulo"]["id"]]}}).json()
     assert interno.post(f"/etiquetas/trabajos/{t['id']}/validar").status_code == 200
     g = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True, "parcial": True})
     assert g.status_code == 200, g.text
@@ -52,11 +58,12 @@ def test_generar_no_modifica_ordenes_listas_ni_recepcion(interno, regla):
     for e in interno.get(f"/etiquetas/trabajos/{t['id']}").json()["ejecuciones"]:
         interno.post(f"/etiquetas/generaciones/{e['id']}/impresion", {"confirmo": True, "cantidad": e["total"]})
     # Por bulto desde una lista de empaque
-    pls = [x for x in interno.get("/etiquetas/masivo/packing").json()
-           if interno.get(f"/etiquetas/masivo/packing/{x['id']}").json()["superiores"]]
+    pls = [x for x in interno.get("/etiquetas/packing").json()
+           if x["etiquetas_reales"] and interno.get(f"/etiquetas/packing/{x['id']}").json()["superiores"]]
     if pls:
-        r = interno.post("/etiquetas/generaciones", {"pl_id": pls[0]["id"], "modalidad": "OC_ARTICULO", "unidad": "BULTO",
-                                                     "aceptar_advertencias": True})
+        t = interno.post("/etiquetas/trabajos", {"origen": "PACKING", "parametros": {"pl_id": pls[0]["id"], "tipos": [regla["caja"]["id"]]}}).json()
+        interno.post(f"/etiquetas/trabajos/{t['id']}/validar")
+        r = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True})
         assert r.status_code in (200, 422), r.text  # 422: datos del bulto incompletos; lo que importa es que nada cambie
     assert _foto() == antes
 
@@ -81,14 +88,13 @@ def test_ver_no_es_descargar(client, admin, interno, regla):
                                  "telefono": "+50370000178", "dos_pasos": True}).json()
     lector = Api(client, "lector.etq@demo.com", u["password_temporal"])
     assert lector.post("/auth/password", {"actual": u["password_temporal"], "nueva": "Segura#Clave2026"}).status_code == 200
-    for o in interno.get("/ordenes", params={"solo_disponible": False, "size": 100}).json()["items"]:
-        lineas = [x for x in interno.get(f"/etiquetas/oc/{o['id']}").json()["lineas"] if x["articulo_id"] and not x["bloqueada"]]
-        if lineas:
-            break
-    r = interno.post("/etiquetas/generaciones", {"oc_id": o["id"], "modalidad": "OC_ARTICULO", "unidad": "LINEA",
-                                                 "posiciones": [lineas[0]["id"]], "aceptar_advertencias": True})
+    (oc_id, lineas), = _ordenes(interno, 1)
+    t = interno.post("/etiquetas/trabajos", {"origen": "OC", "parametros": {"oc_ids": [oc_id], "posiciones": [lineas[0]["id"]],
+                                                                           "tipos": [regla["articulo"]["id"]]}}).json()
+    interno.post(f"/etiquetas/trabajos/{t['id']}/validar")
+    r = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True})
     assert r.status_code == 200, r.text
-    gen = r.json()
+    gen = r.json()["ejecuciones"][0]
     def descargas():
         from app.core.db import SessionLocal
         from app.modelos import GeneracionEtiquetas
@@ -101,4 +107,7 @@ def test_ver_no_es_descargar(client, admin, interno, regla):
     assert lector.get(f"/etiquetas/generaciones/{gen['id']}/archivo").status_code == 403
     assert descargas() == antes
     assert lector.get("/etiquetas/trabajos").status_code == 403
-    assert lector.get(f"/etiquetas/masivo/{gen.get('lote') or 'x'}/archivo").status_code == 403
+    assert lector.get(f"/etiquetas/trabajos/{t['id']}/archivo").status_code in (403, 404)
+    # Ver deja consultar la configuración, no cambiarla
+    assert lector.get("/etiquetas/matriz").status_code == 200
+    assert lector.put("/etiquetas/usos/celda", {"tipo_etiqueta_id": regla["articulo"]["id"], "nivel": "GENERAL", "normal": None}).status_code == 403

@@ -7,6 +7,7 @@ import { ACCIONES, cantTxt, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum } from '@/
 import { camposPropios, puede as tienePermiso, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import Avance from '@/componentes/Avance.vue'
+import BarraSeleccion from '@/componentes/BarraSeleccion.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import Icono from '@/componentes/Icono.vue'
@@ -14,11 +15,18 @@ import Modal from '@/componentes/Modal.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { estado as estadoTxt } from '@/nucleo/estados.js'
 import { confirmar } from '@/stores/confirmar'
+import ResumenEtiquetas from '@/modulos/etiquetado/componentes/ResumenEtiquetas.vue'
 
 // Detalle de la orden de compra (solo lectura): su estado, lo acordado, las
 // líneas, el avance logístico, las aprobaciones y el historial. Se edita en el
 // asistente; las acciones dependen del estado y del rol (las decide el servidor).
 const props = defineProps({ id: { type: String, required: true } })
+// Las etiquetas de la OC: cuántas salen de cada tipo, con qué diseños y qué falta (antes de imprimir)
+const verEtiquetas = ref(false)
+// Posiciones elegidas en la tabla: acciones en la barra flotante (etiquetas solo de esas líneas)
+const lineasElegidas = ref([])
+const etiquetarElegidas = () => router.push({ path: '/etiquetas/trabajos/nuevo',
+  query: { origen: 'OC', oc: oc.value.id, posiciones: lineasElegidas.value.join(',') } })
 const route = useRoute()
 const router = useRouter()
 
@@ -177,7 +185,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
             <button v-if="puede.eliminar" type="button" class="btn btn-peligro" :disabled="ocupado" @click="eliminar"><Icono nombre="basura" :tam="15" />{{ t('Delete draft') }}</button>
             <button v-else-if="puede.cancelar" type="button" class="btn btn-peligro" @click="abrir('cancelar')">{{ t('Cancel PO') }}</button>
           </MasOpciones>
-          <router-link v-if="tienePermiso('etiquetas.generar') && oc.estado !== 'BORRADOR'" :to="{ path: '/etiquetas/trabajos/nuevo', query: { origen: 'OC', oc: oc.id } }" class="btn"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</router-link>
+          <button v-if="(tienePermiso('etiquetas.generar') || tienePermiso('etiquetas.ver')) && oc.estado !== 'BORRADOR'" type="button" class="btn" @click="verEtiquetas = true"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
           <router-link v-if="puede.editar" :to="`/ordenes/${oc.id}/editar`" class="btn" :class="{ 'btn-primario': !puede.enviar }"><Icono nombre="editar" :tam="16" />{{ tx(oc.estado === 'RECHAZADA' ? t('Correct') : t('Continue editing')) }}</router-link>
           <router-link v-if="puede.enviar" :to="{ path: `/ordenes/${oc.id}/editar`, query: { paso: 'revision' } }" class="btn btn-primario"><Icono nombre="enviar" :tam="16" />{{ t('Review and send') }}</router-link>
           <button v-if="puede.rechazar" type="button" class="btn" @click="abrir('rechazar')">{{ t('Reject') }}</button>
@@ -257,7 +265,8 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
 
     <!-- Líneas -->
     <section v-if="tab === 'lineas'" class="panel">
-      <TablaDatos v-if="d.posiciones.length" tabla="oc_lineas" :columnas="columnasLineas" :filas="d.posiciones" :etiqueta="t('Lines')">
+      <TablaDatos v-if="d.posiciones.length" v-model:seleccion="lineasElegidas" tabla="oc_lineas" :columnas="columnasLineas" :filas="d.posiciones" :etiqueta="t('Lines')"
+                  :seleccionable="tienePermiso('etiquetas.generar') && oc.estado !== 'BORRADOR'">
         <template #celda-codigo_articulo="{ fila: p }"><span class="codigo">{{ tx(p.codigo_articulo) }}</span> {{ tx([p.estilo, p.color, p.talla].filter(Boolean).join(' · ')) }}
           <span class="sub">{{ tx(p.descripcion || '') }}<template v-if="p.almacen"> · {{ t('Warehouse {0}', [p.almacen]) }}</template></span></template>
         <template #celda-cantidad="{ fila: p }">{{ cantTxt(p.cantidad, p.unidad) }}</template>
@@ -283,6 +292,9 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
         </TablaDatos>
       </template>
       <EstadoVacio v-if="!d.posiciones.length && !lineasBorrador.length" icono="lista" :titulo="t('No lines yet')" :texto="t('Add the items in the assistant.')" />
+      <BarraSeleccion :cantidad="lineasElegidas.length" :singular="t('line selected')" :plural="t('lines selected')" @limpiar="lineasElegidas = []">
+        <button type="button" class="btn" @click="etiquetarElegidas"><Icono nombre="etiqueta" :tam="15" />{{ t('Labels of these lines') }}</button>
+      </BarraSeleccion>
     </section>
 
     <!-- Avance logístico (separado del estado de la OC) -->
@@ -341,6 +353,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
         {{ tx(ACCION[modal.accion].boton) }}</button>
     </template>
   </Modal>
+  <ResumenEtiquetas v-if="verEtiquetas && oc" origen="OC" :id="oc.id" :numero="oc.numero" @cerrar="verEtiquetas = false" />
 </template>
 
 <style scoped>

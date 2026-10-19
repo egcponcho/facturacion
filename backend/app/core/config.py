@@ -126,13 +126,14 @@ class Settings:
     META_LIBERACION_A_TIEMPO: int = 80
     # Etiquetado: quien diseña una versión no la aprueba (si se exige) y tope de etiquetas por lote
     ETIQUETAS_CUATRO_OJOS: bool = False
-    ETIQUETAS_MAXIMO_LOTE: int = 5000
     # Trabajos de etiquetado: generar solo los registros listos y dejar los que
     # tienen errores para después; desde cuántas etiquetas se generan en segundo
     # plano; tope de etiquetas de un trabajo
     ETIQUETAS_GENERACION_PARCIAL: bool = False
     ETIQUETAS_ASINCRONO_DESDE: int = 2000
     ETIQUETAS_MAXIMO_TRABAJO: int = 50000
+    ETIQUETAS_PL_SIN_FINALIZAR: bool = False
+    ETIQUETAS_VALIDAR_EMPAQUE: bool = True
     # Ejecución duradera de los trabajos (trabajos.py): el proceso que genera
     # renueva su arriendo; si deja de hacerlo (se detuvo) otro lo retoma. Cada
     # instancia busca trabajos abandonados cada ETIQUETAS_RECUPERAR_SEG (0 = no busca).

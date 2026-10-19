@@ -1,5 +1,6 @@
-"""Etiquetado: familias, campos disponibles, plantillas y sus versiones,
-asignaciones, generación y descargas (docs/ETIQUETADO.md)."""
+"""Etiquetado: tipos de etiqueta, familias, campos disponibles, diseños y sus
+versiones, qué diseño lleva cada cosa (usos), trabajos de etiquetado,
+historial y descargas (docs/ETIQUETADO.md)."""
 from datetime import date
 from typing import Any
 
@@ -8,15 +9,17 @@ from fastapi import APIRouter, Body, Query, Response, UploadFile
 from app.core.errores import ErrorNegocio
 from app.modulos.acceso.permisos import exigir_alguno
 from app.modulos.etiquetado import (
-    asignaciones,
+    buscadores,
     campos,
     campos_logicos,
+    categorias,
     familias,
     generacion,
-    masivo,
     plantillas,
     previa,
+    tipos,
     trabajos,
+    usos,
 )
 from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
 
@@ -24,13 +27,164 @@ router = APIRouter()
 
 
 # ---- Campos dinámicos -------------------------------------------------------------------
+SUJETO = Query(None, pattern="^(ARTICULO|BULTO|DOCUMENTO)$")
+
+
+@router.get("/etiquetas/catalogos")
+def catalogos(db: Db, user: User):
+    """Lo que la interfaz necesita para armar sus formularios: qué se etiqueta, cuántas salen,
+    niveles y excepciones posibles, operadores de las condiciones, simbologías y tamaños."""
+    from app.modelos.etiquetado import ALCANCES_DE, CANTIDADES_DE, CONTEXTOS, NIVELES_DE
+    from app.modulos.etiquetado import codigos, reglas
+
+    exigir_alguno(user, "etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.configurar")
+    return {"sujetos": list(CANTIDADES_DE), "cantidades": CANTIDADES_DE, "niveles": NIVELES_DE, "contextos": list(CONTEXTOS),
+            "orden_contexto": list(reglas.ORDEN_CONTEXTO), "operadores": list(reglas.OPERADORES),
+            "operadores_simples": list(reglas.OPERADORES_SIMPLES), "simbologias": codigos.catalogo(),
+            "tamanos": plantillas.tamanos(), "sugeridos": tipos.SUGERIDOS, "origenes": dict(trabajos.SUJETOS_DE),
+            "completables": list(trabajos.COMPLETABLES), "alcances": {k: list(v) for k, v in ALCANCES_DE.items()},
+            "cantidades_regla": {k: list(v) for k, v in usos.CANTIDADES_DE_SUJETO.items()}}
+
+
 @router.get("/etiquetas/campos")
-def listar_campos(db: Db, user: User, modalidad: str | None = Query(None, pattern="^(ARTICULO|OC|OC_ARTICULO)$")):
+def listar_campos(db: Db, user: User, sujeto: str | None = SUJETO):
     """Campos que se pueden poner en una etiqueta, por grupo, con su origen (tabla.columna) y un ejemplo."""
     exigir_alguno(user, "etiquetas.ver", "etiquetas.disenar")
-    return {"grupos": campos.GRUPOS, "modalidades": {k: sorted(v) for k, v in campos.POR_MODALIDAD.items()},
-            "campos": [campos.dict_campo(c) for c in campos.catalogo(db, modalidad)],
-            "colecciones": [campos.dict_coleccion(c) for c in campos.colecciones(modalidad)]}
+    propios = campos.personalizados()
+    return {"grupos": campos.GRUPOS, "sujetos": {k: sorted(v) for k, v in campos.POR_SUJETO.items()},
+            "campos": [campos.dict_campo(c, propios) for c in campos.catalogo(db, sujeto)],
+            "colecciones": [campos.dict_coleccion(c) for c in campos.colecciones(sujeto, db)]}
+
+
+@router.put("/etiquetas/campos/propios")
+def guardar_campos_propios(db: Db, user: User, campos_: dict[str, dict[str, Any]] = Body(..., alias="campos", embed=True)):
+    """Nombres propios de la empresa para los campos y los que se ocultan al diseñar ({clave: {nombre, oculto}})."""
+    return ejecutar(db, user, None, lambda: campos.guardar_personalizados(db, user, campos_))
+
+
+@router.put("/etiquetas/tamanos")
+def guardar_tamanos(db: Db, user: User, tamanos: list[dict[str, Any]] = Body(..., embed=True)):
+    """Los tamaños de etiqueta que se ofrecen al crear un diseño (nombre, ancho y alto en mm)."""
+    return ejecutar(db, user, None, lambda: plantillas.guardar_tamanos(db, user, tamanos))
+
+
+# ---- Tipos de etiqueta -------------------------------------------------------------------
+@router.get("/etiquetas/tipos")
+def listar_tipos(db: Db, user: User, todos: bool = False):
+    """Tipos de etiqueta activos de la empresa (qué se etiqueta, cuántas salen, si son obligatorios); `todos` suma los inactivos."""
+    return tipos.listar(db, user, None if todos else True)
+
+
+@router.post("/etiquetas/tipos")
+def crear_tipo(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Nuevo tipo: codigo, nombre, descripcion, sujeto (ARTICULO, BULTO, DOCUMENTO), cantidad, obligatoria, orden."""
+    return ejecutar(db, user, clave, lambda: tipos.crear(db, user, datos))
+
+
+@router.post("/etiquetas/tipos/sugeridos")
+def crear_tipos_sugeridos(db: Db, user: User, codigos: list[str] = Body(..., embed=True)):
+    """Primer uso: crea los tipos sugeridos elegidos (colgante, precio, caja, contenido de OC)."""
+    return ejecutar(db, user, None, lambda: tipos.crear_sugeridos(db, user, codigos))
+
+
+@router.patch("/etiquetas/tipos/{tipo_id}")
+def actualizar_tipo(tipo_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Cambia el tipo (con `version`); `activo: false` lo retira de las pantallas."""
+    return ejecutar(db, user, None, lambda: tipos.actualizar(db, user, tipo_id, datos))
+
+
+# ---- Qué diseño lleva cada cosa (usos de diseño) -------------------------------------------
+@router.get("/etiquetas/matriz")
+def matriz(db: Db, user: User, sujeto: str = Query("ARTICULO", pattern="^(ARTICULO|BULTO|DOCUMENTO)$")):
+    """Familias (o tipos de empaque) × tipos de etiqueta: el diseño de cada celda, lo que hereda y la cobertura."""
+    return usos.matriz(db, user, sujeto)
+
+
+@router.get("/etiquetas/celda")
+def ver_celda(db: Db, user: User, tipo: int, nivel: str = Query(..., pattern="^(GENERAL|FAMILIA|CATEGORIA|PRODUCTO|SKU|TIPO_EMPAQUE)$"),
+              destino_id: int | None = None):
+    """Una celda: su diseño normal, lo que heredaría, sus excepciones, los productos con diseño propio y su firma."""
+    return usos.celda(db, user, tipo, nivel, destino_id)
+
+
+@router.put("/etiquetas/usos/celda")
+def guardar_celda(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Guarda la celda entera (normal, excepciones nuevas o editadas y las que se quitan) con la firma que se leyó."""
+    return ejecutar(db, user, None, lambda: usos.guardar_celda(db, user, datos))
+
+
+@router.post("/etiquetas/usos/simular")
+def simular(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Qué cambiaría si la celda se guardara así (no guarda nada)."""
+    return usos.simular(db, user, datos)
+
+
+@router.post("/etiquetas/usos/lote")
+def lote_usos(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """La misma excepción en varias celdas de un tipo («aplicar también a…»)."""
+    return ejecutar(db, user, None, lambda: usos.lote(db, user, datos))
+
+
+@router.get("/etiquetas/usos/valores")
+def valores_contexto(db: Db, user: User, contexto: str = Query(..., pattern="^(PAIS_DESTINO|CENTRO_DESTINO|SOCIEDAD|PROVEEDOR)$")):
+    """Los valores que puede tener una excepción (países de los centros destino, centros, sociedades, proveedores)."""
+    return usos.valores_contexto(db, user, contexto)
+
+
+@router.get("/etiquetas/usos")
+def listar_usos(db: Db, user: User, tipo_etiqueta_id: int | None = None, nivel: str | None = None, destino_id: int | None = None,
+                oc_id: int | None = None, plantilla_id: int | None = None, contexto_tipo: str | None = None, bajas: bool = False):
+    """Usos de diseño (con filtros); `bajas` incluye los dados de baja."""
+    return usos.listar(db, user, tipo_etiqueta_id, nivel, destino_id, oc_id, plantilla_id, contexto_tipo, bajas)
+
+
+@router.post("/etiquetas/usos")
+def crear_uso(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Un uso suelto: diseño propio de un producto o SKU (`reemplazar` cambia el que había) o una excepción de una OC."""
+    return ejecutar(db, user, clave, lambda: usos.crear(db, user, datos))
+
+
+@router.patch("/etiquetas/usos/{uso_id}")
+def actualizar_uso(uso_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Cambia cualquier dato del uso (diseño, lugar, excepción, vigencia) con `version`."""
+    return ejecutar(db, user, None, lambda: usos.actualizar(db, user, uso_id, datos))
+
+
+@router.post("/etiquetas/usos/{uso_id}/baja")
+def baja_uso(uso_id: int, db: Db, user: User, motivo: str | None = Body(None, embed=True)):
+    """Da de baja el uso (no se borra: queda en el historial)."""
+    return ejecutar(db, user, None, lambda: usos.baja(db, user, uso_id, motivo))
+
+
+@router.get("/etiquetas/usos/migracion")
+def informe_migracion_usos(db: Db, user: User):
+    """Cómo quedaron las reglas anteriores al convertirse en usos de diseño (convertidas, de baja y por qué, notas)."""
+    return usos.informe_migracion(db, user)
+
+
+@router.get("/etiquetas/usos/{uso_id}/historial")
+def historial_uso(uso_id: int, db: Db, user: User):
+    """Cada alta, cambio y baja del uso, con autor y fecha."""
+    return usos.historial(db, user, uso_id)
+
+
+@router.get("/etiquetas/resolver")
+def resolver(db: Db, user: User, sujeto: str = Query("ARTICULO", pattern="^(ARTICULO|BULTO|DOCUMENTO)$"),
+             articulo_id: int | None = None, oc_id: int | None = None, tipo_empaque_id: int | None = None):
+    """Qué diseño de cada tipo lleva un artículo (con o sin OC), un bulto o un documento, y por qué."""
+    return usos.resolver(db, user, articulo_id, oc_id, tipo_empaque_id, sujeto)
+
+
+@router.get("/etiquetas/productos/{producto_id}")
+def etiquetas_producto(producto_id: int, db: Db, user: User):
+    """La pestaña Etiquetas del producto: familia, diseño de cada tipo y por qué, excepciones y tallas con diseño propio."""
+    return usos.de_producto(db, user, producto_id)
+
+
+@router.get("/etiquetas/resumen")
+def resumen(db: Db, user: User, origen: str = Query(..., pattern="^(OC|PACKING|PRODUCTO)$"), id: int = Query(...)):
+    """Lo que se imprimiría desde una OC, una lista de empaque o un producto: por tipo, cuántas, con qué diseños y qué falta."""
+    return generacion.resumen(db, user, origen, id)
 
 
 # ---- Campos lógicos (precedencia de fuentes) ----------------------------------------------
@@ -42,7 +196,7 @@ def listar_campos_logicos(db: Db, user: User):
 
 @router.post("/etiquetas/campos-logicos")
 def crear_campo_logico(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """clave, etiqueta, tipo, fuentes (en orden), politica (PRIMERA, ADVERTIR, BLOQUEAR) y modalidades."""
+    """clave, etiqueta, tipo, fuentes (en orden), politica (PRIMERA, ADVERTIR, BLOQUEAR) y sujetos."""
     return ejecutar(db, user, clave, lambda: campos_logicos.crear(db, user, datos))
 
 
@@ -71,6 +225,18 @@ def crear_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: 
     return ejecutar(db, user, clave, lambda: familias.crear(db, user, datos))
 
 
+@router.post("/etiquetas/familias/desde-grupos")
+def familias_desde_grupos(db: Db, user: User):
+    """Primer uso: una familia por cada grupo de artículos sin familia (el grupo queda en ella)."""
+    return ejecutar(db, user, None, lambda: familias.desde_grupos(db, user))
+
+
+@router.post("/etiquetas/familias/configurar")
+def configurar_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Termina el asistente de una familia de una vez: datos, productos/grupos/artículos que entran y diseño por tipo."""
+    return ejecutar(db, user, clave, lambda: familias.configurar(db, user, datos))
+
+
 @router.put("/etiquetas/familias/orden")
 def ordenar_familias(db: Db, user: User, ids: list[int] = Body(..., embed=True)):
     """Orden de las familias (todas, en el orden deseado)."""
@@ -87,6 +253,43 @@ def actualizar_familia(familia_id: int, db: Db, user: User, datos: dict[str, Any
 def eliminar_familia(familia_id: int, db: Db, user: User):
     """Borra una familia sin uso (si se usa, se desactiva)."""
     return ejecutar(db, user, None, lambda: familias.eliminar(db, user, familia_id))
+
+
+# ---- Categorías de etiquetado (dentro de una familia) --------------------------------------
+@router.get("/etiquetas/categorias")
+def listar_categorias(db: Db, user: User, familia_id: int | None = None):
+    """Categorías de etiquetado (de una familia) con sus condiciones y cuántos artículos caen en cada una."""
+    return categorias.listar(db, user, familia_id)
+
+
+@router.post("/etiquetas/categorias")
+def crear_categoria(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
+    """Nueva categoría: familia, código, nombre, descripción, condiciones de reconocimiento y orden."""
+    return ejecutar(db, user, clave, lambda: categorias.crear(db, user, datos))
+
+
+@router.post("/etiquetas/categorias/probar")
+def probar_categoria(db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Qué artículos de la familia caerían en una categoría con estas condiciones (sin guardar)."""
+    return categorias.probar(db, user, datos)
+
+
+@router.patch("/etiquetas/categorias/{categoria_id}")
+def actualizar_categoria(categoria_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Cambia la categoría (nombre, condiciones, orden, activa…)."""
+    return ejecutar(db, user, None, lambda: categorias.actualizar(db, user, categoria_id, datos))
+
+
+@router.delete("/etiquetas/categorias/{categoria_id}")
+def eliminar_categoria(categoria_id: int, db: Db, user: User):
+    """Borra una categoría sin uso (si tiene reglas o productos, se desactiva)."""
+    return ejecutar(db, user, None, lambda: categorias.eliminar(db, user, categoria_id))
+
+
+@router.post("/etiquetas/productos/categoria")
+def asignar_categoria_productos(db: Db, user: User, categoria_id: int | None = Body(None), ids: list[int] = Body(...)):
+    """Pone a mano la categoría de varios productos (o la quita, con categoría vacía)."""
+    return ejecutar(db, user, None, lambda: categorias.asignar_productos(db, user, categoria_id, ids))
 
 
 @router.get("/etiquetas/articulos")
@@ -112,6 +315,19 @@ def asignar_familia_grupos(db: Db, user: User, familia_id: int | None = Body(Non
     return ejecutar(db, user, None, lambda: familias.asignar_grupos(db, user, familia_id, grupo_ids))
 
 
+@router.get("/etiquetas/productos")
+def productos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None, page: int = Query(1, ge=1),
+                      size: int = Query(50, ge=1, le=200)):
+    """Productos (estilo-color) con su familia de etiquetado (familia=sin: los que no tienen)."""
+    return familias.productos(db, user, q, familia, page, size)
+
+
+@router.post("/etiquetas/productos/familia")
+def asignar_familia_productos(db: Db, user: User, familia_id: int | None = Body(None), ids: list[int] = Body(...)):
+    """Pone la familia a varios productos (o se la quita): la heredan sus tallas sin familia propia."""
+    return ejecutar(db, user, None, lambda: familias.asignar_productos(db, user, familia_id, ids))
+
+
 @router.post("/etiquetas/articulos/familia")
 def asignar_familia(db: Db, user: User, familia_id: int | None = Body(None), ids: list[int] | None = Body(None),
                     filtro: dict[str, Any] | None = Body(None), clave: Clave = None):
@@ -121,22 +337,22 @@ def asignar_familia(db: Db, user: User, familia_id: int | None = Body(None), ids
 
 # ---- Plantillas y versiones ---------------------------------------------------------------
 @router.get("/etiquetas/plantillas")
-def listar_plantillas(db: Db, user: User, q: str | None = None, modalidad: str | None = None, familia_id: int | None = None,
+def listar_plantillas(db: Db, user: User, q: str | None = None, tipo_etiqueta_id: int | None = None, sujeto: str | None = SUJETO,
                       estado: str | None = "ACTIVA", estado_version: str | None = None, page: int = Query(1, ge=1),
                       size: int = Query(50, ge=1, le=200)):
-    """Diseños con su modalidad, familia, tamaño, versión vigente, última versión y asignaciones."""
-    return plantillas.listar(db, user, q, modalidad, familia_id, estado, estado_version, page, size)
+    """Diseños con su tipo de etiqueta, tamaño, versión vigente, última versión y dónde se usan."""
+    return plantillas.listar(db, user, q, tipo_etiqueta_id, sujeto, estado, estado_version, page, size)
 
 
 @router.post("/etiquetas/plantillas")
 def crear_plantilla(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Diseño nuevo (nombre, descripción, modalidad, unidad, familia) con su versión 1 en borrador."""
+    """Diseño nuevo (nombre, descripción, tipo de etiqueta, tamaño) con su versión 1 en borrador."""
     return ejecutar(db, user, clave, lambda: plantillas.crear(db, user, datos))
 
 
 @router.get("/etiquetas/plantillas/{plantilla_id}")
 def ver_plantilla(plantilla_id: int, db: Db, user: User):
-    """Diseño con todas sus versiones y asignaciones."""
+    """Diseño con todas sus versiones y dónde se usa."""
     return plantillas.detalle(db, user, plantilla_id)
 
 
@@ -148,7 +364,7 @@ def bitacora_plantilla(plantilla_id: int, db: Db, user: User):
 
 @router.patch("/etiquetas/plantillas/{plantilla_id}")
 def actualizar_plantilla(plantilla_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Nombre, descripción, unidad, familia (y la modalidad, mientras no tenga una versión aprobada)."""
+    """Nombre, descripción y tipo de etiqueta (otro tipo del mismo sujeto, mientras no esté en uso)."""
     return ejecutar(db, user, clave, lambda: plantillas.actualizar(db, user, plantilla_id, datos))
 
 
@@ -208,7 +424,7 @@ def accion_version(version_id: int, accion: str, db: Db, user: User, datos: dict
 @router.post("/etiquetas/vista-previa")
 def vista_previa(db: Db, user: User, datos: dict[str, Any] = Body(...)):
     """La etiqueta dibujada por el servidor (SVG exacto) con datos de ejemplo o reales, y sus problemas.
-    Recibe version_id o un diseño sin guardar (con su modalidad) y, opcionalmente, articulo_id, oc_id,
+    Recibe version_id o un diseño sin guardar (con su tipo_etiqueta_id) y, opcionalmente, articulo_id, oc_id,
     posicion_id y bulto (número de caja)."""
     return previa.vista_previa(db, user, datos)
 
@@ -218,59 +434,6 @@ def miniatura(version_id: int, db: Db, user: User):
     """La versión con datos de ejemplo, para las listas."""
     return Response(previa.miniatura(db, user, version_id), media_type="image/svg+xml",
                     headers={"Cache-Control": "private, max-age=60"})
-
-
-# ---- Asignaciones ------------------------------------------------------------------------
-@router.get("/etiquetas/asignaciones")
-def listar_asignaciones(db: Db, user: User, plantilla_id: int | None = None, ambito: str | None = None,
-                        familia_id: int | None = None, producto_id: int | None = None, articulo_id: int | None = None,
-                        oc_id: int | None = None, activas: bool | None = True):
-    """Dónde se aplica cada diseño (general, familia, producto, artículo o excepción de una OC)."""
-    return asignaciones.listar(db, user, plantilla_id, ambito, familia_id, producto_id, articulo_id, oc_id, activas)
-
-
-@router.post("/etiquetas/asignaciones")
-def crear_asignacion(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Asigna un diseño: plantilla_id, ambito y su destino (familia_id, producto_id, articulo_id u oc_id con motivo)."""
-    return ejecutar(db, user, clave, lambda: asignaciones.crear(db, user, datos))
-
-
-@router.patch("/etiquetas/asignaciones/{asignacion_id}")
-def actualizar_asignacion(asignacion_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
-    """Predeterminada, activa o motivo de una asignación."""
-    return ejecutar(db, user, None, lambda: asignaciones.actualizar(db, user, asignacion_id, datos))
-
-
-@router.delete("/etiquetas/asignaciones/{asignacion_id}")
-def eliminar_asignacion(asignacion_id: int, db: Db, user: User):
-    """Quita una asignación (el diseño y lo generado no cambian)."""
-    return ejecutar(db, user, None, lambda: asignaciones.eliminar(db, user, asignacion_id))
-
-
-@router.get("/etiquetas/reglas")
-def listar_reglas(db: Db, user: User, plantilla_id: int | None = None, activas: bool | None = None):
-    """Las reglas de etiquetado, de mayor a menor prioridad, con sus condiciones, contexto y vigencia."""
-    return asignaciones.listar(db, user, plantilla_id, activas=activas)
-
-
-@router.get("/etiquetas/reglas/conflictos")
-def conflictos_reglas(db: Db, user: User):
-    """Reglas con la misma prioridad y diseños distintos que pueden cumplirse para el mismo registro."""
-    return asignaciones.conflictos(db, user)
-
-
-@router.post("/etiquetas/reglas/probar")
-def probar_reglas(db: Db, user: User, datos: dict[str, Any] = Body(...)):
-    """Qué diseño se elegiría y por qué, regla por regla, para un registro real (oc_id, posicion_id,
-    articulo_id, pl_id + bulto) o de muestra (valores), en una fecha y con una regla en borrador (regla)."""
-    return asignaciones.probar(db, user, datos)
-
-
-@router.get("/etiquetas/resolver")
-def resolver(db: Db, user: User, modalidad: str = Query(..., pattern="^(ARTICULO|OC|OC_ARTICULO)$"),
-             articulo_id: int | None = None, oc_id: int | None = None):
-    """Qué diseño (y versión) se usaría para este artículo u OC, en qué nivel y por qué."""
-    return previa.resolver(db, user, modalidad, articulo_id, oc_id)
 
 
 # ---- Imágenes y fuentes ---------------------------------------------------------------------
@@ -301,25 +464,6 @@ def fuente(archivo: str, user: User):
 
 
 # ---- Generación e historial -----------------------------------------------------------------
-@router.get("/etiquetas/oc/{oc_id}")
-def resumen_oc(oc_id: int, db: Db, user: User):
-    """Líneas de la OC con su artículo, familia y el diseño que se usaría; bultos y etiquetas ya generadas."""
-    return generacion.resumen_oc(db, user, oc_id)
-
-
-@router.post("/etiquetas/plan")
-def plan(db: Db, user: User, datos: dict[str, Any] = Body(...)):
-    """Qué se generaría: grupos con su plantilla y versión, cantidad de etiquetas y problemas (sin generar nada).
-    modalidad, unidad (ORDEN, LINEA, UNIDAD, BULTO, MANUAL), oc_id, posiciones, cantidades, articulos, elegidas, prueba."""
-    return generacion._publico(generacion.plan(db, user, datos))
-
-
-@router.post("/etiquetas/generaciones")
-def generar(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Genera el lote (formato PDF, PNG, SVG o ZIP): se detiene ante errores y pide aceptar_advertencias."""
-    return ejecutar(db, user, clave, lambda: generacion.generar(db, user, datos))
-
-
 @router.get("/etiquetas/generaciones")
 def historial(db: Db, user: User, desde: date | None = None, hasta: date | None = None, usuario_id: int | None = None,
               oc_id: int | None = None, articulo_id: int | None = None, familia_id: int | None = None,
@@ -330,44 +474,24 @@ def historial(db: Db, user: User, desde: date | None = None, hasta: date | None 
                              estado, page, size)
 
 
-# ---- Generación masiva ----------------------------------------------------------------------------
-@router.get("/etiquetas/masivo/ordenes")
-def ordenes_masivo(db: Db, user: User, familia_id: int | None = None, q: str | None = None, estado: str | None = None,
-                   page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), solo_ids: bool = False):
+# ---- Búsquedas del asistente ------------------------------------------------------------------
+@router.get("/etiquetas/ordenes")
+def ordenes(db: Db, user: User, familia_id: int | None = None, q: str | None = None, estado: str | None = None,
+            page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), solo_ids: bool = False):
     """Órdenes de compra con artículos de la familia (líneas y artículos distintos de la familia, bultos y lotes ya generados)."""
-    return masivo.ordenes_familia(db, user, familia_id, q, estado, page, size, solo_ids)
+    return buscadores.ordenes_familia(db, user, familia_id, q, estado, page, size, solo_ids)
 
 
-@router.get("/etiquetas/masivo/packing")
+@router.get("/etiquetas/packing")
 def buscar_packing(db: Db, user: User, q: str | None = None):
-    """Listas de empaque para generar etiquetas de sus empaques."""
-    return masivo.buscar_packing(db, user, q)
+    """Listas de empaque para generar etiquetas (y si ya admiten etiquetas reales)."""
+    return buscadores.buscar_packing(db, user, q)
 
 
-@router.get("/etiquetas/masivo/packing/{pl_id}")
-def packing_masivo(pl_id: int, db: Db, user: User):
+@router.get("/etiquetas/packing/{pl_id}")
+def packing(pl_id: int, db: Db, user: User):
     """Una lista de empaque con sus niveles de empaque (tarimas, cajas, inner…) y cuántas unidades tiene cada uno."""
-    return masivo.packing(db, user, pl_id)
-
-
-@router.post("/etiquetas/masivo/plan")
-def plan_masivo(db: Db, user: User, datos: dict[str, Any] = Body(...)):
-    """Qué se generaría: un lote por OC (o uno de artículos o de la lista de empaque) con sus problemas."""
-    return masivo.ver_plan(db, user, datos)
-
-
-@router.post("/etiquetas/masivo")
-def generar_masivo(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Genera los lotes con una etiqueta por página (tipo: ordenes, articulos o packing; plantilla_id; formato PDF o PNG)."""
-    return ejecutar(db, user, clave, lambda: masivo.generar(db, user, datos))
-
-
-@router.get("/etiquetas/masivo/{lote}/archivo")
-def archivo_masivo(lote: str, db: Db, user: User, formato: str | None = Query(None, pattern="^(PDF|PNG)$")):
-    """Los archivos de la generación masiva: un PDF (o ZIP de imágenes), o un ZIP con un PDF por OC."""
-    contenido, nombre, mime = masivo.archivo(db, user, lote, formato)
-    db.commit()
-    return Response(contenido, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+    return buscadores.packing(db, user, pl_id)
 
 
 # ---- Trabajos de etiquetado (asistente único) ---------------------------------------------------------
@@ -380,7 +504,8 @@ def listar_trabajos(db: Db, user: User, estado: str | None = None, q: str | None
 
 @router.post("/etiquetas/trabajos")
 def crear_trabajo(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Nuevo trabajo: origen (OC, ARTICULOS, PACKING), parametros (oc_ids, posiciones, articulos, pl_id…), nombre y paso."""
+    """Nuevo trabajo: origen (OC, ARTICULOS, PACKING), parametros (oc_ids, posiciones, articulos, pl_id, tipos, prueba…),
+    nombre y paso. Sin tipos, los obligatorios que aplican al origen."""
     return ejecutar(db, user, clave, lambda: trabajos.crear(db, user, datos))
 
 
@@ -398,8 +523,16 @@ def guardar_trabajo(trabajo_id: int, db: Db, user: User, datos: dict[str, Any] =
 
 @router.post("/etiquetas/trabajos/{trabajo_id}/validar")
 def validar_trabajo(trabajo_id: int, db: Db, user: User):
-    """Arma y revisa cada registro en el servidor: diseño y regla, datos, empaque, códigos (leídos con el lector)."""
+    """Arma y revisa cada registro en el servidor: diseño y por qué, datos, empaque, códigos (leídos con el lector)."""
     return ejecutar(db, user, None, lambda: trabajos.validar(db, user, trabajo_id))
+
+
+@router.post("/etiquetas/trabajos/{trabajo_id}/completar")
+def completar_trabajo(trabajo_id: int, db: Db, user: User, campo: str = Body(..., max_length=80),
+                      valores: dict[str, Any] = Body(...)):
+    """Completa en el maestro de artículos el dato que falta ({articulo_id: valor}: UPC, SKU del proveedor, peso,
+    unidad) y vuelve a revisar el trabajo."""
+    return ejecutar(db, user, None, lambda: trabajos.completar(db, user, trabajo_id, campo, valores))
 
 
 @router.get("/etiquetas/trabajos/{trabajo_id}/registros/{registro_id}/vista-previa")
@@ -441,6 +574,20 @@ def archivo_trabajo(trabajo_id: int, db: Db, user: User, contenido: str | None =
 def confirmar_impresion(generacion_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
     """Confirma que las etiquetas se imprimieron (confirmo, cantidad, impresora, observacion si no fueron todas)."""
     return ejecutar(db, user, None, lambda: trabajos.confirmar_impresion(db, user, generacion_id, datos))
+
+
+@router.post("/etiquetas/generaciones/{generacion_id}/anular")
+def anular_generacion(generacion_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Anula una ejecución con su motivo: sus registros del trabajo vuelven a quedar pendientes."""
+    return ejecutar(db, user, None, lambda: trabajos.anular(db, user, generacion_id, datos))
+
+
+@router.post("/etiquetas/generaciones/{generacion_id}/reimprimir")
+def reimprimir_generacion(generacion_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
+    """Copias idénticas (todo el lote o grupos y rangos: seleccion [{item_id, desde, hasta}]) con su motivo."""
+    contenido, nombre, mime = trabajos.reimprimir(db, user, generacion_id, datos)
+    db.commit()
+    return Response(contenido, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
 
 
 @router.get("/etiquetas/generaciones/{generacion_id}")

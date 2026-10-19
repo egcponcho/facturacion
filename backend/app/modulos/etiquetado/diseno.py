@@ -24,7 +24,8 @@ Mm = Annotated[float, Field(ge=-1000, le=1000)]
 Positivo = Annotated[float, Field(gt=0, le=1000)]
 MAX_ELEMENTOS = 300
 CAMPO = re.compile(r"\{\{\s*([\w.]+)\s*\}\}")
-SIMBOLOGIAS = ("code128", "code39", "ean13", "ean8", "upca", "qr")
+SIMBOLOGIAS = ("code128", "code39", "ean13", "ean8", "upca", "itf14", "gs1_128", "sscc", "qr", "datamatrix", "gs1_datamatrix",
+               "pdf417")
 
 
 class _Base(BaseModel):
@@ -55,7 +56,8 @@ class Formato(_Base):
     tipo: Literal["auto", "numero", "fecha", "mayus", "minus"] = "auto"
     decimales: int = Field(0, ge=0, le=6)
     miles: bool = True
-    fecha: Literal["dd/mm/aaaa", "aaaa-mm-dd", "mm/dd/aaaa", "dd-mmm-aaaa"] = "dd/mm/aaaa"
+    # Patrón de fecha con dd, d, mm, mmm (mes corto), mmmm (mes completo), aa, aaaa y separadores
+    fecha: str = Field("dd/mm/aaaa", max_length=24, pattern=r"^(dd|d|mmmm|mmm|mm|aaaa|aa|[ /.,\-])+$")
 
 
 class Condicion(_Base):
@@ -89,6 +91,8 @@ class Columna(_Base):
     formato: Formato | None = None
 
 
+AJUSTABLES = ("texto", "campo", "tabla", "imagen")  # elementos cuyo recuadro puede ajustarse al contenido
+AJUSTE_NORMAL = {"texto": "ambos", "campo": "ambos", "tabla": "alto", "imagen": "alto"}  # si el diseño no lo dice
 TRANSFORMACIONES = ("mayus", "minus", "solo_digitos", "sin_espacios", "alfanumerico")
 
 
@@ -126,6 +130,21 @@ class Elemento(_Base):
     visible: bool = True
     grupo: str | None = Field(None, max_length=40)
     condicion: Condicion | None = None
+    # El recuadro se ajusta al contenido (al generar, con los datos reales de cada etiqueta):
+    # no (medidas fijas: el texto se reduce o se corta según su estilo), ancho (una línea crece
+    # a lo ancho), alto (el texto se parte en líneas y crece hacia abajo) o ambos. Crece desde
+    # su anclaje (alineación horizontal y vertical) y nunca más allá del área segura; si aun así
+    # no cabe, se aplica el ajuste del estilo. Las tablas crecen con sus filas y las imágenes
+    # toman la proporción de la imagen.
+    # Sin indicarlo, se ajusta (el recuadro automático es lo normal): textos y campos en ancho y alto, tablas con
+    # sus filas, imágenes con su proporción. «no» deja las medidas fijas.
+    ajustar: Literal["no", "ancho", "alto", "ambos"] | None = None
+    # Debajo de otro elemento: su Y es el borde inferior de ese elemento (ya ajustado) más la separación;
+    # si ese elemento no se imprime (vacío, oculto o con su condición sin cumplir), este sube a su lugar
+    debajo_de: str | None = Field(None, pattern=r"^[\w-]{1,40}$")
+    separacion: float = Field(1, ge=0, le=100)  # mm
+    # Puede ir encima de otro elemento con contenido (un texto sobre una imagen, p. ej.): no se avisa
+    superponer: bool = False
     # texto: puede llevar campos {{articulo.sku}}; campo: un solo campo con prefijo y sufijo
     contenido: str | None = Field(None, max_length=2000)
     campo: str | None = Field(None, max_length=80)
@@ -141,7 +160,8 @@ class Elemento(_Base):
     datos: str | None = Field(None, max_length=700_000)  # data URL pequeña (logo propio de la plantilla)
     encaje: Literal["contener", "cubrir", "estirar"] = "contener"
     # código de barras o QR
-    simbologia: Literal["code128", "code39", "ean13", "ean8", "upca", "qr"] | None = None
+    simbologia: Literal["code128", "code39", "ean13", "ean8", "upca", "itf14", "gs1_128", "sscc", "qr", "datamatrix",
+                        "gs1_datamatrix", "pdf417"] | None = None
     valor: str | None = Field(None, max_length=1000)  # texto con {{campos}} (o fijo)
     legible: bool = True  # texto bajo las barras
     margen: float = Field(0, ge=0, le=30)  # zona en blanco alrededor (mm)
@@ -192,6 +212,10 @@ class Elemento(_Base):
                 raise ValueError("choose the image")
         if t in ("texto", "campo", "tabla") and self.estilo is None:
             self.estilo = Estilo()
+        if t not in AJUSTABLES:
+            self.ajustar = "no"
+        elif self.ajustar is None:
+            self.ajustar = AJUSTE_NORMAL[t]
         return self
 
 
@@ -233,6 +257,11 @@ class Variable(_Base):
 class Diseno(_Base):
     esquema: Literal[1] = 1
     unidad: Literal["mm", "cm", "in"] = "mm"
+    # Cómo se escriben los datos en la etiqueta (no depende de quien la genera):
+    # idioma de los meses y del sí/no, separadores de miles y decimales
+    idioma: str = Field("en", pattern=r"^[a-z]{2}$")
+    separador_miles: Literal[",", ".", " ", "'", ""] = ","
+    separador_decimal: Literal[".", ","] = "."
     ancho: Positivo = 100
     alto: Positivo = 50
     margen: float = Field(2, ge=0, le=100)  # área segura de impresión (mm)
@@ -258,6 +287,20 @@ class Diseno(_Base):
         ids = [e.id for e in v]
         if len(ids) != len(set(ids)):
             raise ValueError("element ids must be unique")
+        # «Debajo de»: un elemento que ya no existe se olvida; una cadena que vuelve a sí misma no se acepta
+        existentes, sigue = set(ids), {}
+        for e in v:
+            if e.debajo_de and (e.debajo_de not in existentes or e.debajo_de == e.id):
+                e.debajo_de = None
+            if e.debajo_de:
+                sigue[e.id] = e.debajo_de
+        for inicio in sigue:
+            visto, actual = {inicio}, sigue[inicio]
+            while actual in sigue:
+                if actual in visto:
+                    raise ValueError("an element cannot go below itself (check «Below»)")
+                visto.add(actual)
+                actual = sigue[actual]
         return v
 
     @model_validator(mode="after")

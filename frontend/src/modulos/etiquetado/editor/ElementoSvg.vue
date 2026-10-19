@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { usarEditor } from './estado.js'
-import { PT_MM, TRAZOS, anchoTexto, cumple, formatear, maquetar, sustituir, valorCodigo as valorDeCodigo } from '@/modulos/etiquetado/etiquetas.js'
+import { PT_MM, TRAZOS, anchoTexto, cumple, formatear, fuenteImagen, maquetar, textoElemento, valorCodigo as valorDeCodigo } from '@/modulos/etiquetado/etiquetas.js'
 
 // Un elemento del diseño dibujado en el lienzo del editor (en mm), con los
 // valores de ejemplo de cada campo. Textos, formas e imágenes se dibujan igual
@@ -19,16 +19,11 @@ const giro = computed(() => (props.e.rot ? `rotate(${props.e.rot} ${props.e.x + 
 const aplica = computed(() => cumple(props.e.condicion, props.valores))
 
 // ---- Texto y campo ----------------------------------------------------------------------
-const texto = computed(() => {
-  const e = props.e
-  if (e.tipo === 'texto') return sustituir(e.contenido, props.valores, props.tipos)
-  if (e.tipo !== 'campo') return ''
-  let v = formatear(props.valores[e.campo], e.formato, props.tipos[e.campo])
-  if (v == null) v = e.si_vacio === 'alternativo' ? e.alternativo || '' : ''
-  return v ? `${e.prefijo || ''}${v}${e.sufijo || ''}` : ''
-})
+const texto = computed(() => textoElemento(props.e, props.valores, props.tipos))
 const marcador = computed(() => (props.e.tipo === 'campo' ? `{{${props.e.campo}}}` : props.e.contenido || ''))
-const estilo = computed(() => ({ fuente: 'sans', tam: 10, interlineado: 1.15, espaciado: 0, relleno: 0, alin: 'izq', valign: 'arriba', ajuste: 'reducir', tam_min: 6, color: '#000000', ...(props.e.estilo || {}) }))
+const estilo = computed(() => ({ fuente: 'sans', tam: 10, interlineado: 1.15, espaciado: 0, relleno: 0, alin: 'izq', valign: 'arriba', ajuste: 'reducir', tam_min: 6, color: '#000000', ...(props.e.estilo || {}),
+  // Un recuadro que crece hacia abajo parte el texto en líneas (render.ajustar_caja)
+  ...(['alto', 'ambos'].includes(props.e.ajustar) && { multilinea: true }) }))
 const maqueta = computed(() => {
   void props.version
   const est = estilo.value
@@ -50,14 +45,7 @@ const maqueta = computed(() => {
 const decoracion = computed(() => [estilo.value.subrayado && 'underline', estilo.value.tachado && 'line-through'].filter(Boolean).join(' ') || null)
 
 // ---- Imagen -----------------------------------------------------------------------------
-const imagen = computed(() => {
-  const e = props.e
-  if (e.tipo !== 'imagen') return null
-  if (e.fuente_imagen === 'adjunto' && e.adjunto_id) return `/api/etiquetas/imagenes/${e.adjunto_id}`
-  if (e.fuente_imagen === 'datos' && e.datos) return e.datos
-  const v = e.fuente_imagen === 'campo' ? props.valores[e.campo] : null
-  return typeof v === 'string' && (v.startsWith('data:image/') || v.startsWith('/')) ? v : null
-})
+const imagen = computed(() => fuenteImagen(props.e, props.valores))
 const encaje = computed(() => ({ contener: 'xMidYMid meet', cubrir: 'xMidYMid slice', estirar: 'none' })[props.e.encaje || 'contener'])
 
 // ---- Código: representación con barras deterministas o módulos de QR -------------------------

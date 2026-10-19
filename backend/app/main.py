@@ -129,8 +129,9 @@ ETIQUETAS = [
                                                          "e indicadores por módulo."},
     {"name": "Reportes", "description": "Generador de reportes: fuentes permitidas, vista previa, exportación y "
                                         "reportes guardados."},
-    {"name": "Etiquetado", "description": "Familias de etiquetado, diseños de etiqueta con versiones y aprobación, "
-                                          "asignaciones, generación desde OC y artículos, descargas e historial."},
+    {"name": "Etiquetado", "description": "Tipos de etiqueta, familias, diseños con versiones y aprobación, qué diseño "
+                                          "lleva cada cosa, trabajos desde OC, artículos y listas de empaque, descargas e "
+                                          "historial."},
     {"name": "Común", "description": "Edición exclusiva de un registro y bitácora de auditoría."},
     {"name": "Sistema", "description": "Estado del servidor."},
 ]

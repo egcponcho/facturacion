@@ -8,7 +8,7 @@ variable de contexto, así los generadores no necesitan recibirlas.
 """
 import re
 from contextvars import ContextVar
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -46,6 +46,7 @@ def de(u: Usuario | None) -> dict:
 
     empresa = {k: v for k, v in (configuracion_actual().get("preferencias") or {}).items() if k in ("idioma", "formato_fecha")}
     pref = {**DEFECTO, **empresa, **((u.preferencias or {}) if u else {})}
+    pref.pop("borradores", None)  # se piden aparte (pueden pesar)
     if pref.get("idioma") not in IDIOMAS:
         pref["idioma"] = DEFECTO["idioma"]
     return pref
@@ -247,3 +248,41 @@ def guardar_columnas(db: Session, user: Usuario, tabla: str, columnas: list | No
     user.preferencias = pref
     usar(user)
     return {"columnas": todas}
+
+
+# ---- Borradores ----------------------------------------------------------------------
+# Lo que la persona deja a medias en un asistente (p. ej. configurar una familia
+# de etiquetado): se guarda tal cual, sin tocar la configuración vigente, y se
+# retoma o se descarta después. Son suyos; nadie más los ve.
+MAX_BORRADORES = 30
+MAX_BORRADOR_BYTES = 100_000
+
+
+def borradores(user: Usuario, prefijo: str | None = None) -> list[dict]:
+    todos = (user.preferencias or {}).get("borradores") or {}
+    lista = [{"clave": k, **v} for k, v in todos.items() if not prefijo or k.startswith(prefijo)]
+    return sorted(lista, key=lambda b: b.get("actualizado") or "", reverse=True)
+
+
+def guardar_borrador(db: Session, user: Usuario, clave: str, datos: dict | None) -> dict:
+    """Guarda (o borra, con null) el borrador `clave`: {titulo, datos}."""
+    import json
+
+    if not re.fullmatch(r"[a-z][a-z0-9_.:-]{0,79}", clave or ""):
+        raise ErrorNegocio("Invalid draft name.", 422, "validacion")
+    pref = dict(user.preferencias or {})
+    todos = dict(pref.get("borradores") or {})
+    if datos is None:
+        todos.pop(clave, None)
+    else:
+        if not isinstance(datos, dict) or not isinstance(datos.get("datos"), dict):
+            raise ErrorNegocio("Invalid draft.", 422, "validacion")
+        if len(json.dumps(datos["datos"], ensure_ascii=False)) > MAX_BORRADOR_BYTES:
+            raise ErrorNegocio("The draft is too big.", 422, "validacion")
+        if clave not in todos and len(todos) >= MAX_BORRADORES:
+            raise ErrorNegocio(f"You already have {MAX_BORRADORES} drafts: finish or discard one.", 422, "validacion")
+        todos[clave] = {"titulo": re.sub(r"\s+", " ", str(datos.get("titulo") or "")).strip()[:120],
+                        "datos": datos["datos"], "actualizado": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    pref["borradores"] = todos
+    user.preferencias = pref
+    return {"clave": clave, **todos[clave]} if datos is not None else {"clave": clave, "borrado": True}

@@ -1,9 +1,9 @@
 <script setup>
 import { t } from '@/i18n/index.js'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
-import { TAMANOS } from '@/modulos/etiquetado/etiquetas.js'
+import { AJUSTABLES, AJUSTE_NORMAL, IDIOMAS_ETIQUETA, catalogos } from '@/modulos/etiquetado/etiquetas.js'
 import { usarEditor } from './estado.js'
 import CampoColor from './CampoColor.vue'
 import Medida from './Medida.vue'
@@ -17,11 +17,14 @@ const d = computed(() => est.diseno)
 const u = computed(() => d.value.unidad || 'mm')
 const no = computed(() => !est.editable)
 
-const tamano = computed(() => TAMANOS.findIndex(([, w, h]) => (Math.abs(w - d.value.ancho) < 0.05 && Math.abs(h - d.value.alto) < 0.05)
+// Tamaños de la empresa (Configuración → Tipos de etiqueta) o los de fábrica
+const tamanos = ref([])
+onMounted(() => catalogos().then((c) => (tamanos.value = c.tamanos)).catch(() => {}))
+const tamano = computed(() => tamanos.value.findIndex(({ ancho: w, alto: h }) => (Math.abs(w - d.value.ancho) < 0.05 && Math.abs(h - d.value.alto) < 0.05)
   || (Math.abs(h - d.value.ancho) < 0.05 && Math.abs(w - d.value.alto) < 0.05)))
 function elegirTamano(i) {
   if (no.value || i === '' || i < 0) return
-  const [, w, h] = TAMANOS[i]
+  const { ancho: w, alto: h } = tamanos.value[i]
   const horizontal = d.value.ancho >= d.value.alto
   d.value.ancho = horizontal ? Math.max(w, h) : Math.min(w, h)
   d.value.alto = horizontal ? Math.min(w, h) : Math.max(w, h)
@@ -29,6 +32,12 @@ function elegirTamano(i) {
 function girarEtiqueta() {
   if (no.value) return
   ;[d.value.ancho, d.value.alto] = [d.value.alto, d.value.ancho]
+}
+// Elementos con medidas fijas (diseños hechos antes del recuadro automático): se pasan todos de una vez
+const fijos = computed(() => (d.value.elementos || []).filter((e) => AJUSTABLES.includes(e.tipo) && (!e.ajustar || e.ajustar === 'no')))
+function todosAutomaticos() {
+  if (no.value) return
+  for (const e of fijos.value) e.ajustar = AJUSTE_NORMAL[e.tipo]
 }
 function borde(activo) {
   if (no.value) return
@@ -86,13 +95,17 @@ const noCabe = computed(() => {
 
 <template>
   <div class="panel-prop">
+    <div v-if="fijos.length && !no" class="nota nota-auto">
+      <p>{{ fijos.length === 1 ? t('1 element has a fixed box: it does not grow with its content.') : t('{0} elements have a fixed box: they do not grow with their content.', [fijos.length]) }}</p>
+      <button type="button" class="btn btn-chico" @click="todosAutomaticos"><Icono nombre="auto-caja" :tam="15" />{{ t('Turn on the automatic box in all') }}</button>
+    </div>
     <h4>{{ t('Label dimensions') }}</h4>
     <div class="segmentos" role="group" :aria-label="t('Unit')">
       <button v-for="x in ['mm', 'cm', 'in']" :key="x" type="button" class="segmento" :aria-pressed="u === x" :disabled="no" @click="d.unidad = x">{{ x }}</button>
     </div>
     <Seleccion :model-value="tamano" :disabled="no" :aria-label="t('Common dimensions')" @change="elegirTamano">
       <option :value="-1">{{ t('Custom dimensions') }}</option>
-      <option v-for="([n], i) in TAMANOS" :key="n" :value="i">{{ n }}</option>
+      <option v-for="(x, i) in tamanos" :key="i" :value="i">{{ x.nombre }}</option>
     </Seleccion>
     <div class="rejilla-2">
       <Medida v-model="d.ancho" :etiqueta="t('Width')" :unidad="u" :min="5" :max="1000" :disabled="no" />
@@ -100,6 +113,22 @@ const noCabe = computed(() => {
     </div>
     <button type="button" class="btn btn-chico" :disabled="no" @click="girarEtiqueta"><Icono nombre="girar" :tam="15" />
       {{ d.ancho >= d.alto ? t('Switch to portrait') : t('Switch to landscape') }}</button>
+
+    <h4>{{ t('Language and numbers') }}</h4>
+    <div class="rejilla-2">
+      <label class="campo-mini"><span>{{ t('Language of months and yes/no') }}</span>
+        <Seleccion :model-value="d.idioma || 'en'" :disabled="no" :aria-label="t('Language')" @change="(v) => (d.idioma = v)">
+          <option v-for="[c, n] in IDIOMAS_ETIQUETA()" :key="c" :value="c">{{ n }}</option>
+        </Seleccion></label>
+      <label class="campo-mini"><span>{{ t('Thousands separator') }}</span>
+        <Seleccion :model-value="d.separador_miles ?? ','" :disabled="no" :aria-label="t('Thousands separator')" @change="(v) => (d.separador_miles = v)">
+          <option value=",">1,000</option><option value=".">1.000</option><option value=" ">1 000</option><option value="'">1'000</option><option value="">1000</option>
+        </Seleccion></label>
+      <label class="campo-mini"><span>{{ t('Decimal separator') }}</span>
+        <Seleccion :model-value="d.separador_decimal || '.'" :disabled="no" :aria-label="t('Decimal separator')" @change="(v) => (d.separador_decimal = v)">
+          <option value=".">0.50</option><option value=",">0,50</option>
+        </Seleccion></label>
+    </div>
 
     <h4>{{ t('Print area') }}</h4>
     <div class="rejilla-2">
@@ -176,6 +205,8 @@ const noCabe = computed(() => {
 </template>
 
 <style scoped>
+.nota-auto { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin: 0 0 6px; }
+.nota-auto p { margin: 0; font-size: 0.8rem; }
 .panel-prop { display: flex; flex-direction: column; gap: 8px; }
 .panel-prop h4 { margin: 12px 0 0; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .panel-prop h4:first-child { margin-top: 0; }

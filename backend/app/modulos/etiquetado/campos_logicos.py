@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import CampoEtiqueta, Usuario, VersionPlantilla
-from app.modelos.etiquetado import MODALIDADES, POLITICAS_CAMPO, TIPOS_CAMPO
+from app.modelos.etiquetado import POLITICAS_CAMPO, SUJETOS, TIPOS_CAMPO
 from app.modulos.acceso.permisos import exigir, exigir_alguno
 from app.modulos.comun.historial import registrar
 
@@ -43,9 +43,9 @@ def _olvidar(db: Session) -> None:
     db.info.pop(_CACHE, None)
 
 
-def fuera_de(db: Session, modalidad: str) -> set[str]:
-    """Campos lógicos que no existen en esta modalidad."""
-    return {f"logico.{c.clave}" for c in activos(db) if c.modalidades and modalidad not in c.modalidades}
+def fuera_de(db: Session, sujeto: str) -> set[str]:
+    """Campos lógicos que no existen para lo que se etiqueta."""
+    return {f"logico.{c.clave}" for c in activos(db) if c.sujetos and sujeto not in c.sujetos}
 
 
 def _igual(a, b) -> bool:
@@ -59,12 +59,12 @@ def _vacio(v) -> bool:
     return v is None or (isinstance(v, str) and not v.strip())
 
 
-def resolver(db: Session, modalidad: str, valores: dict) -> tuple[dict, dict, list[dict]]:
+def resolver(db: Session, sujeto: str, valores: dict) -> tuple[dict, dict, list[dict]]:
     """Valores de los campos lógicos, de qué fuente salió cada uno y los
     problemas por fuentes con valores distintos."""
     res, procedencia, problemas = {}, {}, []
     for c in activos(db):
-        if c.modalidades and modalidad not in c.modalidades:
+        if c.sujetos and sujeto not in c.sujetos:
             continue
         clave = f"logico.{c.clave}"
         elegido, fuente = None, None
@@ -86,7 +86,7 @@ def resolver(db: Session, modalidad: str, valores: dict) -> tuple[dict, dict, li
 # ---- Administración -----------------------------------------------------------------------
 def dict_campo(db: Session, c: CampoEtiqueta) -> dict:
     return {"id": c.id, "clave": c.clave, "campo": f"logico.{c.clave}", "etiqueta": c.etiqueta, "descripcion": c.descripcion,
-            "tipo": c.tipo, "fuentes": c.fuentes or [], "politica": c.politica, "modalidades": c.modalidades or [],
+            "tipo": c.tipo, "fuentes": c.fuentes or [], "politica": c.politica, "sujetos": c.sujetos or [],
             "activo": c.activo, "version": c.version, "en_uso": _en_uso(db, c.clave)}
 
 
@@ -136,11 +136,11 @@ def _validar(db: Session, datos: dict, actual: CampoEtiqueta | None) -> dict:
         if politica not in POLITICAS_CAMPO:
             errores.append({"campo": "politica", "mensaje": "Choose what to do when the sources disagree."})
         limpio["politica"] = politica
-    if actual is None or "modalidades" in datos:
-        modalidades = datos.get("modalidades") or []
-        if not isinstance(modalidades, list) or any(m not in MODALIDADES for m in modalidades):
-            errores.append({"campo": "modalidades", "mensaje": "Unknown data mode."})
-        limpio["modalidades"] = sorted(set(modalidades)) if isinstance(modalidades, list) else []
+    if actual is None or "sujetos" in datos:
+        sujetos = datos.get("sujetos") or []
+        if not isinstance(sujetos, list) or any(m not in SUJETOS for m in sujetos):
+            errores.append({"campo": "sujetos", "mensaje": "Choose items, packages or documents."})
+        limpio["sujetos"] = sorted(set(sujetos)) if isinstance(sujetos, list) else []
     if actual is None or "fuentes" in datos:
         fuentes = datos.get("fuentes") or []
         validas = {c.clave for c in campos.catalogo(db) if c.grupo not in ("logico", "etiqueta")}

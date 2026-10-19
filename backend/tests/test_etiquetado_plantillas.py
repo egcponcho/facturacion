@@ -1,15 +1,22 @@
-"""Etiquetado: plantillas, versiones y aprobación, duplicación, asignaciones
-con su prioridad, vista previa con datos de ejemplo y reales, e imágenes."""
+"""Etiquetado: diseños, versiones y aprobación, duplicación, dónde se usa cada
+diseño (usos por lugar y excepciones) y cuál gana, vista previa con datos de
+ejemplo y reales, e imágenes."""
 import io
 
 import pytest
+from etiquetado_util import tipo
 from PIL import Image
 
 TEXTO = {"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 4, "y": 4, "w": 60, "h": 10, "estilo": {"tam": 12}}
 
 
-def _plantilla(api, nombre, modalidad="ARTICULO", elementos=None, **kw):
-    r = api.post("/etiquetas/plantillas", {"nombre": nombre, "modalidad": modalidad, **kw,
+def _tipo(api, sujeto="ARTICULO"):
+    return tipo(api, f"PLT_{sujeto}", sujeto=sujeto, cantidad={"ARTICULO": "POR_ARTICULO", "BULTO": "POR_BULTO",
+                                                                "DOCUMENTO": "POR_DOCUMENTO"}[sujeto])
+
+
+def _plantilla(api, nombre, sujeto="ARTICULO", elementos=None, **kw):
+    r = api.post("/etiquetas/plantillas", {"nombre": nombre, "tipo_etiqueta_id": _tipo(api, sujeto)["id"], **kw,
                                            "diseno": {"ancho": 80, "alto": 40, "elementos": elementos or [TEXTO]}})
     assert r.status_code == 200, r.text
     return r.json()
@@ -25,7 +32,8 @@ def _aprobada(interno, admin, nombre, **kw):
 
 
 def test_ciclo_de_versiones(interno, admin, tnf):
-    p = _plantilla(interno, "Standard footwear label", familia_id=None)
+    p = _plantilla(interno, "Standard footwear label")
+    assert p["tipo"] == "Plt_Articulo" and p["sujeto"] == "ARTICULO"
     v1 = p["versiones"][0]
     assert v1["numero"] == 1 and v1["estado"] == "BORRADOR" and p["vigente"] is None
     # Se guarda y se sigue editando
@@ -36,11 +44,11 @@ def test_ciclo_de_versiones(interno, admin, tnf):
     assert r.status_code == 200, r.text
     # Concurrencia: guardar con la versión vieja se rechaza
     assert interno.put(f"/etiquetas/versiones/{v1['id']}/diseno", {"diseno": d["diseno"], "version": d["version"]}).status_code == 409
-    # Un campo que la modalidad no tiene (artículo sin OC)
-    malo = {**d["diseno"], "elementos": [{"id": "oc", "tipo": "campo", "campo": "oc.numero", "x": 1, "y": 1, "w": 10, "h": 5}]}
+    # Un campo que no tiene lo que se etiqueta (un artículo no tiene datos de caja)
+    malo = {**d["diseno"], "elementos": [{"id": "b", "tipo": "campo", "campo": "bulto.numero", "x": 1, "y": 1, "w": 10, "h": 5}]}
     assert interno.put(f"/etiquetas/versiones/{v1['id']}/diseno", {"diseno": malo}).status_code == 422
     # Proveedor: no diseña; interno: no aprueba
-    assert tnf.post("/etiquetas/plantillas", {"nombre": "x", "modalidad": "ARTICULO"}).status_code == 403
+    assert tnf.post("/etiquetas/plantillas", {"nombre": "x", "tipo_etiqueta_id": _tipo(interno)["id"]}).status_code == 403
     assert interno.post(f"/etiquetas/versiones/{v1['id']}/enviar", {}).json()["estado"] == "PENDIENTE"
     assert interno.put(f"/etiquetas/versiones/{v1['id']}/diseno", {"diseno": d["diseno"]}).status_code == 409
     assert interno.post(f"/etiquetas/versiones/{v1['id']}/aprobar", {}).status_code == 403
@@ -125,63 +133,77 @@ def test_duplicar_es_independiente(interno, admin):
 
 @pytest.fixture(scope="module")
 def mundo(interno, admin):
-    """Artículos, una familia y diseños aprobados para probar la prioridad."""
+    """Artículos, una familia y diseños aprobados para ver cuál gana."""
     fam = interno.post("/etiquetas/familias", {"codigo": "PRIO", "nombre": "Priority test"}).json()
     arts = interno.get("/etiquetas/articulos", params={"size": 6}).json()["items"]
     x, y, z = arts[0], arts[1], arts[2]
     interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [x["id"], y["id"]]})
-    interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [z["id"]]})
-    p = {k: _aprobada(interno, admin, f"Priority {k}") for k in ("general", "familia", "articulo")}
+    p = {k: _aprobada(interno, admin, f"Priority {k}") for k in ("general", "familia", "articulo", "oc_especial")}
     oc = interno.get("/ordenes", params={"solo_disponible": False, "size": 1}).json()["items"][0]
-    p["oc"] = _aprobada(interno, admin, "Priority PO", modalidad="OC", elementos=[
-        {"id": "n", "tipo": "campo", "campo": "oc.numero", "x": 4, "y": 4, "w": 60, "h": 10}])
-    p["oc_general"] = _aprobada(interno, admin, "Priority PO general", modalidad="OC", elementos=[
-        {"id": "n", "tipo": "campo", "campo": "oc.numero", "x": 4, "y": 4, "w": 60, "h": 10}])
-    return {"familia": fam, "x": x, "y": y, "z": z, "p": p, "oc": oc}
+    doc = {"id": "n", "tipo": "campo", "campo": "oc.numero", "x": 4, "y": 4, "w": 60, "h": 10}
+    p["oc"] = _aprobada(interno, admin, "Priority PO", sujeto="DOCUMENTO", elementos=[doc])
+    p["oc_general"] = _aprobada(interno, admin, "Priority PO general", sujeto="DOCUMENTO", elementos=[doc])
+    yield {"familia": fam, "x": x, "y": y, "z": z, "p": p, "oc": oc}
+    interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [x["id"], y["id"]]})
 
 
-def test_prioridad_de_plantillas(interno, admin, mundo):
+def test_cual_diseno_gana(interno, admin, mundo):
+    """Cada lugar tiene un solo diseño normal; gana el más específico (talla,
+    producto, familia, toda la empresa) y la excepción de una OC antes que todo."""
     p, x, y, z = mundo["p"], mundo["x"], mundo["y"], mundo["z"]
-    asignar = lambda **d: interno.post("/etiquetas/asignaciones", d)  # noqa: E731
-    assert asignar(plantilla_id=p["general"]["id"], ambito="GENERAL").status_code == 200
-    assert asignar(plantilla_id=p["familia"]["id"], ambito="FAMILIA", familia_id=mundo["familia"]["id"]).status_code == 200
-    assert asignar(plantilla_id=p["articulo"]["id"], ambito="ARTICULO", articulo_id=x["id"]).status_code == 200
-    assert asignar(plantilla_id=p["articulo"]["id"], ambito="ARTICULO", articulo_id=x["id"]).status_code == 409  # repetida
-    # Una plantilla de OC no se asigna a un artículo; la excepción de una OC exige motivo
-    assert asignar(plantilla_id=p["oc"]["id"], ambito="ARTICULO", articulo_id=x["id"]).status_code == 422
-    assert asignar(plantilla_id=p["oc"]["id"], ambito="OC", oc_id=mundo["oc"]["id"]).status_code == 422
-    res = lambda **q: interno.get("/etiquetas/resolver", params=q).json()  # noqa: E731
-    r = res(modalidad="ARTICULO", articulo_id=x["id"])
-    assert (r["plantilla"], r["nivel"], r["version"]) == ("Priority articulo", "ARTICULO", 1) and x["sku"] in r["motivo"]
-    r = res(modalidad="ARTICULO", articulo_id=y["id"])
-    assert (r["plantilla"], r["nivel"]) == ("Priority familia", "FAMILIA") and "Priority test" in r["motivo"]
-    r = res(modalidad="ARTICULO", articulo_id=z["id"])
-    assert (r["plantilla"], r["nivel"]) == ("Priority general", "GENERAL") and "The item has no labeling family." in r["avisos"]
-    # Dos generales sin predeterminada: el usuario elige; con predeterminada, se resuelve
-    otra = interno.post(f"/etiquetas/plantillas/{p['general']['id']}/duplicar", {"nombre": "Priority general 2"}).json()
-    asignar(plantilla_id=otra["id"], ambito="GENERAL")
-    r = res(modalidad="ARTICULO", articulo_id=z["id"])
-    assert r["plantilla"] == "Priority general" and r["sin_aprobar"] == [{"plantilla_id": otra["id"], "plantilla": "Priority general 2"}]
-    copia_aprobada = interno.post(f"/etiquetas/plantillas/{p['general']['id']}/duplicar", {"nombre": "Priority general 3"}).json()
-    _aprobar_existente(interno, admin, copia_aprobada)
-    asignar(plantilla_id=copia_aprobada["id"], ambito="GENERAL")
-    r = res(modalidad="ARTICULO", articulo_id=z["id"])
-    assert r["ambigua"] and {c["plantilla"] for c in r["candidatas"]} == {"Priority general", "Priority general 3"}
-    a = next(a for a in interno.get("/etiquetas/asignaciones", params={"plantilla_id": copia_aprobada["id"]}).json())
-    interno.patch(f"/etiquetas/asignaciones/{a['id']}", {"predeterminada": True})
-    r = res(modalidad="ARTICULO", articulo_id=z["id"])
-    assert r["plantilla"] == "Priority general 3" and "default among several" in r["motivo"]
-    # Archivada: deja de elegirse (la de familia cae a la general)
+    art, doc = _tipo(interno)["id"], _tipo(interno, "DOCUMENTO")["id"]
+
+    def usar(**d):
+        return interno.post("/etiquetas/usos", {"tipo_etiqueta_id": art, "contexto_tipo": "NINGUNO", **d})
+
+    assert usar(plantilla_id=p["general"]["id"], nivel="GENERAL").status_code == 200
+    assert usar(plantilla_id=p["familia"]["id"], nivel="FAMILIA", destino_id=mundo["familia"]["id"]).status_code == 200
+    assert usar(plantilla_id=p["articulo"]["id"], nivel="SKU", destino_id=x["id"]).status_code == 200
+    r = usar(plantilla_id=p["general"]["id"], nivel="SKU", destino_id=x["id"])
+    assert r.status_code == 409 and r.json()["codigo"] == "celda_ocupada"  # un lugar, un diseño normal
+    # Un diseño de otro tipo no se usa aquí; una excepción exige el motivo
+    assert usar(plantilla_id=p["oc"]["id"], nivel="SKU", destino_id=z["id"]).status_code == 422
+    assert usar(plantilla_id=p["oc_especial"]["id"], nivel="GENERAL", contexto_tipo="OC", oc_id=mundo["oc"]["id"]).status_code == 422
+    # Un documento no tiene familia: solo se le pone diseño en toda la empresa
+    assert interno.post("/etiquetas/usos", {"tipo_etiqueta_id": doc, "plantilla_id": p["oc"]["id"], "nivel": "FAMILIA",
+                                            "destino_id": mundo["familia"]["id"]}).status_code == 422
+
+    def res(tipo_id=art, **q):
+        return next(e for e in interno.get("/etiquetas/resolver", params=q).json()["elecciones"] if e["tipo_etiqueta_id"] == tipo_id)
+
+    r = res(sujeto="ARTICULO", articulo_id=x["id"])
+    assert (r["plantilla"], r["porque"]["nivel"], r["porque"]["clase"]) == ("Priority articulo", "SKU", "normal") and x["sku"] in r["motivo"]
+    r = res(sujeto="ARTICULO", articulo_id=y["id"])
+    assert (r["plantilla"], r["porque"]["nivel"]) == ("Priority familia", "FAMILIA") and "Priority test" in r["motivo"]
+    r = res(sujeto="ARTICULO", articulo_id=z["id"])
+    assert (r["plantilla"], r["porque"]["nivel"]) == ("Priority general", "GENERAL")
+    # La excepción de una OC gana aunque el artículo tenga diseño propio
+    assert usar(plantilla_id=p["oc_especial"]["id"], nivel="GENERAL", contexto_tipo="OC", oc_id=mundo["oc"]["id"],
+                motivo="Customer asked for a special label").status_code == 200
+    r = res(sujeto="ARTICULO", articulo_id=x["id"], oc_id=mundo["oc"]["id"])
+    assert (r["plantilla"], r["porque"]["clase"]) == ("Priority oc_especial", "oc") and mundo["oc"]["numero"] in r["motivo"]
+    assert res(sujeto="ARTICULO", articulo_id=x["id"])["plantilla"] == "Priority articulo"  # sin esa OC, no aplica
+    # Archivado: deja de elegirse (la familia cae a toda la empresa)
     interno.post(f"/etiquetas/plantillas/{p['familia']['id']}/archivar", {})
-    assert res(modalidad="ARTICULO", articulo_id=y["id"])["nivel"] == "GENERAL"
+    assert res(sujeto="ARTICULO", articulo_id=y["id"])["porque"]["nivel"] == "GENERAL"
     interno.post(f"/etiquetas/plantillas/{p['familia']['id']}/reactivar", {})
-    # Modalidad OC: la excepción de la OC gana a la general
+    # Sin aprobar: se elige igual pero se marca (solo imprime en prueba)
+    otra = interno.post(f"/etiquetas/plantillas/{p['general']['id']}/duplicar", {"nombre": "Priority general 2"}).json()
+    assert usar(plantilla_id=otra["id"], nivel="GENERAL", reemplazar=True).status_code == 200
+    r = res(sujeto="ARTICULO", articulo_id=z["id"])
+    assert r["plantilla"] == "Priority general 2" and r["aprobada"] is False
+    # Dónde se usa cada diseño
+    lista = {d["id"]: d for d in interno.get("/etiquetas/plantillas", params={"tipo_etiqueta_id": art, "size": 200}).json()["items"]}
+    assert {u["nivel"] for u in lista[p["articulo"]["id"]]["se_usa_en"]} == {"SKU"}
+    assert lista[p["oc_especial"]["id"]]["se_usa_en"][0]["excepcion"] is True
+    # Documento: la excepción de la OC gana a toda la empresa
     oc = mundo["oc"]
-    asignar(plantilla_id=p["oc_general"]["id"], ambito="GENERAL")
-    assert res(modalidad="OC", oc_id=oc["id"])["plantilla"] == "Priority PO general"
-    assert asignar(plantilla_id=p["oc"]["id"], ambito="OC", oc_id=oc["id"], motivo="Customer asked for a special label").status_code == 200
-    r = res(modalidad="OC", oc_id=oc["id"])
-    assert (r["plantilla"], r["nivel"]) == ("Priority PO", "OC") and oc["numero"] in r["motivo"]
+    interno.post("/etiquetas/usos", {"tipo_etiqueta_id": doc, "plantilla_id": p["oc_general"]["id"], "nivel": "GENERAL", "reemplazar": True})
+    assert res(doc, sujeto="DOCUMENTO", oc_id=oc["id"])["plantilla"] == "Priority PO general"
+    assert interno.post("/etiquetas/usos", {"tipo_etiqueta_id": doc, "plantilla_id": p["oc"]["id"], "nivel": "GENERAL", "contexto_tipo": "OC",
+                                            "oc_id": oc["id"], "motivo": "Customer asked for a special label"}).status_code == 200
+    r = res(doc, sujeto="DOCUMENTO", oc_id=oc["id"])
+    assert (r["plantilla"], r["porque"]["clase"]) == ("Priority PO", "oc")
 
 
 def _aprobar_existente(interno, admin, plantilla):
@@ -196,8 +218,8 @@ def test_vista_previa_ejemplo_y_reales(interno, mundo):
     assert r.status_code == 200 and r.json()["datos"] == "ejemplo" and r.json()["svg"].startswith("<svg")
     real = interno.post("/etiquetas/vista-previa", {"version_id": p["vigente"]["id"], "articulo_id": mundo["x"]["id"]}).json()
     assert real["datos"] == "reales" and real["valores"]["articulo.sku"] == mundo["x"]["sku"]
-    # Un diseño sin guardar (editor) con su modalidad
-    sin_guardar = interno.post("/etiquetas/vista-previa", {"modalidad": "ARTICULO", "diseno": {"ancho": 50, "alto": 30, "elementos": [
+    # Un diseño sin guardar (editor) con su tipo de etiqueta
+    sin_guardar = interno.post("/etiquetas/vista-previa", {"tipo_etiqueta_id": _tipo(interno)["id"], "diseno": {"ancho": 50, "alto": 30, "elementos": [
         {"id": "t", "tipo": "texto", "contenido": "{{articulo.marca}}", "x": 2, "y": 2, "w": 40, "h": 8}]}}).json()
     assert 'width="50mm"' in sin_guardar["svg"]
     assert interno.get(f"/etiquetas/versiones/{p['vigente']['id']}/miniatura.svg").headers["content-type"].startswith("image/svg")
