@@ -44,6 +44,7 @@ from app.modulos.compras import liberaciones, perfiles
 from app.modulos.comun import tabla as tabla_datos
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto, terminos
+from app.modulos.empaque import recetas
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
 from app.modulos.maestros.unidades import error_cantidad
 from app.modulos.maestros.unidades import normalizar as unidad_de
@@ -371,6 +372,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "estado": estado,
                 "motivo": motivo,
                 "solo_factura_id": restringida,
+                "receta": recetas.dict_posicion(p),
             }
         )
     prov = db.get(Proveedor, oc.proveedor_id)
@@ -398,11 +400,15 @@ def empaque_posicion(db: Session, user: Usuario, oc_id: int, posicion_id: int, c
         raise ErrorNegocio("This line is already invoiced: its packing can no longer change.", 409, "facturada")
     antes = {"casepack": p.casepack, "inner_pack": p.inner_pack}
     p.casepack, p.inner_pack = casepack, inner_pack
+    # La receta sigue al casepack escrito (o, sin casepack, a las reglas)
+    if casepack is None and inner_pack is None:
+        recetas.poner(p, None, None)
+    recetas.asignar(db, p, p.oc, trae_empaque=casepack is not None)
     registrar(db, user, "orden", p.oc_id, "empaque",
               {"posicion": p.posicion, **{k: [antes[k], v] for k, v in (("casepack", casepack),
                                                                            ("inner_pack", inner_pack))
                                           if antes[k] != v}})
-    return {"id": p.id, "casepack": p.casepack, "inner_pack": p.inner_pack}
+    return {"id": p.id, "casepack": p.casepack, "inner_pack": p.inner_pack, "receta": recetas.dict_posicion(p)}
 
 
 def estado_posicion(oc, p, facturado: int, facturas: list[dict]):
@@ -917,6 +923,7 @@ def aplicar_importacion(db: Session, user: Usuario, imp: ImportacionOC, propia: 
     clasificadas = _clasificar(db, imp.filas, propia)
     m = Maestros(db)
     aplicadas = 0
+    motor = None  # reglas de empaque, cargadas una vez
     ocs_tocadas: dict[int, dict] = {}
     for c in clasificadas:
         if c["estado"] == "conflicto":
@@ -960,6 +967,8 @@ def aplicar_importacion(db: Session, user: Usuario, imp: ImportacionOC, propia: 
             db.add(pos)
         for campo, valor in _valores_posicion(d).items():
             setattr(pos, campo, valor)
+        motor = motor or recetas.Motor(db)
+        recetas.asignar(db, pos, oc, motor, trae_empaque=d.get("casepack") is not None)
         aplicadas += 1
     for info in ocs_tocadas.values():
         oc = info["oc"]

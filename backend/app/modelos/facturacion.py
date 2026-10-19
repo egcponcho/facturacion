@@ -100,6 +100,8 @@ class FacturaLinea(DeOrganizacion, Base):
     inner_pack: Mapped[int | None] = mapped_column(Integer)
     prepack: Mapped[str | None] = mapped_column(String(30))
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)
+    receta_id: Mapped[int | None] = mapped_column(ForeignKey("recetas_empaque.id"), index=True)  # la de la posición
+    receta_foto: Mapped[dict | None] = mapped_column(JSON)
     centro_destino: Mapped[str | None] = mapped_column(String(10))
     # Datos de aduana (editables en la factura)
     pais_origen: Mapped[str | None] = mapped_column(String(3))

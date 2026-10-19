@@ -52,11 +52,11 @@ COMPARTIDOS = {"paises"}
 # tests/test_integridad_bd.py verifica que existan.
 # tabla hija → [(columna, tabla padre)]
 COHERENCIA: dict[str, list[tuple[str, str]]] = {
-    "posiciones_oc": [("oc_id", "ordenes_compra")],
+    "posiciones_oc": [("oc_id", "ordenes_compra"), ("receta_id", "recetas_empaque"), ("receta_regla_id", "reglas_empaque")],
     "aprobaciones_oc": [("oc_id", "ordenes_compra")],
     "ordenes_compra": [("proveedor_id", "proveedores")],
     "facturas": [("proveedor_id", "proveedores")],
-    "factura_lineas": [("factura_id", "facturas"), ("posicion_oc_id", "posiciones_oc")],
+    "factura_lineas": [("factura_id", "facturas"), ("posicion_oc_id", "posiciones_oc"), ("receta_id", "recetas_empaque")],
     "packing_lists": [("factura_id", "facturas"), ("unidad_carga_id", "unidades_carga")],
     "pl_lineas": [("pl_id", "packing_lists"), ("factura_linea_id", "factura_lineas")],
     "grupos_cajas": [("pl_id", "packing_lists")],
@@ -86,6 +86,9 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
                     ("articulo_id", "articulos"), ("tipo_empaque_id", "tipos_empaque"), ("oc_id", "ordenes_compra")],
     "productos": [("familia_etiquetado_id", "familias_etiquetado"), ("categoria_etiquetado_id", "categorias_etiquetado")],
     "categorias_etiquetado": [("familia_id", "familias_etiquetado")],
+    "receta_niveles": [("receta_id", "recetas_empaque"), ("tipo_empaque_id", "tipos_empaque")],
+    "reglas_empaque": [("receta_id", "recetas_empaque"), ("familia_id", "familias_etiquetado"), ("producto_id", "productos"),
+                       ("articulo_id", "articulos")],
     "generacion_items": [("generacion_id", "generaciones_etiqueta"), ("version_id", "versiones_plantilla"),
                          ("plantilla_id", "plantillas_etiqueta"), ("articulo_id", "articulos"), ("posicion_id", "posiciones_oc"),
                          ("familia_id", "familias_etiquetado"), ("trabajo_registro_id", "trabajo_etiqueta_registros"),

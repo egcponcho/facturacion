@@ -228,6 +228,8 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         inner_pack=p.inner_pack,
         prepack=p.prepack,
         unidades_por_caja=p.unidades_por_caja,
+        receta_id=p.receta_id,
+        receta_foto=p.receta_foto,
         centro_destino=oc.centro_destino,
         pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
         partida_arancelaria=partida_para(prod),  # 6 dígitos: el destino es solo proyectado

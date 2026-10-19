@@ -7,7 +7,9 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -26,7 +28,10 @@ from app.core.organizacion import DeOrganizacion
 from app.modelos.base import Cantidad, ahora, cant
 
 if TYPE_CHECKING:
+    from app.modelos.etiquetado import FamiliaEtiquetado
     from app.modelos.facturacion import Factura, FacturaLinea
+    from app.modelos.maestros import Articulo
+    from app.modelos.productos import Producto
     from app.modelos.transporte import UnidadCarga
 
 
@@ -179,6 +184,98 @@ class TipoEmpaque(DeOrganizacion, Base):
     contiene: Mapped[list["TipoEmpaque"]] = relationship(
         secondary=tipo_empaque_contiene, primaryjoin=lambda: TipoEmpaque.id == tipo_empaque_contiene.c.padre_id,
         secondaryjoin=lambda: TipoEmpaque.id == tipo_empaque_contiene.c.hijo_id, order_by="TipoEmpaque.nivel")
+
+
+class RecetaEmpaque(DeOrganizacion, Base):
+    """Receta de empaque: cómo se empaca un artículo, en N niveles armados con
+    los tipos del catálogo (inner pack ⊂ master ⊂ pallet…). Cada nivel dice
+    cuántas unidades del nivel de abajo lleva; el primero, cuántas unidades
+    del artículo (pares, piezas o, en un prepack, curvas: la curva es el
+    artículo, no el empaque). Es un dato maestro que se reutiliza: las reglas
+    de empaque y las posiciones de OC apuntan a ella."""
+
+    __tablename__ = "recetas_empaque"
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_recetas_empaque_org_codigo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(30))
+    nombre: Mapped[str] = mapped_column(String(100))
+    descripcion: Mapped[str | None] = mapped_column(String(300))
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Creada sola a partir del casepack y el inner pack de las OC (se puede renombrar)
+    automatica: Mapped[bool] = mapped_column(Boolean, default=False)
+    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    actualizada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+
+    niveles: Mapped[list["RecetaNivel"]] = relationship(
+        back_populates="receta", cascade="all, delete-orphan", order_by="RecetaNivel.orden")
+
+
+class RecetaNivel(DeOrganizacion, Base):
+    """Un nivel de una receta: tipo de empaque y cuántas unidades del nivel de
+    abajo lleva. Las medidas y la tara, si no se escriben, son las del tipo."""
+
+    __tablename__ = "receta_niveles"
+    __table_args__ = (UniqueConstraint("receta_id", "orden", name="uq_receta_niveles_receta_orden"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receta_id: Mapped[int] = mapped_column(ForeignKey("recetas_empaque.id", ondelete="CASCADE"), index=True)
+    orden: Mapped[int] = mapped_column(Integer)  # 1 = el más interno
+    tipo_empaque_id: Mapped[int] = mapped_column(ForeignKey("tipos_empaque.id"), index=True)
+    cantidad: Mapped[int] = mapped_column(Integer)  # del nivel de abajo (en el 1, del artículo)
+    largo: Mapped[float | None] = mapped_column(Float)  # cm
+    ancho: Mapped[float | None] = mapped_column(Float)
+    alto: Mapped[float | None] = mapped_column(Float)
+    tara: Mapped[float | None] = mapped_column(Float)  # kg
+    opcional: Mapped[bool] = mapped_column(Boolean, default=False)  # p. ej. el pallet
+
+    receta: Mapped[RecetaEmpaque] = relationship(back_populates="niveles")
+    tipo_empaque: Mapped[TipoEmpaque] = relationship()
+
+
+DESTINOS_REGLA_EMPAQUE = ("EMPRESA", "FAMILIA", "PRODUCTO", "ARTICULO")
+ORIGENES_RECETA = ("MANUAL", "REGLA", "DATOS")  # elegida a mano, por una regla o desde el casepack de la OC
+
+
+class ReglaEmpaque(DeOrganizacion, Base):
+    """«Para [destino] si [condiciones] → usar [receta]». Gana la más específica
+    (artículo, producto, familia más profunda, toda la empresa); con
+    condiciones gana sobre sin condiciones; si aun así empatan, la de menor
+    `orden` (arriba en la lista). Se dan de baja, no se borran."""
+
+    __tablename__ = "reglas_empaque"
+    __table_args__ = (
+        CheckConstraint(
+            "(destino = 'EMPRESA' AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL)"
+            " OR (destino = 'FAMILIA' AND familia_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL)"
+            " OR (destino = 'PRODUCTO' AND producto_id IS NOT NULL AND familia_id IS NULL AND articulo_id IS NULL)"
+            " OR (destino = 'ARTICULO' AND articulo_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL)",
+            name="ck_reglas_empaque_destino_unico"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receta_id: Mapped[int] = mapped_column(ForeignKey("recetas_empaque.id"), index=True)
+    destino: Mapped[str] = mapped_column(String(10), default="EMPRESA")
+    familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
+    producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
+    articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
+    # [{"campo": "oc.proveedor", "op": "igual", "valor": "VANS"}]: todas deben cumplirse
+    condiciones: Mapped[list] = mapped_column(JSON, default=list)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date)
+    motivo: Mapped[str | None] = mapped_column(String(300))
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
+    creada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    actualizada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    actualizada_en: Mapped[datetime | None] = mapped_column(DateTime)
+    eliminada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    eliminada_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+
+    receta: Mapped[RecetaEmpaque] = relationship()
+    familia: Mapped["FamiliaEtiquetado | None"] = relationship()
+    producto: Mapped["Producto | None"] = relationship()
+    articulo: Mapped["Articulo | None"] = relationship()
 
 
 class PlantillaCaja(DeOrganizacion, Base):

@@ -145,6 +145,13 @@ class PosicionOC(DeOrganizacion, Base):
     inner_pack: Mapped[int | None] = mapped_column(Integer)
     prepack: Mapped[str | None] = mapped_column(String(30))
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
+    # Receta de empaque (empaque/recetas.py): elegida a mano, por una regla o
+    # desde el casepack. `receta_foto` congela sus niveles: cambiar la receta
+    # después no altera esta posición. casepack e inner_pack se calculan de ella.
+    receta_id: Mapped[int | None] = mapped_column(ForeignKey("recetas_empaque.id"), index=True)
+    receta_origen: Mapped[str | None] = mapped_column(String(10))  # MANUAL | REGLA | DATOS
+    receta_regla_id: Mapped[int | None] = mapped_column(ForeignKey("reglas_empaque.id"))
+    receta_foto: Mapped[dict | None] = mapped_column(JSON)
     cantidad: Mapped[float] = mapped_column(Cantidad)
     unidad: Mapped[str] = mapped_column(String(5))  # modulos/maestros/unidades.py: PAR, UN, KG, L, M…
     precio: Mapped[float | None] = mapped_column(Precio)
