@@ -4,6 +4,7 @@ import { t, tx } from '@/i18n/index.js'
 import FechaTienda from '@/componentes/FechaTienda.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Seleccion from '@/componentes/Seleccion.vue'
+import Segmentos from '@/componentes/Segmentos.vue'
 import { useRoute, useRouter } from 'vue-router'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { api } from '@/nucleo/api'
@@ -268,13 +269,26 @@ const cantidadInvalida = (c, disponible, inner) => !(c >= 1) || c > disponible |
 // ---- Packing of a PO line (purchase condition) ------------------------------
 // Casepack: exact quantity per master carton. Inner pack: units per inner pack
 // (all equal). With both, the casepack is a multiple of the inner pack.
+// The recipe (levels from the catalog) decides both; choosing one by hand wins
+// over the rules, and «According to the rules» gives it back to them.
+const ORIGEN_RECETA = { MANUAL: () => t('chosen'), REGLA: () => t('by rule'), DATOS: () => t('from PO') }
 const empaque = ref(null)
+const recetasEmpaque = ref([])
 function editarEmpaque(oc, p) {
-  empaque.value = { oc, p, casepack: p.casepack || '', inner_pack: p.inner_pack || '', error: '' }
+  const receta = p.receta?.origen === 'MANUAL' ? String(p.receta.receta_id) : ''
+  empaque.value = { oc, p, casepack: p.casepack || '', inner_pack: p.inner_pack || '', error: '', receta, recetaAntes: receta, modo: 'receta' }
+  if (!recetasEmpaque.value.length) api.get('/recetas-empaque').then((r) => (recetasEmpaque.value = r)).catch(() => {})
 }
 async function guardarEmpaque() {
   const e = empaque.value
   try {
+    if (e.modo === 'receta') {
+      await api.put(`/ordenes/${e.oc.id}/posiciones/${e.p.id}/receta`, { receta_id: Number(e.receta) || null })
+      avisar(t('PO {0} line {1}: packing updated.', [e.oc.numero, e.p.posicion]))
+      empaque.value = null
+      await cargarDetalle(e.oc.id, true)
+      return
+    }
     await api.put(`/ordenes/${e.oc.id}/posiciones/${e.p.id}/empaque`, {
       casepack: Number(e.casepack) || null, inner_pack: Number(e.inner_pack) || null,
     })
@@ -534,6 +548,13 @@ alCambiar(() => consultar(), ['/ordenes'])
                         :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_articulo, cajas: p.cantidad }">
                   {{ t('Prepack {0} · {1} per carton', [p.prepack, p.unidades_por_caja]) }} <Icono nombre="lupa" :tam="12" />
                 </button>
+                <template v-else-if="p.receta?.receta_id">
+                  <span class="etiqueta info ms-0 chip-receta" :title="tx(p.receta.resumen)">
+                    <Icono nombre="caja" :tam="12" />{{ tx(p.receta.receta) }}
+                    <small>· {{ ORIGEN_RECETA[p.receta.origen]?.() }}</small>
+                  </span>
+                  <span v-if="p.receta.aviso" class="etiqueta aviso ms-0" :title="t('The quantity does not close full cartons')">{{ tx(p.receta.aviso) }}</span>
+                </template>
                 <template v-else>
                   <span v-if="p.casepack" class="etiqueta info ms-0" :title="t('Exact quantity per master carton')">{{ t('Casepack {0}', [p.casepack]) }}</span>
                   <span v-if="p.inner_pack" class="etiqueta acento ms-0"
@@ -541,7 +562,7 @@ alCambiar(() => consultar(), ['/ordenes'])
                   <span v-if="!p.casepack && !p.inner_pack" class="ayuda">{{ t('Free') }}</span>
                 </template>
                 <button v-if="puede('oc.empaque') && p.tipo_empaque !== 'PREPACK' && !p.facturado" type="button" class="btn-icono"
-                        :aria-label="t('Edit the packing of line {0}', [p.posicion])" :title="t('Edit casepack and inner pack')" @click="editarEmpaque(oc, p)">
+                        :aria-label="t('Edit the packing of line {0}', [p.posicion])" :title="t('Change the packing recipe')" @click="editarEmpaque(oc, p)">
                   <Icono nombre="editar" :tam="14" />
                 </button>
               </span>
@@ -651,7 +672,18 @@ alCambiar(() => consultar(), ['/ordenes'])
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
   <Modal v-if="empaque" :titulo="t('Packing of PO {0} line {1}', [empaque.oc.numero, empaque.p.posicion])" ancho="520px" @cerrar="empaque = null">
     <p class="ayuda mt-0">{{ t('{0} · {1} · size {2} · {3}', [empaque.p.estilo, empaque.p.color, empaque.p.talla, cantTxt(empaque.p.cantidad, empaque.p.unidad)]) }}</p>
-    <form id="form-empaque" class="rejilla-campos" @submit.prevent="guardarEmpaque">
+    <Segmentos v-model="empaque.modo" :opciones="[['receta', t('Recipe')], ['casepack', t('Casepack and inner')]]" :etiqueta="t('Packing')" />
+    <form v-if="empaque.modo === 'receta'" id="form-empaque" class="form-receta" @submit.prevent="guardarEmpaque">
+      <label class="campo"><span>{{ t('Packing recipe') }}</span>
+        <Seleccion v-model="empaque.receta">
+          <option value="">{{ t('According to the rules') }}</option>
+          <option v-for="r in recetasEmpaque" :key="r.id" :value="String(r.id)">{{ tx(r.nombre) }} · {{ tx(r.resumen) }}</option>
+        </Seleccion>
+      </label>
+      <p v-if="empaque.p.receta?.receta_id" class="ayuda mt-0">{{ t('Now: {0} ({1}).', [tx(empaque.p.receta.resumen), ORIGEN_RECETA[empaque.p.receta.origen]?.()]) }}</p>
+      <p class="ayuda">{{ t('The line keeps a copy of the recipe levels: changing the recipe later does not change this line.') }}</p>
+    </form>
+    <form v-else id="form-empaque" class="rejilla-campos" @submit.prevent="guardarEmpaque">
       <label class="campo"><span>{{ t('Casepack (per master carton)') }}</span>
         <input v-model="empaque.casepack" type="number" min="1" :placeholder="t('Free')" />
         <small class="ayuda">{{ t('Exact quantity per carton; only the last carton may be incomplete.') }}</small>
@@ -661,10 +693,10 @@ alCambiar(() => consultar(), ['/ordenes'])
         <small class="ayuda">{{ t('All inner packs carry the same quantity and their own label.') }}</small>
       </label>
     </form>
-    <p v-if="empaque.casepack && empaque.inner_pack && empaque.casepack % empaque.inner_pack === 0" class="nota info">
+    <p v-if="empaque.modo !== 'receta' && empaque.casepack && empaque.inner_pack && empaque.casepack % empaque.inner_pack === 0" class="nota info">
       <Icono nombre="info" />{{ t('Each carton carries {0} inner packs of {1}.', [empaque.casepack / empaque.inner_pack, empaque.inner_pack]) }}
     </p>
-    <p v-else-if="!empaque.casepack && empaque.inner_pack" class="nota info">
+    <p v-else-if="empaque.modo !== 'receta' && !empaque.casepack && empaque.inner_pack" class="nota info">
       <Icono nombre="info" />{{ t('Without a casepack, each carton carries the inner packs you define (always multiples of {0}).', [empaque.inner_pack]) }}
     </p>
     <p v-if="empaque.error" class="nota error" role="alert"><Icono nombre="alerta" />{{ tx(empaque.error) }}</p>
@@ -681,6 +713,9 @@ alCambiar(() => consultar(), ['/ordenes'])
 .celda-por-facturar { min-width: 100px; white-space: normal; }
 .celda-avance { min-width: 110px; }
 .empaque-celda { gap: 4px; flex-wrap: wrap; }
+.chip-receta { display: inline-flex; align-items: center; gap: 4px; }
+.chip-receta small { opacity: 0.8; }
+.form-receta { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .a-facturar { width: 84px; }
 .bandeja { margin-bottom: 12px; align-items: center; }
 .bandeja > span { flex: 1; }

@@ -107,6 +107,12 @@ o «no lleva», para no perderlas en silencio. Probada en base nueva
 (`alembic check`), ida y vuelta, y sobre una copia de la base de
 demostración.
 
+**0081** `grupos_de_producto`: las familias y categorías pasan al árbol
+compartido `grupos_producto` (copia 1:1 con el mapa de ids). Las
+asignaciones, las reglas (`usos_diseno.grupo_id`) y el historial
+(`generacion_items.grupo_id`) se reapuntan, y las tablas anteriores quedan
+congeladas. Ver [GRUPOS_PRODUCTO.md](GRUPOS_PRODUCTO.md).
+
 ## 3. Pantallas
 
 Tres secciones con la misma cabecera (**Imprimir · Diseños · Configuración**):

@@ -31,6 +31,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
+from app.modelos.grupos import GrupoCategoria, GrupoFamilia
 
 # Qué se etiqueta: un artículo (con o sin OC: la OC solo agrega datos), un
 # bulto de una lista de empaque o un documento (la OC o la lista completa)
@@ -44,7 +45,7 @@ NIVELES = ("SKU", "PRODUCTO", "CATEGORIA", "FAMILIA", "TIPO_EMPAQUE", "GENERAL")
 NIVELES_DE = {"ARTICULO": ("SKU", "PRODUCTO", "CATEGORIA", "FAMILIA", "GENERAL"), "BULTO": ("TIPO_EMPAQUE", "GENERAL"),
               "DOCUMENTO": ("GENERAL",)}
 # Columna del destino de cada nivel
-DESTINO_DE = {"SKU": "articulo_id", "PRODUCTO": "producto_id", "CATEGORIA": "categoria_id", "FAMILIA": "familia_id",
+DESTINO_DE = {"SKU": "articulo_id", "PRODUCTO": "producto_id", "CATEGORIA": "grupo_id", "FAMILIA": "grupo_id",
               "TIPO_EMPAQUE": "tipo_empaque_id"}
 # Dónde va la etiqueta (a qué se pega), según lo que lleva el diseño:
 # - artículo: la línea del documento de origen (posición de la OC desde una OC,
@@ -78,22 +79,22 @@ def _en(col: str, valores) -> str:
 
 
 def _solo(nivel: str, columna: str | None) -> str:
-    otras = [c for c in ("familia_id", "categoria_id", "producto_id", "articulo_id", "tipo_empaque_id") if c != columna]
+    otras = [c for c in ("grupo_id", "producto_id", "articulo_id", "tipo_empaque_id") if c != columna]
     return "(" + " AND ".join([f"nivel = '{nivel}'"] + ([f"{columna} IS NOT NULL"] if columna else [])
                               + [f"{c} IS NULL" for c in otras]) + ")"
 
 
-# Cada nivel lleva solo su destino (el de toda la empresa, ninguno)
-CK_DESTINO_USO = " OR ".join([_solo("GENERAL", None), _solo("FAMILIA", "familia_id"), _solo("CATEGORIA", "categoria_id"),
+# Cada nivel lleva solo su destino (el de toda la empresa, ninguno). Familia y
+# categoría son nodos del árbol de grupos de producto (grupo_id)
+CK_DESTINO_USO = " OR ".join([_solo("GENERAL", None), _solo("FAMILIA", "grupo_id"), _solo("CATEGORIA", "grupo_id"),
                               _solo("PRODUCTO", "producto_id"), _solo("SKU", "articulo_id"),
                               _solo("TIPO_EMPAQUE", "tipo_empaque_id")])
 
 
-class FamiliaEtiquetado(DeOrganizacion, Base):
-    """Familia propia de la empresa para elegir etiquetas (calzado, ropa…).
-    Independiente de la clasificación arancelaria. `campos`: los campos
-    habituales de la familia y cuáles son obligatorios
-    ([{"campo": "articulo.talla", "obligatorio": true}])."""
+class FamiliaEtiquetadoAnterior(DeOrganizacion, Base):
+    """Familia de etiquetado antes del árbol compartido. Congelada desde la
+    migración 0081, que copió sus filas a grupos_producto: solo se guarda para
+    volver atrás y nada la lee ni la escribe."""
 
     __tablename__ = "familias_etiquetado"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_familias_etiquetado_org_codigo"),)
@@ -105,18 +106,13 @@ class FamiliaEtiquetado(DeOrganizacion, Base):
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    # Subfamilia de (hereda los campos obligatorios y las reglas de su familia)
     padre_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
 
-    padre: Mapped["FamiliaEtiquetado | None"] = relationship(remote_side=lambda: FamiliaEtiquetado.id)
 
-    def ruta(self) -> list["FamiliaEtiquetado"]:
-        """La familia y sus antecesoras, de la raíz a ella (sin repetir si hubiera un ciclo)."""
-        res, f = [], self
-        while f is not None and f not in res:
-            res.insert(0, f)
-            f = f.padre
-        return res
+# Las familias y categorías de etiquetado son nodos del árbol compartido de
+# grupos de producto (modelos/grupos.py); el etiquetado los sigue llamando así
+FamiliaEtiquetado = GrupoFamilia
+CategoriaEtiquetado = GrupoCategoria
 
 
 class TipoEtiqueta(DeOrganizacion, Base):
@@ -153,12 +149,9 @@ class TipoEtiqueta(DeOrganizacion, Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 
-class CategoriaEtiquetado(DeOrganizacion, Base):
-    """Una categoría dentro de una familia de etiquetado (sandalias, botas…;
-    camisas, pantalones…), como en la clasificación: se reconoce sola por
-    condiciones sobre los datos del artículo y del producto, o se pone a mano
-    en el producto. Sin condiciones, solo se pone a mano. Las reglas pueden ir
-    a una categoría: más específica que su familia, más general que el producto."""
+class CategoriaEtiquetadoAnterior(DeOrganizacion, Base):
+    """Categoría de etiquetado antes del árbol compartido (congelada desde la
+    migración 0081, como FamiliaEtiquetadoAnterior)."""
 
     __tablename__ = "categorias_etiquetado"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_categorias_etiquetado_org_codigo"),)
@@ -167,13 +160,10 @@ class CategoriaEtiquetado(DeOrganizacion, Base):
     codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(100))
     descripcion: Mapped[str | None] = mapped_column(String(300))
-    # [{"campo": "articulo.descripcion", "op": "contiene", "valor": "sandal"}]: todas deben cumplirse
     condiciones: Mapped[list] = mapped_column(JSON, default=list)
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-
-    familia: Mapped[FamiliaEtiquetado] = relationship()
 
 
 class TipoEtiquetaEmpaque(DeOrganizacion, Base):
@@ -287,8 +277,11 @@ class UsoDiseno(DeOrganizacion, Base):
     # Vacío cuando la regla dice que ese tipo de etiqueta no va ahí (accion NO_LLEVA)
     plantilla_id: Mapped[int | None] = mapped_column(ForeignKey("plantillas_etiqueta.id"), index=True)
     nivel: Mapped[str] = mapped_column(String(12))
-    familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
-    categoria_id: Mapped[int | None] = mapped_column(ForeignKey("categorias_etiquetado.id"), index=True)
+    # Niveles FAMILIA y CATEGORIA: un nodo del árbol de grupos de producto
+    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_producto.id"), index=True)
+    # Congeladas desde la migración 0081 (apuntan a las tablas anteriores), solo para volver atrás
+    familia_anterior_id: Mapped[int | None] = mapped_column("familia_id", ForeignKey("familias_etiquetado.id"), index=True)
+    categoria_anterior_id: Mapped[int | None] = mapped_column("categoria_id", ForeignKey("categorias_etiquetado.id"), index=True)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
     tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"), index=True)
@@ -478,7 +471,9 @@ class GeneracionItem(DeOrganizacion, Base):
     grupo_cajas_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_cajas.id", ondelete="SET NULL"), index=True)
     bulto_indice: Mapped[int | None] = mapped_column(Integer)
     posicion_id: Mapped[int | None] = mapped_column(ForeignKey("posiciones_oc.id"), index=True)
-    familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
+    # La familia del artículo al generar (nodo del árbol de grupos de producto)
+    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_producto.id"), index=True)
+    familia_anterior_id: Mapped[int | None] = mapped_column("familia_id", ForeignKey("familias_etiquetado.id"), index=True)
     referencia: Mapped[str | None] = mapped_column(String(120))  # lo que se lee en el historial (SKU, línea, bulto)
     cantidad: Mapped[int] = mapped_column(Integer)
     valores: Mapped[dict] = mapped_column(JSON, default=dict)  # instantánea: campo → valor

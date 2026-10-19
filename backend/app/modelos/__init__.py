@@ -63,6 +63,9 @@ from app.modelos.empaque import (
     RecepcionLinea,
     RecepcionMovimiento,
     RecepcionRegistro,
+    RecetaEmpaque,
+    RecetaNivel,
+    ReglaEmpaque,
     TipoEmpaque,
     tipo_empaque_contiene,
 )
@@ -70,7 +73,9 @@ from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organ
 from app.modelos.etiquetado import (
     CampoEtiqueta,
     CategoriaEtiquetado,
+    CategoriaEtiquetadoAnterior,
     FamiliaEtiquetado,
+    FamiliaEtiquetadoAnterior,
     GeneracionEtiquetas,
     GeneracionItem,
     PlantillaEtiqueta,
@@ -82,6 +87,7 @@ from app.modelos.etiquetado import (
     VersionPlantilla,
 )
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
+from app.modelos.grupos import GrupoCategoria, GrupoFamilia, GrupoProducto
 from app.modelos.maestros import (
     AcuerdoComercial,
     Almacen,
@@ -141,7 +147,12 @@ _aplicar_referencias(_Base.metadata)
 __all__ = [
     "CampoEtiqueta",
     "CategoriaEtiquetado",
+    "CategoriaEtiquetadoAnterior",
     "FamiliaEtiquetado",
+    "FamiliaEtiquetadoAnterior",
+    "GrupoCategoria",
+    "GrupoFamilia",
+    "GrupoProducto",
     "GeneracionEtiquetas",
     "GeneracionItem",
     "PlantillaEtiqueta",
@@ -237,7 +248,10 @@ __all__ = [
     "RecepcionRegistro",
     "RegionLeadTime",
     "ReglaAprobacionOC",
+    "RecetaEmpaque",
+    "RecetaNivel",
     "ReglaClasificacion",
+    "ReglaEmpaque",
     "ReglaImpuesto",
     "ReglaLeadTime",
     "Regulacion",

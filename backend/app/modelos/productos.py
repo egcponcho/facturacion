@@ -25,6 +25,7 @@ from app.modelos.empresa import ConAdjunto
 
 if TYPE_CHECKING:
     from app.modelos.acceso import Usuario
+    from app.modelos.grupos import GrupoProducto
     from app.modelos.maestros import Articulo, GrupoArticulo, Marca, Proveedor
 
 
@@ -41,12 +42,17 @@ class Producto(DeOrganizacion, Base):
     color: Mapped[str | None] = mapped_column(String(60))
     marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
-    # Familia de etiquetado del estilo-color: la heredan sus tallas que no tienen una propia
-    familia_etiquetado_id: Mapped[int | None] = mapped_column(
-        ForeignKey("familias_etiquetado.id", name="fk_productos_familia_etiquetado_id"), index=True)
-    # Categoría de etiquetado puesta a mano (si no, se reconoce sola por las condiciones de las categorías)
-    categoria_etiquetado_id: Mapped[int | None] = mapped_column(
-        ForeignKey("categorias_etiquetado.id", name="fk_productos_categoria_etiquetado_id"), index=True)
+    # Su grupo de producto (modelos/grupos.py): una familia, que heredan sus tallas que no tienen
+    # una propia, o una categoría puesta a mano (que dice también su familia). Sin categoría a
+    # mano, la categoría se reconoce sola por las condiciones de las categorías.
+    grupo_producto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("grupos_producto.id", name="fk_productos_grupo_producto_id"), index=True)
+    # Congeladas desde la migración 0081 (apuntan a las tablas anteriores), solo para volver atrás
+    familia_etiquetado_anterior_id: Mapped[int | None] = mapped_column(
+        "familia_etiquetado_id", ForeignKey("familias_etiquetado.id", name="fk_productos_familia_etiquetado_id"), index=True)
+    categoria_etiquetado_anterior_id: Mapped[int | None] = mapped_column(
+        "categoria_etiquetado_id", ForeignKey("categorias_etiquetado.id", name="fk_productos_categoria_etiquetado_id"),
+        index=True)
     # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
     # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
     codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
@@ -99,6 +105,63 @@ class Producto(DeOrganizacion, Base):
     versiones: Mapped[list["ProductoVersion"]] = relationship(
         back_populates="producto", cascade="all, delete-orphan", order_by="ProductoVersion.version"
     )
+    grupo_producto: Mapped["GrupoProducto | None"] = relationship()
+
+    # La familia y la categoría a mano, leídas del grupo de producto (en consultas, por su id)
+    @hybrid_property
+    def familia_etiquetado_id(self) -> int | None:
+        g = self.grupo_producto
+        return g.familia.id if g is not None and g.familia is not None else None
+
+    @familia_etiquetado_id.inplace.setter
+    def _familia_etiquetado_id_set(self, familia_id: int | None) -> None:
+        """Poner la familia: se conserva la categoría a mano si es de esa familia."""
+        g = self.grupo_producto
+        if g is not None and g.clase == "CATEGORIA" and familia_id is not None and g.padre_id == familia_id:
+            return
+        self._poner_grupo(familia_id)
+
+    @familia_etiquetado_id.inplace.expression
+    @classmethod
+    def _familia_etiquetado_id_expr(cls):
+        from sqlalchemy import case, select
+
+        from app.modelos.grupos import GrupoProducto
+
+        return (select(case((GrupoProducto.clase == "CATEGORIA", GrupoProducto.padre_id), else_=GrupoProducto.id))
+                .where(GrupoProducto.id == cls.grupo_producto_id).correlate_except(GrupoProducto).scalar_subquery())
+
+    @hybrid_property
+    def categoria_etiquetado_id(self) -> int | None:
+        g = self.grupo_producto
+        return g.id if g is not None and g.clase == "CATEGORIA" else None
+
+    @categoria_etiquetado_id.inplace.setter
+    def _categoria_etiquetado_id_set(self, categoria_id: int | None) -> None:
+        """Poner la categoría a mano; quitarla deja la familia que la contenía."""
+        if categoria_id is not None:
+            self._poner_grupo(categoria_id)
+        elif self.grupo_producto is not None and self.grupo_producto.clase == "CATEGORIA":
+            self._poner_grupo(self.grupo_producto.padre_id)
+
+    @categoria_etiquetado_id.inplace.expression
+    @classmethod
+    def _categoria_etiquetado_id_expr(cls):
+        from sqlalchemy import select
+
+        from app.modelos.grupos import GrupoProducto
+
+        return (select(GrupoProducto.id).where(GrupoProducto.id == cls.grupo_producto_id, GrupoProducto.clase == "CATEGORIA")
+                .correlate_except(GrupoProducto).scalar_subquery())
+
+    def _poner_grupo(self, grupo_id: int | None) -> None:
+        from sqlalchemy.orm import object_session
+
+        from app.modelos.grupos import GrupoProducto
+
+        db = object_session(self)
+        self.grupo_producto = db.get(GrupoProducto, grupo_id) if grupo_id is not None and db is not None else None
+        self.grupo_producto_id = grupo_id
 
     @property
     def aprobado(self) -> bool:

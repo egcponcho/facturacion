@@ -15,10 +15,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.errores import ErrorNegocio
-from app.modelos import Articulo, CategoriaEtiquetado, Producto, UsoDiseno, Usuario
+from app.modelos import Articulo, CategoriaEtiquetado, Producto, Usuario
 from app.modulos.acceso.permisos import exigir, exigir_alguno, proveedor_filtro
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, familias, reglas
+from app.modulos.grupos import arbol
 
 CODIGO = re.compile(r"^[A-Z0-9][A-Z0-9_.-]{0,19}$")
 MAX_PRUEBA = 20000  # artículos que se revisan al probar unas condiciones
@@ -78,9 +79,8 @@ def _validar(db: Session, datos: dict, actual: CategoriaEtiquetado | None) -> di
         codigo = (datos.get("codigo") or "").strip().upper()
         if not CODIGO.match(codigo):
             errores.append({"campo": "codigo", "mensaje": "Use capital letters, digits, - _ or . (up to 20)."})
-        elif db.scalar(select(CategoriaEtiquetado.id).where(CategoriaEtiquetado.codigo == codigo,
-                                                             CategoriaEtiquetado.id != (actual.id if actual else 0))):
-            errores.append({"campo": "codigo", "mensaje": "Another category has this code."})
+        elif arbol.codigo_ocupado(db, codigo, actual.id if actual else None):
+            errores.append({"campo": "codigo", "mensaje": "Another family or category has this code."})
         limpio["codigo"] = codigo
     if actual is None or "nombre" in datos:
         nombre = (datos.get("nombre") or "").strip()
@@ -133,8 +133,7 @@ def actualizar(db: Session, user: Usuario, categoria_id: int, datos: dict) -> di
 
 
 def _en_uso(db: Session, c: CategoriaEtiquetado) -> bool:
-    return bool(db.scalar(select(func.count()).select_from(UsoDiseno).where(UsoDiseno.categoria_id == c.id))
-                or db.scalar(select(func.count()).select_from(Producto).where(Producto.categoria_etiquetado_id == c.id)))
+    return arbol.en_uso(db, c)
 
 
 def eliminar(db: Session, user: Usuario, categoria_id: int) -> dict:

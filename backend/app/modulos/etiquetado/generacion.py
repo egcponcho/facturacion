@@ -641,7 +641,7 @@ def producir(db: Session, user: Usuario, grupos: list[Grupo], pedido: dict) -> d
                             articulo_id=g.articulo.id if g.articulo else None, posicion_id=g.posicion.id if g.posicion else None,
                             pl_id=g.bulto.pl_id if g.bulto else None, grupo_cajas_id=g.bulto.grupo_id if g.bulto else None,
                             bulto_indice=g.bulto.indice if g.bulto else None,
-                            familia_id=fam, referencia=g.referencia[:120], cantidad=g.cantidad, valores=valores,
+                            grupo_id=fam, referencia=g.referencia[:120], cantidad=g.cantidad, valores=valores,
                             motivo=(g.eleccion.motivo or "")[:200] if g.eleccion else None)
         db.add(it)
         g.item = it
@@ -823,7 +823,7 @@ def dict_generacion(db: Session, g: GeneracionEtiquetas, completo: bool = False)
     if completo:
         familias_ = {f.id: f.nombre for f in db.scalars(select(FamiliaEtiquetado))}
         r["items"] = [{"id": it.id, "referencia": it.referencia, "cantidad": it.cantidad, "articulo_id": it.articulo_id,
-                       "posicion_id": it.posicion_id, "familia": familias_.get(it.familia_id),
+                       "posicion_id": it.posicion_id, "familia": familias_.get(it.grupo_id),
                        "tipo": nombres.get(it.tipo_etiqueta_id),
                        "plantilla": versiones[it.version_id]["plantilla"], "version": versiones[it.version_id]["version"],
                        "motivo": it.motivo, "valores": it.valores} for it in g.items]
@@ -848,7 +848,7 @@ def listar(db: Session, user: Usuario, desde: date | None = None, hasta: date | 
         c = c.where(GeneracionEtiquetas.oc_id == oc_id)
     if estado:
         c = c.where(GeneracionEtiquetas.estado == estado.upper())
-    for col, v in (("articulo_id", articulo_id), ("familia_id", familia_id), ("plantilla_id", plantilla_id), ("version_id", version_id)):
+    for col, v in (("articulo_id", articulo_id), ("grupo_id", familia_id), ("plantilla_id", plantilla_id), ("version_id", version_id)):
         if v:
             c = c.where(GeneracionEtiquetas.id.in_(select(GeneracionItem.generacion_id).where(getattr(GeneracionItem, col) == v)))
     total = db.scalar(select(func.count()).select_from(c.subquery())) or 0

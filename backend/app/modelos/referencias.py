@@ -52,11 +52,11 @@ COMPARTIDOS = {"paises"}
 # tests/test_integridad_bd.py verifica que existan.
 # tabla hija → [(columna, tabla padre)]
 COHERENCIA: dict[str, list[tuple[str, str]]] = {
-    "posiciones_oc": [("oc_id", "ordenes_compra")],
+    "posiciones_oc": [("oc_id", "ordenes_compra"), ("receta_id", "recetas_empaque"), ("receta_regla_id", "reglas_empaque")],
     "aprobaciones_oc": [("oc_id", "ordenes_compra")],
     "ordenes_compra": [("proveedor_id", "proveedores")],
     "facturas": [("proveedor_id", "proveedores")],
-    "factura_lineas": [("factura_id", "facturas"), ("posicion_oc_id", "posiciones_oc")],
+    "factura_lineas": [("factura_id", "facturas"), ("posicion_oc_id", "posiciones_oc"), ("receta_id", "recetas_empaque")],
     "packing_lists": [("factura_id", "facturas"), ("unidad_carga_id", "unidades_carga")],
     "pl_lineas": [("pl_id", "packing_lists"), ("factura_linea_id", "factura_lineas")],
     "grupos_cajas": [("pl_id", "packing_lists")],
@@ -69,8 +69,9 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "tercero_roles": [("tercero_id", "terceros")],
     "clasificaciones_producto": [("producto_id", "productos")],
     "articulo_atributos": [("articulo_id", "articulos"), ("atributo_id", "atributos_variante")],
-    "articulos": [("familia_etiquetado_id", "familias_etiquetado")],
-    "grupos_articulos": [("familia_etiquetado_id", "familias_etiquetado")],
+    "articulos": [("familia_etiquetado_id", "familias_etiquetado"), ("grupo_producto_id", "grupos_producto")],
+    "grupos_articulos": [("familia_etiquetado_id", "familias_etiquetado"), ("grupo_producto_id", "grupos_producto")],
+    "grupos_producto": [("padre_id", "grupos_producto")],
     "generaciones_etiqueta": [("pl_id", "packing_lists"), ("trabajo_id", "trabajos_etiqueta"), ("oc_id", "ordenes_compra")],
     "familias_etiquetado": [("padre_id", "familias_etiquetado")],
     "trabajo_etiqueta_registros": [("trabajo_id", "trabajos_etiqueta"), ("generacion_id", "generaciones_etiqueta"),
@@ -83,13 +84,19 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "versiones_plantilla": [("plantilla_id", "plantillas_etiqueta")],
     "usos_diseno": [("tipo_etiqueta_id", "tipos_etiqueta"), ("plantilla_id", "plantillas_etiqueta"),
                     ("familia_id", "familias_etiquetado"), ("categoria_id", "categorias_etiquetado"), ("producto_id", "productos"),
-                    ("articulo_id", "articulos"), ("tipo_empaque_id", "tipos_empaque"), ("oc_id", "ordenes_compra")],
-    "productos": [("familia_etiquetado_id", "familias_etiquetado"), ("categoria_etiquetado_id", "categorias_etiquetado")],
+                    ("articulo_id", "articulos"), ("tipo_empaque_id", "tipos_empaque"), ("oc_id", "ordenes_compra"),
+                    ("grupo_id", "grupos_producto")],
+    "productos": [("familia_etiquetado_id", "familias_etiquetado"), ("categoria_etiquetado_id", "categorias_etiquetado"),
+                  ("grupo_producto_id", "grupos_producto")],
     "categorias_etiquetado": [("familia_id", "familias_etiquetado")],
+    "receta_niveles": [("receta_id", "recetas_empaque"), ("tipo_empaque_id", "tipos_empaque")],
+    "reglas_empaque": [("receta_id", "recetas_empaque"), ("grupo_id", "grupos_producto"), ("producto_id", "productos"),
+                       ("articulo_id", "articulos")],
     "generacion_items": [("generacion_id", "generaciones_etiqueta"), ("version_id", "versiones_plantilla"),
                          ("plantilla_id", "plantillas_etiqueta"), ("articulo_id", "articulos"), ("posicion_id", "posiciones_oc"),
                          ("familia_id", "familias_etiquetado"), ("trabajo_registro_id", "trabajo_etiqueta_registros"),
-                         ("tipo_etiqueta_id", "tipos_etiqueta"), ("pl_id", "packing_lists"), ("grupo_cajas_id", "grupos_cajas")],
+                         ("tipo_etiqueta_id", "tipos_etiqueta"), ("pl_id", "packing_lists"), ("grupo_cajas_id", "grupos_cajas"),
+                         ("grupo_id", "grupos_producto")],
 }
 PADRES = sorted({p for lista in COHERENCIA.values() for _, p in lista})
 

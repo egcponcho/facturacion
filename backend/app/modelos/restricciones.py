@@ -27,7 +27,8 @@ def _vigencia(desde: str = "vigente_desde", hasta: str = "vigente_hasta") -> tup
 # tabla → [(sufijo del nombre, condición)]; el nombre es ck_<tabla>_<sufijo>
 RESTRICCIONES: dict[str, list[tuple[str, str]]] = {
     "ordenes_compra": [("estado", _en("estado", estados.OC.estados))],
-    "posiciones_oc": _no_negativo("cantidad", "precio", "casepack", "inner_pack", "unidades_por_caja"),
+    "posiciones_oc": [*_no_negativo("cantidad", "precio", "casepack", "inner_pack", "unidades_por_caja"),
+                      ("receta_origen", "receta_origen IS NULL OR " + _en("receta_origen", ("MANUAL", "REGLA", "DATOS")))],
     "aprobaciones_oc": [("estado", _en("estado", ("PENDIENTE", "APROBADA", "RECHAZADA"))), ("paso", "paso >= 0")],
     "facturas": [("estado", _en("estado", estados.FACTURA.estados))],
     "factura_lineas": _no_negativo("cantidad", "precio_unitario", "precio_oc", "casepack", "inner_pack",
@@ -39,6 +40,8 @@ RESTRICCIONES: dict[str, list[tuple[str, str]]] = {
     "grupo_cajas_items": _no_negativo("cantidad_por_caja"),
     "plantillas_caja": _no_negativo("cantidad_por_caja", "largo", "ancho", "alto", "tara"),
     "tipos_empaque": _no_negativo("largo", "ancho", "alto", "tara", "peso_max", "max_unidades", "max_contenido"),
+    "receta_niveles": [("cantidad", "cantidad >= 1"), ("orden", "orden >= 1"), *_no_negativo("largo", "ancho", "alto", "tara")],
+    "reglas_empaque": [("destino", _en("destino", ("EMPRESA", "GRUPO", "PRODUCTO", "ARTICULO"))), _vigencia()],
     "recepciones": _no_negativo("cantidad_recibida", "cantidad_danada") + [
         ("danada_hasta_recibida", "cantidad_danada IS NULL OR cantidad_danada <= cantidad_recibida")],
     "tipos_etiqueta": [("sujeto", _en("sujeto", ("ARTICULO", "BULTO", "DOCUMENTO"))),

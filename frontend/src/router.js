@@ -45,6 +45,8 @@ const routes = [
   { path: '/etiquetas/generar', redirect: (to) => ({ path: '/etiquetas/trabajos/nuevo',
     query: to.query.articulo ? { origen: 'ARTICULOS', articulos: to.query.articulo } : to.query.oc ? { origen: 'OC', oc: to.query.oc } : {} }) },
   { path: '/plantillas', component: () => import('@/modulos/empaque/vistas/PlantillasView.vue'), meta: { permiso: ['plantilla.editar', 'pl.editar'] } },
+  { path: '/empaque/recetas', component: () => import('@/modulos/empaque/vistas/RecetasEmpaqueView.vue'), meta: { permiso: 'catalogos.ver' } },
+  { path: '/grupos-producto', component: () => import('@/modulos/grupos/vistas/GruposProductoView.vue'), meta: { permiso: ['catalogos.ver', 'etiquetas.familias'] } },
   // Rutas restringidas: cada una exige el permiso de su rol (el servidor
   // vuelve a comprobarlo en cada petición)
   { path: '/transporte', component: () => import('@/modulos/transporte/vistas/EmbarquesView.vue'), meta: { permiso: 'transporte.gestionar' } },

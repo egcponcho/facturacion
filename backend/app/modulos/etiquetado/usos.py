@@ -311,8 +311,8 @@ def _limpiar(db: Session, user: Usuario, datos: dict, actual: UsoDiseno | None =
             raise ErrorNegocio("An exception by conditions needs at least one condition or a date range.", 422, "validacion",
                                [{"campo": "condiciones", "mensaje": "Required."}])
     col = DESTINO_DE.get(nivel)
-    res = {"tipo_etiqueta_id": tipo.id, "plantilla_id": plantilla.id if plantilla else None, "nivel": nivel, "familia_id": None,
-           "categoria_id": None, "producto_id": None, "articulo_id": None, "tipo_empaque_id": None,
+    res = {"tipo_etiqueta_id": tipo.id, "plantilla_id": plantilla.id if plantilla else None, "nivel": nivel, "grupo_id": None,
+           "producto_id": None, "articulo_id": None, "tipo_empaque_id": None,
            "celda": celda_de(tipo.id, nivel, destino_id), "contexto_tipo": contexto, "contexto_valores": valores, "oc_id": oc_id,
            "condiciones": condiciones, "vigente_desde": desde, "vigente_hasta": hasta, "motivo": motivo,
            "accion": accion, "alcance": alcance, "cantidad": cantidad, "prioridad": prioridad}
