@@ -53,6 +53,7 @@ const ajustes = computed(() => {
   if (puede('admin')) items.push({ grupo: t('Organization'), to: '/admin', texto: t('Users and access'), detalle: t('Roles, suppliers, sessions'), icono: 'usuarios' })
   if (puede('catalogos.ver')) items.push({ grupo: t('Master data'), to: '/mantenimiento', texto: t('Master data'), detalle: t('Items, brands, suppliers, plants'), icono: 'base' })
   if (puede('plantilla.editar')) items.push({ grupo: t('Master data'), to: '/plantillas', texto: t('Packing templates'), detalle: t('Reusable carton layouts'), icono: 'capas' })
+  if (puede('catalogos.ver')) items.push({ grupo: t('Master data'), to: '/empaque/recetas', texto: t('Packing recipes'), detalle: t('Levels (inner, carton, pallet) and rules by item, family or supplier'), icono: 'caja' })
   if (puede('catalogos.ver')) items.push({ grupo: t('Logistics'), to: '/leadtimes', texto: t('Lead times'), detalle: t('Steps, rules by region, country and port'), icono: 'reloj' })
   if (puede('clasificacion.ver')) items.push({ grupo: t('Trade and compliance'), to: '/familias', texto: t('Product families'), detalle: t('Questions and rules that classify each family'), icono: 'capas' })
   if (puede('aranceles.ver')) items.push({ grupo: t('Trade and compliance'), to: '/aranceles', texto: t('Tariff schedule'), detalle: t('Tariff schemes, countries and national codes'), icono: 'etiqueta' })

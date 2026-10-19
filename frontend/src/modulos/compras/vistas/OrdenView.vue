@@ -16,6 +16,7 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { estado as estadoTxt } from '@/nucleo/estados.js'
 import { confirmar } from '@/stores/confirmar'
 import ResumenEtiquetas from '@/modulos/etiquetado/componentes/ResumenEtiquetas.vue'
+import ChipReceta from '@/modulos/empaque/componentes/ChipReceta.vue'
 
 // Detalle de la orden de compra (solo lectura): su estado, lo acordado, las
 // líneas, el avance logístico, las aprobaciones y el historial. Se edita en el
@@ -87,6 +88,7 @@ const columnasLineas = [
   { clave: 'posicion', texto: t('Line'), prioridad: 1, num: true },
   { clave: 'codigo_articulo', texto: t('Item'), fija: true, prioridad: 1, filtro: 'texto', valor: (p) => `${p.codigo_articulo} ${p.estilo || ''} ${p.color || ''} ${p.talla || ''} ${p.descripcion || ''}` },
   { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1 },
+  { clave: 'receta', texto: t('Packing'), prioridad: 2, valor: (p) => p.receta?.receta || null },
   { clave: 'precio', texto: t('Unit price'), num: true, grupo: 'precios', prioridad: 3 },
   { clave: 'importe', texto: t('Amount'), num: true, grupo: 'precios', prioridad: 2 },
   { clave: 'facturado', texto: t('Invoiced'), num: true, prioridad: 3 },
@@ -275,6 +277,9 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
         <template #celda-facturado="{ fila: p }">{{ fmtNum(p.facturado) }}</template>
         <template #celda-disponible="{ fila: p }">{{ fmtNum(p.disponible) }}</template>
         <template #celda-fecha_entrega="{ fila: p }">{{ fmtFecha(p.fecha_entrega) }}</template>
+        <template #celda-receta="{ fila: p }">
+          <ChipReceta :posicion="p" :oc-id="d.oc.id" :editable="tienePermiso('oc.empaque') && !p.facturado && p.tipo_empaque !== 'PREPACK'" @cambiada="cargar" />
+        </template>
         <template #celda-estado="{ fila: p }"><EstadoBadge :estado="p.estado" :title="tx(p.motivo || '')" /></template>
         <template #detalle="{ fila: p }">
           <p v-if="p.facturas.length" class="ayuda">{{ t('Invoices') }}:
