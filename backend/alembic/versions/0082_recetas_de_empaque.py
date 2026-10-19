@@ -2,7 +2,8 @@
 
 - recetas_empaque + receta_niveles: cómo se empaca un artículo (inner ⊂
   master ⊂ pallet…), armado con los tipos de empaque del catálogo.
-- reglas_empaque: «para [destino] si [condiciones] → usar [receta]».
+- reglas_empaque: «para [destino] si [condiciones] → usar [receta]»; el
+  destino GRUPO es un nodo del árbol de grupos de producto (0081).
 - posiciones_oc y factura_lineas: la receta elegida y una foto congelada de
   sus niveles (receta_origen: MANUAL, REGLA o DATOS en la posición).
 
@@ -17,8 +18,8 @@ tipos de empaque se deja sin receta, como hoy.
 
 El downgrade quita solo lo agregado: casepack e inner_pack siguen intactos.
 
-Revision ID: 0081
-Revises: 0080
+Revision ID: 0082
+Revises: 0081
 Create Date: 2026-10-19 21:00:00
 """
 from alembic import op
@@ -26,8 +27,8 @@ import sqlalchemy as sa
 
 from app.instalacion.esquema import rls
 
-revision = '0081'
-down_revision = '0080'
+revision = '0082'
+down_revision = '0081'
 branch_labels = None
 depends_on = None
 
@@ -97,7 +98,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('receta_id', sa.Integer(), nullable=False),
     sa.Column('destino', sa.String(length=10), nullable=False),
-    sa.Column('familia_id', sa.Integer(), nullable=True),
+    sa.Column('grupo_id', sa.Integer(), nullable=True),
     sa.Column('producto_id', sa.Integer(), nullable=True),
     sa.Column('articulo_id', sa.Integer(), nullable=True),
     sa.Column('condiciones', sa.JSON(), nullable=False),
@@ -114,24 +115,24 @@ def upgrade() -> None:
     sa.Column('eliminada_en', sa.DateTime(), nullable=True),
     sa.Column('version', sa.Integer(), server_default='1', nullable=False),
     sa.Column('organizacion_id', sa.Integer(), nullable=False),
-    sa.CheckConstraint("(destino = 'EMPRESA' AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL)"
-                       " OR (destino = 'FAMILIA' AND familia_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL)"
-                       " OR (destino = 'PRODUCTO' AND producto_id IS NOT NULL AND familia_id IS NULL AND articulo_id IS NULL)"
-                       " OR (destino = 'ARTICULO' AND articulo_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL)",
+    sa.CheckConstraint("(destino = 'EMPRESA' AND grupo_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL)"
+                       " OR (destino = 'GRUPO' AND grupo_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL)"
+                       " OR (destino = 'PRODUCTO' AND producto_id IS NOT NULL AND grupo_id IS NULL AND articulo_id IS NULL)"
+                       " OR (destino = 'ARTICULO' AND articulo_id IS NOT NULL AND grupo_id IS NULL AND producto_id IS NULL)",
                        name='ck_reglas_empaque_destino_unico'),
-    sa.CheckConstraint("destino IN ('EMPRESA', 'FAMILIA', 'PRODUCTO', 'ARTICULO')", name='ck_reglas_empaque_destino'),
+    sa.CheckConstraint("destino IN ('EMPRESA', 'GRUPO', 'PRODUCTO', 'ARTICULO')", name='ck_reglas_empaque_destino'),
     sa.CheckConstraint('vigente_hasta IS NULL OR vigente_desde IS NULL OR vigente_hasta >= vigente_desde',
                        name='ck_reglas_empaque_vigencia'),
     _fk('reglas_empaque', 'organizacion_id', 'organizaciones'),
     _fk('reglas_empaque', 'receta_id', 'recetas_empaque'),
-    _fk('reglas_empaque', 'familia_id', 'familias_etiquetado'),
+    _fk('reglas_empaque', 'grupo_id', 'grupos_producto'),
     _fk('reglas_empaque', 'producto_id', 'productos'),
     _fk('reglas_empaque', 'articulo_id', 'articulos'),
     _fk('reglas_empaque', 'creada_por', 'usuarios'),
     _fk('reglas_empaque', 'actualizada_por', 'usuarios'),
     _fk('reglas_empaque', 'eliminada_por', 'usuarios'),
     _fk_org('reglas_empaque', 'receta_id', 'recetas_empaque'),
-    _fk_org('reglas_empaque', 'familia_id', 'familias_etiquetado'),
+    _fk_org('reglas_empaque', 'grupo_id', 'grupos_producto'),
     _fk_org('reglas_empaque', 'producto_id', 'productos'),
     _fk_org('reglas_empaque', 'articulo_id', 'articulos'),
     sa.PrimaryKeyConstraint('id', name='pk_reglas_empaque'),
@@ -140,7 +141,7 @@ def upgrade() -> None:
     with op.batch_alter_table('reglas_empaque', schema=None) as b:
         b.create_index(b.f('ix_reglas_empaque_articulo_id'), ['articulo_id'], unique=False)
         b.create_index(b.f('ix_reglas_empaque_eliminada_en'), ['eliminada_en'], unique=False)
-        b.create_index(b.f('ix_reglas_empaque_familia_id'), ['familia_id'], unique=False)
+        b.create_index(b.f('ix_reglas_empaque_grupo_id'), ['grupo_id'], unique=False)
         b.create_index(b.f('ix_reglas_empaque_organizacion_id'), ['organizacion_id'], unique=False)
         b.create_index(b.f('ix_reglas_empaque_producto_id'), ['producto_id'], unique=False)
         b.create_index(b.f('ix_reglas_empaque_receta_id'), ['receta_id'], unique=False)

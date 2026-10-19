@@ -64,7 +64,7 @@ def test_receta_de_varios_niveles_con_totales_y_validaciones(admin):
 
 
 def test_la_demo_convierte_el_casepack_en_recetas(interno):
-    """Como la migración 0081: cada casepack e inner pack de sólidos tiene su receta (origen DATOS)."""
+    """Como la migración 0082: cada casepack e inner pack de sólidos tiene su receta (origen DATOS)."""
     oc = _oc(interno, "4400003901")
     con_casepack = [p for p in oc["posiciones"] if p["casepack"]]
     assert con_casepack
@@ -173,7 +173,7 @@ def test_proveedor_no_ve_ni_cambia_recetas(vans):
 
 
 def test_migracion_crea_recetas_desde_el_casepack():
-    """0081: una receta automática por casepack e inner pack de los sólidos, con los tipos
+    """0082: una receta automática por casepack e inner pack de los sólidos, con los tipos
     del catálogo; lo que no cierra o los prepacks quedan sin receta. Revertir no toca el casepack."""
     import sqlite3
     import subprocess

@@ -10,7 +10,7 @@ Quién decide la receta de una posición de OC, de mayor a menor:
 2. el casepack e inner pack que trae la OC (DATOS): se usa la receta con esa
    forma o se crea una automática;
 3. la regla de empaque que aplica (REGLA): gana la más específica (artículo,
-   producto, familia más profunda, toda la empresa); con condiciones gana
+   producto, grupo de producto más profundo, toda la empresa); con condiciones gana
    sobre sin condiciones; si empatan, la de arriba en la lista.
 
 La posición guarda una foto de los niveles: cambiar la receta después no
@@ -32,7 +32,7 @@ from app.modelos import (
     Articulo,
     Centro,
     FacturaLinea,
-    FamiliaEtiquetado,
+    GrupoProducto,
     OrdenCompra,
     PosicionOC,
     Producto,
@@ -53,8 +53,8 @@ MAX_NIVELES = 8
 MAX_CANTIDAD = 100000
 MAX_PROBAR = 5000  # posiciones abiertas que se revisan al medir el impacto de una regla
 ABIERTAS = ("BORRADOR", "EN_APROBACION", "RECHAZADA", "APROBADA")
-DESTINOS = ("EMPRESA", "FAMILIA", "PRODUCTO", "ARTICULO")
-PESO_DESTINO = {"EMPRESA": 1, "FAMILIA": 2, "PRODUCTO": 3, "ARTICULO": 4}
+DESTINOS = ("EMPRESA", "GRUPO", "PRODUCTO", "ARTICULO")
+PESO_DESTINO = {"EMPRESA": 1, "GRUPO": 2, "PRODUCTO": 3, "ARTICULO": 4}
 
 # Datos de la posición, su OC y su artículo que las condiciones de una regla pueden usar
 CAMPOS = [
@@ -393,8 +393,8 @@ def _cargar_regla(db: Session, regla_id: int) -> ReglaEmpaque:
 
 
 def nombre_destino(r: ReglaEmpaque) -> str:
-    if r.destino == "FAMILIA" and r.familia is not None:
-        return " › ".join(f.nombre for f in r.familia.ruta())
+    if r.destino == "GRUPO" and r.grupo is not None:
+        return " › ".join(g.nombre for g in r.grupo.ruta())
     if r.destino == "PRODUCTO" and r.producto is not None:
         return r.producto.nombre or r.producto.codigo_generico or str(r.producto_id)
     if r.destino == "ARTICULO" and r.articulo is not None:
@@ -417,7 +417,7 @@ def texto_condiciones(condiciones: list[dict] | None) -> str:
 def dict_regla(r: ReglaEmpaque) -> dict:
     return {"id": r.id, "receta_id": r.receta_id, "receta": r.receta.nombre if r.receta else None,
             "receta_resumen": resumen(foto(r.receta)) if r.receta else None, "destino": r.destino,
-            "familia_id": r.familia_id, "producto_id": r.producto_id, "articulo_id": r.articulo_id,
+            "grupo_id": r.grupo_id, "producto_id": r.producto_id, "articulo_id": r.articulo_id,
             "destino_nombre": nombre_destino(r), "condiciones": r.condiciones or [],
             "condiciones_texto": texto_condiciones(r.condiciones), "orden": r.orden,
             "vigente_desde": r.vigente_desde.isoformat() if r.vigente_desde else None,
@@ -436,14 +436,15 @@ def listar_reglas(db: Session, user: Usuario) -> list[dict]:
 
 def catalogo_campos(db: Session, user: Usuario) -> dict:
     """Lo que el editor de reglas ofrece: datos de las condiciones, operadores,
-    destinos y las familias (con su ruta) a las que puede ir una regla."""
+    destinos y los grupos de producto (familias y categorías, con su ruta) a los
+    que puede ir una regla."""
     exigir(user, "catalogos.ver")
-    familias = list(db.scalars(select(FamiliaEtiquetado).where(FamiliaEtiquetado.activa.is_(True))
-                               .options(selectinload(FamiliaEtiquetado.padre))))
+    grupos = list(db.scalars(select(GrupoProducto).where(GrupoProducto.activa.is_(True))
+                             .options(selectinload(GrupoProducto.padre))))
     return {"campos": [{"clave": c, "etiqueta": e, "tipo": t} for c, e, t in CAMPOS],
             "operadores": list(cond.OPERADORES_SIMPLES), "destinos": list(DESTINOS),
-            "familias": sorted(({"id": f.id, "nombre": " › ".join(x.nombre for x in f.ruta())} for f in familias),
-                               key=lambda x: x["nombre"].lower())}
+            "grupos": sorted(({"id": g.id, "clase": g.clase, "nombre": " › ".join(x.nombre for x in g.ruta())} for g in grupos),
+                             key=lambda x: x["nombre"].lower())}
 
 
 def _fecha(v, campo: str) -> date | None:
@@ -463,8 +464,8 @@ def _limpiar_regla(db: Session, datos: dict, r: ReglaEmpaque | None = None) -> d
     destino = str(v("destino", "EMPRESA") or "EMPRESA").upper()
     if destino not in DESTINOS:
         raise ErrorNegocio("Choose where the rule applies.", 422, "validacion", [{"campo": "destino", "mensaje": "Invalid."}])
-    ids = {"familia_id": None, "producto_id": None, "articulo_id": None}
-    modelo = {"FAMILIA": ("familia_id", FamiliaEtiquetado), "PRODUCTO": ("producto_id", Producto),
+    ids = {"grupo_id": None, "producto_id": None, "articulo_id": None}
+    modelo = {"GRUPO": ("grupo_id", GrupoProducto), "PRODUCTO": ("producto_id", Producto),
               "ARTICULO": ("articulo_id", Articulo)}.get(destino)
     if modelo:
         campo, clase = modelo
@@ -579,12 +580,23 @@ class Motor:
         q = (select(ReglaEmpaque).join(RecetaEmpaque).where(ReglaEmpaque.eliminada_en.is_(None), ReglaEmpaque.activa.is_(True),
                                                             RecetaEmpaque.activa.is_(True))
              .options(selectinload(ReglaEmpaque.receta).selectinload(RecetaEmpaque.niveles).selectinload(RecetaNivel.tipo_empaque),
-                      selectinload(ReglaEmpaque.familia)))
+                      selectinload(ReglaEmpaque.grupo)))
         self.reglas = [r for r in db.scalars(q.order_by(ReglaEmpaque.orden, ReglaEmpaque.id))
                        if r.id != sin and (borrador is None or r.id != borrador.id)]
         if borrador is not None:
             self.reglas.append(borrador)
         self._paises: dict | None = None
+        self._rutas: dict = {}
+        self._cache: dict = {}
+
+    def ruta(self, a: Articulo) -> list[int]:
+        """Los grupos del artículo, de lo más específico (su categoría) a lo más general (motor común: grupos/arbol.py)."""
+        if a.id not in self._rutas:
+            from app.modulos.etiquetado.campos import valores_articulo
+            from app.modulos.grupos import arbol
+
+            self._rutas[a.id] = [g.id for g in arbol.ruta_efectiva(self.db, a, valores_articulo(a), self._cache)]
+        return self._rutas[a.id]
 
     def pais(self, centro: str | None) -> str | None:
         if self._paises is None:
@@ -616,9 +628,8 @@ class Motor:
             return (4, 0) if a.id == r.articulo_id else None
         if r.destino == "PRODUCTO":
             return (3, 0) if a.producto_id and a.producto_id == r.producto_id else None
-        f = a.familia_efectiva
-        ruta = [x.id for x in f.ruta()] if f is not None else []
-        return (2, ruta.index(r.familia_id) + 1) if r.familia_id in ruta else None
+        ruta = self.ruta(a)  # de lo más específico a lo más general: el más profundo pesa más
+        return (2, len(ruta) - ruta.index(r.grupo_id)) if r.grupo_id in ruta else None
 
     def elegir(self, p: PosicionOC, oc: OrdenCompra) -> Eleccion:
         a = self.articulo(p)
@@ -789,8 +800,8 @@ def _motor_con(db: Session, borrador: dict | None) -> Motor:
     r = ReglaEmpaque(**limpio, orden=original.orden if original else 10**6)
     r.id = original.id if original else None
     r.receta = db.get(RecetaEmpaque, limpio["receta_id"])
-    if r.familia_id:
-        r.familia = db.get(FamiliaEtiquetado, r.familia_id)
+    if r.grupo_id:
+        r.grupo = db.get(GrupoProducto, r.grupo_id)
     if r in db:  # solo se mide: nunca se guarda
         db.expunge(r)
     return Motor(db, borrador=r)

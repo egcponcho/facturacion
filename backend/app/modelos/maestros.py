@@ -21,7 +21,7 @@ from sqlalchemy import (
     select,
     text,
 )
-from sqlalchemy.orm import Mapped, Session, mapped_column, object_session, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, object_session, relationship, synonym
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
@@ -407,11 +407,17 @@ class GrupoArticulo(DeOrganizacion, Base):
     # del puerto (inspección, etiquetado, permisos); se suman a la fecha en tienda
     dias_extra: Mapped[int | None] = mapped_column(Integer)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    # Familia de etiquetado de todos los artículos del grupo (salvo los que tienen la suya propia)
-    familia_etiquetado_id: Mapped[int | None] = mapped_column(
-        ForeignKey("familias_etiquetado.id", name="fk_grupos_articulos_familia_etiquetado_id"), index=True)
+    # Familia (grupo de producto) de todos los artículos del grupo (salvo los que tienen la suya propia)
+    grupo_producto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("grupos_producto.id", name="fk_grupos_articulos_grupo_producto_id"), index=True)
+    # Congelada desde la migración 0081 (apunta a la tabla anterior), solo para volver atrás
+    familia_etiquetado_anterior_id: Mapped[int | None] = mapped_column(
+        "familia_etiquetado_id", ForeignKey("familias_etiquetado.id", name="fk_grupos_articulos_familia_etiquetado_id"), index=True)
 
-    familia_etiquetado: Mapped["FamiliaEtiquetado | None"] = relationship()  # noqa: F821
+    grupo_producto: Mapped["GrupoProducto | None"] = relationship()  # noqa: F821
+    # Nombres con los que el etiquetado los conoce
+    familia_etiquetado_id = synonym("grupo_producto_id")
+    familia_etiquetado = synonym("grupo_producto")
 
 
 class Prepack(DeOrganizacion, Base):
@@ -470,29 +476,34 @@ class Articulo(DeOrganizacion, Base):
     prepack_id: Mapped[int | None] = mapped_column(ForeignKey("prepacks.id"), index=True)
     # La ficha técnica y la clasificación son del estilo-color (producto)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
-    # Familia de etiquetado (modelos/etiquetado.py): qué etiquetas le corresponden; no es su clasificación arancelaria
-    familia_etiquetado_id: Mapped[int | None] = mapped_column(
-        ForeignKey("familias_etiquetado.id", name="fk_articulos_familia_etiquetado_id"), index=True)
+    # Familia propia (grupo de producto, modelos/grupos.py): qué etiquetas y qué empaque le
+    # corresponden; no es su clasificación arancelaria
+    grupo_producto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("grupos_producto.id", name="fk_articulos_grupo_producto_id"), index=True)
+    # Congelada desde la migración 0081 (apunta a la tabla anterior), solo para volver atrás
+    familia_etiquetado_anterior_id: Mapped[int | None] = mapped_column(
+        "familia_etiquetado_id", ForeignKey("familias_etiquetado.id", name="fk_articulos_familia_etiquetado_id"), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     marca: Mapped[Marca] = relationship()
     grupo: Mapped[GrupoArticulo] = relationship()
     prepack: Mapped[Prepack | None] = relationship()
     producto: Mapped[Producto | None] = relationship(back_populates="articulos")
-    familia_etiquetado: Mapped["FamiliaEtiquetado | None"] = relationship()  # noqa: F821
+    grupo_producto: Mapped["GrupoProducto | None"] = relationship()  # noqa: F821
+    # Nombres con los que el etiquetado los conoce
+    familia_etiquetado_id = synonym("grupo_producto_id")
+    familia_etiquetado = synonym("grupo_producto")
 
     @property
     def familia_efectiva(self):
-        """La familia de etiquetado del artículo: la suya propia, si no la de su
-        producto (estilo-color) y si no la de su grupo."""
-        from app.modelos.etiquetado import FamiliaEtiquetado
-
-        if self.familia_etiquetado is not None:
-            return self.familia_etiquetado
+        """La familia del artículo (grupo de producto de clase FAMILIA): la suya
+        propia, si no la de su producto (estilo-color) y si no la de su grupo."""
+        if self.grupo_producto is not None:
+            return self.grupo_producto
         p = self.producto
-        if p is not None and p.familia_etiquetado_id:
-            return object_session(self).get(FamiliaEtiquetado, p.familia_etiquetado_id)
-        return self.grupo.familia_etiquetado if self.grupo else None
+        if p is not None and p.grupo_producto is not None:
+            return p.grupo_producto.familia
+        return self.grupo.grupo_producto if self.grupo else None
 
     @property
     def familia_origen(self) -> str | None:

@@ -181,27 +181,11 @@ def cantidad_tipo(t: TipoEtiqueta) -> str:
 
 
 def categoria_de(db: Session, a: Articulo | None, valores: dict, cache: dict | None = None) -> CategoriaEtiquetado | None:
-    """La categoría de etiquetado de un artículo, como en la clasificación: la
-    puesta a mano en su producto (si es de su familia o de una familia
-    superior) o, si no, la primera que se reconoce por sus condiciones,
-    empezando por la familia más específica y en el orden de cada familia.
-    Una categoría sin condiciones solo se pone a mano."""
-    if a is None or a.familia_efectiva is None:
-        return None
-    familias = [f.id for f in reversed(a.familia_efectiva.ruta())]
-    clave = ("cats", tuple(familias))
-    if cache is None or clave not in cache:
-        cats = list(db.scalars(select(CategoriaEtiquetado).where(CategoriaEtiquetado.familia_id.in_(familias),
-                                                                   CategoriaEtiquetado.activa.is_(True))))
-        cats.sort(key=lambda c: (familias.index(c.familia_id), c.orden, c.id))
-        if cache is None:
-            cache = {}
-        cache[clave] = cats
-    cats = cache[clave]
-    manual = a.producto.categoria_etiquetado_id if a.producto is not None else None
-    if manual:
-        return next((c for c in cats if c.id == manual), None)
-    return next((c for c in cats if c.condiciones and all(cumple_condicion(x, valores) for x in c.condiciones)), None)
+    """La categoría de etiquetado de un artículo (grupos/arbol.py: la puesta a
+    mano en su producto o la primera que se reconoce por sus condiciones)."""
+    from app.modulos.grupos import arbol
+
+    return arbol.categoria_de(db, a, valores, cache)
 
 
 def celda_de(tipo_id: int, nivel: str, destino_id: int | None) -> str:

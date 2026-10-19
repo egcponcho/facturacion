@@ -16,6 +16,7 @@ from app.modelos import (
     Articulo,
     FamiliaEtiquetado,
     GrupoArticulo,
+    GrupoProducto,
     Marca,
     Producto,
     UsoDiseno,
@@ -25,6 +26,7 @@ from app.modulos.acceso.permisos import exigir, exigir_alguno
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.etiquetado import campos as svc_campos
+from app.modulos.grupos import arbol
 
 MAX_CAMPOS = 60
 
@@ -66,9 +68,9 @@ def _conteos(db: Session) -> dict:
     for fid, n in db.execute(select(Producto.familia_etiquetado_id, func.count())
                              .where(Producto.familia_etiquetado_id.is_not(None)).group_by(Producto.familia_etiquetado_id)):
         res.setdefault(fid, {})["productos"] = n
-    for fid, n in db.execute(select(UsoDiseno.familia_id, func.count()).where(UsoDiseno.familia_id.is_not(None),
-                                                                             UsoDiseno.eliminado_en.is_(None))
-                             .group_by(UsoDiseno.familia_id)):
+    for fid, n in db.execute(select(UsoDiseno.grupo_id, func.count()).where(UsoDiseno.nivel == "FAMILIA",
+                                                                           UsoDiseno.eliminado_en.is_(None))
+                             .group_by(UsoDiseno.grupo_id)):
         res.setdefault(fid, {})["usos"] = n
     return res
 
@@ -116,9 +118,8 @@ def _validar(db: Session, datos: dict, actual: FamiliaEtiquetado | None) -> dict
         if not codigo or len(codigo) > 20 or not all(ch.isalnum() or ch in "-_." for ch in codigo):
             errores.append({"campo": "codigo", "mensaje": "Enter a code of up to 20 letters, digits, - _ or ."})
         else:
-            otra = db.scalar(select(FamiliaEtiquetado.id).where(FamiliaEtiquetado.codigo == codigo))
-            if otra and (actual is None or otra != actual.id):
-                errores.append({"campo": "codigo", "mensaje": "Another labeling family has this code."})
+            if arbol.codigo_ocupado(db, codigo, actual.id if actual else None):
+                errores.append({"campo": "codigo", "mensaje": "Another family or category has this code."})
             limpio["codigo"] = codigo
     if "nombre" in datos or actual is None:
         nombre = (datos.get("nombre") or "").strip()
@@ -194,12 +195,7 @@ def eliminar(db: Session, user: Usuario, familia_id: int) -> dict:
     """Solo una familia sin uso; si se usa, se desactiva."""
     exigir(user, "etiquetas.familias")
     f = cargar(db, familia_id)
-    en_uso = (db.scalar(select(func.count()).select_from(Articulo).where(Articulo.familia_etiquetado_id == f.id))
-              or db.scalar(select(func.count()).select_from(GrupoArticulo).where(GrupoArticulo.familia_etiquetado_id == f.id))
-              or db.scalar(select(func.count()).select_from(Producto).where(Producto.familia_etiquetado_id == f.id))
-              or db.scalar(select(func.count()).select_from(UsoDiseno).where(UsoDiseno.familia_id == f.id))
-              or db.scalar(select(func.count()).select_from(FamiliaEtiquetado).where(FamiliaEtiquetado.padre_id == f.id)))
-    if en_uso:
+    if arbol.en_uso(db, f):
         raise ErrorNegocio("The family has items, products, designs or subfamilies: deactivate it instead.", 409, "en_uso")
     registrar(db, user, "familia_etiquetado", f.id, "eliminar", {"codigo": f.codigo})
     db.delete(f)
@@ -354,7 +350,7 @@ def desde_grupos(db: Session, user: Usuario) -> dict:
     exigir(user, "etiquetas.familias")
     grupos_ = list(db.scalars(select(GrupoArticulo).where(GrupoArticulo.activo.is_(True),
                                                           GrupoArticulo.familia_etiquetado_id.is_(None)).order_by(GrupoArticulo.codigo)))
-    existentes = {c for c in db.scalars(select(FamiliaEtiquetado.codigo))}
+    existentes = {c.upper() for c in db.scalars(select(GrupoProducto.codigo))}
     orden = db.scalar(select(func.max(FamiliaEtiquetado.orden))) or 0
     creadas = []
     for g in grupos_:

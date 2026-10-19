@@ -17,13 +17,13 @@ import { avisar, errorApi } from '@/stores/ui'
 
 // Reglas de empaque en una lista. Cada una se lee como frase: «Para [destino]
 // si [condiciones] → usar [receta]». Gana la más específica (artículo,
-// producto, familia más profunda, toda la empresa); con condiciones gana sobre
+// producto, grupo de producto más profundo, toda la empresa); con condiciones gana sobre
 // sin condiciones; si aun así empatan, la de arriba. El orden se cambia
 // arrastrando o con las flechas (también con teclado).
 const props = defineProps({ editable: { type: Boolean, default: true } })
 const reglas = ref([])
 const recetas = ref([])
-const catalogo = ref({ campos: [], operadores: [], familias: [] })
+const catalogo = ref({ campos: [], operadores: [], grupos: [] })
 const cargando = ref(false)
 
 async function cargar() {
@@ -41,7 +41,7 @@ async function cargar() {
 }
 onMounted(cargar)
 
-const DESTINOS = computed(() => [['EMPRESA', t('Whole company')], ['FAMILIA', t('Family')], ['PRODUCTO', t('Product')], ['ARTICULO', t('Item')]])
+const DESTINOS = computed(() => [['EMPRESA', t('Whole company')], ['GRUPO', t('Product group')], ['PRODUCTO', t('Product')], ['ARTICULO', t('Item')]])
 const destinoTxt = (r) => (r.destino === 'EMPRESA' ? t('Whole company') : tx(r.destino_nombre))
 // «Proveedor es igual a VANS · Marca está en TNF, VANS»: con los nombres traducidos
 function condicionesTxt(r) {
@@ -81,11 +81,11 @@ function soltar(j) {
 
 // ---- Editor ---------------------------------------------------------------
 const edicion = ref(null)
-const vacia = () => ({ id: null, version: null, destino: 'EMPRESA', familia_id: '', producto_id: '', articulo_id: '', receta_id: '',
+const vacia = () => ({ id: null, version: null, destino: 'EMPRESA', grupo_id: '', producto_id: '', articulo_id: '', receta_id: '',
   condiciones: [], motivo: '', vigente_desde: '', vigente_hasta: '', activa: true, aplicar: true })
 function abrir(r = null) {
   edicion.value = reactive(r
-    ? { ...vacia(), ...r, familia_id: r.familia_id || '', producto_id: r.producto_id || '', articulo_id: r.articulo_id || '',
+    ? { ...vacia(), ...r, grupo_id: r.grupo_id || '', producto_id: r.producto_id || '', articulo_id: r.articulo_id || '',
         condiciones: (r.condiciones || []).map((c) => ({ ...c, valor: Array.isArray(c.valor) ? c.valor.join(', ') : c.valor })),
         vigente_desde: r.vigente_desde || '', vigente_hasta: r.vigente_hasta || '', aplicar: true }
     : vacia())
@@ -96,7 +96,7 @@ function cuerpo(e = edicion.value) {
   const id = (v) => (v === '' || v == null ? null : Number(v))
   return {
     ...(e.id ? { id: e.id } : {}), receta_id: id(e.receta_id), destino: e.destino,
-    familia_id: e.destino === 'FAMILIA' ? id(e.familia_id) : null, producto_id: e.destino === 'PRODUCTO' ? id(e.producto_id) : null,
+    grupo_id: e.destino === 'GRUPO' ? id(e.grupo_id) : null, producto_id: e.destino === 'PRODUCTO' ? id(e.producto_id) : null,
     articulo_id: e.destino === 'ARTICULO' ? id(e.articulo_id) : null,
     condiciones: e.condiciones.filter((c) => c.campo).map((c) => ({ campo: c.campo, op: c.op, valor: c.valor === '' ? null : c.valor })),
     motivo: e.motivo || null, vigente_desde: e.vigente_desde || null, vigente_hasta: e.vigente_hasta || null, activa: e.activa,
@@ -105,7 +105,7 @@ function cuerpo(e = edicion.value) {
 const completa = computed(() => {
   const e = edicion.value
   if (!e || !e.receta_id) return false
-  return e.destino === 'EMPRESA' || !!e[{ FAMILIA: 'familia_id', PRODUCTO: 'producto_id', ARTICULO: 'articulo_id' }[e.destino]]
+  return e.destino === 'EMPRESA' || !!e[{ GRUPO: 'grupo_id', PRODUCTO: 'producto_id', ARTICULO: 'articulo_id' }[e.destino]]
 })
 
 // Efecto antes de guardar: cuántas posiciones abiertas cambiarían de receta
@@ -181,7 +181,7 @@ const recetaTxt = (id) => recetas.value.find((x) => x.id === Number(id))
 
 <template>
   <div class="reglas">
-    <p class="ayuda mt-0">{{ t('The most specific rule wins: item, then product, then the deepest family, then the whole company. With conditions wins over without. If they still tie, the one higher in the list. A recipe chosen by hand in a PO line, or the casepack of the PO, wins over the rules.') }}</p>
+    <p class="ayuda mt-0">{{ t('The most specific rule wins: item, then product, then the deepest product group (its category, then its family and the families above), then the whole company. With conditions wins over without. If they still tie, the one higher in the list. A recipe chosen by hand in a PO line, or the casepack of the PO, wins over the rules.') }}</p>
     <div class="fila-flex">
       <button v-if="props.editable" type="button" class="btn btn-primario" @click="abrir()"><Icono nombre="mas" />{{ t('New rule') }}</button>
     </div>
@@ -219,9 +219,9 @@ const recetaTxt = (id) => recetas.value.find((x) => x.id === Number(id))
         <span class="palabra">{{ t('For') }}</span>
         <Segmentos v-model="edicion.destino" :opciones="DESTINOS" :etiqueta="t('Applies to')" />
       </div>
-      <label v-if="edicion.destino === 'FAMILIA'" class="campo"><span class="req">{{ t('Family (and its subfamilies)') }}</span>
-        <Seleccion v-model="edicion.familia_id" required><option value="">{{ t('Choose…') }}</option>
-          <option v-for="f in catalogo.familias" :key="f.id" :value="f.id">{{ tx(f.nombre) }}</option></Seleccion></label>
+      <label v-if="edicion.destino === 'GRUPO'" class="campo"><span class="req">{{ t('Product group (and everything inside it)') }}</span>
+        <Seleccion v-model="edicion.grupo_id" required><option value="">{{ t('Choose…') }}</option>
+          <option v-for="g in catalogo.grupos" :key="g.id" :value="g.id">{{ tx(g.nombre) }}{{ g.clase === 'CATEGORIA' ? ` (${t('category')})` : '' }}</option></Seleccion></label>
       <label v-if="edicion.destino === 'PRODUCTO'" class="campo"><span class="req">{{ t('Product (all its variants)') }}</span>
         <SelectBusqueda v-model="edicion.producto_id" :buscar="buscarProductos" :etiqueta="t('Product')" :prefijo="false" requerido /></label>
       <label v-if="edicion.destino === 'ARTICULO'" class="campo"><span class="req">{{ t('Item') }}</span>

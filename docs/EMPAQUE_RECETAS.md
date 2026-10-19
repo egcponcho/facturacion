@@ -14,7 +14,7 @@ cada línea muestra su receta en la columna **Empaque**.
 |---|---|---|
 | Tipo de empaque | Unidad logística configurable (inner, caja, pallet, bolsa, display…) y qué puede contener | Datos maestros (`tipos_empaque`, `tipo_empaque_contiene`) |
 | Receta | Jerarquía de N niveles armada con esos tipos. Cada nivel dice cuántas unidades del nivel de abajo lleva; el primero, cuántas unidades del artículo | `recetas_empaque`, `receta_niveles` |
-| Regla de empaque | «Para [toda la empresa, familia, producto o artículo] si [condiciones] → usar [receta]» | `reglas_empaque` |
+| Regla de empaque | «Para [toda la empresa, grupo de producto, producto o artículo] si [condiciones] → usar [receta]» | `reglas_empaque` |
 | Receta de la línea | La receta que tomó una línea de OC, de dónde salió y una **foto** congelada de sus niveles | `posiciones_oc.receta_*`, `factura_lineas.receta_*` |
 
 Ejemplo de receta, del nivel más externo al más interno:
@@ -57,8 +57,9 @@ Ejemplo de receta, del nivel más externo al más interno:
 | 4 | La regla de empaque que aplica | `REGLA` |
 
 **Qué regla gana:**
-- La más específica: artículo, luego producto, luego la familia más profunda y
-  por último toda la empresa.
+- La más específica: artículo, luego producto, luego el grupo de producto más
+  profundo (su categoría, su familia y las familias de arriba; ver
+  [GRUPOS_PRODUCTO.md](GRUPOS_PRODUCTO.md)) y por último toda la empresa.
 - A igual destino, una regla con condiciones gana sobre una sin condiciones.
 - Si aun así empatan, gana la que está más arriba en la lista. El orden se
   cambia arrastrando o con las flechas, también con teclado.
@@ -80,7 +81,7 @@ casepack.
 
 ## 4. Convivencia con casepack e inner pack (alternativa A)
 
-- La migración **0081** crea una receta automática (`CP12`, `CP12-IN6`…) por
+- La migración **0082** crea una receta automática (`CP12`, `CP12-IN6`…) por
   cada combinación distinta de casepack e inner pack de los sólidos. La arma
   con los tipos del catálogo: el bulto que lleva producto y, si hay inner, el
   interior que puede ir dentro. Luego la enlaza a sus líneas y facturas con
@@ -126,7 +127,7 @@ casepack.
 | `GET/POST /api/recetas-empaque`, `GET/PATCH/DELETE /api/recetas-empaque/{id}` | Recetas. Una receta en uso no se borra: se desactiva |
 | `POST /api/recetas-empaque/calcular` | Totales en vivo de una receta sin guardar |
 | `GET/POST /api/reglas-empaque`, `PATCH/DELETE /api/reglas-empaque/{id}`, `PUT /api/reglas-empaque/orden` | Reglas. Se dan de baja, no se borran |
-| `GET /api/reglas-empaque/campos` | Datos de las condiciones, operadores y familias |
+| `GET /api/reglas-empaque/campos` | Datos de las condiciones, operadores y grupos de producto |
 | `POST /api/reglas-empaque/probar` | Receta de cada línea de una OC hoy y según las reglas, regla por regla |
 | `POST /api/reglas-empaque/impacto` | Cuántas líneas abiertas cambiarían al guardar o quitar una regla |
 | `POST /api/reglas-empaque/reaplicar` | Aplica las reglas a las líneas abiertas que las siguen |
@@ -143,6 +144,6 @@ Permisos:
 |---|---|---|
 | 1 | Recetas, reglas de empaque, receta en la línea de OC y conversión del casepack | **Hecha** (este documento) |
 | 2 | Packing list genérico: «Empacar según la receta» con N niveles, totales por tipo de empaque, caja e inner tomados de la receta de la línea | **Hecha en lo principal**. Pendiente: columnas de la tabla de cajas por nivel y el alta manual de un tipo sin receta |
-| 3 | Grupos de producto compartidos (familias y categorías en un árbol) y motor de reglas común | Pendiente; el evaluador de condiciones ya es común |
+| 3 | Grupos de producto compartidos (familias y categorías en un árbol) y motor de reglas común | **Hecha** ([GRUPOS_PRODUCTO.md](GRUPOS_PRODUCTO.md)) |
 | 4 | Etiquetado sobre el árbol físico: «¿Dónde se pega?», reglas en lista y Probar unificado | Pendiente |
 | 5 | Limpieza: retirar columnas y pantallas viejas, con migración e informe | Pendiente |

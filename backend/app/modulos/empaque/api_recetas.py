@@ -56,7 +56,7 @@ class ReglaIn(_Cuerpo):
     id: int | None = None  # al probar o medir una regla en edición
     receta_id: int | None = None
     destino: str = "EMPRESA"
-    familia_id: int | None = None
+    grupo_id: int | None = None
     producto_id: int | None = None
     articulo_id: int | None = None
     condiciones: list[Condicion] = Field(default_factory=list)
@@ -143,7 +143,7 @@ def listar_reglas(db: Db, user: User):
 
 @router.get("/reglas-empaque/campos")
 def campos_reglas(db: Db, user: User):
-    """Datos que pueden usar las condiciones, operadores, destinos y familias."""
+    """Datos que pueden usar las condiciones, operadores, destinos y grupos de producto."""
     return recetas.catalogo_campos(db, user)
 
 

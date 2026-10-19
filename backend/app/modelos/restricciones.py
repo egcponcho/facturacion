@@ -41,7 +41,7 @@ RESTRICCIONES: dict[str, list[tuple[str, str]]] = {
     "plantillas_caja": _no_negativo("cantidad_por_caja", "largo", "ancho", "alto", "tara"),
     "tipos_empaque": _no_negativo("largo", "ancho", "alto", "tara", "peso_max", "max_unidades", "max_contenido"),
     "receta_niveles": [("cantidad", "cantidad >= 1"), ("orden", "orden >= 1"), *_no_negativo("largo", "ancho", "alto", "tara")],
-    "reglas_empaque": [("destino", _en("destino", ("EMPRESA", "FAMILIA", "PRODUCTO", "ARTICULO"))), _vigencia()],
+    "reglas_empaque": [("destino", _en("destino", ("EMPRESA", "GRUPO", "PRODUCTO", "ARTICULO"))), _vigencia()],
     "recepciones": _no_negativo("cantidad_recibida", "cantidad_danada") + [
         ("danada_hasta_recibida", "cantidad_danada IS NULL OR cantidad_danada <= cantidad_recibida")],
     "tipos_etiqueta": [("sujeto", _en("sujeto", ("ARTICULO", "BULTO", "DOCUMENTO"))),

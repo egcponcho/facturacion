@@ -28,8 +28,8 @@ from app.core.organizacion import DeOrganizacion
 from app.modelos.base import Cantidad, ahora, cant
 
 if TYPE_CHECKING:
-    from app.modelos.etiquetado import FamiliaEtiquetado
     from app.modelos.facturacion import Factura, FacturaLinea
+    from app.modelos.grupos import GrupoProducto
     from app.modelos.maestros import Articulo
     from app.modelos.productos import Producto
     from app.modelos.transporte import UnidadCarga
@@ -232,29 +232,30 @@ class RecetaNivel(DeOrganizacion, Base):
     tipo_empaque: Mapped[TipoEmpaque] = relationship()
 
 
-DESTINOS_REGLA_EMPAQUE = ("EMPRESA", "FAMILIA", "PRODUCTO", "ARTICULO")
+DESTINOS_REGLA_EMPAQUE = ("EMPRESA", "GRUPO", "PRODUCTO", "ARTICULO")
 ORIGENES_RECETA = ("MANUAL", "REGLA", "DATOS")  # elegida a mano, por una regla o desde el casepack de la OC
 
 
 class ReglaEmpaque(DeOrganizacion, Base):
     """«Para [destino] si [condiciones] → usar [receta]». Gana la más específica
-    (artículo, producto, familia más profunda, toda la empresa); con
+    (artículo, producto, grupo de producto más profundo, toda la empresa); con
     condiciones gana sobre sin condiciones; si aun así empatan, la de menor
     `orden` (arriba en la lista). Se dan de baja, no se borran."""
 
     __tablename__ = "reglas_empaque"
     __table_args__ = (
         CheckConstraint(
-            "(destino = 'EMPRESA' AND familia_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL)"
-            " OR (destino = 'FAMILIA' AND familia_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL)"
-            " OR (destino = 'PRODUCTO' AND producto_id IS NOT NULL AND familia_id IS NULL AND articulo_id IS NULL)"
-            " OR (destino = 'ARTICULO' AND articulo_id IS NOT NULL AND familia_id IS NULL AND producto_id IS NULL)",
+            "(destino = 'EMPRESA' AND grupo_id IS NULL AND producto_id IS NULL AND articulo_id IS NULL)"
+            " OR (destino = 'GRUPO' AND grupo_id IS NOT NULL AND producto_id IS NULL AND articulo_id IS NULL)"
+            " OR (destino = 'PRODUCTO' AND producto_id IS NOT NULL AND grupo_id IS NULL AND articulo_id IS NULL)"
+            " OR (destino = 'ARTICULO' AND articulo_id IS NOT NULL AND grupo_id IS NULL AND producto_id IS NULL)",
             name="ck_reglas_empaque_destino_unico"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     receta_id: Mapped[int] = mapped_column(ForeignKey("recetas_empaque.id"), index=True)
     destino: Mapped[str] = mapped_column(String(10), default="EMPRESA")
-    familia_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
+    # Destino GRUPO: una familia o categoría del árbol de grupos de producto (y lo que cuelga de ella)
+    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_producto.id"), index=True)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
     # [{"campo": "oc.proveedor", "op": "igual", "valor": "VANS"}]: todas deben cumplirse
@@ -273,7 +274,7 @@ class ReglaEmpaque(DeOrganizacion, Base):
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     receta: Mapped[RecetaEmpaque] = relationship()
-    familia: Mapped["FamiliaEtiquetado | None"] = relationship()
+    grupo: Mapped["GrupoProducto | None"] = relationship()
     producto: Mapped["Producto | None"] = relationship()
     articulo: Mapped["Articulo | None"] = relationship()
 
