@@ -158,12 +158,16 @@ def generico_auto(estilo: str | None, color: str | None) -> str | None:
 
 
 def generico_de(a) -> str | None:
-    """Genérico (estilo-color) de un artículo o de una fila de datos."""
+    """Código del producto de un artículo o de una fila de datos: el que trae; si no,
+    estilo-color para quien identifica así sus productos; si no, el propio código del
+    artículo (un producto sin variantes, como un químico o una materia prima)."""
     if a is None:
         return None
     if isinstance(a, dict):
-        return (str(a.get("generico") or "").strip().upper() or generico_auto(a.get("estilo"), a.get("color")))
-    return a.generico or (a.producto.codigo_generico if a.producto else None) or generico_auto(a.estilo, a.color)
+        return (str(a.get("generico") or "").strip().upper() or generico_auto(a.get("estilo"), a.get("color"))
+                or (str(a.get("sku") or "").strip().upper() or None))
+    return (a.generico or (a.producto.codigo_generico if a.producto else None) or generico_auto(a.estilo, a.color)
+            or (a.sku or None))
 
 
 def producto_por_generico(db: Session, gen: str | None) -> Producto | None:
@@ -171,9 +175,9 @@ def producto_por_generico(db: Session, gen: str | None) -> Producto | None:
 
 
 def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
-    """Liga el artículo con el producto de su genérico (estilo-color); lo crea
-    si no existe. Sólidos y prepacks del mismo genérico comparten la
-    ficha técnica y la clasificación: el prepack no se clasifica aparte."""
+    """Liga el artículo con el producto de su código (genérico); lo crea si no
+    existe. Las variantes y los compuestos del mismo producto comparten la
+    ficha técnica y la clasificación: el compuesto no se clasifica aparte."""
     explicito = a.generico
     gen = generico_de(a)
     p = producto_por_generico(db, gen)
@@ -186,11 +190,11 @@ def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
                                              *([or_(Producto.codigo_generico.is_(None), Producto.codigo_generico == gen)]
                                                if explicito else [])))
     if not p:
-        if not a.proveedor_id or not a.estilo:
+        if not a.proveedor_id or not gen:
             return None
         p = Producto(proveedor_id=a.proveedor_id, estilo=a.estilo, color=a.color, marca_id=a.marca_id,
                      grupo_id=a.grupo_id, unidad=a.unidad if a.tipo == "SOLIDO" else None, ficha={}, faltan=[],
-                     alertas_ok=[])
+                     alertas_ok=[], codigo_generico=gen, nombre=None if a.estilo else a.descripcion)
         db.add(p)
     if gen and not p.codigo_generico:
         p.codigo_generico = gen

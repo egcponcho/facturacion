@@ -20,10 +20,12 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
     event,
+    inspect,
     select,
     text,
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column, object_session, relationship, synonym
+from sqlalchemy.orm.attributes import flag_dirty
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
@@ -441,7 +443,7 @@ class Prepack(DeOrganizacion, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tipo: Mapped[str] = mapped_column(String(10), default="CURVA", server_default="CURVA")
     codigo: Mapped[str] = mapped_column(String(10))
-    estilo: Mapped[str] = mapped_column(String(40))
+    estilo: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
     descripcion: Mapped[str | None] = mapped_column(String(200))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -456,8 +458,9 @@ class Prepack(DeOrganizacion, Base):
 
 
 class Articulo(DeOrganizacion, Base):
-    """Dato maestro del artículo (SKU). Un sólido es un estilo-color-talla;
-    un prepack es una caja con una curva de sólidos."""
+    """Dato maestro del artículo (SKU): una variante de un producto de cualquier
+    tipo, distinguida por sus valores de variante (talla, color, sabor,
+    presentación…), o un compuesto que junta otras (un pack o un kit)."""
 
     __tablename__ = "articulos"
     __table_args__ = (UniqueConstraint("organizacion_id", "sku", name="uq_articulos_org_sku"),)
@@ -471,7 +474,7 @@ class Articulo(DeOrganizacion, Base):
     generico: Mapped[str | None] = mapped_column(String(40), index=True)
     sku_proveedor: Mapped[str | None] = mapped_column(String(60), index=True)
     upc: Mapped[str | None] = mapped_column(String(40))
-    estilo: Mapped[str] = mapped_column(String(40))
+    estilo: Mapped[str | None] = mapped_column(String(40))  # opcional: modelo o estilo, si la empresa lo usa
     color: Mapped[str | None] = mapped_column(String(60))
     talla: Mapped[str | None] = mapped_column(String(20))
     descripcion: Mapped[str | None] = mapped_column(String(300))
@@ -543,12 +546,15 @@ class Articulo(DeOrganizacion, Base):
         db = object_session(self)
         if db is not None:
             db.info.setdefault("variantes_pendientes", set()).add(self)
+            flag_dirty(self)  # aunque nada más cambie, el guardado aplica los valores
 
 
 class AtributoVariante(DeOrganizacion, Base):
-    """Dimensión que distingue las variantes de un artículo. Talla y color
-    son de sistema (viven en columnas del artículo); la empresa agrega las
-    suyas (material, capacidad, voltaje…) y les da nombre y orden."""
+    """Dimensión que distingue las variantes de un producto (talla, color,
+    sabor, presentación, concentración, voltaje…). Talla y color vienen de
+    fábrica (`columna`: el artículo guarda además una copia en su columna);
+    la empresa agrega las suyas y les da nombre, tipo y orden. Cada familia de
+    productos dice cuáles usa (grupos_producto.ejes_variante)."""
 
     __tablename__ = "atributos_variante"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_atributos_variante_org_codigo"),
@@ -567,7 +573,7 @@ class AtributoVariante(DeOrganizacion, Base):
 
 
 class ArticuloAtributo(DeOrganizacion, Base):
-    """Valor de un atributo de variante propio en un artículo (uno por atributo)."""
+    """Valor de un atributo de variante en un artículo (uno por atributo)."""
 
     __tablename__ = "articulo_atributos"
     __table_args__ = (UniqueConstraint("articulo_id", "atributo_id", name="uq_articulo_atributos_articulo_atributo"),)
@@ -582,26 +588,61 @@ class ArticuloAtributo(DeOrganizacion, Base):
 
 @event.listens_for(Session, "before_flush")
 def _aplicar_variantes(db, _contexto, _instancias) -> None:
-    """Pasa los valores pendientes de los atributos propios a sus filas."""
-    for a in [x for x in {*db.new, *db.dirty, *db.info.pop("variantes_pendientes", set())} if isinstance(x, Articulo)]:
+    """Los valores de variante viven en articulo_atributos, también talla y color
+    (atributos de sistema). Las columnas talla y color del artículo son una copia
+    para lo que todavía las lee: si cambian a mano, mandan y pasan a sus filas;
+    si cambian los valores, se copian a las columnas. En un prepack la «talla» es
+    su ID de prepack, no un valor de variante."""
+    candidatos = [x for x in {*db.new, *db.dirty, *db.info.pop("variantes_pendientes", set())} if isinstance(x, Articulo)]
+    if not candidatos:
+        return
+    por_codigo = None
+    for a in candidatos:
         pendiente = a.__dict__.pop("_variantes_pendientes", None)
-        if pendiente is None:
+        estado = inspect(a)
+        nuevo = a in db.new
+        cambio_col = {col: nuevo or estado.attrs[col].history.has_changes() for col in COLUMNAS_SISTEMA}
+        if pendiente is None and not any(cambio_col.values()):
             continue
-        por_codigo = {x.codigo: x for x in db.scalars(select(AtributoVariante).where(AtributoVariante.columna.is_(None)))}
+        if por_codigo is None:
+            with db.no_autoflush:
+                por_codigo = {x.codigo: x for x in db.scalars(select(AtributoVariante))}
+        sistema = {x.columna: x.codigo for x in por_codigo.values() if x.columna}
         actuales = {x.atributo.codigo: x for x in a.atributos}
+        final = dict(pendiente) if pendiente is not None else {k: x.valor for k, x in actuales.items()}
+        for col, codigo in sistema.items():
+            if col == "talla" and a.tipo == "PREPACK":
+                final.pop(codigo, None)
+                continue
+            if cambio_col[col] or codigo not in final:
+                valor = getattr(a, col)
+                if valor not in (None, ""):
+                    final[codigo] = valor
+                else:
+                    final.pop(codigo, None)
         for codigo, x in list(actuales.items()):
-            if codigo not in pendiente:
+            if codigo not in final:
                 a.atributos.remove(x)
-        for codigo, valor in pendiente.items():
+        for codigo, valor in final.items():
             if codigo not in por_codigo:
                 continue
             texto = valor_variante(valor)
             if codigo in actuales:
-                actuales[codigo].valor = texto
+                if actuales[codigo].valor != texto:
+                    actuales[codigo].valor = texto
             else:
                 # Misma organización que el artículo (este hook puede correr después del que la asigna)
                 a.atributos.append(ArticuloAtributo(atributo=por_codigo[codigo], valor=texto,
                                                     organizacion_id=a.organizacion_id))
+        for col, codigo in sistema.items():
+            if col == "talla" and a.tipo == "PREPACK":
+                continue
+            valor = valor_variante(final[codigo]) if final.get(codigo) not in (None, "") else None
+            if getattr(a, col) != valor:
+                setattr(a, col, valor)
+
+
+COLUMNAS_SISTEMA = ("talla", "color")
 
 
 def valor_variante(v) -> str:

@@ -546,14 +546,15 @@ CATALOGOS = {
         "campos": [
             c("sku", "Item code", obligatorio=True, max=40, mayus=True, patron=r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$",
               mensaje_patron="Letters and numbers (also . - _ /), up to 40 characters."),
-            c("generico", "Generic (style-color)", max=40, mayus=True,
-              ayuda="Groups the sizes and prepacks of one style and color: they share the technical sheet. Empty = style-color."),
+            c("generico", "Product code", max=40, mayus=True,
+              ayuda="Groups the variants and packs of one product: they share the technical sheet. Empty = style-color "
+                    "if the item has a style, else the item code (a product without variants)."),
             c("sku_proveedor", "Supplier SKU", max=60, mayus=True,
               ayuda="The supplier's own code, e.g. VN0A4BV4W00-7."),
-            c("estilo", "Style", obligatorio=True, mayus=True),
+            c("estilo", "Style / model", mayus=True, ayuda="Optional: for products identified by style or model."),
             c("color", "Color", ayuda="Empty if the item has no color."),
             c("talla", "Size / prepack ID", mayus=True,
-              ayuda="For a prepack it is its prepack ID, e.g. AB12."),
+              ayuda="Empty if the item has no size. For a prepack it is its prepack ID, e.g. AB12."),
             c("marca_id", "Brand", "ref", obligatorio=True, catalogo="marcas", filtro=True,
               depende={"campo": "proveedor_id", "clave": "proveedores"}),
             c("grupo_id", "Item group", "ref", obligatorio=True, catalogo="grupos", filtro=True,
@@ -1182,14 +1183,16 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             limpio["prepack_id"] = None
             if final.get("unidad") == "CJ":
                 errores.append({"campo": "unidad", "mensaje": "A solid is handled in pairs or units."})
-    # El genérico (estilo-color) agrupa sus tallas, sólidos y prepacks: todos
-    # comparten estilo, color, marca, grupo y proveedor
+    # El producto (su código) agrupa sus variantes y compuestos: todos comparten
+    # estilo, marca y proveedor (y el color, si el producto lo fija)
     if cat["modelo"] is Articulo and generico_de(final):
         gen = generico_de(final)
         ref = db.scalar(select(Articulo).where(Articulo.generico == gen, Articulo.tipo == "SOLIDO",
                                                *([Articulo.id != actual.id] if actual else [])).limit(1))
         prod = producto_por_generico(db, gen)
-        base = ({"estilo": ref.estilo, "color": ref.color, "marca_id": ref.marca_id, "proveedor_id": ref.proveedor_id}
+        # El color es un valor de variante más, salvo que el producto lo fije (estilo-color)
+        base = ({"estilo": ref.estilo, "color": prod.color if prod else None, "marca_id": ref.marca_id,
+                 "proveedor_id": ref.proveedor_id}
                 if ref else {"estilo": prod.estilo, "color": prod.color, "marca_id": prod.marca_id,
                              "proveedor_id": prod.proveedor_id} if prod else None)
         if base:
@@ -1197,8 +1200,10 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             if distintos:
                 nombres = {"estilo": "style", "color": "color", "marca_id": "brand", "proveedor_id": "supplier"}
                 errores.append({"campo": distintos[0], "mensaje":
-                                f"Generic {gen} is {base['estilo']} {base['color'] or ''}: every size must have the same "
-                                f"{', '.join(nombres[k] for k in distintos)}. Use another generic."})
+                                f"The variants of product {gen} share the {', '.join(nombres[k] for k in distintos)}: "
+                                "use the same ones or another product code."})
+        if final.get("tipo") == "SOLIDO":
+            errores += _variante_repetida(db, gen, final, limpio, actual)
     if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
         prov = db.get(Proveedor, final["proveedor_id"])
         if prov and final["marca_id"] not in {m.id for m in prov.marcas}:
@@ -1339,6 +1344,25 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     if cambios:
         registrar(db, user, tipo, obj.id, "editar", cambios)
     return _fila(cat, obj, _refs(db, cat, [obj]))
+
+
+def _variante_repetida(db: Session, gen: str, final: dict, limpio: dict, actual) -> list[dict]:
+    """Dos variantes de un mismo producto no pueden tener los mismos valores de variante."""
+    valores = {**(actual.variantes if actual else {}), **(limpio.get("variantes") or {})}
+    for x in db.scalars(select(AtributoVariante).where(AtributoVariante.columna.is_not(None))):
+        if final.get(x.columna) not in (None, ""):
+            valores[x.codigo] = str(final[x.columna])
+        else:
+            valores.pop(x.codigo, None)
+    valores = {k: str(v) for k, v in valores.items() if v not in (None, "")}
+    if not valores:
+        return []
+    otras = db.scalars(select(Articulo).where(Articulo.generico == gen, Articulo.tipo == "SOLIDO",
+                                              *([Articulo.id != actual.id] if actual else [])))
+    for o in otras:
+        if {k: str(v) for k, v in o.variantes.items() if v not in (None, "")} == valores:
+            return [{"campo": "sku", "mensaje": f"{o.sku} is already the variant {' · '.join(valores.values())} of product {gen}."}]
+    return []
 
 
 def _validar_atributo_variante(db: Session, d: dict, actual) -> list[dict]:

@@ -143,3 +143,90 @@ def test_un_proveedor_no_ve_las_versiones_de_otro(tnf, vans):
         propio = db.scalar(select(Articulo.id).where(Articulo.proveedor_id == nf))
     assert tnf.get(f"/catalogos/articulos/{propio}/versiones").status_code == 200
     assert vans.get(f"/catalogos/articulos/{propio}/versiones").status_code == 404
+
+
+def test_producto_sin_estilo_ni_talla(interno):
+    """Un químico o una materia prima: sin estilo, color ni talla. Sus variantes se
+    distinguen por los atributos que la empresa define."""
+    base = _cat(interno, "articulos", tipo="SOLIDO")[0]
+    conc = interno.post("/catalogos/atributos_variante", {"codigo": "CONC", "nombre": "Concentration", "tipo": "numero",
+                                                          "unidad": "UN"}).json()
+    comunes = {"generico": "QUIM-001", "marca_id": base["marca_id"], "grupo_id": base["grupo_id"],
+               "proveedor_id": base["proveedor_id"], "tipo": "SOLIDO", "unidad": "L"}
+    creados = []
+    try:
+        r = interno.post("/catalogos/articulos", {**comunes, "sku": "QUIM-001-30", "atr.CONC": "30"})
+        assert r.status_code == 200, r.text
+        creados.append(r.json()["id"])
+        assert r.json()["estilo"] is None and r.json()["talla"] is None
+        r = interno.post("/catalogos/articulos", {**comunes, "sku": "QUIM-001-50", "atr.CONC": "50"})
+        assert r.status_code == 200, r.text
+        creados.append(r.json()["id"])
+        # Dos variantes del mismo producto no repiten sus valores
+        r = interno.post("/catalogos/articulos", {**comunes, "sku": "QUIM-001-XX", "atr.CONC": "50"})
+        assert r.status_code == 422 and "QUIM-001-50" in r.text
+        with SessionLocal() as db:
+            arts = [db.get(Articulo, i) for i in creados]
+            assert {a.producto_id for a in arts} == {arts[0].producto_id} and arts[0].producto_id is not None
+            assert arts[0].producto.codigo_generico == "QUIM-001" and arts[0].producto.estilo is None
+        # Un producto sin variantes: su código es el del artículo
+        r = interno.post("/catalogos/articulos", {**comunes, "generico": None, "sku": "RESINA-9"})
+        assert r.status_code == 200, r.text
+        creados.append(r.json()["id"])
+        with SessionLocal() as db:
+            assert db.get(Articulo, creados[-1]).producto.codigo_generico == "RESINA-9"
+    finally:
+        with SessionLocal() as db:
+            for i in creados:
+                a = db.get(Articulo, i)
+                p = a.producto
+                db.delete(a)
+                db.flush()
+                if p is not None and not p.articulos:
+                    db.delete(p)
+            db.commit()
+        interno.delete_(f"/catalogos/atributos_variante/{conc['id']}")
+
+
+def test_talla_y_color_son_valores_de_variante():
+    with SessionLocal() as db:
+        a = db.scalars(select(Articulo).where(Articulo.tipo == "SOLIDO", Articulo.talla.is_not(None))).first()
+        assert a.variantes.get("TALLA") == a.talla and a.variantes.get("COLOR") == a.color
+        talla = a.talla
+        # Cambiar la columna pasa a su valor; cambiar el valor pasa a la columna
+        a.talla = "ZZ"
+        db.flush()
+        assert a.variantes["TALLA"] == "ZZ"
+        a.variantes = {**a.variantes, "TALLA": talla}
+        db.flush()
+        assert a.talla == talla
+        db.rollback()
+
+
+def test_ejes_de_variante_por_familia(interno):
+    from app.modelos import GrupoProducto
+    from app.modulos.maestros import variantes
+
+    arbol = interno.get("/grupos-producto").json()
+    familia = next(g for g in arbol if g["clase"] == "FAMILIA")
+    assert interno.patch(f"/grupos-producto/{familia['id']}", {"ejes_variante": ["NOEXISTE"]}).status_code == 422
+    r = interno.patch(f"/grupos-producto/{familia['id']}", {"ejes_variante": ["COLOR", "TALLA"]})
+    assert r.status_code == 200, r.text
+    try:
+        with SessionLocal() as db:
+            hija = db.scalars(select(GrupoProducto).where(GrupoProducto.padre_id == familia["id"])).first()
+            if hija is not None:  # sin ejes propios, hereda los de la familia
+                assert variantes.ejes_de_grupo(hija) == ["COLOR", "TALLA"]
+            assert variantes.ejes_de_grupo(db.get(GrupoProducto, familia["id"])) == ["COLOR", "TALLA"]
+            assert variantes.texto(variantes.ordenar(db, {"TALLA": "9", "COLOR": "BLACK"})) in ("BLACK · 9", "9 · BLACK")
+    finally:
+        interno.patch(f"/grupos-producto/{familia['id']}", {"ejes_variante": []})
+
+
+def test_las_lineas_guardan_su_variante():
+    with SessionLocal() as db:
+        p = db.scalars(select(PosicionOC).where(PosicionOC.articulo_id.is_not(None), PosicionOC.talla.is_not(None))).first()
+        assert p.variante and p.variante.get("TALLA") == p.talla
+        f = db.scalars(select(FacturaLinea).where(FacturaLinea.posicion_oc_id == p.id)).first() \
+            or db.scalars(select(FacturaLinea)).first()
+        assert f.variante == f.posicion_oc.variante

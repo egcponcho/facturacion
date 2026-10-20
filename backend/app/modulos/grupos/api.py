@@ -26,6 +26,7 @@ class GrupoIn(_Cuerpo):
     descripcion: str | None = None
     padre_id: int | None = None
     condiciones: list[Condicion] = Field(default_factory=list)
+    ejes_variante: list[str] = Field(default_factory=list, max_length=20)
 
 
 class GrupoPatch(_Cuerpo):
@@ -34,6 +35,7 @@ class GrupoPatch(_Cuerpo):
     descripcion: str | None = None
     padre_id: int | None = None
     condiciones: list[Condicion] | None = None
+    ejes_variante: list[str] | None = Field(None, max_length=20)
     orden: int | None = None
     activa: bool | None = None
 

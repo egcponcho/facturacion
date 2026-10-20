@@ -13,8 +13,8 @@ la base de datos.
 | Categoría | «¿Qué es el producto?». Pertenece a un dominio. | Clasificación → Familias | `categorias_producto` |
 | Atributo de la ficha | Un dato técnico del producto, con tipo: texto, opción, varias opciones, sí/no, número con unidad, composición, país o juego de medidas. | Clasificación → Atributos | `atributos_def`, `atributo_opciones` |
 | Ámbito del atributo | Dónde se pregunta y si es obligatorio: en todo el sistema, en un dominio, un capítulo o partida arancelaria o una categoría (SHOW, REQUIRE, HIDE), con condiciones. | Clasificación → Atributos | `atributo_ambitos` |
-| Producto (estilo-color) | El producto con su ficha (`ficha`, JSON con un valor por atributo) y sus versiones cerradas. | Productos | `productos`, `producto_versiones` |
-| Atributo de variante | Lo que distingue las variantes de un producto. Talla y color vienen de fábrica; la empresa agrega los suyos con tipo: texto, número en una unidad (220 V, 500 ml) o una de sus opciones. | Datos maestros → Atributos de variante | `atributos_variante`, `articulo_atributos` |
+| Producto | El producto con su código propio, su ficha (`ficha`, JSON con un valor por atributo) y sus versiones cerradas. Estilo y color son opcionales. | Productos | `productos`, `producto_versiones` |
+| Atributo de variante | Lo que distingue las variantes de un producto (talla, color, sabor, presentación, concentración, voltaje…). Talla y color vienen de fábrica; la empresa agrega los suyos con tipo: texto, número en una unidad (220 V, 500 ml) o una de sus opciones. Cada familia elige los suyos. | Datos maestros → Atributos de variante; Grupos de producto | `atributos_variante`, `articulo_atributos`, `grupos_producto.ejes_variante` |
 | Artículo (variante, SKU) | La unidad que se compra: sus datos, los valores de sus atributos de variante y sus campos propios. | Datos maestros → Artículos | `articulos` |
 | Campos propios | Datos que la empresa agrega a artículos, OC, facturas y otros registros (texto, número, fecha, sí/no, opción). | Empresa → Campos propios | `definiciones_campo`, columna `extra` |
 | Unidades de medida | En qué se cuenta o mide cada artículo. Una unidad contable solo admite enteros. Una unidad puede convertirse a una base de la lista (`base`, `equivale`). | Datos maestros → Unidades | `unidades_medida` |
@@ -24,6 +24,43 @@ la base de datos.
 Nada de esto vive en el código: agregar un tipo de producto nuevo es crear su
 dominio, sus categorías y sus atributos, y en los artículos sus atributos de
 variante y sus unidades.
+
+## Identidad del producto y sus variantes
+
+- **El producto** se identifica por su código propio (`codigo_generico`, único en
+  la empresa). Estilo y color son opcionales: los usa quien identifica así sus
+  productos (calzado, ropa). Sin código, el producto toma estilo-color si el
+  artículo tiene estilo; si no, el código del artículo (un producto sin
+  variantes, como una resina o una materia prima).
+- **La variante (artículo)** se distingue por sus valores de variante, guardados
+  en `articulo_atributos`. Talla y color son dos atributos más (de fábrica); sus
+  columnas en el artículo quedan como copia para lo que todavía las lee y se
+  sincronizan solas en los dos sentidos.
+- **Los ejes de variante:** cada familia del árbol de grupos de producto define
+  con qué atributos se distinguen sus variantes, en orden (`ejes_variante`):
+  - calzado: COLOR, TALLA;
+  - químico: CONCENTRACION, ENVASE;
+  - alimento: SABOR, PRESENTACION.
+
+  Una familia sin ejes usa los de su padre; sin ninguno, valen todos los
+  atributos activos.
+- **Sin repetidos:** dos variantes del mismo producto no pueden tener los mismos
+  valores. Comparten estilo, marca y proveedor, y el color solo si el producto
+  lo fija.
+- **Líneas de documento:** cada línea de OC y de factura guarda sus valores de
+  variante (`variante`, en el orden de los atributos). La columna «Variante» de
+  los documentos se arma con ellos («BLACK · 9.5», «30 % · 1 L»).
+
+## Plan de la generalización (G1–G6)
+
+| Etapa | Contenido |
+|---|---|
+| G1 | Identidad por código, talla y color como valores de variante, ejes por familia, variante en las líneas (migración 0085) |
+| G2 | Compuestos genéricos: simple, pack de variantes (la curva, de cualquier atributo) o kit; unidad del compuesto configurable en lugar de CJ |
+| G3 | Alta de productos: familia → atributos → valores (escalas de cualquier atributo) → variantes; cargas sin estilo/color obligatorios |
+| G4 | Documentos (factura, packing list, ficha, Excel, reportes) con la columna «Variante» y columnas configurables |
+| G5 | Seguimiento, existencias por artículo, reportes, clasificación y empaque sin supuestos de calzado |
+| G6 | Pantallas con «Variante» y los atributos configurados |
 
 ## Unidades que convierten
 

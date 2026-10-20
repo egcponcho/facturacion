@@ -104,6 +104,7 @@ class FacturaLinea(DeOrganizacion, Base):
     receta_foto: Mapped[dict | None] = mapped_column(JSON)
     # La versión del artículo al facturar (la que lleva la lista de empaque y sus etiquetas)
     articulo_version_id: Mapped[int | None] = mapped_column(ForeignKey("articulo_versiones.id"), index=True)
+    variante: Mapped[dict | None] = mapped_column(JSON)  # los valores de variante de la línea, en su orden
     centro_destino: Mapped[str | None] = mapped_column(String(10))
     # Datos de aduana (editables en la factura)
     pais_origen: Mapped[str | None] = mapped_column(String(3))

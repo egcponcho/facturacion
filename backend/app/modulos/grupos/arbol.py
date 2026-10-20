@@ -120,7 +120,7 @@ def dict_grupo(g: GrupoProducto, conteos: dict | None = None) -> dict:
     c = (conteos or {}).get(g.id, {})
     return {"id": g.id, "clase": g.clase, "codigo": g.codigo, "nombre": g.nombre, "descripcion": g.descripcion,
             "padre_id": g.padre_id, "ruta": " / ".join(x.nombre for x in g.ruta()), "profundidad": len(g.ruta()) - 1,
-            "condiciones": g.condiciones or [], "orden": g.orden, "activa": g.activa,
+            "condiciones": g.condiciones or [], "ejes_variante": g.ejes_variante or [], "orden": g.orden, "activa": g.activa,
             "articulos": c.get("articulos", 0), "grupos_articulos": c.get("grupos_articulos", 0),
             "productos": c.get("productos", 0), "reglas_etiqueta": c.get("reglas_etiqueta", 0),
             "reglas_empaque": c.get("reglas_empaque", 0)}
@@ -207,6 +207,19 @@ def _validar(db: Session, datos: dict, actual: GrupoProducto | None) -> dict:
             errores.append({"campo": "condiciones", "mensaje": "Only a category is recognized by conditions."})
         else:
             limpio["condiciones"] = reglas.validar_condiciones(db, datos.get("condiciones") or [])
+    if "ejes_variante" in datos:
+        from app.modelos import AtributoVariante
+
+        ejes = [str(x).strip().upper() for x in (datos.get("ejes_variante") or []) if str(x).strip()]
+        validos = set(db.scalars(select(AtributoVariante.codigo).where(AtributoVariante.activo.is_(True))))
+        malos = [x for x in ejes if x not in validos]
+        if clase != "FAMILIA" and ejes:
+            errores.append({"campo": "ejes_variante", "mensaje": "The variant attributes are set on a family."})
+        elif malos:
+            errores.append({"campo": "ejes_variante", "mensaje": f"{malos[0]} is not an active variant attribute."})
+        elif len(set(ejes)) != len(ejes):
+            errores.append({"campo": "ejes_variante", "mensaje": "Each variant attribute goes once."})
+        limpio["ejes_variante"] = ejes
     if "orden" in datos:
         try:
             limpio["orden"] = max(int(datos["orden"]), 0)
@@ -227,7 +240,7 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
         limpio["orden"] = (db.scalar(select(func.max(GrupoProducto.orden)).where(
             GrupoProducto.padre_id.is_(None) if limpio["padre_id"] is None else GrupoProducto.padre_id == limpio["padre_id"]))
             or 0) + 10
-    g = clase(**{"activa": True, "condiciones": [], "campos": [], **limpio})
+    g = clase(**{"activa": True, "condiciones": [], "campos": [], "ejes_variante": [], **limpio})
     db.add(g)
     db.flush()
     registrar(db, user, "grupo_producto", g.id, "crear", {"codigo": g.codigo, "clase": g.clase, "padre_id": g.padre_id})

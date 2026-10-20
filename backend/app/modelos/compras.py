@@ -154,6 +154,8 @@ class PosicionOC(DeOrganizacion, Base):
     receta_foto: Mapped[dict | None] = mapped_column(JSON)
     # La versión del artículo que usa la línea (maestros/versiones.py): se fija al crearla
     articulo_version_id: Mapped[int | None] = mapped_column(ForeignKey("articulo_versiones.id"), index=True)
+    # Los valores de variante del artículo en la línea ({"COLOR": "BLACK", "TALLA": "9.5"}), en su orden
+    variante: Mapped[dict | None] = mapped_column(JSON)
     cantidad: Mapped[float] = mapped_column(Cantidad)
     unidad: Mapped[str] = mapped_column(String(5))  # modulos/maestros/unidades.py: PAR, UN, KG, L, M…
     precio: Mapped[float | None] = mapped_column(Precio)

@@ -30,15 +30,18 @@ if TYPE_CHECKING:
 
 
 class Producto(DeOrganizacion, Base):
-    """Ficha técnica de un estilo-color de un proveedor. La comparten todas sus
-    tallas (artículos) y sus prepacks; aquí vive su clasificación arancelaria:
-    la partida SAC aprobada y el código nacional de cada país destino."""
+    """Un producto de un proveedor, de cualquier tipo (un químico, un zapato, una
+    materia prima, un electrodoméstico, un alimento…), con su código propio
+    (`codigo_generico`). Lo comparten todas sus variantes (artículos) y sus
+    compuestos; aquí viven su ficha técnica y su clasificación arancelaria: la
+    partida SAC aprobada y el código nacional de cada país destino. Estilo y
+    color son opcionales: los usa quien identifica así sus productos."""
 
     __tablename__ = "productos"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo_generico", name="uq_productos_org_codigo_generico"), UniqueConstraint("proveedor_id", "estilo", "color"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo_generico", name="uq_productos_org_codigo_generico"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
-    estilo: Mapped[str] = mapped_column(String(40))
+    estilo: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
     marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
@@ -53,11 +56,10 @@ class Producto(DeOrganizacion, Base):
     categoria_etiquetado_anterior_id: Mapped[int | None] = mapped_column(
         "categoria_etiquetado_id", ForeignKey("categorias_etiquetado.id", name="fk_productos_categoria_etiquetado_id"),
         index=True)
-    # Genérico: los primeros 8 dígitos del código de artículo (estilo-color). Todas
-    # sus tallas (los 3 últimos dígitos), sólidos y prepacks, comparten esta ficha
+    # Código del producto (el «genérico»): lo comparten todas sus variantes y compuestos
     codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
-    unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus tallas sólidas: PAR | UN
-    nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial del estilo
+    unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus variantes simples (lista «unidad»)
+    nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial
     # Ficha técnica: tipo de producto del clasificador, atributos, composición
     # por parte, uso, tallas, usuario y datos que piden los aranceles nacionales
     tipo: Mapped[str | None] = mapped_column(String(30))

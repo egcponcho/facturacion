@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.modelos.compras import PosicionOC
 from app.modelos.facturacion import FacturaLinea
-from app.modelos.maestros import Articulo, ArticuloVersion
+from app.modelos.maestros import Articulo, ArticuloVersion, AtributoVariante
 
 CAMPOS_ARTICULO = ("sku", "sku_proveedor", "upc", "generico", "estilo", "color", "talla", "descripcion", "unidad",
                    "peso_unitario", "tipo")
@@ -93,3 +93,22 @@ def _fijar_versiones(db: Session, _contexto, _instancias) -> None:
                 continue
             a = _articulo(db, obj)
             obj.articulo_version = vigente(db, a, ya) if a is not None else None
+            if obj.variante is None or obj not in db.new:
+                obj.variante = _variante(db, obj, a, ya)
+
+
+def _variante(db: Session, obj, a: Articulo | None, ya: dict) -> dict | None:
+    """Los valores de variante de la línea: los de la línea de la OC en una factura,
+    si no los del artículo, en el orden de los atributos."""
+    if isinstance(obj, FacturaLinea):
+        p = obj.posicion_oc or (db.get(PosicionOC, obj.posicion_oc_id) if obj.posicion_oc_id else None)
+        if p is not None and p.variante:
+            return dict(p.variante)
+    if a is None:
+        return None
+    if "orden" not in ya:
+        ya["orden"] = [c for (c,) in db.execute(select(AtributoVariante.codigo).order_by(AtributoVariante.orden,
+                                                                                        AtributoVariante.codigo))]
+    valores = {k: v for k, v in a.variantes.items() if v not in (None, "")}
+    orden = ya["orden"]
+    return {**{k: valores[k] for k in orden if k in valores}, **{k: v for k, v in valores.items() if k not in orden}} or None
