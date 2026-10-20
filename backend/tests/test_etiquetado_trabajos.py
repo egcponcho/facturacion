@@ -21,6 +21,7 @@ from etiquetado_util import aprobada, articulo_de, tipo, uso
 
 from app.core.db import SessionLocal
 from app.core.organizacion import en_organizacion
+from app.modelos.base import ahora
 from app.modulos.etiquetado import trabajos
 
 ELEMENTOS = [{"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 3, "y": 3, "w": 70, "h": 8, "estilo": {"tam": 10}},
@@ -375,7 +376,7 @@ def test_migracion_convierte_las_reglas_en_tipos_y_usos_de_diseno():
 def test_generacion_interrumpida_se_puede_retomar(interno, ordenes, job, disenos):
     """Si el proceso que generaba en segundo plano se detuvo (reinicio), el
     trabajo no queda «generando» para siempre: se retoma lo pendiente."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from app.modelos import TrabajoEtiquetas
 
@@ -385,11 +386,11 @@ def test_generacion_interrumpida_se_puede_retomar(interno, ordenes, job, disenos
     interno.post(f"/etiquetas/trabajos/{t['id']}/validar")
     with SessionLocal() as db, en_organizacion(1):
         x = db.get(TrabajoEtiquetas, t["id"])
-        x.estado, x.actualizado_en = "EN_PROCESO", datetime.now()
+        x.estado, x.actualizado_en = "EN_PROCESO", ahora()
         db.commit()
     assert interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True}).status_code == 409
     with SessionLocal() as db, en_organizacion(1):
-        db.get(TrabajoEtiquetas, t["id"]).actualizado_en = datetime.now() - timedelta(minutes=30)
+        db.get(TrabajoEtiquetas, t["id"]).actualizado_en = ahora() - timedelta(minutes=30)
         db.commit()
     g = interno.post(f"/etiquetas/trabajos/{t['id']}/generar", {"aceptar_advertencias": True})
     assert g.status_code == 200, g.text

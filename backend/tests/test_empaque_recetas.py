@@ -115,7 +115,8 @@ def test_reglas_gana_la_mas_especifica(admin):
         assert gana(oc["posiciones"][1]["id"]) == otra["nombre"]
         # El impacto de dar de baja la regla del artículo: solo cambian sus posiciones abiertas que siguen a las reglas
         imp = admin.post("/reglas-empaque/impacto", {"quitar": r_sku["id"]}).json()
-        assert imp["revisadas"] >= 0 and imp["cambian"] >= 0
+        # (las posiciones de esta OC vienen con su casepack y no siguen a las reglas: solo se exige coherencia)
+        assert 0 <= imp["cambian"] <= imp["revisadas"] and len(imp["ejemplos"]) == min(imp["cambian"], 10)
         # Una condición sobre un dato que no existe no se guarda
         assert admin.post("/reglas-empaque", {"receta_id": base["id"], "condiciones": [
             {"campo": "oc.no_existe", "op": "igual", "valor": "X"}]}).status_code == 422

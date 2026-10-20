@@ -13,7 +13,7 @@ con TEST_DATABASE_URL, en PostgreSQL):
 """
 import contextvars
 import threading
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 from conftest import Api
@@ -23,6 +23,7 @@ from sqlalchemy import func, select, text
 from app.core.db import SessionLocal, engine
 from app.core.organizacion import en_organizacion
 from app.modelos import GeneracionEtiquetas, GeneracionItem, TrabajoEtiquetas, TrabajoRegistro, Usuario
+from app.modelos.base import ahora
 from app.modulos.etiquetado import generacion, trabajos
 
 DISENO = {"ancho": 50, "alto": 20, "elementos": [{"id": "s", "tipo": "campo", "campo": "articulo.sku", "x": 2, "y": 2, "w": 40, "h": 8}]}
@@ -80,7 +81,7 @@ def _fila(tid):
 def _vencer(tid, ejecutor="otra-instancia:999:caida"):
     with SessionLocal() as db:
         db.execute(text("UPDATE trabajos_etiqueta SET ejecutor = :e, arriendo_hasta = :h WHERE id = :i"),
-                   {"e": ejecutor, "h": datetime.now() - timedelta(minutes=5), "i": tid})
+                   {"e": ejecutor, "h": ahora() - timedelta(minutes=5), "i": tid})
         db.commit()
 
 
@@ -182,7 +183,7 @@ def test_reinicio_otra_instancia_retoma_y_no_roba_un_arriendo_vigente(interno, r
     viva = _en_proceso(interno, ordenes, monkeypatch, n=1)
     with SessionLocal() as db:
         db.execute(text("UPDATE trabajos_etiqueta SET ejecutor = 'viva:1:x', arriendo_hasta = :h WHERE id = :i"),
-                   {"h": datetime.now() + timedelta(minutes=5), "i": viva})
+                   {"h": ahora() + timedelta(minutes=5), "i": viva})
         db.commit()
     # Proceso que cayó a mitad (arriendo vencido) y otro que cayó antes de tomarlo
     caido = _en_proceso(interno, ordenes, monkeypatch)
@@ -190,7 +191,7 @@ def test_reinicio_otra_instancia_retoma_y_no_roba_un_arriendo_vigente(interno, r
     nunca = _en_proceso(interno, ordenes, monkeypatch, n=1)
     with SessionLocal() as db:
         db.execute(text("UPDATE trabajos_etiqueta SET actualizado_en = :h WHERE id = :i"),
-                   {"h": datetime.now() - timedelta(hours=1), "i": nunca})
+                   {"h": ahora() - timedelta(hours=1), "i": nunca})
         db.commit()
     retomados = trabajos.recuperar()
     assert caido in retomados and nunca in retomados and viva not in retomados
