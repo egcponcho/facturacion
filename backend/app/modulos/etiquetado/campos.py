@@ -30,6 +30,7 @@ from app.modelos import (
     PLLinea,
     PosicionOC,
     Sociedad,
+    Usuario,
 )
 from app.modulos.etiquetado.datos_campos import EJEMPLO, ORIGEN
 
@@ -134,23 +135,23 @@ _FIJOS = [
     Campo("oc.proveedor_codigo", "Supplier code"),
     Campo("oc.proveedor", "Supplier"),
     Campo("oc.proveedor_razon_social", "Supplier legal name"),
-    Campo("oc.sociedad", "Company code"),
+    Campo("oc.sociedad", "Company code", dato="codigos_internos"),
     Campo("oc.sociedad_nombre", "Company"),
-    Campo("oc.centro_destino", "Destination plant code"),
+    Campo("oc.centro_destino", "Destination plant code", dato="codigos_internos"),
     Campo("oc.centro_destino_nombre", "Destination plant"),
-    Campo("oc.centro", "Plant code"),
+    Campo("oc.centro", "Plant code", dato="codigos_internos"),
     Campo("oc.puerto_despacho", "Port of loading"),
     Campo("oc.pais_origen", "Country of origin (PO)"),
     Campo("oc.incoterm", "Incoterm"),
     Campo("oc.fecha_xf", "Ship date (XF)", "fecha"),
-    Campo("oc.fecha_tienda", "In-store date", "fecha"),
+    Campo("oc.fecha_tienda", "In-store date", "fecha", dato="fechas_internas"),
     Campo("oc.condicion_pago", "Payment terms"),
     Campo("linea.posicion", "Line number"),
     Campo("linea.cantidad", "Quantity ordered", "numero"),
     Campo("linea.unidad", "Unit of measure (line)"),
     Campo("linea.precio", "Unit price", "numero", dato="precios"),
     Campo("linea.fecha_entrega", "Delivery date (line)", "fecha"),
-    Campo("linea.almacen", "Warehouse (line)"),
+    Campo("linea.almacen", "Warehouse (line)", dato="codigos_internos"),
     Campo("linea.casepack", "Units per case (casepack)", "numero"),
     Campo("linea.inner_pack", "Inner pack", "numero"),
     Campo("linea.prepack", "Prepack (line)"),
@@ -314,14 +315,21 @@ def guardar_personalizados(db: Session, user, cambios) -> dict[str, dict]:
     return limpio
 
 
-def ejemplos(db: Session, sujeto: str | None = None) -> dict:
-    """Valores para diseñar sin elegir un registro: los de un artículo real de la
-    empresa (el último con OC) sobre ejemplos neutros, así la vista previa se
-    parece a lo que se va a imprimir."""
+def ejemplos(db: Session, sujeto: str | None = None, user: Usuario | None = None) -> dict:
+    """Valores para diseñar sin elegir un registro: los de un artículo real (el
+    último con OC) sobre ejemplos neutros, así la vista previa se parece a lo que
+    se va a imprimir. Los reales son solo de los proveedores que el usuario ve;
+    sin usuario, solo los neutros."""
+    from app.modulos.acceso.permisos import proveedor_filtro
+
     res = {c.clave: c.ejemplo for c in catalogo(db, sujeto) if c.ejemplo is not None}
     res.update({c.clave: EJEMPLO[c.clave] for c in colecciones(sujeto) if c.clave in EJEMPLO})
-    if sujeto in (None, "ARTICULO", "BULTO"):
-        p = db.scalar(select(PosicionOC).where(PosicionOC.articulo_id.is_not(None)).order_by(PosicionOC.id.desc()).limit(1))
+    if user is not None and sujeto in (None, "ARTICULO", "BULTO"):
+        c = select(PosicionOC).join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id).where(PosicionOC.articulo_id.is_not(None))
+        prov = proveedor_filtro(user)
+        if prov is not None:
+            c = c.where(OrdenCompra.proveedor_id.in_(prov))
+        p = db.scalar(c.order_by(PosicionOC.id.desc()).limit(1))
         if p is not None:
             reales = {**valores_articulo(p.articulo), **valores_linea(p)}
             reales.update({k: v for k, v in valores_oc(db, p.oc).items() if k != "oc.lineas"})

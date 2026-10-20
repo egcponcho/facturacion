@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from app.core.errores import ErrorNegocio
 from app.modelos import CampoEtiqueta, Usuario, VersionPlantilla
 from app.modelos.etiquetado import POLITICAS_CAMPO, SUJETOS, TIPOS_CAMPO
-from app.modulos.acceso.permisos import exigir, exigir_alguno
+from app.modulos.acceso.permisos import exigir, exigir_interno
 from app.modulos.comun.historial import registrar
 
 CLAVE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
@@ -97,7 +97,7 @@ def _en_uso(db: Session, clave: str) -> int:
 
 
 def listar(db: Session, user: Usuario) -> list[dict]:
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.campos")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.campos")
     return [dict_campo(db, c) for c in db.scalars(select(CampoEtiqueta).order_by(CampoEtiqueta.clave))]
 
 

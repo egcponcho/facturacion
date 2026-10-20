@@ -1,6 +1,6 @@
 import { t } from '@/i18n/index.js'
 import { createRouter, createWebHistory } from 'vue-router'
-import { cargarSesion, puede, sesion } from '@/stores/sesion'
+import { cargarSesion, esInterno, puede, sesion } from '@/stores/sesion'
 import { avisar, ui } from '@/stores/ui'
 
 // La misma pantalla crea la OC y la sigue editando: al guardar el primer
@@ -35,8 +35,8 @@ const routes = [
   { path: '/etiquetas/disenos', component: () => import('@/modulos/etiquetado/vistas/DisenosView.vue'), meta: { permiso: 'etiquetas.ver' } },
   { path: '/etiquetas/disenos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/EditorEtiquetaView.vue'), props: true, meta: { permiso: 'etiquetas.ver', vista: 'editor-etiqueta', lienzo: true } },
   { path: '/etiquetas/plantillas/:id(\\d+)', redirect: (to) => `/etiquetas/disenos/${to.params.id}` },
-  { path: '/etiquetas/configuracion/familia/:id(\\d+|nueva|nueva-\\d+)', component: () => import('@/modulos/etiquetado/vistas/AsistenteFamiliaView.vue'), props: true, meta: { permiso: 'etiquetas.familias' } },
-  { path: '/etiquetas/configuracion', component: () => import('@/modulos/etiquetado/vistas/ConfiguracionEtiquetadoView.vue'), meta: { permiso: 'etiquetas.ver' } },
+  { path: '/etiquetas/configuracion/familia/:id(\\d+|nueva|nueva-\\d+)', component: () => import('@/modulos/etiquetado/vistas/AsistenteFamiliaView.vue'), props: true, meta: { permiso: 'etiquetas.familias', interno: true } },
+  { path: '/etiquetas/configuracion', component: () => import('@/modulos/etiquetado/vistas/ConfiguracionEtiquetadoView.vue'), meta: { permiso: 'etiquetas.ver', interno: true } },
   // Asistente único de etiquetado (todas las entradas crean un trabajo); las rutas anteriores llevan a él
   { path: '/etiquetas/trabajos/nuevo', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
   { path: '/etiquetas/trabajos/:id(\\d+)', component: () => import('@/modulos/etiquetado/vistas/TrabajoEtiquetasView.vue'), meta: { permiso: 'etiquetas.generar', vista: 'trabajo-etiquetas' } },
@@ -108,7 +108,8 @@ router.beforeEach(async (to) => {
   // Con la contraseña temporal de la administración, primero el asistente inicial
   if (sesion.usuario.clave_temporal && to.name !== 'bienvenida') return { name: 'bienvenida' }
   if (!sesion.usuario.clave_temporal && to.name === 'bienvenida') return '/'
-  if ((to.meta.permiso && !puede(to.meta.permiso)) || (to.meta.plataforma && !sesion.usuario.plataforma)) {
+  if ((to.meta.permiso && !puede(to.meta.permiso)) || (to.meta.plataforma && !sesion.usuario.plataforma)
+      || (to.meta.interno && !esInterno())) {
     avisar(t('You do not have access to that page.'), 'error')
     return '/'
   }

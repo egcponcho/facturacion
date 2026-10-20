@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.errores import ErrorNegocio
 from app.modelos import Articulo, CategoriaEtiquetado, Producto, Usuario
-from app.modulos.acceso.permisos import exigir, exigir_alguno, proveedor_filtro
+from app.modulos.acceso.permisos import exigir, exigir_alguno, exigir_interno, proveedor_filtro
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, familias, reglas
 from app.modulos.grupos import arbol
@@ -60,7 +60,7 @@ def conteos(db: Session) -> dict:
 
 
 def listar(db: Session, user: Usuario, familia_id: int | None = None) -> list[dict]:
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.configurar", "etiquetas.familias")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.configurar", "etiquetas.familias")
     c = select(CategoriaEtiquetado).order_by(CategoriaEtiquetado.familia_id, CategoriaEtiquetado.orden, CategoriaEtiquetado.id)
     if familia_id:
         c = c.where(CategoriaEtiquetado.familia_id == familia_id)

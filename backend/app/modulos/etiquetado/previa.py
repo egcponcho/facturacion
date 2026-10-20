@@ -43,9 +43,9 @@ def vista_previa(db: Session, user: Usuario, pedido: dict) -> dict:
             bulto = lista[n - 1]
         valores = {**datos.valores(db, sujeto, articulo, oc, posicion, bulto), **_numeracion(),
                    **svc_diseno.valores_manuales(contenido, pedido.get("manuales"), ejemplo=True)}
-    lz = plantillas.revisar(db, sujeto, contenido, valores, prueba=bool(pedido.get("prueba")))
+    lz = plantillas.revisar(db, sujeto, contenido, valores, prueba=bool(pedido.get("prueba")), user=user)
     usados = svc_diseno.campos_usados(contenido)
-    mostrados = valores if valores is not None else {**campos.ejemplos(db, sujeto), **_numeracion(),
+    mostrados = valores if valores is not None else {**campos.ejemplos(db, sujeto, user), **_numeracion(),
                                                      **svc_diseno.valores_manuales(contenido, ejemplo=True)}
     return {"svg": salidas.svg(lz), "ancho": lz.ancho, "alto": lz.alto, "problemas": lz.problemas,
             "datos": "reales" if reales else "ejemplo",
@@ -55,4 +55,4 @@ def vista_previa(db: Session, user: Usuario, pedido: dict) -> dict:
 def miniatura(db: Session, user: Usuario, version_id: int) -> str:
     exigir(user, "etiquetas.ver")
     v = plantillas.cargar_version(db, version_id)
-    return salidas.svg(plantillas.revisar(db, v.plantilla.tipo.sujeto, v.diseno))
+    return salidas.svg(plantillas.revisar(db, v.plantilla.tipo.sujeto, v.diseno, user=user))

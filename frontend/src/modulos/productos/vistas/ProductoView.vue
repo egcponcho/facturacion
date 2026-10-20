@@ -19,7 +19,7 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '@/modulos/clasificacion/useClasificacion'
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modulos/clasificacion/formato.js'
-import { puede, sesion as sesionUsuario } from '@/stores/sesion'
+import { esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtFechaHora } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
@@ -39,7 +39,7 @@ const r = ref(null) // respuesta del motor
 const tocados = reactive(new Set())
 const filas = reactive({}) // filas de composición que se editan, por campo comp.*
 // ?vista=etiquetas abre la pestaña de etiquetas (enlaces desde el etiquetado)
-const pestana = ref(useRoute().query.vista === 'etiquetas' ? 'etiquetas' : 'ficha')
+const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : 'ficha')
 const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
 const calculando = ref(false)
@@ -702,7 +702,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
             <span class="cuenta">{{ tx(p.versiones.length + 1) }}</span></button>
-          <button v-if="puede('etiquetas.ver')" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
+          <button v-if="puede('etiquetas.ver') && esInterno()" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'historial'" @click="pestana = 'historial'"><Icono nombre="historial" :tam="16" />{{ t('History') }}</button>
         </div>
 

@@ -58,12 +58,14 @@ from app.modelos import (
     ahora,
 )
 from app.modelos.etiquetado import ORIGENES_TRABAJO
+from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import exigir, proveedor_filtro
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, datos, generacion, plantillas, render, salidas, verificacion
 
 MAX_ORDENES = 200
 MAX_ARTICULOS = 5000
+MAX_CANTIDAD = 100000  # etiquetas que se pueden pedir a mano para un registro
 MAX_MUESTRAS = 20  # etiquetas que se leen con el lector al validar (una por diseño, hasta este tope)
 EDITABLES = ("BORRADOR", "VALIDADO", "PARCIAL", "ERROR")
 # Qué se puede etiquetar desde cada origen
@@ -148,28 +150,70 @@ def _agrupar(contenido: str, carpetas: list, agrupar: str | None) -> str:
     return agrupar
 
 
+def _entero(v, campo: str, minimo: int = 0, maximo: int = 10**9) -> int:
+    """Un entero dentro de un rango o 422 (nunca un 500 por un dato mal escrito)."""
+    try:
+        n = int(str(v).strip())
+    except (TypeError, ValueError):
+        raise ErrorNegocio("Write a whole number.", 422, "validacion", [{"campo": campo, "mensaje": str(v)[:40]}]) from None
+    if not minimo <= n <= maximo:
+        raise ErrorNegocio(f"Write a number from {minimo} to {maximo}.", 422, "validacion", [{"campo": campo, "mensaje": str(n)}])
+    return n
+
+
+def _ids(v, campo: str, maximo: int) -> list[int]:
+    if v in (None, ""):
+        return []
+    if not isinstance(v, list) or len(v) > maximo:
+        raise ErrorNegocio(f"Send up to {maximo} ids.", 422, "validacion", [{"campo": campo, "mensaje": ""}])
+    return list(dict.fromkeys(_entero(x, campo, 1) for x in v))
+
+
 def _limpiar(db: Session, user: Usuario, origen: str, p: dict) -> dict:
     """Parámetros del trabajo validados (lo que exista se comprueba dentro del alcance del usuario)."""
+    from pydantic import ValidationError
+
+    from app.modulos.etiquetado import diseno as svc_diseno
+
     res = {k: p[k] for k in PARAMETROS if k in p}
     if "oc_ids" in res:
-        ids = list(dict.fromkeys(int(x) for x in res["oc_ids"] or []))
-        if len(ids) > MAX_ORDENES:
-            raise ErrorNegocio(f"Up to {MAX_ORDENES} purchase orders per labeling job.", 422, "validacion")
+        ids = _ids(res["oc_ids"], "oc_ids", MAX_ORDENES)
         for i in ids:
             datos.cargar_oc(db, user, i)
         res["oc_ids"] = ids
+    if "posiciones" in res:
+        res["posiciones"] = _ids(res["posiciones"], "posiciones", MAX_ARTICULOS)
     if "articulos" in res:
         lista = res["articulos"] or []
-        if len(lista) > MAX_ARTICULOS:
+        if not isinstance(lista, list) or len(lista) > MAX_ARTICULOS:
             raise ErrorNegocio(f"Up to {MAX_ARTICULOS} items per labeling job.", 422, "validacion")
         limpia = []
         for a in lista:
-            art = datos.cargar_articulo(db, user, int(a["articulo_id"]))
+            if not isinstance(a, dict) or "articulo_id" not in a:
+                raise ErrorNegocio("Choose the items.", 422, "validacion", [{"campo": "articulos", "mensaje": ""}])
+            art = datos.cargar_articulo(db, user, _entero(a["articulo_id"], "articulos", 1))
             n = a.get("cantidad", res.get("cantidad") or 1)
-            limpia.append({"articulo_id": art.id, "cantidad": int(n) if str(n).lstrip("-").isdigit() else 0})
+            limpia.append({"articulo_id": art.id, "cantidad": _entero(n, "cantidad", 0, MAX_CANTIDAD)})
         res["articulos"] = limpia
+    if "cantidad" in res and res["cantidad"] not in (None, ""):
+        res["cantidad"] = _entero(res["cantidad"], "cantidad", 0, MAX_CANTIDAD)
+    if "cantidades" in res:
+        c = res["cantidades"] or {}
+        if not isinstance(c, dict) or len(c) > MAX_ARTICULOS:
+            raise ErrorNegocio("Check the quantities.", 422, "validacion", [{"campo": "cantidades", "mensaje": ""}])
+        res["cantidades"] = {str(k)[:200]: _entero(v, "cantidades", 0, MAX_CANTIDAD) for k, v in c.items() if v not in (None, "")}
+    if "manuales" in res:
+        m = res["manuales"] or {}
+        if not isinstance(m, dict) or len(m) > 100:
+            raise ErrorNegocio("Check the values to write.", 422, "validacion", [{"campo": "manuales", "mensaje": ""}])
+        res["manuales"] = {str(k)[:60]: (None if v is None else str(v)[:500]) for k, v in m.items()}
     if res.get("pl_id"):
-        generacion.cargar_pl(db, user, int(res["pl_id"]))
+        res["pl_id"] = _entero(res["pl_id"], "pl_id", 1)
+        generacion.cargar_pl(db, user, res["pl_id"])
+    if res.get("familia_id") not in (None, ""):
+        res["familia_id"] = _entero(res["familia_id"], "familia_id", 1)
+    if res.get("tipo_empaque_id") not in (None, ""):
+        res["tipo_empaque_id"] = _entero(res["tipo_empaque_id"], "tipo_empaque_id", 1)
     if "niveles" in res:
         # Qué empaques de la lista llevan etiqueta, varios a la vez: 0 = los exteriores, o tipos de empaque
         niveles = res["niveles"] or []
@@ -177,7 +221,7 @@ def _limpiar(db: Session, user: Usuario, origen: str, p: dict) -> dict:
             raise ErrorNegocio("Choose the package levels.", 422, "validacion")
         res["niveles"] = list(dict.fromkeys(int(x) for x in niveles)) or None
     if "tipos" in res:
-        ids = list(dict.fromkeys(int(x) for x in res["tipos"] or []))
+        ids = _ids(res["tipos"], "tipos", 200)
         tipos_ = {t.id: t for t in db.scalars(select(TipoEtiqueta).where(TipoEtiqueta.id.in_(ids)))}
         if len(tipos_) != len(ids):
             raise ErrorNegocio("A label type does not exist.", 422, "validacion")
@@ -188,21 +232,30 @@ def _limpiar(db: Session, user: Usuario, origen: str, p: dict) -> dict:
         res["tipos"] = ids
     if "elegidas" in res:
         elegidas = {}
+        if not isinstance(res["elegidas"] or {}, dict):
+            raise ErrorNegocio("Check the chosen designs.", 422, "validacion")
         for k, v in (res["elegidas"] or {}).items():
             if v in (None, ""):
                 continue
-            p = plantillas.cargar(db, int(v))
+            p = plantillas.cargar(db, _entero(v, "elegidas", 1))
             if p.estado != "ACTIVA":
                 raise ErrorNegocio("The design is archived.", 422, "validacion")
-            elegidas[str(k)] = p.id
+            elegidas[str(k)[:200]] = p.id
         res["elegidas"] = elegidas
+    if "hoja" in res and res["hoja"] is not None:
+        try:
+            res["hoja"] = svc_diseno.Hoja.model_validate(res["hoja"]).model_dump()
+        except ValidationError:
+            raise ErrorNegocio("Check the sheet layout.", 422, "validacion", [{"campo": "hoja", "mensaje": ""}]) from None
+    if "dpi" in res and res["dpi"] not in (None, ""):
+        res["dpi"] = _entero(res["dpi"], "dpi", 72, 1200)
     if "prueba" in res:
         res["prueba"] = bool(res["prueba"])
     if "nota" in res:
         res["nota"] = (str(res["nota"] or "")).strip()[:300] or None
     if "zip" in res:
         res["zip"] = _validar_zip(res["zip"])
-    if "formato" in res and (res["formato"] or "PDF").upper() not in generacion.FORMATOS:
+    if "formato" in res and (str(res["formato"] or "PDF")).upper() not in generacion.FORMATOS:
         raise ErrorNegocio("Choose PDF, PNG, SVG or ZIP.", 422, "validacion")
     return res
 
@@ -575,7 +628,8 @@ def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
     db.flush()
     db.refresh(t)
     total = sum(r.cantidad for r in t.registros if r.estado in ("LISTO", "ADVERTENCIA"))
-    if total + sum(r.cantidad for r in t.registros if r.estado == "GENERADO") > int(regla("ETIQUETAS_MAXIMO_TRABAJO")):
+    if (total + sum(r.cantidad for r in t.registros if r.estado == "GENERADO") > int(regla("ETIQUETAS_MAXIMO_TRABAJO"))
+            and not any(x.get("codigo") == "lote_grande" for x in generales)):
         generales.append({"nivel": "error", "codigo": "lote_grande", "categoria": "cantidad",
                           "mensaje": f"The job has more than {regla('ETIQUETAS_MAXIMO_TRABAJO')} labels: split it."})
     conteo = {"registros": len(t.registros)}
@@ -950,6 +1004,7 @@ def _seguro(texto: str) -> str:
     return "".join(c if c.isalnum() or c in "-_. " else "_" for c in str(texto or "")).strip()[:80] or "_"
 
 
+@visibilidad.con_datos_completos
 def archivo(db: Session, user: Usuario, trabajo_id: int, contenido: str | None = None) -> tuple[bytes, str]:
     """El ZIP del trabajo: las etiquetas de todas sus ejecuciones dibujadas de
     nuevo desde sus versiones e instantáneas, en las carpetas y con los nombres
@@ -1174,6 +1229,7 @@ def anular(db: Session, user: Usuario, generacion_id: int, datos_: dict) -> dict
     return dict_ejecucion(db, g)
 
 
+@visibilidad.con_datos_completos
 def reimprimir(db: Session, user: Usuario, generacion_id: int, datos_: dict) -> tuple[bytes, str, str]:
     """Copias idénticas de las etiquetas de un lote (todas o algunos grupos y rangos), con sus mismos
     números y series, dibujadas de nuevo desde la versión y los valores guardados; queda en el historial

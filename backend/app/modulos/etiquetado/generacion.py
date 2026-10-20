@@ -40,6 +40,7 @@ from app.modelos import (
     Usuario,
     VersionPlantilla,
 )
+from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, tiene
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, datos, familias, plantillas, reglas, render, salidas
@@ -410,6 +411,7 @@ def _version_de(db: Session, plantilla: PlantillaEtiqueta, prueba: bool) -> Vers
     return validas
 
 
+@visibilidad.con_datos_completos
 def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo: set[str] | None = None) -> dict:
     """Qué se va a generar: los registros con su diseño y versión, cuántas
     etiquetas y qué problemas hay. Sin `dibujar`, solo cuenta y elige el diseño
@@ -424,6 +426,13 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
     oc, pl, grupos, generales = armar(db, user, pedido)
     if solo is not None:
         grupos = [g for g in grupos if g.clave in solo]
+    # El tope se mira antes de leer y dibujar cada registro: un pedido enorme se cuenta pero no se dibuja
+    # (una parte de un trabajo ya validado no se vuelve a cortar)
+    tope = int(regla("ETIQUETAS_MAXIMO_TRABAJO"))
+    if solo is None and sum(max(g.cantidad, 0) for g in grupos) > tope:
+        generales.append({"nivel": "error", "codigo": "lote_grande", "categoria": "cantidad", "elemento": None,
+                          "mensaje": f"The job has more than {tope} labels: split it."})
+        dibujar = False
     if pl is not None and not prueba and not pl_permite_reales(pl):
         generales.append({"nivel": "error", "codigo": "pl_sin_finalizar", "elemento": None,
                           "mensaje": f"The packing list {pl.numero} is not finalized yet: its packages can still change. "
@@ -451,6 +460,11 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
         logicos, g.procedencia, de_fuentes = campos_logicos.resolver(db, sujeto, g.valores)
         g.valores.update(logicos)
         forzada = elegidas.get(g.clave)
+        # Elegir otro diseño es para lo que las reglas no resuelven; cambiar el que dicen las reglas
+        # es configurar y solo lo hace quien configura (un proveedor no salta las reglas de la empresa)
+        if forzada and g.eleccion is not None and g.eleccion.plantilla is not None and not tiene(user, "etiquetas.configurar"):
+            g.problema("advertencia", "elegida_ignorada", "The rules already choose a design here: the chosen one is not used.")
+            forzada = None
         if forzada:
             p = db.get(PlantillaEtiqueta, int(forzada))
             if p is None or p.tipo_etiqueta_id != g.tipo.id or p.estado != "ACTIVA":
@@ -587,6 +601,7 @@ def _previas(db: Session, grupos: list[Grupo]) -> dict:
 
 
 # ---- Producir --------------------------------------------------------------------------------
+@visibilidad.con_datos_completos
 def producir(db: Session, user: Usuario, grupos: list[Grupo], pedido: dict) -> dict:
     """Guarda la ejecución (los registros listos de una parte del trabajo) con la
     versión exacta y la instantánea de cada registro, y dibuja su archivo."""
@@ -664,7 +679,7 @@ CATEGORIAS = {
     "imagen_faltante": "dato_opcional", "sin_articulo": "dato_opcional", "sin_lista_empaque": "dato_opcional",
     "total_incompleto": "dato_opcional",
     "fuentes_distintas": "conflicto",
-    "sin_plantilla": "configuracion", "familia": "configuracion", "sin_serie": "configuracion",
+    "sin_plantilla": "configuracion", "familia": "configuracion", "sin_serie": "configuracion", "elegida_ignorada": "configuracion",
     "contenido_mixto": "empaque", "sin_oc": "dato_opcional", "dato_familia": "dato_opcional",
     "tipo_no_aplica": "configuracion", "pl_sin_finalizar": "empaque", "sin_contenido": "empaque", "casepack_distinto": "inconsistencia",
     "inner_incompleto": "inconsistencia", "prepack_sin_componentes": "inconsistencia", "unidad_no_contable": "empaque",
@@ -695,6 +710,7 @@ def numero_serie(valores: dict, n: int) -> str | None:
     return f"{s['prefijo']}{s['inicio'] + n - 1:0{s['digitos']}d}"
 
 
+@visibilidad.con_datos_completos
 def _lienzos(db: Session, gen: GeneracionEtiquetas) -> list[tuple[render.Lienzo, str]]:
     """Las etiquetas del lote dibujadas desde las versiones y valores guardados."""
     tipos = campos.tipos(db)
@@ -740,6 +756,7 @@ def seleccionar(gen: GeneracionEtiquetas, seleccion: list | None) -> dict[int, t
     return res
 
 
+@visibilidad.con_datos_completos
 def _producir(db: Session, gen: GeneracionEtiquetas, formato: str, seleccion: dict | None = None,
               sufijo: str = "") -> tuple[bytes, str, str]:
     lienzos = _lienzos(db, gen)

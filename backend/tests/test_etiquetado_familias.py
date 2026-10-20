@@ -81,7 +81,7 @@ def test_asignar_familia_a_articulos_sin_tocar_la_clasificacion(interno):
 def test_permisos_y_proveedor(tnf, interno):
     assert tnf.post("/etiquetas/familias", {"codigo": "TNFX", "nombre": "x"}).status_code == 403
     # Un proveedor ve las familias y solo sus artículos
-    assert tnf.get("/etiquetas/familias").status_code == 200
+    assert tnf.get("/etiquetas/familias").status_code == 403  # la configuración es del equipo interno
     propios = tnf.get("/etiquetas/articulos", params={"size": 200}).json()
     todos = interno.get("/etiquetas/articulos", params={"size": 200}).json()
     assert 0 < propios["total"] < todos["total"]
