@@ -172,7 +172,7 @@ const etiquetaCampo = (n) => campos.value.find((c) => c.nombre === n)?.etiqueta 
 const viendo = ref(null) // { fila, historial }
 const camposVista = computed(() => porSeccion(campos.value.filter((c) => !c.mostrar_si || c.mostrar_si.valores.includes(viendo.value?.fila?.[c.mostrar_si.campo]))))
 async function ver(fila) {
-  viendo.value = { fila, historial: null }
+  viendo.value = { fila, historial: null, versiones: null }
   try {
     const h = await api.get(`/catalogos/${tipo.value}/${fila.id}/historial`)
     if (viendo.value?.fila === fila) viendo.value.historial = h
@@ -180,7 +180,19 @@ async function ver(fila) {
     errorApi(e)
     if (viendo.value) viendo.value.historial = []
   }
+  // Un artículo muestra también sus versiones: cómo era cuando cada OC o factura lo usó
+  if (tipo.value === 'articulos') {
+    try {
+      const v = await api.get(`/catalogos/articulos/${fila.id}/versiones`)
+      if (viendo.value?.fila === fila) viendo.value.versiones = v
+    } catch (e) {
+      errorApi(e)
+      if (viendo.value) viendo.value.versiones = []
+    }
+  }
 }
+const cambiosVersion = (v) => v.cambios.slice(0, 8).map((c) => `${c.campo}: ${valorTxt(c.antes)} → ${valorTxt(c.despues)}`).join(' · ')
+  + (v.cambios.length > 8 ? ` · +${v.cambios.length - 8}` : '')
 function editarDesdeVista() {
   const fila = viendo.value.fila
   viendo.value = null
@@ -745,6 +757,23 @@ onMounted(async () => {
           <div><b>{{ tx(ACCIONES[h.accion] || h.accion) }}</b><div v-if="cambiosTxt(h)" class="ayuda">{{ tx(cambiosTxt(h)) }}</div></div>
         </li>
         <li v-if="!viendo.historial.length"><span></span><span class="ayuda">{{ t('No changes recorded.') }}</span></li>
+      </ul>
+    </section>
+    <section v-if="tipo === 'articulos'" class="vista-seccion">
+      <h3>{{ t('Versions used by documents') }}</h3>
+      <p class="ayuda">{{ t('Each PO and invoice line keeps the version of the item it used: changing the item does not change old documents.') }}</p>
+      <p v-if="!viendo.versiones" class="ayuda">{{ t('Loading…') }}</p>
+      <ul v-else class="linea-tiempo">
+        <li v-for="v in viendo.versiones" :key="v.id">
+          <span class="ayuda">{{ fmtFechaHora(v.creada_en) }}</span>
+          <div>
+            <b>{{ t('Version {0}', [v.numero]) }}</b>
+            <span class="ayuda"> · {{ t('{0} PO lines · {1} invoice lines', [v.lineas_oc, v.lineas_factura]) }}</span>
+            <div v-if="v.migracion" class="ayuda">{{ t('Data of the item when versions started (older documents).') }}</div>
+            <div v-else-if="v.cambios.length" class="ayuda">{{ cambiosVersion(v) }}</div>
+          </div>
+        </li>
+        <li v-if="!viendo.versiones.length"><span></span><span class="ayuda">{{ t('No document uses this item yet.') }}</span></li>
       </ul>
     </section>
     <template #pie>

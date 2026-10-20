@@ -70,7 +70,8 @@ def atributos_variante(db: Session) -> list[dict]:
     """Atributos de variante propios y activos (los de sistema son columnas del artículo)."""
     from app.modelos import AtributoVariante
 
-    return [{"codigo": a.codigo, "nombre": a.nombre} for a in db.scalars(
+    return [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo or "texto", "opciones": a.opciones, "unidad": a.unidad}
+            for a in db.scalars(
         select(AtributoVariante).where(AtributoVariante.columna.is_(None), AtributoVariante.activo.is_(True))
         .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
 

@@ -121,6 +121,30 @@ def _catalogo_lista(lista: str, modelo, singular: str, max_codigo: int, obligato
 
 
 SIMPLES = [k for k in listas.LISTAS if k not in listas.TABLA]
+TIPOS_VARIANTE = [["texto", "Text"], ["numero", "Number"], ["opcion", "One of the options"]]
+
+
+def opciones_variante(d: dict | AtributoVariante) -> list[str]:
+    texto = d.get("opciones") if isinstance(d, dict) else d.opciones
+    return [x.strip() for x in (texto or "").split(",") if x.strip()]
+
+
+def valor_variante(d: dict | None, v: str) -> tuple[str | None, str | None]:
+    """(valor normalizado, error) de un valor de variante según el tipo de su atributo."""
+    tipo = (d or {}).get("tipo") or "texto"
+    if tipo == "numero":
+        try:
+            n = float(str(v).replace(",", "."))
+        except ValueError:
+            return None, f"{v} is not a number."
+        return (str(int(n)) if n.is_integer() else f"{n:g}"), None
+    if tipo == "opcion":
+        validas = opciones_variante(d)
+        elegida = next((o for o in validas if o.lower() == str(v).lower()), None)
+        if elegida is None:
+            return None, f"{v} is not one of the options ({', '.join(validas)})."
+        return elegida, None
+    return v, None
 CATALOGOS = {
     "sociedades": {
         "modelo": Sociedad, "titulo": "Companies", "singular": "company",
@@ -331,6 +355,9 @@ CATALOGOS = {
             c("codigo", "Code", obligatorio=True, max=20, mayus=True, patron=r"^[A-Z][A-Z0-9_]{0,19}$",
               mensaje_patron="Letters, numbers and _, starting with a letter."),
             c("nombre", "Name", obligatorio=True, max=60),
+            c("tipo", "Kind of value", "opcion", filtro=True, opciones=TIPOS_VARIANTE),
+            c("opciones", "Options (comma-separated)", max=500, ayuda="For the «one of the options» kind: e.g. 110 V, 220 V."),
+            c("unidad", "Unit", "opcion", lista="unidad", ayuda="For numbers: the unit the value is written in (ml, kg, V…)."),
             c("orden", "Order", "entero", minimo=0),
             c("activo", "Active", "bool", filtro=True),
         ],
@@ -611,8 +638,14 @@ def campos_variante(cat: dict) -> list[dict]:
 
     if cat["modelo"] is not Articulo:
         return []
-    return [c(f"atr.{x['codigo']}", x["nombre"], max=60, propio=True, seccion="variante", filtro=True)
-            for x in configuracion_actual().get("atributos_variante") or []]
+    res = []
+    for x in configuracion_actual().get("atributos_variante") or []:
+        tipo = x.get("tipo") or "texto"
+        extra = ({"opciones": [[o, o] for o in opciones_variante(x)]} if tipo == "opcion"
+                 else {"ayuda": f"Number in {x['unidad']}."} if tipo == "numero" and x.get("unidad") else {})
+        res.append(c(f"atr.{x['codigo']}", x["nombre"], "opcion" if tipo == "opcion" else "texto", max=60, propio=True,
+                     seccion="variante", filtro=True, **extra))
+    return res
 
 
 def campos_propios(cat: dict) -> list[dict]:
@@ -1087,6 +1120,9 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
     elif isinstance(actual, AtributoVariante) and "codigo" in limpio and limpio["codigo"] != actual.codigo \
             and db.scalar(select(ArticuloAtributo.id).where(ArticuloAtributo.atributo_id == actual.id).limit(1)):
         errores.append({"campo": "codigo", "mensaje": "Items already use this attribute: its code cannot change."})
+    if cat["modelo"] is AtributoVariante:
+        errores += _validar_atributo_variante(db, {**({k: getattr(actual, k) for k in ("tipo", "opciones", "unidad")}
+                                                      if actual else {}), **limpio}, actual)
 
     # Atributos de variante propios: texto corto, uno por atributo
     if cat["modelo"] is Articulo:
@@ -1095,8 +1131,17 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         desconocidos = sorted(set(atr) - validos)
         if desconocidos:
             errores.append({"campo": f"atr.{desconocidos[0]}", "mensaje": f"{desconocidos[0]} is not a variant attribute."})
-        elif atr:
-            limpio["variantes"] = {**(actual.variantes if actual else {}), **atr}
+        else:
+            from app.core.empresa import configuracion_actual
+
+            defs = {x["codigo"]: x for x in configuracion_actual().get("atributos_variante") or []}
+            for k, v in list(atr.items()):
+                if v:
+                    atr[k], msg = valor_variante(defs.get(k), v)
+                    if msg:
+                        errores.append({"campo": f"atr.{k}", "mensaje": msg})
+            if atr:
+                limpio["variantes"] = {**(actual.variantes if actual else {}), **atr}
 
     # Campos propios: se validan con su tipo y se guardan juntos en extra
     propios = {k[6:]: v for k, v in datos.items() if k.startswith("extra.")}
@@ -1294,6 +1339,23 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     if cambios:
         registrar(db, user, tipo, obj.id, "editar", cambios)
     return _fila(cat, obj, _refs(db, cat, [obj]))
+
+
+def _validar_atributo_variante(db: Session, d: dict, actual) -> list[dict]:
+    """Un atributo de opciones necesita sus opciones; la unidad es de los números.
+    Cambiar el tipo de uno en uso solo se puede si los valores guardados siguen valiendo."""
+    tipo = d.get("tipo") or "texto"
+    if tipo == "opcion" and not opciones_variante(d):
+        return [{"campo": "opciones", "mensaje": "Write the options, separated by commas."}]
+    if d.get("unidad") and tipo != "numero":
+        return [{"campo": "unidad", "mensaje": "Only numbers have a unit."}]
+    if actual is not None and actual.columna is None:
+        malos = [v for v in db.scalars(select(ArticuloAtributo.valor).where(ArticuloAtributo.atributo_id == actual.id)
+                                       .distinct().limit(500)) if valor_variante(d, v)[1]]
+        if malos:
+            return [{"campo": "tipo" if tipo != "opcion" else "opciones",
+                     "mensaje": f"Items already have values that do not fit ({', '.join(malos[:5])}): change them first."}]
+    return []
 
 
 def _validar_regla_lt(db: Session, final: dict, actual, limpio: dict) -> list[dict]:

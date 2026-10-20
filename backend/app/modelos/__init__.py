@@ -93,6 +93,7 @@ from app.modelos.maestros import (
     Almacen,
     Articulo,
     ArticuloAtributo,
+    ArticuloVersion,
     AtributoVariante,
     CategoriaArticulo,
     Centro,
@@ -140,6 +141,7 @@ from app.modelos.transporte import (
     UnidadCarga,
     transportista_sociedades,
 )
+from app.modelos.versiones import vigente as version_vigente  # noqa: F401 - registra el hook de versiones
 
 _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
@@ -163,6 +165,7 @@ __all__ = [
     "TrabajoRegistro",
     "VersionPlantilla",
     "ArticuloAtributo",
+    "ArticuloVersion",
     "AtributoVariante",
     "ClasificacionProducto",
     "Adjunto",

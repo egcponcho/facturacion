@@ -4,6 +4,7 @@ de liberación y artículos.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -25,6 +27,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column, object_session, relat
 
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
+from app.modelos.base import ahora
 from app.modelos.comercial import ConContacto, ExtensionDeTercero
 
 if TYPE_CHECKING:
@@ -309,16 +312,23 @@ class Moneda(DeOrganizacion, Base):
 
 
 class UnidadMedida(DeOrganizacion, Base):
-    """Unidad en que se cuenta o mide un artículo: lo contable va en enteros."""
+    """Unidad en que se cuenta o mide un artículo: lo contable va en enteros.
+    Con `base` y `equivale` se convierte a otra unidad de la lista (una docena
+    = 12 unidades, un gramo = 0.001 kg): cualquier magnitud, sin tocar el código."""
 
     __tablename__ = "unidades_medida"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_unidades_medida_org_codigo"),)
+    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_unidades_medida_org_codigo"),
+                      CheckConstraint("(base IS NULL) = (equivale IS NULL)", name="ck_unidades_medida_base_equivale"),
+                      CheckConstraint("equivale IS NULL OR equivale > 0", name="ck_unidades_medida_equivale"),
+                      CheckConstraint("base IS NULL OR base <> codigo", name="ck_unidades_medida_base"))
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(10))
     nombre: Mapped[str] = mapped_column(String(120))
     nombre_plural: Mapped[str | None] = mapped_column(String(120))
     alias: Mapped[str | None] = mapped_column(String(300))  # otros nombres en archivos, separados por coma
     contable: Mapped[bool] = mapped_column(Boolean, default=True)
+    base: Mapped[str | None] = mapped_column(String(10))  # código de la unidad a la que se convierte
+    equivale: Mapped[float | None] = mapped_column(Float)  # cuántas unidades base es una de esta
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -542,11 +552,16 @@ class AtributoVariante(DeOrganizacion, Base):
 
     __tablename__ = "atributos_variante"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_atributos_variante_org_codigo"),
-                      CheckConstraint("columna IS NULL OR columna IN ('talla', 'color')", name="ck_atributos_variante_columna"))
+                      CheckConstraint("columna IS NULL OR columna IN ('talla', 'color')", name="ck_atributos_variante_columna"),
+                      CheckConstraint("tipo IN ('texto', 'numero', 'opcion')", name="ck_atributos_variante_tipo"))
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(60))
     columna: Mapped[str | None] = mapped_column(String(10))  # talla | color: atributo de sistema
+    # Qué valor lleva: texto libre, un número (en su unidad: 220 V, 500 ml) o una de sus opciones
+    tipo: Mapped[str] = mapped_column(String(10), default="texto", server_default="texto")
+    opciones: Mapped[str | None] = mapped_column(String(500))  # separadas por coma (tipo opción)
+    unidad: Mapped[str | None] = mapped_column(String(10))  # código de la unidad de medida (tipo número)
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -580,12 +595,41 @@ def _aplicar_variantes(db, _contexto, _instancias) -> None:
         for codigo, valor in pendiente.items():
             if codigo not in por_codigo:
                 continue
+            texto = valor_variante(valor)
             if codigo in actuales:
-                actuales[codigo].valor = str(valor)[:60]
+                actuales[codigo].valor = texto
             else:
                 # Misma organización que el artículo (este hook puede correr después del que la asigna)
-                a.atributos.append(ArticuloAtributo(atributo=por_codigo[codigo], valor=str(valor)[:60],
+                a.atributos.append(ArticuloAtributo(atributo=por_codigo[codigo], valor=texto,
                                                     organizacion_id=a.organizacion_id))
+
+
+def valor_variante(v) -> str:
+    """Texto guardado de un valor de variante: un número entero sin «.0»."""
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return str(v)[:60]
+
+
+class ArticuloVersion(DeOrganizacion, Base):
+    """Cómo era el artículo cuando un documento lo usó: sus datos, sus atributos de
+    variante, sus campos propios, sus componentes y su producto (con la ficha).
+    Una versión nueva solo cuando algo cambió (la huella es de los datos); las
+    líneas de OC y de factura guardan la suya y no cambian si el artículo cambia
+    después (maestros/versiones.py)."""
+
+    __tablename__ = "articulo_versiones"
+    __table_args__ = (UniqueConstraint("articulo_id", "numero", name="uq_articulo_versiones_articulo_numero"),
+                      CheckConstraint("numero >= 1", name="ck_articulo_versiones_numero"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    articulo_id: Mapped[int] = mapped_column(ForeignKey("articulos.id"), index=True)
+    numero: Mapped[int] = mapped_column(Integer)
+    huella: Mapped[str] = mapped_column(String(64), index=True)
+    datos: Mapped[dict] = mapped_column(JSON)
+    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    creada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+
+    articulo: Mapped[Articulo] = relationship()
 
 
 class PrepackComponente(DeOrganizacion, Base):

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.core import campos_propios
 from app.modelos import (
@@ -219,11 +219,47 @@ _FIJOS = [
 ]
 
 
+def defs_ficha(db: Session) -> dict[str, dict]:
+    """Atributos activos de la ficha técnica (clasificación): los de cualquier tipo de
+    producto, definidos con datos. Una vez por sesión."""
+    from app.modelos import AtributoDef
+
+    res = db.info.get("defs_ficha")
+    if res is None:
+        res = db.info["defs_ficha"] = {
+            a.codigo: {"etiqueta": a.etiqueta, "tipo": a.tipo_dato, "unidad": a.unidad,
+                       "opciones": {o.codigo: o.etiqueta for o in a.opciones}}
+            for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones))
+                                .where(AtributoDef.activo.is_(True)).order_by(AtributoDef.orden, AtributoDef.codigo))}
+    return res
+
+
+def texto_ficha(d: dict, v):
+    """El valor de un atributo de la ficha como se imprime: el nombre de la opción,
+    Sí/No, la lista de opciones o la composición; un número queda número."""
+    if v is None or v == "" or v == [] or v == {}:
+        return None
+    if d["tipo"] == "boolean":
+        return "Yes" if v else "No"
+    if d["tipo"] == "number":
+        return v
+    if isinstance(v, list):
+        return ", ".join(str(d["opciones"].get(x, x)) for x in v)
+    if isinstance(v, dict):
+        return "; ".join(f"{k.replace('_', ' ').capitalize()}: {x}" for k, x in v.items() if x not in (None, "")) or None
+    return d["opciones"].get(v, v)
+
+
 def _dinamicos(db: Session) -> list[Campo]:
-    """Atributos de variante propios de la empresa y campos propios de artículos y OC."""
-    res = [Campo(f"articulo.atributo.{a.codigo}", a.nombre, origen_propio=f"articulo_atributos.valor[{a.codigo}]")
+    """Atributos de variante propios de la empresa, atributos de la ficha técnica y
+    campos propios de artículos y OC."""
+    res = [Campo(f"articulo.atributo.{a.codigo}", a.nombre, "numero" if a.tipo == "numero" else "texto",
+                 origen_propio=f"articulo_atributos.valor[{a.codigo}]")
            for a in db.scalars(select(AtributoVariante).where(AtributoVariante.activo.is_(True), AtributoVariante.columna.is_(None))
                                .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
+    res += [Campo(f"producto.atributo.{k}", d["etiqueta"] + (f" ({d['unidad']})" if d["unidad"] else ""),
+                  "numero" if d["tipo"] == "number" else "texto", origen_propio=f"productos.ficha[{k}]")
+            for k, d in defs_ficha(db).items()]
     for entidad, grupo in (("articulos", "articulo"), ("ordenes", "oc")):
         for d in campos_propios.definiciones(entidad):
             tipo = {"numero": "numero", "fecha": "fecha"}.get(d.get("tipo"), "texto")
@@ -384,6 +420,12 @@ def valores_articulo(a: Articulo) -> dict:
         v[f"articulo.atributo.{x.atributo.codigo}"] = x.valor
     for k, val in (a.extra or {}).items():
         v[f"articulo.extra.{k}"] = _txt(val)
+    db = object_session(a)
+    if p is not None and p.ficha and db is not None:
+        defs = defs_ficha(db)
+        for k, val in p.ficha.items():
+            if k in defs:
+                v[f"producto.atributo.{k}"] = texto_ficha(defs[k], val)
     return v
 
 

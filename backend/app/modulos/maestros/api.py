@@ -2,7 +2,7 @@ from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 
 from app import esquemas as s
 from app.modulos.comun import tabla
-from app.modulos.maestros import cargas, genericos
+from app.modulos.maestros import cargas, genericos, versiones
 from app.modulos.maestros import catalogos as svc
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
@@ -110,6 +110,12 @@ def exportar(tipo: str, request: Request, db: Db, user: User, q: str | None = No
 def componentes(prepack_id: int, db: Db, user: User):
     """Componentes de un prepack (artículo, talla y cantidad) con su total."""
     return svc.componentes(db, user, prepack_id)
+
+
+@router.get("/articulos/{articulo_id}/versiones")
+def versiones_articulo(articulo_id: int, db: Db, user: User):
+    """Versiones del artículo: cómo era cuando cada OC o factura lo usó y qué cambió de una a otra."""
+    return versiones.listar(db, user, articulo_id)
 
 
 @router.get("/explosion/{sku}")

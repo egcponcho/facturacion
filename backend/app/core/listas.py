@@ -21,8 +21,9 @@ from contextvars import ContextVar
 LISTAS: dict[str, dict] = {
     "unidad": {
         "etiqueta": "Units of measure",
-        "ayuda": "Units in which items are counted or measured. Counted units only take whole quantities.",
-        "atributos": ["nombre_plural", "alias", "contable"],
+        "ayuda": "Units in which items are counted or measured. Counted units only take whole quantities. A unit can "
+                 "convert to a base unit of the list (a dozen = 12 units, a gram = 0.001 kg) to compare and add quantities.",
+        "atributos": ["nombre_plural", "alias", "contable", "base", "equivale"],
         "sistema": ["CJ"],
     },
     "moneda": {
@@ -96,6 +97,8 @@ ATRIBUTOS = {
     "estados": ("Shipment statuses where it can be recorded", "opciones"),
     "consolidado": ("Consolidated", "bool"),
     "dias": ("Days to pay (single due date)", "entero"),
+    "base": ("Converts to (base unit)", "lista:unidad"),
+    "equivale": ("One equals this many base units", "numero"),
 }
 CALCULOS = [["VOLUMEN", "By volume (full and consolidated units)"],
             ["PESO_COBRABLE", "By chargeable weight (air)"]]
@@ -115,12 +118,12 @@ FABRICA: dict[str, list[dict]] = {
         _v("PAR", "pair", nombre_plural="pairs", alias="PR,PRS,PARES,PAIR,PAIRS", contable=True),
         _v("UN", "unit", nombre_plural="units",
            alias="U,UND,UNID,UNIDAD,UNIDADES,EA,PC,PCS,PZA,PIEZA,PIEZAS,UNIT,UNITS", contable=True),
-        _v("DOC", "dozen", nombre_plural="dozens", alias="DOCENA,DOCENAS,DZ,DOZ,DOZEN", contable=True),
+        _v("DOC", "dozen", nombre_plural="dozens", alias="DOCENA,DOCENAS,DZ,DOZ,DOZEN", contable=True, base="UN", equivale=12),
         _v("JGO", "set", nombre_plural="sets", alias="JUEGO,JUEGOS,SET,SETS,KIT,KITS", contable=True),
         _v("KG", "kg", nombre_plural="kg", alias="KGS,KILO,KILOS,KILOGRAMO,KILOGRAMOS", contable=False),
-        _v("G", "g", nombre_plural="g", alias="GR,GRS,GRAMO,GRAMOS", contable=False),
+        _v("G", "g", nombre_plural="g", alias="GR,GRS,GRAMO,GRAMOS", contable=False, base="KG", equivale=0.001),
         _v("L", "liter", nombre_plural="liters", alias="LT,LTS,LITRO,LITROS,LITER,LITERS,LITRE", contable=False),
-        _v("ML", "ml", nombre_plural="ml", alias="MILILITRO,MILILITROS", contable=False),
+        _v("ML", "ml", nombre_plural="ml", alias="MILILITRO,MILILITROS", contable=False, base="L", equivale=0.001),
         _v("M", "meter", nombre_plural="meters", alias="MT,MTS,METRO,METROS,METER,METERS", contable=False),
         _v("M2", "m²", nombre_plural="m²", alias="MT2,MTS2,METRO2,SQM", contable=False),
         _v("M3", "m³", nombre_plural="m³", alias="MT3,METRO3,CBM", contable=False),

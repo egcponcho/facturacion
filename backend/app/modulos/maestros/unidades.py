@@ -56,6 +56,24 @@ def contable(unidad: str | None) -> bool:
     return bool(u.get("contable")) if u else True
 
 
+def a_base(cantidad: float, unidad: str | None) -> tuple[float, str | None]:
+    """La cantidad en la unidad base de su unidad (3 docenas → 36 UN). Una unidad
+    sin base es su propia base."""
+    u = listas.valor("unidad", normalizar(unidad) or unidad)
+    if u and u.get("base") and u.get("equivale"):
+        return round(float(cantidad) * float(u["equivale"]), 6), u["base"]
+    return float(cantidad), (u["codigo"] if u else unidad)
+
+
+def convertir(cantidad: float, de: str | None, a: str | None) -> float | None:
+    """La cantidad en otra unidad, si las dos llegan a la misma base (o None)."""
+    valor, base = a_base(cantidad, de)
+    uno, base_a = a_base(1, a)
+    if base is None or base != base_a or not uno:
+        return None
+    return round(valor / uno, 6)
+
+
 def error_cantidad(cantidad, unidad: str | None) -> str | None:
     """Por qué la cantidad no vale para la unidad (o None si vale)."""
     if cantidad is None:

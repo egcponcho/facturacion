@@ -52,11 +52,14 @@ COMPARTIDOS = {"paises"}
 # tests/test_integridad_bd.py verifica que existan.
 # tabla hija → [(columna, tabla padre)]
 COHERENCIA: dict[str, list[tuple[str, str]]] = {
-    "posiciones_oc": [("oc_id", "ordenes_compra"), ("receta_id", "recetas_empaque"), ("receta_regla_id", "reglas_empaque")],
+    "posiciones_oc": [("oc_id", "ordenes_compra"), ("receta_id", "recetas_empaque"), ("receta_regla_id", "reglas_empaque"),
+                      ("articulo_version_id", "articulo_versiones")],
+    "articulo_versiones": [("articulo_id", "articulos")],
     "aprobaciones_oc": [("oc_id", "ordenes_compra")],
     "ordenes_compra": [("proveedor_id", "proveedores")],
     "facturas": [("proveedor_id", "proveedores")],
-    "factura_lineas": [("factura_id", "facturas"), ("posicion_oc_id", "posiciones_oc"), ("receta_id", "recetas_empaque")],
+    "factura_lineas": [("factura_id", "facturas"), ("posicion_oc_id", "posiciones_oc"), ("receta_id", "recetas_empaque"),
+                       ("articulo_version_id", "articulo_versiones")],
     "packing_lists": [("factura_id", "facturas"), ("unidad_carga_id", "unidades_carga")],
     "pl_lineas": [("pl_id", "packing_lists"), ("factura_linea_id", "factura_lineas")],
     "grupos_cajas": [("pl_id", "packing_lists")],

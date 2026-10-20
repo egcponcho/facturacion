@@ -27,7 +27,7 @@ from app.modelos.empresa import ConAdjunto
 if TYPE_CHECKING:
     from app.modelos.compras import PosicionOC
     from app.modelos.empaque import PackingList
-    from app.modelos.maestros import Proveedor
+    from app.modelos.maestros import ArticuloVersion, Proveedor
 
 
 class Factura(DeOrganizacion, Base):
@@ -102,6 +102,8 @@ class FacturaLinea(DeOrganizacion, Base):
     unidades_por_caja: Mapped[int | None] = mapped_column(Integer)
     receta_id: Mapped[int | None] = mapped_column(ForeignKey("recetas_empaque.id"), index=True)  # la de la posición
     receta_foto: Mapped[dict | None] = mapped_column(JSON)
+    # La versión del artículo al facturar (la que lleva la lista de empaque y sus etiquetas)
+    articulo_version_id: Mapped[int | None] = mapped_column(ForeignKey("articulo_versiones.id"), index=True)
     centro_destino: Mapped[str | None] = mapped_column(String(10))
     # Datos de aduana (editables en la factura)
     pais_origen: Mapped[str | None] = mapped_column(String(3))
@@ -110,6 +112,7 @@ class FacturaLinea(DeOrganizacion, Base):
 
     factura: Mapped[Factura] = relationship(back_populates="lineas")
     posicion_oc: Mapped[PosicionOC] = relationship()
+    articulo_version: Mapped[ArticuloVersion | None] = relationship()
 
     @validates("cantidad")
     def _cantidad(self, _k, v):
