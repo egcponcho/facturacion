@@ -568,3 +568,79 @@ Las etapas 0 a 5 no cambian la estructura de pantallas.
    cambian las reglas de empaque, o solo `catalogos.editar`?
 8. **Orden de las etapas:** ¿empiezo por la 0 y la 1 (pruebas y seguridad), como
    recomiendo, o prefieres otra prioridad?
+
+---
+
+## 11. Decisiones tomadas (20 de octubre de 2026) y plan actualizado
+
+**Cambio de enfoque.** El etiquetado tiene solo dos orígenes:
+- **El artículo**, sin documento.
+- **La packing list**, completa o con lo que se elija.
+
+La OC deja de ser un origen; sus datos se leen a través de la packing list
+(línea de la packing list → línea de factura → posición de la OC).
+
+**Datos propios de cada fuente:**
+- Cada documento (OC, packing list) tiene sus datos propios.
+- Los datos del artículo son una referencia a la **versión del artículo que usó ese
+  documento**, no a la versión actual.
+
+**Se aprobaron todas las opciones recomendadas:**
+
+| # | Decisión |
+|---|---|
+| 1-2 | Versión del artículo guardada en cada línea de documento. Se toma al crear la línea de la OC y pasa a la factura. La packing list usa la de la factura. Mientras la packing list está en borrador hay un botón «Actualizar con el artículo actual». A pedido del usuario, se guarda como **versiones del artículo** (tabla propia con la foto completa), a las que apunta cada línea. |
+| 3 | Las etiquetas sin packing list usan los datos actuales del artículo. Las reglas con condiciones de OC o de packing list no aplican. |
+| 4 | De la packing list se puede elegir: toda, por nivel, por cajas o por líneas. |
+| 5-6 | Etiquetas de artículo: por unidad empacada, por línea, una por cada etiqueta distinta o a mano por línea. El tipo de etiqueta trae el modo por defecto y se cambia en cada trabajo. Desde el artículo solo: una por artículo distinto o a mano. |
+| 7 | Etiquetas de caja: por defecto una por caja física; también «una por caja distinta» o a mano. |
+| 8 | Las etiquetas reales salen solo de una packing list finalizada; en borrador, solo en modo prueba. |
+| 9 | Se puede reempacar después de imprimir: avisa y marca las etiquetas como desactualizadas. |
+| 10-12 | El prepack y el kit son una unidad de empaque, con su propia etiqueta. Sus componentes se etiquetan según la curva, con la cantidad exacta o una por componente distinto, a elegir en el trabajo con un valor por defecto en el tipo. |
+| 13 | La regla «para una OC» pasa a ser una condición (número de OC). Se agrega la condición «número de packing list». |
+| 14 | La hoja de contenido solo se genera de la packing list. |
+| 15-16 | Lo generado desde una OC queda como historial de solo lectura. Los botones de la OC pasan a «Etiquetas de sus packing lists». |
+| 17 | El proveedor no ve la configuración; solo ve sus trabajos y su historial. |
+| 18 | El SSCC se genera ya, uno por caja; el lote de producción queda para más adelante. |
+| 19 | Lo impreso manda: el precio se imprime, pero se oculta en las pantallas y el historial de los roles que no lo ven. |
+| 20 | Solo el permiso de catálogos mueve familias. |
+| 21 | Primero la base de pruebas y la seguridad. |
+
+**Pedido adicional: producto genérico.**
+- Cualquier tipo de producto (calzado, químicos, materias primas, electrodomésticos,
+  alimentos…).
+- Atributos dinámicos configurables.
+- Versiones del producto y del artículo.
+- Nada fijo en el código: tipos, atributos, unidades y presentaciones se configuran.
+- Diseño extensible.
+
+**Lo que ya existe y se reutiliza:**
+- Campos propios por entidad (`definiciones_campo` + `extra`).
+- Atributos de variante configurables (`atributos_variante`).
+- Ficha técnica en JSON.
+- Árbol de grupos de producto.
+- Unidades de medida configurables.
+- Recetas de empaque.
+
+**Lo que es rígido hoy:**
+- Columnas de calzado en el artículo (estilo, color, talla).
+- Tipo `SOLIDO/PREPACK` y unidades `PAR/UN/CJ` en el código (unas 70 referencias).
+- El producto como «estilo-color de un proveedor».
+- No hay versiones del artículo a las que un documento pueda apuntar.
+
+**Plan por etapas (reemplaza al §9).** Cada etapa es uno o varios commits con la
+suite en verde.
+
+| Etapa | Contenido |
+|---|---|
+| 0 | Base de pruebas: dependencias, zona horaria, aserciones exactas |
+| 1 | Seguridad: L-01, L-02, D-01 (con la decisión 19), L-05, L-06, L-10, L-15 |
+| 2 | Producto genérico: <ul><li>catálogo de atributos con tipo de dato, nivel (producto o variante), unidad, opciones y obligatoriedad;</li><li>atributos por grupo de producto, heredados en el árbol;</li><li>valores de los atributos del producto;</li><li>unidades con factor de conversión;</li><li>el tipo de artículo (sólido, curva, kit) como configuración;</li><li>quitar lo fijo del código donde se pueda sin romper los documentos.</li></ul> |
+| 3 | Versiones del artículo: <ul><li>tabla `articulo_versiones` con la foto completa (artículo, atributos y producto) y su huella;</li><li>versión nueva automática cuando cambia algo;</li><li>las líneas de la OC y de la factura apuntan a su versión;</li><li>«Actualizar con el artículo actual» en la packing list en borrador.</li></ul> |
+| 4 | Orígenes del etiquetado: artículo y packing list; selección; modos de cantidad; datos desde la factura y la versión del artículo; condiciones `oc.*`, `pl.*` y `articulo.*`; excepción de OC convertida en condición; hoja de contenido de la packing list; atajos desde la OC |
+| 5 | Empaque físico: <ul><li>numeración y total de bultos del empaque (I-01, I-02) y caja mixta;</li><li>receta y validación por niveles;</li><li>prepack y kit como unidad con etiquetas de sus componentes;</li><li>SSCC;</li><li>reempacar marca las etiquetas como desactualizadas;</li><li>identidad estable del bulto.</li></ul> |
+| 6 | Trazabilidad: D-02, D-03, D-06, L-12, L-13, L-14, L-16, L-26, D-05, D-16, un solo empaquetador |
+| 7 | Un solo motor (L-07 y relacionados) y Grupos de producto como único dueño |
+| 8 | Módulo central de pantallas (§4) |
+| 9 | Integridad y limpieza de código |
+| 10 | Corte de la compatibilidad con las tablas congeladas |
