@@ -230,3 +230,50 @@ def test_las_lineas_guardan_su_variante():
         f = db.scalars(select(FacturaLinea).where(FacturaLinea.posicion_oc_id == p.id)).first() \
             or db.scalars(select(FacturaLinea)).first()
         assert f.variante == f.posicion_oc.variante
+
+
+def test_packs_y_kits_genericos(interno):
+    """Un pack junta variantes de un mismo producto (no hace falta estilo ni color);
+    la unidad del compuesto es la que la empresa marca para packs y kits."""
+    from app.modulos.maestros import unidades as u
+
+    base = _cat(interno, "articulos", tipo="SOLIDO")[0]
+    comunes = {"generico": "SALSA-01", "marca_id": base["marca_id"], "grupo_id": base["grupo_id"],
+               "proveedor_id": base["proveedor_id"], "tipo": "SOLIDO", "unidad": "UN"}
+    ids = []
+    try:
+        for sku, desc in (("SALSA-01-PIC", "Hot"), ("SALSA-01-SUA", "Mild")):
+            r = interno.post("/catalogos/articulos", {**comunes, "sku": sku, "descripcion": desc, "color": desc})
+            assert r.status_code == 200, r.text
+            ids.append(r.json()["id"])
+        # Un artículo simple no usa la unidad de los compuestos
+        assert interno.patch(f"/catalogos/articulos/{ids[0]}", {"unidad": "CJ"}).status_code == 422
+        r = interno.post("/catalogos/prepacks", {"tipo": "CURVA", "sku": "SALSA-01-MIX", "codigo": "MX6",
+                                                        "componentes": [{"articulo_id": ids[0], "cantidad": 3},
+                                                                        {"articulo_id": ids[1], "cantidad": 3}]})
+        assert r.status_code == 200, r.text
+        assert r.json()["total"] == 6 and r.json()["unidad"] == u.PREPACK
+        with SessionLocal() as db:
+            pack = db.scalar(select(Articulo).where(Articulo.sku == "SALSA-01-MIX"))
+            ids.append(pack.id)
+            assert pack.generico == "SALSA-01" and pack.producto_id == db.get(Articulo, ids[0]).producto_id
+        # Otro producto no entra en el pack: va en un kit
+        r = interno.post("/catalogos/prepacks", {"tipo": "CURVA", "sku": "SALSA-01-MAL", "codigo": "MX7",
+                                                        "componentes": [{"articulo_id": ids[0], "cantidad": 1},
+                                                                        {"articulo_id": base["id"], "cantidad": 1}]})
+        assert r.status_code == 422 and "kit" in r.text.lower()
+    finally:
+        with SessionLocal() as db:
+            for i in reversed(ids):
+                a = db.get(Articulo, i)
+                if a is None:
+                    continue
+                pp, prod = a.prepack, a.producto
+                db.delete(a)
+                db.flush()
+                if pp is not None:
+                    db.delete(pp)
+                    db.flush()
+                if prod is not None and not prod.articulos:
+                    db.delete(prod)
+            db.commit()

@@ -192,7 +192,11 @@ def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
     if not p:
         if not a.proveedor_id or not gen:
             return None
-        p = Producto(proveedor_id=a.proveedor_id, estilo=a.estilo, color=a.color, marca_id=a.marca_id,
+        # Un producto con estilo es estilo-color (fija el color); sin estilo, el color es un valor
+        # de variante más
+        fija_color = bool(a.estilo)
+        p = Producto(proveedor_id=a.proveedor_id, estilo=a.estilo, color=a.color if fija_color else None,
+                     marca_id=a.marca_id,
                      grupo_id=a.grupo_id, unidad=a.unidad if a.tipo == "SOLIDO" else None, ficha={}, faltan=[],
                      alertas_ok=[], codigo_generico=gen, nombre=None if a.estilo else a.descripcion)
         db.add(p)

@@ -533,7 +533,7 @@ def test_catalogos(interno, tnf):
     datos_pp = {"sku": "30099990001", "codigo": "ab12", "estilo": "E1", "color": "Rojo"}
     r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [
         {"articulo_id": sol["id"], "cantidad": 6}, {"articulo_id": otro["id"], "cantidad": 1}]})
-    assert r.status_code == 422 and any("same style and color" in d["mensaje"] for d in r.json()["detalle"])
+    assert r.status_code == 422 and any("is another product" in d["mensaje"] for d in r.json()["detalle"])
     r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [{"articulo_id": sol["id"], "cantidad": 6}]})
     assert r.status_code == 200, r.text
     pp = r.json()

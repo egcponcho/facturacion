@@ -23,7 +23,7 @@ LISTAS: dict[str, dict] = {
         "etiqueta": "Units of measure",
         "ayuda": "Units in which items are counted or measured. Counted units only take whole quantities. A unit can "
                  "convert to a base unit of the list (a dozen = 12 units, a gram = 0.001 kg) to compare and add quantities.",
-        "atributos": ["nombre_plural", "alias", "contable", "base", "equivale"],
+        "atributos": ["nombre_plural", "alias", "contable", "compuesto", "base", "equivale"],
         "sistema": ["CJ"],
     },
     "moneda": {
@@ -97,6 +97,7 @@ ATRIBUTOS = {
     "estados": ("Shipment statuses where it can be recorded", "opciones"),
     "consolidado": ("Consolidated", "bool"),
     "dias": ("Days to pay (single due date)", "entero"),
+    "compuesto": ("Only for packs and kits", "bool"),
     "base": ("Converts to (base unit)", "lista:unidad"),
     "equivale": ("One equals this many base units", "numero"),
 }
@@ -128,7 +129,8 @@ FABRICA: dict[str, list[dict]] = {
         _v("M2", "m²", nombre_plural="m²", alias="MT2,MTS2,METRO2,SQM", contable=False),
         _v("M3", "m³", nombre_plural="m³", alias="MT3,METRO3,CBM", contable=False),
         _v("ROL", "roll", nombre_plural="rolls", alias="ROLLO,ROLLOS,ROLL,ROLLS", contable=True),
-        _v("CJ", "prepack carton", nombre_plural="prepack cartons", alias="CAJA,CAJAS,CS,CTN", contable=True),
+        _v("CJ", "prepack carton", nombre_plural="prepack cartons", alias="CAJA,CAJAS,CS,CTN", contable=True,
+           compuesto=True),
     ],
     "moneda": [
         _v("USD", "US dollar", simbolo="$", decimales=2, letras_en="US DOLLAR|US DOLLARS", letras_es="DÓLAR|DÓLARES"),

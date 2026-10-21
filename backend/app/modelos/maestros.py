@@ -20,6 +20,7 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
     event,
+    false,
     inspect,
     select,
     text,
@@ -329,6 +330,7 @@ class UnidadMedida(DeOrganizacion, Base):
     nombre_plural: Mapped[str | None] = mapped_column(String(120))
     alias: Mapped[str | None] = mapped_column(String(300))  # otros nombres en archivos, separados por coma
     contable: Mapped[bool] = mapped_column(Boolean, default=True)
+    compuesto: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())  # solo packs y kits
     base: Mapped[str | None] = mapped_column(String(10))  # código de la unidad a la que se convierte
     equivale: Mapped[float | None] = mapped_column(Float)  # cuántas unidades base es una de esta
     orden: Mapped[int] = mapped_column(Integer, default=0)

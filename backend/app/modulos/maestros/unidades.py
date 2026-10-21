@@ -8,7 +8,7 @@ y proveedores (PR, PCS, KGS, LTS…).
 from app.core import listas
 from app.core.errores import ErrorNegocio
 
-# La caja de prepack: unidad de sistema, solo para prepacks (no para un sólido)
+# La caja de prepack de fábrica: la unidad de un compuesto si la empresa no marca otra
 PREPACK = "CJ"
 
 
@@ -16,9 +16,20 @@ def codigos() -> list[str]:
     return listas.codigos("unidad")
 
 
+def de_compuestos() -> list[str]:
+    """Unidades solo para packs y kits (atributo «compuesto» de la lista)."""
+    return [u["codigo"] for u in listas.valores("unidad") if u.get("compuesto")]
+
+
+def de_compuesto() -> str:
+    """La unidad con que se cuenta un compuesto por defecto: la primera solo para compuestos."""
+    return next(iter(de_compuestos()), PREPACK)
+
+
 def de_articulo() -> list[str]:
-    """Unidades de un artículo sólido."""
-    return [c for c in codigos() if c != PREPACK]
+    """Unidades de un artículo simple (las solo para compuestos no)."""
+    solo = set(de_compuestos())
+    return [c for c in codigos() if c not in solo]
 
 
 def _alias() -> dict[str, str]:
