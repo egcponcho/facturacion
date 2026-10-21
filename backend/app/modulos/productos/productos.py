@@ -406,6 +406,23 @@ def _columnas_productos(db: Session, user: Usuario) -> dict:
     return {**COLUMNAS_PRODUCTOS, "codigo": Producto.codigo}
 
 
+def rama_de_grupos(db: Session, grupo_ids) -> set[int]:
+    """Los grupos elegidos y todos sus descendientes (filtrar por una familia incluye sus subfamilias y categorías)."""
+    from app.modelos import GrupoProducto
+
+    elegidos = {int(x) for x in str(grupo_ids).split(",") if str(x).strip().isdigit()}
+    hijos: dict = {}
+    for gid, padre in db.execute(select(GrupoProducto.id, GrupoProducto.padre_id)).all():
+        hijos.setdefault(padre, []).append(gid)
+    res, pendientes = set(), list(elegidos)
+    while pendientes:
+        g = pendientes.pop()
+        if g not in res:
+            res.add(g)
+            pendientes.extend(hijos.get(g, []))
+    return res
+
+
 def _consulta_productos(db: Session, user: Usuario, filtros: dict):
     """Productos visibles para el usuario con la búsqueda, la marca, el grupo y
     la categoría elegidos (sin la vista de estado ni los filtros por columna).
@@ -422,6 +439,8 @@ def _consulta_productos(db: Session, user: Usuario, filtros: dict):
         base = base.where(Producto.grupo_id == filtros["grupo_id"])
     if filtros.get("tipo"):
         base = base.where(Producto.tipo.in_(str(filtros["tipo"]).split(",")))
+    if filtros.get("familia"):
+        base = base.where(Producto.grupo_producto_id.in_(rama_de_grupos(db, filtros["familia"])))
     if filtros.get("q"):
         base = base.where(filtro_texto(filtros["q"], lambda p: [
             Producto.estilo.ilike(p), Producto.color.ilike(p), Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p),
