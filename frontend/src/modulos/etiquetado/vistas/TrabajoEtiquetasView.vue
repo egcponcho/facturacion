@@ -12,7 +12,7 @@ import PanelLateral from '@/componentes/PanelLateral.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import { fmtNum, textoVariante } from '@/nucleo/utils'
-import { puede } from '@/stores/sesion'
+import { esInterno, puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import SelectorDiseno from '@/modulos/etiquetado/componentes/SelectorDiseno.vue'
 import { CANTIDADES, CATEGORIAS, ORIGENES, SUJETOS, catalogos, textoDonde } from '@/modulos/etiquetado/etiquetas.js'
@@ -263,7 +263,8 @@ watch(() => [niveles.value, bultosElegidos.value.map((x) => x.id).join()], () =>
 const conCajas = computed(() => tiposOrigen.value.some((x) => x.sujeto === 'BULTO' && p.tipos.includes(x.id)))
 // Una familia: sus OC abiertas (las que tienen artículos de ella), etiquetando solo esos artículos
 const familias = ref([])
-onMounted(() => api.get('/etiquetas/familias', { activas: true }).then((r) => (familias.value = r)).catch(() => {}))
+// Las familias de etiquetado son configuración interna: el proveedor etiqueta por OC o lista de empaque
+onMounted(() => { if (esInterno()) api.get('/etiquetas/familias', { activas: true }).then((r) => (familias.value = r)).catch(() => {}) })
 async function elegirFamilia(id) {
   p.familia_id = id || ''
   p.oc_ids = id ? (await api.get('/etiquetas/ordenes', { familia_id: id, solo_ids: true }).catch(() => ({ ids: [] }))).ids.slice(0, 200) : []
@@ -636,7 +637,7 @@ async function otroIgual() {
     <!-- 1. Qué imprimir -->
     <section v-if="paso === 0" class="panel tj-bloque">
       <div class="tj-origenes" role="radiogroup" :aria-label="t('Print labels of')">
-        <button v-for="[clave, titulo, ayuda] in ORIGENES()" :key="clave" type="button" class="tj-origen" role="radio"
+        <button v-for="[clave, titulo, ayuda] in ORIGENES().filter(([c]) => c !== 'FAMILIA' || esInterno())" :key="clave" type="button" class="tj-origen" role="radio"
                 :aria-checked="origen === clave" :disabled="!!trabajo" @click="origen = clave">
           <strong>{{ titulo }}</strong><span>{{ ayuda }}</span></button>
       </div>
