@@ -184,8 +184,8 @@ async def _encabezados_seguridad(request: Request, call_next):
     h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     if not request.url.path.startswith(("/docs", "/redoc")):
         h.setdefault("Content-Security-Policy",
-                     "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' "
-                     "https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
+                     "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+                     "font-src 'self' data:; "
                      "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
                      "form-action 'self'")
     if request.url.path.startswith("/api/"):
