@@ -3,7 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
-import { ACCIONES, cantTxt, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum } from '@/nucleo/utils'
+import { ACCIONES, cantTxt, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, textoArticulo } from '@/nucleo/utils'
 import { camposPropios, puede as tienePermiso, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import Avance from '@/componentes/Avance.vue'
@@ -86,7 +86,7 @@ const avance = computed(() => d.value?.avance)
 const ESTADOS_LINEA = ['DISPONIBLE', 'PARCIAL', 'FACTURADA', 'NO_DISPONIBLE'].map((c) => [c, estadoTxt(c)[0]])
 const columnasLineas = [
   { clave: 'posicion', texto: t('Line'), prioridad: 1, num: true },
-  { clave: 'codigo_articulo', texto: t('Item'), fija: true, prioridad: 1, filtro: 'texto', valor: (p) => `${p.codigo_articulo} ${p.estilo || ''} ${p.color || ''} ${p.talla || ''} ${p.descripcion || ''}` },
+  { clave: 'codigo_articulo', texto: t('Item'), fija: true, prioridad: 1, filtro: 'texto', valor: (p) => `${p.codigo_articulo} ${textoArticulo(p)} ${p.descripcion || ''}` },
   { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1 },
   { clave: 'receta', texto: t('Packing'), prioridad: 2, valor: (p) => p.receta?.receta || null },
   { clave: 'precio', texto: t('Unit price'), num: true, grupo: 'precios', prioridad: 3 },
@@ -269,7 +269,7 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
     <section v-if="tab === 'lineas'" class="panel">
       <TablaDatos v-if="d.posiciones.length" v-model:seleccion="lineasElegidas" tabla="oc_lineas" :columnas="columnasLineas" :filas="d.posiciones" :etiqueta="t('Lines')"
                   :seleccionable="tienePermiso('etiquetas.generar') && oc.estado !== 'BORRADOR'">
-        <template #celda-codigo_articulo="{ fila: p }"><span class="codigo">{{ tx(p.codigo_articulo) }}</span> {{ tx([p.estilo, p.color, p.talla].filter(Boolean).join(' · ')) }}
+        <template #celda-codigo_articulo="{ fila: p }"><span class="codigo">{{ tx(p.codigo_articulo) }}</span> {{ tx(textoArticulo(p)) }}
           <span class="sub">{{ tx(p.descripcion || '') }}<template v-if="p.almacen"> · {{ t('Warehouse {0}', [p.almacen]) }}</template></span></template>
         <template #celda-cantidad="{ fila: p }">{{ cantTxt(p.cantidad, p.unidad) }}</template>
         <template #celda-precio="{ fila: p }">{{ p.precio == null ? '—' : fmtNum(p.precio) }}</template>

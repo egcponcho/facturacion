@@ -55,12 +55,55 @@ variante y sus unidades.
 
 | Etapa | Contenido |
 |---|---|
-| G1 | Identidad por código, talla y color como valores de variante, ejes por familia, variante en las líneas (migración 0085) |
-| G2 | Compuestos genéricos: simple, pack de variantes (la curva, de cualquier atributo) o kit; unidad del compuesto configurable en lugar de CJ |
-| G3 | Alta de productos: familia → atributos → valores (escalas de cualquier atributo) → variantes; cargas sin estilo/color obligatorios |
-| G4 | Documentos (factura, packing list, ficha, Excel, reportes) con la columna «Variante» y columnas configurables |
-| G5 | Seguimiento, existencias por artículo, reportes, clasificación y empaque sin supuestos de calzado |
-| G6 | Pantallas con «Variante» y los atributos configurados |
+| G1 ✓ | Identidad por código, talla y color como valores de variante, ejes por familia, variante en las líneas (migración 0085) |
+| G2 ✓ | Compuestos genéricos: simple, pack de variantes (la curva, de cualquier atributo) o kit; unidad del compuesto configurable en lugar de CJ |
+| G3 ✓ | Alta de productos: familia → atributos → valores (escalas de cualquier atributo) → variantes; cargas sin estilo/color obligatorios |
+| G4 ✓ | Documentos (factura, packing list, ficha, Excel, reportes) con la columna «Variante» y columnas configurables |
+| G5 ✓ | Seguimiento, existencias por artículo, reportes, clasificación y empaque sin supuestos de calzado |
+| G6 ✓ | Pantallas con «Variante» y los atributos configurados |
+
+## Packs y kits (compuestos)
+
+- **Pack de variantes** (la «curva»): junta variantes de un mismo producto, de
+  cualquier atributo (tallas, sabores, presentaciones), con su cantidad por
+  unidad. Comparte la ficha del producto.
+- **Kit:** junta artículos de cualquier producto (un juego, una caja de
+  regalo). Es su propio producto.
+- **Unidad:** la de un compuesto es cualquier unidad que se cuente. Las
+  unidades marcadas «solo para packs y kits» (la caja CJ de fábrica u otras de
+  la empresa) no las usa un artículo simple.
+
+## Alta de productos y variantes
+
+1. Se crea el producto con su código, su nombre, su familia, el proveedor, la
+   marca, el grupo y la unidad. Estilo y color fijo son opcionales.
+2. Se agregan las variantes de una de dos formas:
+   - **Combinando** los valores de los atributos de la familia: todos los
+     colores por todas las tallas, todas las concentraciones por todos los
+     envases. Se admiten tramos («7-10, 12», «S-XL») y escalas de valores.
+   - **Fila por fila.**
+3. **Código de cada artículo:** el que se escriba. Si no se escribe, se arma
+   con el código del producto más uno de la variante: el de la escala de
+   valores usada, la regla usual talla × 10 o el siguiente libre.
+4. **Escalas de valores:** cada escala ordena los valores de un atributo
+   (`escalas_talla.atributo`, migración 0087). No es solo de tallas.
+5. **Carga masiva:** la hoja de variantes acepta una columna por atributo de
+   variante, por código o por nombre.
+
+## Documentos, pantallas y reportes
+
+- **Factura y packing list (PDF y Excel):** en lugar de Estilo, Color y Talla
+  fijos llevan los datos de línea que la empresa elige en Configuración →
+  Empresa → Documentos (`columnas_linea`). Por defecto, `estilo,variante`:
+  - `variante`: todos los valores de variante, en su orden;
+  - `estilo`: estilo o modelo;
+  - `upc`;
+  - `atributo.<CÓDIGO>`: un atributo de variante por separado.
+- **Ficha técnica en PDF:** lista las variantes del producto.
+- **Seguimiento, existencias, recepción, OC, factura y packing list:** muestran
+  la «Variante» de cada línea. Las existencias van por artículo, sin talla.
+- **Empaque:** «mezclar productos» compara el producto, no el estilo-color.
+  «Mezclar variantes» compara el artículo.
 
 ## Unidades que convierten
 

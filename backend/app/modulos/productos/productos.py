@@ -50,6 +50,7 @@ from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
 from app.modulos.comun.texto import filtro_texto
+from app.modulos.maestros import variantes as var_svc
 from app.modulos.maestros.acuerdos import acuerdos_contexto
 from app.modulos.productos import flujo
 
@@ -544,10 +545,13 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
                        "estado": v.datos.get("estado"), "tipo": v.datos.get("tipo"), "cerrado_en": v.cerrado_en}
                       for v in reversed(p.versiones)],
         "articulos": [{"id": a.id, "sku": a.sku, "sku_proveedor": a.sku_proveedor, "upc": a.upc, "talla": a.talla, "unidad": a.unidad, "tipo": a.tipo,
-                       "descripcion": a.descripcion, "activo": a.activo, "prepack_id": a.prepack_id} for a in arts],
+                       "descripcion": a.descripcion, "activo": a.activo, "prepack_id": a.prepack_id,
+                       "valores": var_svc.de_articulo(db, a), "variante": var_svc.texto(var_svc.de_articulo(db, a)) or None}
+                      for a in arts],
         "prepacks": [{"id": x.id, "codigo": x.codigo, "descripcion": x.descripcion, "total": x.total,
                       "sku": sku_pp[x.id].sku if x.id in sku_pp else None,
-                      "componentes": [{"talla": c.articulo.talla, "sku": c.articulo.sku, "cantidad": c.cantidad}
+                      "componentes": [{"talla": c.articulo.talla, "sku": c.articulo.sku, "cantidad": c.cantidad,
+                                       "variante": var_svc.texto(var_svc.de_articulo(db, c.articulo)) or None}
                                       for c in x.componentes]} for x in pps],
         "historial": _historial(db, p),
         "puede_aprobar": tiene(user, "producto.clasificar"),
@@ -1260,7 +1264,7 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
         return {x.pais: fmt_codigo(x.codigo) for x in (p.partidas if p else []) if x.codigo}
 
     nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "marca_id": "Brand",
-               "producto": "Style", "generico": "Generic", "color": "Color", "proveedor": "Supplier", "codigo": "HS code",
+               "producto": "Style / model", "generico": "Product code", "color": "Color", "proveedor": "Supplier", "codigo": "HS code",
                "origen": "Origin"}
     de_columnas = [(c, ", ".join("—" if x == tabla.VACIO else x for x in v))
                    for c, v in (por_columna or {}).items() if c in COLUMNAS_PRODUCTOS]
@@ -1268,17 +1272,17 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     texto = f"Filters: {texto}" if texto else "No filters"
     titulo, sub = "Products and tariff classification", "Technical sheets, composition, HS codes and national codes by destination"
     if formato == "pdf":
-        columnas = [("Generic", 1, False), ("Style", 1, False), ("Color", 1.1, False), ("Supplier", 1, False), ("Type", 0.8, False),
+        columnas = [("Product code", 1, False), ("Style / model", 1, False), ("Color", 1.1, False), ("Supplier", 1, False), ("Type", 0.8, False),
                     ("Status", 0.8, False), ("HS code", 0.8, False), ("Origin", 0.5, False), ("Composition", 2.6, False)] \
             + [(iso, 1, False) for iso in paises]
         filas = []
         for p in r["items"]:
             cods = codigos(prods.get(p["id"]))
-            filas.append([p["codigo_generico"] or "—", p["estilo"], p["color"], p["proveedor"] or "—", p["tipo"] or "—", p["estado_txt"],
+            filas.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", p["proveedor"] or "—", p["tipo"] or "—", p["estado_txt"],
                           p["codigo"] or "—", p["pais_origen"] or "—", comp(prods.get(p["id"])) or "—"]
                          + [cods.get(iso, "—") for iso in paises])
         return documentos.pdf_reporte(titulo, sub, texto, indicadores, columnas, [[str(v) for v in f] for f in filas])
-    columnas = [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False), ("Name", 1.8, False), ("Supplier", 1.2, False),
+    columnas = [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False), ("Name", 1.8, False), ("Supplier", 1.2, False),
                 ("Brand", 0.7, False), ("Type", 0.9, False), ("Status", 0.9, False), ("Version", 0.6, True), ("HS code", 0.9, False),
                 ("Suggested", 0.9, False), ("Origin", 0.6, False), ("Customs description", 4, False),
                 ("Commercial description", 1.8, False), ("Composition", 4, False)] \
@@ -1287,7 +1291,7 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     for p in r["items"]:
         pr = prods.get(p["id"])
         cods = codigos(pr)
-        filas.append([p["codigo_generico"] or "—", p["estilo"], p["color"], p["nombre"] or "—", p["proveedor"] or "—",
+        filas.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", p["nombre"] or "—", p["proveedor"] or "—",
                       p["marca"] or "—", p["tipo"] or "—", p["estado_txt"], pr.version_ficha if pr else 1, p["codigo"] or "—",
                       p["sugerido"] or "—", p["pais_origen"] or "—", (pr.descripcion_aduana if pr else None) or "—",
                       p.get("descripcion_comercial") or "—", comp(pr) or "—"]
@@ -1295,16 +1299,16 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
         c = ((pr.ficha or {}).get("comp") or {}) if pr else {}
         for parte, materiales in (c.items() if isinstance(c, dict) else []):
             if materiales:
-                partes.append([p["codigo_generico"] or "—", p["estilo"], p["color"], nombre_parte.get(parte) or documentos._legible(parte),
+                partes.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", nombre_parte.get(parte) or documentos._legible(parte),
                                str(materiales)])
         for x in (pr.partidas if pr else []):
-            codigos_filas.append([p["codigo_generico"] or "—", p["estilo"], p["color"], x.pais, fmt_codigo(x.codigo) or "—",
+            codigos_filas.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", x.pais, fmt_codigo(x.codigo) or "—",
                                   f"{x.dai}%" if x.dai not in (None, "") else "—", documentos.ESTADO_PARTIDA.get(x.estado, x.estado or "—"),
                                   "By hand" if x.manual else (x.fuente or "—").capitalize()])
     hojas = [
-        {"titulo": "Composition", "columnas": [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False),
+        {"titulo": "Composition", "columnas": [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False),
                                                ("Part", 1.6, False), ("Materials", 5, False)], "filas": partes},
-        {"titulo": "National codes", "columnas": [("Generic", 1, False), ("Style", 1.1, False), ("Color", 1.3, False),
+        {"titulo": "National codes", "columnas": [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False),
                                                   ("Country", 0.7, False), ("Code", 1.6, False), ("Duty (DAI)", 0.9, False),
                                                   ("Status", 0.9, False), ("Source", 0.9, False)], "filas": codigos_filas},
     ]

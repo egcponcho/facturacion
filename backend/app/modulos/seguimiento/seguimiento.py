@@ -113,6 +113,7 @@ def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) ->
     return {
         "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
         "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_articulo,
+        "variante": " · ".join(str(v) for v in (p.variante or {}).values() if v not in (None, "")) or None,
         "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen, "grupo": p.grupo,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
         "liberacion_comercial": oc.liberacion_comercial, "liberacion_logistica": oc.liberacion_logistica,
@@ -478,7 +479,7 @@ def explosion_unidad(db: Session, user: Usuario, unidad_id: int, proveedor_id: i
             "oc_id": f["oc_id"], "oc": f["oc"], "proveedor": f["proveedor"], "sociedad": f["sociedad"],
             "centro": f["centro"], "centro_destino": f["centro_destino"], "fecha_tienda": f["fecha_tienda"],
             "fecha_xf": f["fecha_xf"], "lineas": []})
-        o["lineas"].append({k: f[k] for k in ("posicion", "sku", "marca", "grupo", "estilo", "color", "talla",
+        o["lineas"].append({k: f[k] for k in ("posicion", "sku", "marca", "grupo", "estilo", "color", "talla", "variante",
                                               "almacen", "cantidad", "unidad", "tipo_empaque", "factura",
                                               "factura_id", "pl", "pl_id", "holgura", "riesgo")})
     res = []

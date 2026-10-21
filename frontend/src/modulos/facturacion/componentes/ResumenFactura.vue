@@ -4,7 +4,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { errorApi } from '@/stores/ui'
-import { ACCIONES, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural, porUnidadTxt, unidadTxt } from '@/nucleo/utils'
+import { ACCIONES, fmtFecha, fmtFechaHora, fmtMoneda, fmtNum, plural, porUnidadTxt, textoArticulo, unidadTxt } from '@/nucleo/utils'
 import Avance from '@/componentes/Avance.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import Icono from '@/componentes/Icono.vue'
@@ -79,7 +79,7 @@ const columnasPls = [
   { clave: 'unidad', texto: t('Load unit'), prioridad: 2, valor: (pl) => pl.transporte?.unidad || null },
 ]
 const columnasLineas = [
-  { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => [l.estilo, l.color, l.talla].filter(Boolean).join(' · ') },
+  { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => textoArticulo(l) },
   { clave: 'oc', texto: t('PO'), prioridad: 3, inicial: false, valor: (l) => l.oc_numero },
   { clave: 'partida', texto: t('HS code'), prioridad: 3, inicial: false, valor: (l) => l.partida_arancelaria || null },
   { clave: 'cantidad', texto: t('Qty.'), num: true, prioridad: 1 },
@@ -149,7 +149,7 @@ const descargar = (formato) => api.descargar(`/facturas/${props.id}/exportar?for
       <section class="pl-seccion">
         <h3 class="resumen-titulo">{{ t('Lines') }}</h3>
         <TablaDatos tabla="factura_resumen_lineas" :columnas="columnasLineas" :filas="f.lineas" :vistas-guardadas="false" :etiqueta="t('Lines')">
-          <template #celda-articulo="{ fila: l }"><b>{{ tx(l.estilo) }}</b> · {{ tx(l.color) }} · {{ tx(l.talla) }}<div class="ayuda">{{ t('PO') }} {{ tx(l.oc_numero) }} · {{ tx(l.partida_arancelaria || t('No HS code')) }}</div></template>
+          <template #celda-articulo="{ fila: l }"><b>{{ tx(textoArticulo(l)) }}</b><div class="ayuda">{{ t('PO') }} {{ tx(l.oc_numero) }} · {{ tx(l.partida_arancelaria || t('No HS code')) }}</div></template>
           <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }}</span></template>
           <template #celda-partida="{ fila: l }"><span class="codigo-sac">{{ tx(l.partida_arancelaria || '—') }}</span></template>
           <template #celda-cantidad="{ fila: l }">{{ fmtNum(l.cantidad) }} {{ unidadTxt(l.unidad, l.cantidad) }}</template>

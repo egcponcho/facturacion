@@ -205,6 +205,9 @@ async function guardar() {
         <label class="campo"><span>{{ t('Paper size') }}</span>
           <Seleccion v-model="datos.documentos.papel" class="entrada"><option value="LETTER">{{ t('Letter') }}</option><option value="A4">A4</option></Seleccion></label>
         <div class="campo"><span>{{ t('Company logo on reports') }}</span><Interruptor v-model="datos.documentos.logo_en_reportes" :etiqueta="t('Company logo on reports')" /></div>
+        <label class="campo ancho"><span>{{ t('Item data on invoice and packing list lines') }}</span>
+          <input v-model="datos.documentos.columnas_linea" class="entrada" maxlength="300" placeholder="estilo,variante" />
+          <small class="ayuda">{{ t('Comma-separated, in order: variante (all the variant values), estilo (style or model), upc, or one variant attribute alone as atributo.CODE (e.g. atributo.TALLA).') }}</small></label>
         <label class="campo ancho"><span>{{ t('Invoice statement') }}</span><textarea v-model="datos.documentos.declaracion_factura" class="entrada" rows="3" maxlength="1000"
           :placeholder="t('We declare under oath that the information in this invoice is true and correct, that the value is the price actually paid or payable for the goods and that the declared origin is correct.')" /></label>
         <label class="campo ancho"><span>{{ t('Packing list statement') }}</span><textarea v-model="datos.documentos.declaracion_packing" class="entrada" rows="3" maxlength="1000"

@@ -86,7 +86,7 @@ const errores = computed(() => {
   if (ajuste.value && !r.observacion.trim()) e.push(t('An adjustment needs its reason.'))
   if (!tocadas.value.length) e.push(t('Enter at least one received quantity.'))
   for (const l of tocadas.value) {
-    const ref = `${l.pl} · ${l.codigo}${l.talla ? ` ${l.talla}` : ''}`
+    const ref = `${l.pl} · ${l.codigo}${l.variante || l.talla ? ` ${l.variante || l.talla}` : ''}`
     if (!ajuste.value && (l.ahora < 0 || l.danadaAhora < 0)) e.push(t('{0}: a count cannot be negative.', [ref]))
     if (!ajuste.value && l.danadaAhora > l.ahora) e.push(t('{0}: damaged cannot exceed what is counted now.', [ref]))
     if (l.danadoFinal > l.recibidoFinal) e.push(t('{0}: damaged cannot exceed received.', [ref]))
@@ -209,7 +209,7 @@ const abiertos = reactive({})
         </div>
         <TablaDatos tabla="recepcion_conteo" :columnas="columnasConteo" :filas="lineasPaso" clave-fila="pl_linea_id" :vistas-guardadas="false" :por-pagina="100" :etiqueta="t('Count')">
           <template #celda-pl="{ fila: l }"><span class="codigo">{{ tx(l.pl) }}</span><span class="sub">{{ tx(l.factura) }}</span></template>
-          <template #celda-codigo="{ fila: l }"><span class="codigo">{{ tx(l.codigo) }}</span><template v-if="l.talla"> · {{ tx(l.talla) }}</template><span class="sub">{{ tx(l.descripcion) }}</span></template>
+          <template #celda-codigo="{ fila: l }"><span class="codigo">{{ tx(l.codigo) }}</span><template v-if="l.variante || l.talla"> · {{ tx(l.variante || l.talla) }}</template><span class="sub">{{ tx(l.descripcion) }}</span></template>
           <template #celda-enviado="{ fila: l }">{{ fmtCant(l.enviado) }}</template>
           <template #celda-recibido="{ fila: l }">{{ fmtCant(l.recibido) }}</template>
           <template #celda-pendiente="{ fila: l }"><span :class="{ 'texto-aviso': l.pendiente > 0 }">{{ fmtCant(l.pendiente) }}</span></template>
@@ -286,7 +286,7 @@ const abiertos = reactive({})
         <div class="panel-cabeza"><div><h2>{{ t('Contents') }}</h2><p>{{ t('What the load unit carries and what has been received of each line.') }}</p></div></div>
         <TablaDatos tabla="recepcion_lineas" :columnas="columnas" :filas="d.lineas" clave-fila="pl_linea_id" :vistas-guardadas="false" :etiqueta="t('Contents')">
           <template #celda-pl="{ fila: l }"><router-link :to="`/packing-lists/${l.pl_id}`" class="enlace codigo">{{ tx(l.pl) }}</router-link><span class="sub">{{ tx(l.factura) }}</span></template>
-          <template #celda-codigo="{ fila: l }"><span class="codigo">{{ tx(l.codigo) }}</span><template v-if="l.talla"> · {{ tx(l.talla) }}</template></template>
+          <template #celda-codigo="{ fila: l }"><span class="codigo">{{ tx(l.codigo) }}</span><template v-if="l.variante || l.talla"> · {{ tx(l.variante || l.talla) }}</template></template>
           <template #celda-enviado="{ fila: l }">{{ fmtCant(l.enviado) }}</template>
           <template #celda-recibido="{ fila: l }">{{ fmtCant(l.recibido) }}</template>
           <template #celda-danado="{ fila: l }"><span :class="{ 'texto-aviso': l.danado > 0 }">{{ fmtCant(l.danado) }}</span></template>

@@ -256,16 +256,19 @@ def exportar_factura(d: dict) -> bytes:
         *d.get("propios", []),
     ])
     t = d["totales"]
-    filas = [[l["oc"], l["posicion"], l["sku"], l["upc"], l["marca"], l["estilo"], l["talla"],
-              f"{l['descripcion'] or ''} · {l['color'] or ''}" + (L(" · prepack {0}", l['prepack']) if l["prepack"] else ""),
+    # Los datos de cada línea que la empresa eligió (variante, estilo, atributos…), cada uno en su columna
+    cols = [c for c in d["columnas_linea"] if c[0] != "upc"]
+    filas = [[l["oc"], l["posicion"], l["sku"], l["upc"], l["marca"], *[l["datos"].get(k) for k, _ in cols],
+              (l["descripcion"] or "") + (L(" · pack {0}", l['prepack']) if l["prepack"] else ""),
               l["origen"], l["partida"], l["cantidad"], l["unidad"], l["precio"], l["total"]] for l in d["lineas"]]
     fila_cab = h.tabla(
-        [(L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("UPC"), None), (L("Brand"), None), (L("Style"), None),
-         (L("Size"), None), (L("Customs description · color"), None), (L("Origin"), None), (L("HS code (SAC)"), None),
+        [(L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("UPC"), None), (L("Brand"), None),
+         *[(e, None) for _, e in cols],
+         (L("Customs description"), None), (L("Origin"), None), (L("HS code (SAC)"), None),
          (L("Quantity"), _ENTERO), (L("UoM"), None), (L("Unit price"), "#,##0.0000"), (L("Amount {0}", d['moneda']), _MONEDA)],
-        filas, pie=[L("Total"), None, L("{0} lines", len(filas)), None, None, None, None, None, None, None,
+        filas, pie=[L("Total"), None, L("{0} lines", len(filas)), None, None, *[None] * len(cols), None, None, None,
                     sum(l["cantidad"] for l in d["lineas"]), None, None, t["importe"]],
-        texto={0, 1, 2, 3, 9})
+        texto={0, 1, 2, 3, 7 + len(cols)})
     h.rejilla([
         (L("Total quantity"), _por_unidad_txt(t["por_unidad"])),
         (L("Packages"), L("{0} cartons", f"{t['bultos']:,}") + (L(" on {0} pallets", t['pallets']) if t["pallets"] else "")),
@@ -306,13 +309,14 @@ def exportar_pl(d: dict) -> bytes:
         (L("Final destination"), d["destinos"][0] if len(d["destinos"]) == 1 else L("Per carton (see lines)")),
         (L("ETD / ETA"), f"{_fecha(tr.get('etd'))} / {_fecha(tr.get('eta'))}"),
     ], columnas=5)
+    cols = [c for c in d["columnas_linea"] if c[0] != "upc"]
     filas = []
     for g in d["grupos"]:
         for i, it in enumerate(g["items"]):
             p = i == 0
             filas.append([
                 g["rango"] if p else None, g["num_cajas"] if p else None, it["oc"], it["posicion"], it["sku"],
-                it["upc"], it["marca"], it["descripcion"], it["estilo"], it["color"], it["talla"], it["inners"], it["inner_pack"],
+                it["upc"], it["marca"], it["descripcion"], *[it["datos"].get(k) for k, _ in cols], it["inners"], it["inner_pack"],
                 it["por_caja"], it["total"], it["unidad"], g["largo"] if p else None, g["ancho"] if p else None,
                 g["alto"] if p else None, g["neto_caja"] if p else None, g["bruto_caja"] if p else None,
                 g["neto_total"] if p else None, g["bruto_total"] if p else None, g["cbm"] if p else None,
@@ -321,11 +325,11 @@ def exportar_pl(d: dict) -> bytes:
             ])
     fila_cab = h.tabla(
         [(L("Cartons"), None), (L("Qty"), _ENTERO), (L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("UPC"), None),
-         (L("Brand"), None), (L("Customs description"), None), (L("Style"), None), (L("Color"), None), (L("Size"), None),
+         (L("Brand"), None), (L("Customs description"), None), *[(e, None) for _, e in cols],
          (L("Inner packs per carton"), _ENTERO), (L("Per inner pack"), _ENTERO), (L("Total per carton"), _ENTERO), (L("Total"), _ENTERO), (L("UoM"), None), (L("Length cm"), "0.0"), (L("Width cm"), "0.0"), (L("Height cm"), "0.0"),
          (L("Net/ctn kg"), "0.00"), (L("Gross/ctn kg"), "0.00"), (L("Net total kg"), _MONEDA), (L("Gross total kg"), _MONEDA),
          ("m³", "0.000"), (L("Pallet"), None), (L("Label"), None), (L("POs in carton → destination"), None)],
-        filas, pie=[L("Total"), d["total_cajas"], None, None, None, None, None, None, None, None, None, None, None, None,
+        filas, pie=[L("Total"), d["total_cajas"], None, None, None, None, None, None, *[None] * len(cols), None, None, None,
                     sum(it["total"] for g in d["grupos"] for it in g["items"]), None, None, None, None, None, None,
                     tp["peso_neto"], tp["peso_bruto"], tp["cbm"], None, None, None],
         texto={0, 2, 3, 4, 5})
@@ -336,9 +340,9 @@ def exportar_pl(d: dict) -> bytes:
                 [[p["numero"], p["cajas"], p["medidas"], p["tara"], p["bruto"], p["cbm"]] for p in d["pallets"]])
     if d["sin_caja"]:
         h.parrafo(L("NOT YET PACKED"), negrita=True, color=_acento(), tam=8)
-        h.tabla([(L("PO"), None), (L("Item code"), None), (L("Style"), None), (L("Size"), None), (L("Quantity"), _ENTERO),
+        h.tabla([(L("PO"), None), (L("Item code"), None), (L("Style / model"), None), (L("Variant"), None), (L("Quantity"), _ENTERO),
                  (L("UM"), None)],
-                [[x["oc"], x["sku"], x["estilo"], x["talla"], x["cantidad"], x["unidad"]] for x in d["sin_caja"]],
+                [[x["oc"], x["sku"], x["estilo"], x["variante"], x["cantidad"], x["unidad"]] for x in d["sin_caja"]],
                 texto={0, 1})
     h.rejilla([
         (L("Total packages"), L("{0} cartons", f"{d['total_cajas']:,}") + (L(" on {0} pallets", f"{tp['pallets']:,}") if tp["pallets"] else "")),

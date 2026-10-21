@@ -11,7 +11,7 @@ import Modal from '@/componentes/Modal.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
-import { fmtNum } from '@/nucleo/utils'
+import { fmtNum, textoVariante } from '@/nucleo/utils'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import SelectorDiseno from '@/modulos/etiquetado/componentes/SelectorDiseno.vue'
@@ -294,7 +294,7 @@ function todaLaOc() {
 const normal = (x) => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const lineasDe = (id) => {
   const f = normal(filtroLineas.value)
-  return (lineas[id] || []).filter((l) => !f || normal([l.posicion, l.codigo_articulo, l.descripcion, l.color, l.talla].join(' ')).includes(f))
+  return (lineas[id] || []).filter((l) => !f || normal([l.posicion, l.codigo_articulo, l.descripcion, textoVariante(l)].join(' ')).includes(f))
 }
 const totalLineas = computed(() => p.oc_ids.reduce((s, id) => s + (lineas[id]?.length || 0), 0))
 const todasDe = (id) => lineasDe(id).length > 0 && lineasDe(id).every((l) => p.posiciones.includes(l.id))
@@ -677,7 +677,7 @@ async function otroIgual() {
                     <td class="chk"><input type="checkbox" :checked="p.posiciones.includes(l.id)" :aria-label="t('Label line {0}', [l.posicion])" @click.stop @change="alternarLinea(l.id)" /></td>
                     <td>{{ l.posicion }}</td>
                     <td>{{ l.codigo_articulo }}<span v-if="l.descripcion" class="ayuda"> · {{ tx(l.descripcion) }}</span></td>
-                    <td class="ayuda">{{ [l.color, l.talla].filter(Boolean).join(' · ') || '—' }}</td>
+                    <td class="ayuda">{{ textoVariante(l) || '—' }}</td>
                     <td class="num">{{ fmtNum(l.cantidad) }} {{ l.unidad }}</td>
                   </tr></tbody>
                 </table>

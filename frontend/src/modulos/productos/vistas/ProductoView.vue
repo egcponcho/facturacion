@@ -21,7 +21,7 @@ import { cargarContexto, entradaDe, fichaDe, sesion } from '@/modulos/clasificac
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modulos/clasificacion/formato.js'
 import { esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtFecha, fmtFechaHora } from '@/nucleo/utils'
+import { fmtFecha, fmtFechaHora, textoVariante } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 
 // Ficha técnica del producto (estilo-color) y su clasificación arancelaria.
@@ -581,13 +581,13 @@ const colCodigosVersion = [
 // Tallas (artículos) del genérico
 const codigoTalla = (a) => (a.sku.length === 11 ? a.sku.slice(8) : null)
 const descripcionArticulo = (a) => (p.value.descripcion_comercial
-  ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? t('prepack') : t('size')} ${a.talla}` : a.descripcion)
+  ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? `${t('pack')} ${a.talla}` : textoVariante(a)}` : a.descripcion)
 const colArticulos = [
   { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
   { clave: 'codigo_talla', texto: t('Size code'), prioridad: 3, valor: codigoTalla },
   { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3 },
   { clave: 'upc', texto: 'UPC', prioridad: 3 },
-  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
   { clave: 'descripcion', texto: t('Description'), prioridad: 3, valor: (a) => descripcionArticulo(a) },
   { clave: 'activo', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
@@ -785,7 +785,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           </div>
           <div v-for="x in p.prepacks" :key="x.id" class="panel mt">
             <div class="panel-cabeza"><div><h2>{{ t('Prepack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per carton', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
-            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.talla) }} × {{ tx(c.cantidad) }}</span></div>
+            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.variante || c.talla || c.sku) }} × {{ tx(c.cantidad) }}</span></div>
           </div>
         </div>
 

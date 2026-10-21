@@ -62,9 +62,9 @@ def generico(gen: str, db: Db, user: User):
 
 @router.post("/genericos/{gen}/tallas")
 def agregar_tallas(gen: str, datos: s.TallasIn, db: Db, user: User, clave: Clave = None):
-    """Agrega tallas a un genérico (heredan sus datos maestros) y devuelve el genérico actualizado."""
+    """Agrega variantes a un producto (heredan sus datos maestros), escritas o combinadas, y devuelve el producto."""
     def hacer():
-        genericos.agregar_tallas(db, user, gen, datos.tallas, datos.escala_id)
+        genericos.agregar_tallas(db, user, gen, datos.tallas, datos.escala_id, datos.combinar)
         return genericos.detalle(db, user, gen)
     return ejecutar(db, user, clave, hacer)
 

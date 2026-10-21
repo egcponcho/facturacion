@@ -263,13 +263,20 @@ def validar(pl: PackingList, rangos=None) -> list[dict]:
             errores.append({"grupo_id": g.id, "mensaje": f"{nom}: {g.peso_bruto_caja:g} kg gross per unit; "
                             f"the maximum is {t.peso_max:g} kg."})
         lineas = [pll for pll, _ in cont]
-        if not t.mezcla_productos and len({(x.factura_linea.estilo, x.factura_linea.color) for x in lineas}) > 1:
+        if not t.mezcla_productos and len({producto_de_linea(x.factura_linea) for x in lineas}) > 1:
             errores.append({"grupo_id": g.id, "mensaje": f"{nom}: a {t.nombre.lower()} cannot mix products."})
-        if not t.mezcla_tallas and len({x.factura_linea.talla for x in lineas}) > 1:
-            errores.append({"grupo_id": g.id, "mensaje": f"{nom}: a {t.nombre.lower()} cannot mix sizes."})
+        if not t.mezcla_tallas and len({x.factura_linea.codigo_articulo for x in lineas}) > 1:
+            errores.append({"grupo_id": g.id, "mensaje": f"{nom}: a {t.nombre.lower()} cannot mix variants."})
         if not t.mezcla_oc and len({x.factura_linea.oc_numero for x in lineas}) > 1:
             errores.append({"grupo_id": g.id, "mensaje": f"{nom}: a {t.nombre.lower()} cannot mix POs."})
     return errores
+
+
+def producto_de_linea(fl) -> tuple:
+    """El producto de una línea (su código; estilo y color en las que no tienen artículo):
+    sus variantes (tallas, sabores, presentaciones…) son del mismo producto."""
+    a = fl.posicion_oc.articulo if fl.posicion_oc is not None else None
+    return ("P", a.generico or a.producto_id) if a is not None and (a.generico or a.producto_id) else ("E", fl.estilo, fl.color)
 
 
 # ---- Tipos ------------------------------------------------------------------

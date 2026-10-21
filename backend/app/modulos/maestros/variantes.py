@@ -60,3 +60,8 @@ def texto(valores: dict | None) -> str:
 
 def nombres(db: Session) -> dict[str, str]:
     return {a.codigo: a.nombre for a in atributos(db)}
+
+
+def texto_linea(valores: dict | None) -> str | None:
+    """El texto de la variante guardada en una línea de documento (o None)."""
+    return texto(valores) or None

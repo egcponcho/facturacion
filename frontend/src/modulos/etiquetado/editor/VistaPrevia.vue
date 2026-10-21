@@ -1,4 +1,5 @@
 <script setup>
+import { textoVariante } from '@/nucleo/utils'
 import { t, tx } from '@/i18n/index.js'
 import { computed, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
@@ -53,7 +54,7 @@ const fondo = ref('cuadros')
         <SelectBusqueda v-model="fuente.oc_id" :buscar="buscarOrdenes" :etiqueta="t('PO')" :vacio="t('Choose a PO')" />
         <Seleccion v-if="usaArticulo && lineas.length" v-model="fuente.posicion_id" :aria-label="t('PO line')">
           <option value="">{{ t('Without PO line') }}</option>
-          <option v-for="l in lineas" :key="l.id" :value="l.id">{{ l.posicion }} · {{ l.codigo_articulo }} {{ [l.color, l.talla].filter(Boolean).join(' / ') }}</option>
+          <option v-for="l in lineas" :key="l.id" :value="l.id">{{ l.posicion }} · {{ l.codigo_articulo }} {{ textoVariante(l) }}</option>
         </Seleccion>
         <label v-if="est.sujeto === 'BULTO' && fuente.oc_id" class="vp-bulto">{{ t('Package number') }}
           <input v-model="fuente.bulto" type="number" min="1" :aria-label="t('Package number')" /></label>

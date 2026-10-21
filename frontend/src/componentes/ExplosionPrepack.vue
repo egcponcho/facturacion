@@ -3,7 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/nucleo/api'
 import { errorApi } from '@/stores/ui'
-import { fmtNum, unidadTxt } from '@/nucleo/utils'
+import { fmtNum, textoVariante, unidadTxt } from '@/nucleo/utils'
 import Icono from './Icono.vue'
 import Modal from './Modal.vue'
 import TablaDatos from './TablaDatos.vue'
@@ -16,7 +16,7 @@ const e = ref(null)
 const totalCajas = computed(() => (props.cajas || 0) * (e.value?.total || 0))
 const columnas = computed(() => [
   { clave: 'sku', texto: t('Solid SKU'), fija: true, prioridad: 1 },
-  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
   { clave: 'cantidad', texto: t('Per carton'), num: true, prioridad: 1 },
   ...(props.cajas ? [{ clave: 'total', texto: t('Total in {0} cartons', [fmtNum(props.cajas)]), num: true, prioridad: 2, valor: (c) => c.cantidad * props.cajas }] : []),
@@ -42,7 +42,7 @@ onMounted(async () => {
       </div>
       <TablaDatos tabla="prepack_explosion" :columnas="columnas" :filas="e.componentes" clave-fila="articulo_id" :vistas-guardadas="false" :etiqueta="t('Prepack breakdown')">
         <template #celda-sku="{ fila: c }"><span class="codigo">{{ tx(c.sku) }}</span></template>
-        <template #celda-talla="{ fila: c }"><b>{{ tx(c.talla) }}</b></template>
+        <template #celda-variante="{ fila: c }"><b>{{ tx(textoVariante(c)) }}</b></template>
         <template #celda-unidad="{ fila: c }"><span class="etiqueta ms-0">{{ tx(c.unidad) }}</span></template>
         <template #celda-cantidad="{ fila: c }">{{ fmtNum(c.cantidad) }}</template>
         <template #celda-total="{ fila: c }"><span class="fuerte">{{ fmtNum(c.cantidad * cajas) }}</span></template>

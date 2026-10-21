@@ -8,7 +8,7 @@ import Icono from '@/componentes/Icono.vue'
 import Segmentos from '@/componentes/Segmentos.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
-import { fmtFecha } from '@/nucleo/utils'
+import { fmtFecha, textoVariante } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
@@ -147,7 +147,7 @@ const columnas = computed(() => (que.value === 'productos' ? [
 ] : que.value === 'articulos' ? [
   { clave: 'sku', texto: t('SKU'), fija: true, prioridad: 1, ordenable: false, filtro: false },
   { clave: 'descripcion', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
-  { clave: 'talla', texto: t('Size'), prioridad: 2, ordenable: false, filtro: false },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 2, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
 ] : [
   { clave: 'codigo', texto: t('Group'), fija: true, prioridad: 1 },

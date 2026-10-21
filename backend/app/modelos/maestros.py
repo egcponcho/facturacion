@@ -226,9 +226,11 @@ class Marca(DeOrganizacion, Base):
 
 
 class EscalaTalla(DeOrganizacion, Base):
-    """Escala de tallas reutilizable (calzado, ropa, accesorios u otra): sus
-    tallas en orden y cómo se forma el código de cada talla. Los genéricos
-    parten de una escala; el código se genera con la regla o se escribe."""
+    """Escala de valores reutilizable de un atributo de variante (tallas de
+    calzado o ropa, presentaciones 250 ml / 500 ml / 1 L, concentraciones…):
+    sus valores en orden y cómo se forma el código de cada uno. Al crear las
+    variantes de un producto se parte de una escala; el código se genera con
+    la regla o se escribe."""
 
     __tablename__ = "escalas_talla"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_escalas_talla_org_codigo"),)
@@ -236,6 +238,7 @@ class EscalaTalla(DeOrganizacion, Base):
     codigo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(120))
     categoria: Mapped[str | None] = mapped_column(String(20))
+    atributo: Mapped[str] = mapped_column(String(20), default="TALLA", server_default="TALLA")  # su atributo de variante
     # MULTIPLICAR: talla numérica × factor (7.5 × 10 → 075); CONSECUTIVO: 001, 002…;
     # TALLA: la misma talla (S, M, XL). Un código escrito en la lista manda.
     regla: Mapped[str] = mapped_column(String(15), default="CONSECUTIVO")

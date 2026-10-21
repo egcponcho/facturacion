@@ -5,7 +5,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { esInterno, sesion, ve } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
-import { TIEMPO, fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt } from '@/nucleo/utils'
+import { fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt, textoVariante, TIEMPO } from '@/nucleo/utils'
 import DetalleAnidado from '@/componentes/DetalleAnidado.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
@@ -63,7 +63,7 @@ const columnasLineas = [
   { clave: 'sku', texto: 'SKU', prioridad: 1 },
   { clave: 'marca', texto: t('Brand · group'), prioridad: 2 },
   { clave: 'estilo', texto: t('Style · color'), prioridad: 2, valor: (l) => `${l.estilo} · ${l.color}` },
-  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'almacen', texto: t('Warehouse'), prioridad: 3, textoValor: (v) => v || '—' },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
   { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 1 },
@@ -172,11 +172,11 @@ function proximos7() {
               <template #celda-posicion="{ fila: l }"><span class="codigo">{{ tx(l.posicion) }}</span></template>
               <template #celda-sku="{ fila: l }"><span class="codigo">{{ tx(l.sku) }}</span></template>
               <template #celda-marca="{ fila: l }">{{ tx(l.marca) }}<span class="sub">{{ tx(l.grupo) }}</span></template>
-              <template #celda-estilo="{ fila: l }">{{ tx(l.estilo) }} · {{ tx(l.color) }}</template>
-              <template #celda-talla="{ fila: l }">
-                <b>{{ tx(l.talla) }}</b>
-                <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
-                        @click="explosion = { sku: l.sku, cajas: l.cantidad }">{{ t('Prepack') }} <Icono nombre="lupa" :tam="12" /></button>
+              <template #celda-estilo="{ fila: l }">{{ tx(l.estilo || '—') }}</template>
+              <template #celda-variante="{ fila: l }">
+                <b>{{ tx(textoVariante(l)) }}</b>
+                <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the pack breakdown')"
+                        @click="explosion = { sku: l.sku, cajas: l.cantidad }">{{ t('Pack') }} <Icono nombre="lupa" :tam="12" /></button>
               </template>
               <template #celda-unidad="{ fila: l }"><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></template>
               <template #celda-cantidad="{ fila: l }">{{ fmtNum(l.cantidad) }}</template>

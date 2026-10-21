@@ -329,7 +329,7 @@ CATALOGOS = {
             c("max_unidades", "Max product units", "entero", minimo=1),
             c("max_contenido", "Max inner packaging", "entero", minimo=1),
             c("mezcla_productos", "Can mix products", "bool"),
-            c("mezcla_tallas", "Can mix sizes", "bool"),
+            c("mezcla_tallas", "Can mix variants (sizes, flavors, presentations…)", "bool"),
             c("mezcla_oc", "Can mix POs", "bool"),
             c("uom", "UoM", max=10, mayus=True),
             c("identificador", "Identifier", "opcion", opciones=[
@@ -364,19 +364,22 @@ CATALOGOS = {
         "buscar": ["codigo", "nombre"],
     },
     "escalas": {
-        "modelo": EscalaTalla, "titulo": "Size scales", "singular": "size scale",
-        "ayuda": "Reusable size structures for any product (footwear, apparel, accessories…). A generic starts from a "
-                 "scale: its sizes come in order and each size code is generated with the scale's rule or typed in the list.",
+        "modelo": EscalaTalla, "titulo": "Value scales", "singular": "value scale",
+        "ayuda": "Reusable ordered values of a variant attribute: sizes of footwear or apparel, presentations "
+                 "(250 ml, 500 ml, 1 L), concentrations… A product's variants start from a scale: its values come in "
+                 "order and each item code is generated with the scale's rule or typed in the list.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
+            c("atributo", "Variant attribute", "codigo", catalogo="atributos_variante", filtro=True,
+              ayuda="Whose values the scale orders. Empty = size (TALLA)."),
             c("categoria", "Category", "codigo", catalogo="categorias", filtro=True),
-            c("regla", "Size code rule", "opcion", obligatorio=True, filtro=True, opciones=[
-                ["MULTIPLICAR", "Size × factor (7.5 × 10 → 075)"], ["CONSECUTIVO", "Consecutive (001, 002…)"],
-                ["TALLA", "Same as the size (S, M, XL)"]]),
-            c("factor", "Factor", "entero", minimo=1, ayuda="For Size × factor, e.g. 10."),
+            c("regla", "Code rule", "opcion", obligatorio=True, filtro=True, opciones=[
+                ["MULTIPLICAR", "Value × factor (7.5 × 10 → 075)"], ["CONSECUTIVO", "Consecutive (001, 002…)"],
+                ["TALLA", "Same as the value (S, M, XL)"]]),
+            c("factor", "Factor", "entero", minimo=1, ayuda="For Value × factor, e.g. 10."),
             c("longitud", "Code digits", "entero", minimo=1, ayuda="Zeros on the left, e.g. 3 → 070."),
-            c("tallas", "Sizes", obligatorio=True,
+            c("tallas", "Values", obligatorio=True,
               ayuda="In order, separated by commas. Ranges allowed (6-10, 6.5-9.5). A fixed code with = (7=070)."),
             c("activo", "Active", "bool", filtro=True),
         ],
@@ -1153,6 +1156,8 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         except ErrorNegocio as e:
             errores += e.detalle or []
     final = {**({c["nombre"]: getattr(actual, c["nombre"]) for c in cat["campos"]} if actual else {}), **limpio}
+    if cat["modelo"] is EscalaTalla and "atributo" in limpio and not limpio["atributo"]:
+        limpio["atributo"] = final["atributo"] = "TALLA"  # sin atributo, la escala es de tallas
     if cat["modelo"] is PasoLeadTime:
         # Un paso con fecha medida pertenece al documento que la registra
         propio = rlt.DOCUMENTO_HITO.get(final.get("hito") or "")

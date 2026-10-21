@@ -143,8 +143,11 @@ class IdsIn(BaseModel):
 
 
 class TallaIn(BaseModel):
-    talla: str = Field(max_length=20)
-    sufijo: str | None = Field(None, max_length=20)  # código de talla tras el genérico; vacío = el siguiente libre
+    """Una variante nueva de un producto: sus valores de variante ({"TALLA": "9", "COLOR": "BLACK"},
+    {"CONC": "30", "ENVASE": "1 L"}…). `talla` es la forma corta de {"TALLA": …}."""
+    valores: dict[str, str] = Field(default_factory=dict, max_length=20)
+    talla: str | None = Field(None, max_length=20)
+    sufijo: str | None = Field(None, max_length=20)  # código tras el del producto; vacío = el siguiente libre
     sku: str | None = Field(None, max_length=40)  # código de artículo completo, si la empresa usa otro formato
     upc: str | None = Field(None, max_length=40)
     sku_proveedor: str | None = Field(None, max_length=60)
@@ -186,25 +189,31 @@ class SesionClasificacionIn(BaseModel):
 
 class GenericoIn(BaseModel):
     generico: str = Field(max_length=40)
-    estilo: str = Field(max_length=40)
-    color: str = Field(max_length=60)
+    estilo: str | None = Field(None, max_length=40)  # opcional: para productos que se identifican por estilo
+    color: str | None = Field(None, max_length=60)  # opcional: solo si el producto fija un color
     marca_id: int
     grupo_id: int
     proveedor_id: int
     unidad: str = Field(max_length=5)
     nombre: str | None = Field(None, max_length=200)
-    tallas: list[TallaIn] = Field(default_factory=list, max_length=200)
-    escala_id: int | None = None  # escala de tallas de la que parten los códigos
+    grupo_producto_id: int | None = None  # su familia (dice con qué atributos se distinguen sus variantes)
+    tallas: list[TallaIn] = Field(default_factory=list, max_length=500)
+    # Todas las combinaciones de estos valores ({"COLOR": ["BLACK", "WHITE"], "TALLA": ["7", "8"]})
+    combinar: dict[str, list[str]] = Field(default_factory=dict, max_length=10)
+    escala_id: int | None = None  # escala de valores de la que parten los códigos
 
 
 class TallasIn(BaseModel):
-    tallas: list[TallaIn] = Field(min_length=1, max_length=200)
+    tallas: list[TallaIn] = Field(default_factory=list, max_length=500)
+    combinar: dict[str, list[str]] = Field(default_factory=dict, max_length=10)
     escala_id: int | None = None
 
 
 class GenericoEditIn(BaseModel):
-    estilo: str = Field(max_length=40)
-    color: str = Field(max_length=60)
+    estilo: str | None = Field(None, max_length=40)
+    color: str | None = Field(None, max_length=60)
+    nombre: str | None = Field(None, max_length=200)
+    grupo_producto_id: int | None = None
     marca_id: int
     grupo_id: int
     proveedor_id: int
