@@ -21,9 +21,7 @@ import { camposPropios, elegirProveedor, esInterno, valorPropio, ve } from '@/st
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import CargaArchivo from '@/componentes/CargaArchivo.vue'
-import {
-  ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, useSeleccion,
-} from '@/nucleo/utils'
+import { ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, textoArticulo, textoVariante, useSeleccion } from '@/nucleo/utils'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -47,7 +45,7 @@ const plEditables = computed(() => plsActivos.value.some((p) => ['BORRADOR', 'EN
 
 const lineasFiltradas = computed(() => {
   if (!f.value) return []
-  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_articulo, l.estilo, l.color, l.talla, l.oc_numero, l.upc, l.descripcion])
+  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_articulo, textoArticulo(l), l.oc_numero, l.upc, l.descripcion])
 })
 // Unidades o pares por caja: el casepack de la OC o la curva del prepack
 const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
@@ -61,7 +59,7 @@ const columnasLineas = [
     textoValor: (v, l) => `${l.oc_numero} / ${l.posicion}` },
   { clave: 'marca', texto: t('Brand'), prioridad: 3 },
   { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => [l.estilo, l.color].filter(Boolean).join(' · ') },
-  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'cantidad', texto: req(t('Quantity')), num: true, prioridad: 1 },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
   { clave: 'por_caja', texto: t('Per carton'), num: true, prioridad: 3, valor: porCaja },
@@ -565,7 +563,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
                   @click="explosion = { sku: l.codigo_articulo, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
           <span class="sub codigo">{{ tx(l.codigo_articulo) }}</span>
         </template>
-        <template #celda-talla="{ fila: l }"><strong>{{ tx(l.talla) }}</strong></template>
+        <template #celda-variante="{ fila: l }"><strong>{{ tx(textoVariante(l)) }}</strong></template>
         <template #celda-cantidad="{ fila: l }">
           <CeldaEditable v-if="editable" tipo="number" :min="l.inner_pack || 1" :paso="String(l.inner_pack || 1)" :valor="l.cantidad" :guardar="celda(l, 'cantidad')" :etiqueta="t('Quantity of {0}', [l.codigo_articulo])" ancho="100px" />
           <template v-else>{{ fmtNum(l.cantidad) }}</template>

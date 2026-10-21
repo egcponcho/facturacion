@@ -1,13 +1,18 @@
-"""Genéricos: agrupan las tallas (sólidos) y prepacks de un estilo-color. El
-código del genérico y el de cada artículo los define la empresa (numéricos o
-alfanuméricos); si el código de una talla no se escribe, se arma con el
-genérico más un código de talla.
+"""Productos («genéricos») y sus variantes, de cualquier tipo de producto.
 
-Un genérico se crea una vez con sus datos maestros (estilo, color, marca,
-grupo, proveedor, unidad) y luego solo se le agregan tallas con lo propio de
-cada una (código de talla, UPC, SKU del proveedor). La ficha técnica y la
-clasificación arancelaria son del genérico.
+Un producto se crea una vez con su código y sus datos maestros (marca, grupo,
+proveedor, unidad, su familia; estilo y color solo si los usa) y luego se le
+agregan variantes: cada una con sus valores de variante (talla, color, sabor,
+presentación, concentración…) y lo propio (código, UPC, SKU del proveedor,
+peso). Las variantes se escriben una por una o se combinan: todos los colores
+por todas las tallas, todas las concentraciones por todos los envases.
+
+El código de cada artículo lo define la empresa; si no se escribe, se arma con
+el del producto más un código de la variante (el de su escala de valores, la
+regla usual talla × 10 o el siguiente libre). La ficha técnica y la
+clasificación arancelaria son del producto.
 """
+import itertools
 import re
 
 from sqlalchemy import select
@@ -15,7 +20,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.modelos import Articulo, EscalaTalla, GrupoArticulo, Marca, Producto, Proveedor, Usuario
+from app.modelos import (
+    Articulo,
+    AtributoVariante,
+    EscalaTalla,
+    GrupoArticulo,
+    GrupoFamilia,
+    Marca,
+    Producto,
+    Proveedor,
+    Usuario,
+)
 from app.modulos.acceso.permisos import exigir
 from app.modulos.comun import tabla
 from app.modulos.comun.historial import registrar
@@ -69,8 +84,10 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
         "generico": gen, "producto_id": p.id, "estilo": p.estilo, "color": p.color, "marca_id": p.marca_id,
         "grupo_id": p.grupo_id, "proveedor_id": p.proveedor_id, "unidad": p.unidad, "nombre": p.nombre,
         "descripcion_comercial": p.descripcion_comercial,
+        "grupo_producto_id": p.grupo_producto_id,
         "tallas": [{"id": a.id, "sku": a.sku, "sufijo": a.sku[len(gen):] if a.sku.startswith(gen) else "", "talla": a.talla, "upc": a.upc,
-                    "sku_proveedor": a.sku_proveedor, "tipo": a.tipo, "activo": a.activo} for a in arts],
+                    "sku_proveedor": a.sku_proveedor, "tipo": a.tipo, "activo": a.activo, "valores": a.variantes}
+                   for a in arts],
         "siguiente": siguiente_sufijo(db, gen), "usados": sorted(a.sku[len(gen):] for a in arts if a.sku.startswith(gen)),
     }
 
@@ -85,9 +102,10 @@ def crear(db: Session, user: Usuario, datos) -> dict:
         errores.append({"campo": "generico", "mensaje": f"Generic code: {MSG_CODIGO}"})
     elif producto_por_generico(db, gen) or db.scalar(_articulos(db, gen).limit(1)):
         errores.append({"campo": "generico", "mensaje": f"Generic {gen} already exists: add sizes to it instead."})
-    estilo, color = (datos.estilo or "").strip().upper(), (datos.color or "").strip()
-    if not estilo or not color:
-        errores.append({"campo": "estilo", "mensaje": "Style and color are required."})
+    estilo, color = (datos.estilo or "").strip().upper() or None, (datos.color or "").strip() or None
+    familia = db.get(GrupoFamilia, datos.grupo_producto_id) if getattr(datos, "grupo_producto_id", None) else None
+    if getattr(datos, "grupo_producto_id", None) and familia is None:
+        errores.append({"campo": "grupo_producto_id", "mensaje": "Choose a product family."})
     if normalizar(datos.unidad) not in de_articulo():
         errores.append({"campo": "unidad", "mensaje": f"The unit of a solid is one of {', '.join(de_articulo())}."})
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
@@ -100,70 +118,114 @@ def crear(db: Session, user: Usuario, datos) -> dict:
         raise ErrorNegocio("Check the generic.", 422, "validacion", errores)
     p = Producto(codigo_generico=gen, proveedor_id=prov.id, estilo=estilo, color=color, marca_id=marca.id,
                  grupo_id=grupo.id, unidad=datos.unidad, nombre=(datos.nombre or "").strip()[:200] or None,
-                 ficha={}, faltan=[], alertas_ok=[])
+                 grupo_producto_id=familia.id if familia else None, ficha={}, faltan=[], alertas_ok=[])
     db.add(p)
     try:
         db.flush()
     except IntegrityError:
-        raise ErrorNegocio(f"{estilo} {color} already exists for this supplier with another generic.", 409,
-                           "duplicado") from None
+        raise ErrorNegocio(f"Product {gen} already exists.", 409, "duplicado") from None
     p.descripcion_comercial = descripcion_comercial_simple(p)
     registrar(db, user, "genericos", p.id, "crear", {"generico": gen, "estilo": estilo, "color": color})
-    creadas = agregar_tallas(db, user, gen, datos.tallas or [], getattr(datos, "escala_id", None)) if datos.tallas else []
+    combinar = getattr(datos, "combinar", None) or {}
+    creadas = (agregar_tallas(db, user, gen, datos.tallas or [], getattr(datos, "escala_id", None), combinar)
+               if datos.tallas or combinar else [])
     return {**detalle(db, user, gen), "creadas": len(creadas)}
 
 
-def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id: int | None = None) -> list[int]:
-    """Tallas nuevas de un genérico: heredan sus datos maestros."""
+MAX_VARIANTES = 500
+
+
+def combinaciones(combinar: dict[str, list[str]]) -> list[dict]:
+    """Todas las combinaciones de los valores, en el orden dado ({"COLOR": [A, B], "TALLA": [7, 8]}
+    → A·7, A·8, B·7, B·8)."""
+    ejes = [(str(k).strip().upper(), [str(v).strip() for v in vs if str(v).strip()]) for k, vs in (combinar or {}).items()]
+    ejes = [(k, vs) for k, vs in ejes if k and vs]
+    if not ejes:
+        return []
+    total = 1
+    for _, vs in ejes:
+        total *= len(vs)
+    if total > MAX_VARIANTES:
+        raise ErrorNegocio(f"That is {total} variants: at most {MAX_VARIANTES} at a time.", 422, "validacion")
+    return [dict(zip([k for k, _ in ejes], combo, strict=True)) for combo in itertools.product(*[vs for _, vs in ejes])]
+
+
+def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id: int | None = None,
+                   combinar: dict | None = None) -> list[int]:
+    """Variantes nuevas de un producto: heredan sus datos maestros y llevan sus
+    valores de variante (escritos uno por uno o combinados)."""
     exigir(user, "catalogos.crear")
     gobierno.exigir_responsable(db, user, "articulos")
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
+    atributos = {a.codigo: a for a in db.scalars(select(AtributoVariante).where(AtributoVariante.activo.is_(True)))}
+    sistema = {a.columna: a.codigo for a in atributos.values() if a.columna}
+    filas = [({str(k).strip().upper(): str(v).strip() for k, v in (t.valores or {}).items() if str(v or "").strip()}
+              | ({sistema.get("talla", "TALLA"): t.talla.strip().upper()} if t.talla and t.talla.strip() else {}), t)
+             for t in tallas]
+    filas += [(valores, None) for valores in combinaciones(combinar or {})]
+    if not filas:
+        raise ErrorNegocio("Write the variants or the values to combine.", 422, "validacion")
+    if len(filas) > MAX_VARIANTES:
+        raise ErrorNegocio(f"At most {MAX_VARIANTES} variants at a time.", 422, "validacion")
     usados = _sufijos(db, gen)
     escala = db.get(EscalaTalla, escala_id) if escala_id else None
-    ya = {a.talla.upper() for a in db.scalars(_articulos(db, gen).where(Articulo.tipo == "SOLIDO")) if a.talla}
+    ya = {frozenset((k, str(v).upper()) for k, v in a.variantes.items())
+          for a in db.scalars(_articulos(db, gen).where(Articulo.tipo == "SOLIDO"))}
     cat = cat_svc.CATALOGOS["articulos"]
     ids, errores = [], []
-    for i, t in enumerate(tallas):
-        talla = (t.talla or "").strip().upper()
-        suf = (t.sufijo or "").strip().upper()
-        sku = (getattr(t, "sku", None) or "").strip().upper()
-        if not talla:
-            errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: the size is required."})
+    for i, (valores, t) in enumerate(filas):
+        # Un producto que fija su color lo da a todas sus variantes
+        if p.color and sistema.get("color") and sistema["color"] not in valores:
+            valores[sistema["color"]] = p.color
+        texto = " · ".join(valores.values()) or "—"
+        desconocidos = [k for k in valores if k not in atributos]
+        if desconocidos:
+            errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: {desconocidos[0]} is not a variant attribute."})
             continue
-        if talla in ya:
-            errores.append({"campo": f"tallas.{i}", "mensaje": f"Size {talla} already exists in generic {gen}."})
+        clave = frozenset((k, v.upper()) for k, v in valores.items())
+        if clave in ya:
+            errores.append({"campo": f"tallas.{i}", "mensaje": f"Variant {texto} already exists in product {gen}."})
             continue
+        suf = ((t.sufijo if t else None) or "").strip().upper()
+        sku = ((getattr(t, "sku", None) if t else None) or "").strip().upper()
         if sku:
             if not codigo_valido(sku) or db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
                 errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: item code {sku} is taken or not valid."})
                 continue
         else:
             if suf and (not re.fullmatch(r"[A-Z0-9._\-/]{1,20}", suf) or suf in usados):
-                errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: size code {suf} is taken or not valid."})
+                errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: code {suf} is taken or not valid."})
                 continue
-            suf = suf or siguiente_sufijo(db, gen, usados, talla, escala)
+            # El código sale del valor del atributo de la escala (o de la talla, con la regla usual)
+            del_codigo = valores.get(escala.atributo or "TALLA") if escala else valores.get(sistema.get("talla", "TALLA"))
+            suf = suf or siguiente_sufijo(db, gen, usados, del_codigo or "", escala if del_codigo else None)
             usados.add(suf)
             sku = gen + suf
-        ya.add(talla)
-        datos = {"sku": sku, "generico": gen, "sku_proveedor": (t.sku_proveedor or "").strip() or None, "upc": (t.upc or "").strip() or None,
-                 "estilo": p.estilo, "color": p.color, "talla": talla, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
-                 "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN",
-                 "peso_unitario": getattr(t, "peso_unitario", None)}
+        ya.add(clave)
+        datos = {"sku": sku, "generico": gen, "sku_proveedor": ((t.sku_proveedor if t else None) or "").strip() or None,
+                 "upc": ((t.upc if t else None) or "").strip() or None, "estilo": p.estilo,
+                 "color": valores.get(sistema.get("color", "")), "talla": valores.get(sistema.get("talla", "")),
+                 "marca_id": p.marca_id, "grupo_id": p.grupo_id, "proveedor_id": p.proveedor_id, "tipo": "SOLIDO",
+                 "unidad": p.unidad or de_articulo()[0], "peso_unitario": getattr(t, "peso_unitario", None) if t else None,
+                 **{f"atr.{k}": v for k, v in valores.items() if k not in sistema.values()}}
         try:
             limpio = cat_svc._limpiar(db, cat, {k: v for k, v in datos.items() if v is not None}, parcial=False)
         except ErrorNegocio as e:
-            errores += [{"campo": f"tallas.{i}", "mensaje": f"Size {talla}: {d['mensaje']}"} for d in e.detalle or []]
+            errores += [{"campo": f"tallas.{i}", "mensaje": f"Variant {texto}: {d['mensaje']}"} for d in e.detalle or []]
             continue
+        variantes = limpio.pop("variantes", None)
         a = Articulo(**limpio, activo=True)
         db.add(a)
+        if variantes:
+            a.variantes = variantes
         db.flush()
         asegurar_producto(db, a)
         ids.append(a.id)
     if errores:
-        raise ErrorNegocio("Some sizes could not be added.", 422, "validacion", errores)
-    registrar(db, user, "genericos", p.id, "tallas", {"generico": gen, "tallas": [t.talla for t in tallas]})
+        raise ErrorNegocio("Some variants could not be added.", 422, "validacion", errores)
+    registrar(db, user, "genericos", p.id, "tallas", {"generico": gen, "variantes": [" · ".join(v.values()) for v, _ in filas]})
     return ids
 
 
@@ -254,10 +316,14 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     if not p:
         raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
     arts = db.scalars(_articulos(db, gen)).all()
-    estilo, color = (datos.estilo or p.estilo).strip().upper(), (datos.color or p.color or "").strip()
+    estilo = (datos.estilo or "").strip().upper() or None
+    color = (datos.color or "").strip() or None
     errores = []
-    if (estilo != p.estilo or color != (p.color or "")) and any(a.tipo == "PREPACK" for a in arts):
-        errores.append({"campo": "estilo", "mensaje": "The generic has prepacks: its style and color cannot change."})
+    if (estilo != p.estilo or color != p.color) and any(a.tipo == "PREPACK" for a in arts):
+        errores.append({"campo": "estilo", "mensaje": "The product has packs or kits: its style and color cannot change."})
+    familia = db.get(GrupoFamilia, datos.grupo_producto_id) if getattr(datos, "grupo_producto_id", None) else None
+    if getattr(datos, "grupo_producto_id", None) and familia is None:
+        errores.append({"campo": "grupo_producto_id", "mensaje": "Choose a product family."})
     if normalizar(datos.unidad) not in de_articulo():
         errores.append({"campo": "unidad", "mensaje": f"The unit is one of {', '.join(de_articulo())}."})
     marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
@@ -271,14 +337,17 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     antes = {"estilo": p.estilo, "color": p.color, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
              "proveedor_id": p.proveedor_id, "unidad": p.unidad}
     p.estilo, p.color, p.marca_id, p.grupo_id, p.proveedor_id, p.unidad = estilo, color, marca.id, grupo.id, prov.id, datos.unidad
+    if getattr(datos, "nombre", None) is not None:
+        p.nombre = datos.nombre.strip()[:200] or None
+    if familia is not None:
+        p.grupo_producto_id = familia.id
     for a in arts:
         a.marca_id, a.grupo_id, a.proveedor_id = marca.id, grupo.id, prov.id
         if a.tipo == "SOLIDO":
-            a.estilo, a.color, a.unidad = estilo, color, datos.unidad
-    try:
-        db.flush()
-    except IntegrityError:
-        raise ErrorNegocio(f"{estilo} {color} already exists for this supplier with another generic.", 409, "duplicado") from None
+            a.estilo, a.unidad = estilo, datos.unidad
+            if color:  # un color del producto es el de todas sus variantes
+                a.color = color
+    db.flush()
     if not (p.ficha or {}).get("comManual"):
         db.refresh(p)
         p.descripcion_comercial = descripcion_comercial_simple(p)

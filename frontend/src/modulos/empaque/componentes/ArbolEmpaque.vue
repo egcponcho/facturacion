@@ -3,7 +3,7 @@ import { t, tx } from '@/i18n/index.js'
 import { computed } from 'vue'
 import CeldaEditable from '@/componentes/CeldaEditable.vue'
 import Icono from '@/componentes/Icono.vue'
-import { cantTxt, fmtNum, plural } from '@/nucleo/utils'
+import { cantTxt, fmtNum, plural, textoArticulo } from '@/nucleo/utils'
 
 // Estructura física del packing list: empaques dentro de empaques con el
 // producto en las hojas. Cada nivel muestra su tara y el peso bruto que
@@ -30,7 +30,7 @@ const filas = computed(() => {
   return out
 })
 const ICONO = { SOPORTE: 'capas', BULTO: 'caja', INTERIOR: 'archivo' }
-const contenidoTxt = (g) => (g.items || []).map((i) => `${cantTxt(i.cantidad_por_caja, i.unidad)} ${i.estilo} ${i.talla || ''}`.trim()).join(' + ')
+const contenidoTxt = (g) => (g.items || []).map((i) => `${cantTxt(i.cantidad_por_caja, i.unidad)} ${textoArticulo(i) || i.codigo_articulo || ''}`.trim()).join(' + ')
 </script>
 
 <template>

@@ -40,7 +40,7 @@ from app.modelos import (
     Usuario,
 )
 from app.modelos.etiquetado import ACCIONES, ALCANCES_DE, CANTIDADES_REGLA, CONTEXTOS, DESTINO_DE, NIVELES_DE
-from app.modulos.acceso.permisos import exigir, exigir_alguno
+from app.modulos.acceso.permisos import exigir, exigir_interno
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import reglas, tipos
 from app.modulos.etiquetado.reglas import Resolvedor, Sujeto, celda_de, nombre_destino
@@ -118,7 +118,7 @@ def cargar(db: Session, uso_id: int, bloquear: bool = False) -> UsoDiseno:
 
 def listar(db: Session, user: Usuario, tipo_etiqueta_id=None, nivel=None, destino_id=None, oc_id=None, plantilla_id=None,
            contexto_tipo=None, bajas: bool = False) -> list[dict]:
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.configurar")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.configurar")
     c = select(UsoDiseno).options(selectinload(UsoDiseno.plantilla), selectinload(UsoDiseno.tipo))
     if not bajas:
         c = c.where(UsoDiseno.eliminado_en.is_(None))
@@ -140,7 +140,7 @@ def listar(db: Session, user: Usuario, tipo_etiqueta_id=None, nivel=None, destin
 def historial(db: Session, user: Usuario, uso_id: int) -> list[dict]:
     from app.modelos import Historial
 
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.configurar")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.configurar")
     cargar(db, uso_id)
     filas = db.scalars(select(Historial).where(Historial.entidad == "uso_diseno", Historial.entidad_id == uso_id)
                        .order_by(Historial.fecha.desc(), Historial.id.desc()))
@@ -433,7 +433,7 @@ def baja(db: Session, user: Usuario, uso_id: int, motivo: str | None) -> dict:
 def valores_contexto(db: Session, user: Usuario, contexto: str) -> list[dict]:
     """Los valores reales que puede tener una excepción: los países de los centros destino,
     los centros, las sociedades o los proveedores (valor, texto y detalle para buscar)."""
-    exigir_alguno(user, "etiquetas.configurar", "etiquetas.ver")
+    exigir_interno(user, "etiquetas.configurar", "etiquetas.ver")
     contexto = (contexto or "").upper()
     if contexto == "PAIS_DESTINO":
         usados = {c for c in db.scalars(select(Centro.pais).where(Centro.pais.is_not(None)))}
@@ -555,7 +555,7 @@ def _propios(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> l
 
 
 def celda(db: Session, user: Usuario, tipo_id: int, nivel: str, destino_id: int | None) -> dict:
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.configurar")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.configurar")
     tipo = tipos.cargar(db, tipo_id)
     nivel = nivel.upper()
     if nivel not in NIVELES_DE[tipo.sujeto]:
@@ -676,7 +676,7 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
     """Qué cambiaría si se guardara la celda así (no guarda nada): cuántos
     artículos cambian de diseño, cuántos quedan sin diseño, cuántas líneas de
     OC abiertas cumplen cada excepción y cuántos trabajos abiertos se afectan."""
-    exigir_alguno(user, "etiquetas.configurar", "etiquetas.ver")
+    exigir_interno(user, "etiquetas.configurar", "etiquetas.ver")
     tipo, nivel, destino_id, cambios, quitar = _propuesta(db, user, datos)
     from app.modulos.etiquetado import campos
 
@@ -741,7 +741,7 @@ def _articulos_por_familia(db: Session) -> dict:
 def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
     """Qué diseño lleva cada cosa: filas (toda la empresa, familias o tipos de
     empaque) × tipos de etiqueta del sujeto, con lo que hereda cada celda."""
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.configurar")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.configurar")
     sujeto = sujeto.upper()
     if sujeto not in NIVELES_DE:
         raise ErrorNegocio("Unknown subject.", 422, "validacion")
@@ -882,7 +882,7 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
     """La pestaña Etiquetas del producto: su familia, qué diseño le toca en cada
     tipo de etiqueta de artículo y por qué, las excepciones que pueden cambiarlo
     y sus tallas con diseño propio."""
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.configurar", "etiquetas.generar")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.configurar", "etiquetas.generar")
     from app.modulos.acceso.permisos import proveedor_filtro
 
     p = db.get(Producto, producto_id)
@@ -944,7 +944,7 @@ def resolver(db: Session, user: Usuario, articulo_id: int | None = None, oc_id: 
     """Qué diseño de cada tipo lleva un artículo (con o sin OC), un bulto o un documento, y por qué."""
     from app.modulos.etiquetado import campos, datos
 
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.generar")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.generar")
     a = datos.cargar_articulo(db, user, articulo_id) if articulo_id else None
     oc = datos.cargar_oc(db, user, oc_id) if oc_id else None
     s = Sujeto(sujeto.upper(), articulo=a, oc=oc, tipo_empaque_id=tipo_empaque_id,

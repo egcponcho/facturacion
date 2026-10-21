@@ -48,6 +48,7 @@ from app.modulos.empaque import recetas
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
 from app.modulos.maestros.unidades import error_cantidad
 from app.modulos.maestros.unidades import normalizar as unidad_de
+from app.modulos.maestros.variantes import texto_linea as texto_variante
 from app.modulos.productos.productos import clasificacion_txt, partida_para, producto_de
 
 # Dos liberaciones de dos equipos distintos (comercial y logística). Sus
@@ -349,6 +350,7 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "estilo": p.estilo,
                 "color": p.color,
                 "talla": p.talla,
+                "variante": texto_variante(p.variante),
                 "descripcion": p.descripcion,
                 "marca": p.marca,
                 "grupo": p.grupo,

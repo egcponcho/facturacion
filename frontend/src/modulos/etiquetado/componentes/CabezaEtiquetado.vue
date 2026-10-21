@@ -3,15 +3,17 @@ import { t } from '@/i18n/index.js'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Icono from '@/componentes/Icono.vue'
+import { esInterno } from '@/stores/sesion'
 
 // Cabecera común del etiquetado: dos tareas separadas (imprimir, a diario;
 // configurar, de vez en cuando) y los diseños. Cada sección es su propia página.
 defineProps({ titulo: { type: String, required: true }, texto: { type: String, default: '' } })
 const route = useRoute()
+// La configuración es del equipo interno (un proveedor imprime lo suyo)
 const secciones = computed(() => [
   ['/etiquetas', t('Print'), 'etiqueta'],
   ['/etiquetas/disenos', t('Designs'), 'capas'],
-  ['/etiquetas/configuracion', t('Setup'), 'engrane'],
+  ...(esInterno() ? [['/etiquetas/configuracion', t('Setup'), 'engrane']] : []),
 ])
 </script>
 

@@ -30,6 +30,7 @@ from app.modelos import (
     VersionPlantilla,
     ahora,
 )
+from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import exigir, exigir_alguno, tiene
 from app.modulos.comun.historial import registrar, requerir_motivo
 from app.modulos.comun.texto import filtro_texto
@@ -222,6 +223,7 @@ def _validar_meta(db: Session, datos: dict, actual: PlantillaEtiqueta | None) ->
     return limpio
 
 
+@visibilidad.con_datos_completos
 def validar_contenido(db: Session, user: Usuario, sujeto: str, diseno: dict) -> dict:
     """Diseño limpio cuyos campos existen para lo que se etiqueta y cuyas imágenes son de la organización."""
     limpio = svc_diseno.validar(diseno)
@@ -240,20 +242,28 @@ def validar_contenido(db: Session, user: Usuario, sujeto: str, diseno: dict) -> 
             if malas:
                 raise ErrorNegocio("A table uses columns that its list does not have.", 422, "validacion",
                                    [{"campo": "elementos", "mensaje": f"{col.etiqueta}: {', '.join(malas)}."}])
-        if e["tipo"] == "imagen" and e.get("fuente_imagen") == "adjunto" and not db.get(Adjunto, e["adjunto_id"]):
+        if e["tipo"] == "imagen" and e.get("fuente_imagen") == "adjunto" and not de_etiquetas(db.get(Adjunto, e["adjunto_id"])):
             raise ErrorNegocio("An image of the design does not exist.", 422, "validacion")
         if e["tipo"] == "imagen" and e.get("fuente_imagen") == "datos":
             archivos.imagen_data_url(e["datos"], 500 * 1024)
     return limpio
 
 
+CARPETA_IMAGENES = "etiquetas"
+
+
+def de_etiquetas(a: Adjunto | None) -> bool:
+    """Una imagen subida para los diseños (no una foto de producto ni un archivo de factura)."""
+    return bool(a and a.tipo_mime.startswith("image/") and a.clave.replace("\\", "/").startswith(CARPETA_IMAGENES + "/"))
+
+
 def imagen_adjunta(db: Session):
-    """Lector de las imágenes subidas para el motor (solo las de la organización de la sesión)."""
+    """Lector de las imágenes subidas para los diseños (solo las de la organización de la sesión)."""
     from app.core import almacen
 
     def leer(adjunto_id: int) -> bytes | None:
         a = db.get(Adjunto, adjunto_id)
-        if not a or not a.tipo_mime.startswith("image/"):
+        if not de_etiquetas(a):
             return None
         try:
             return almacen.leer(a.clave)
@@ -262,11 +272,13 @@ def imagen_adjunta(db: Session):
     return leer
 
 
-def revisar(db: Session, sujeto: str, diseno: dict, valores: dict | None = None, prueba: bool = False) -> render.Lienzo:
-    """La etiqueta con datos reales o, sin ellos, con los valores de ejemplo de cada campo."""
+def revisar(db: Session, sujeto: str, diseno: dict, valores: dict | None = None, prueba: bool = False,
+            user: Usuario | None = None) -> render.Lienzo:
+    """La etiqueta con datos reales o, sin ellos, con los valores de ejemplo de cada campo
+    (reales solo de lo que `user` ve)."""
     tipos = svc_campos.tipos(db, sujeto)
     if valores is None:
-        valores = {**svc_campos.ejemplos(db, sujeto), "etiqueta.numero": 1, "etiqueta.total": 1, "etiqueta.numero_lote": 1,
+        valores = {**svc_campos.ejemplos(db, sujeto, user), "etiqueta.numero": 1, "etiqueta.total": 1, "etiqueta.numero_lote": 1,
                    "etiqueta.total_lote": 1}
         valores.update(svc_campos.valores_organizacion(db))
         valores.update(svc_diseno.valores_manuales(diseno, ejemplo=True))
@@ -504,7 +516,7 @@ def subir_imagen(db: Session, user: Usuario, nombre: str, contenido: bytes) -> d
         ancho, alto = im.size
     if max(ancho, alto) > 4000:
         raise ErrorNegocio("The image is larger than 4000 px.", 422, "validacion")
-    a = adjuntos.crear(db, user, adjuntos.nombre_seguro(nombre, f"imagen.{tipo}"), contenido, "etiquetas", tipo,
+    a = adjuntos.crear(db, user, adjuntos.nombre_seguro(nombre, f"imagen.{tipo}"), contenido, CARPETA_IMAGENES, tipo,
                        archivos.MIME[tipo])
     registrar(db, user, "plantilla_etiqueta", 0, "subir_imagen", {"adjunto": a.id, "nombre": a.nombre})
     return {"id": a.id, "nombre": a.nombre, "ancho_px": ancho, "alto_px": alto, "tipo_mime": a.tipo_mime}

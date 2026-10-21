@@ -33,7 +33,10 @@ def test_atributos_de_sistema_y_propios(interno):
         assert r.json()["atr.MATERIAL"] == "Canvas"
         with SessionLocal() as db:
             filas = db.scalars(select(ArticuloAtributo).where(ArticuloAtributo.articulo_id == art["id"])).all()
-            assert [(f.atributo.codigo, f.valor) for f in filas] == [("MATERIAL", "Canvas")]
+            valores = {f.atributo.codigo: f.valor for f in filas}
+            assert valores["MATERIAL"] == "Canvas"
+            # Talla y color son valores de variante como cualquier otro (copia en sus columnas)
+            assert valores.get("TALLA") == art["talla"] and valores.get("COLOR") == art["color"]
         # Se filtra por su valor como cualquier columna
         import json
         items = interno.get("/catalogos/articulos", params={"f": json.dumps({"atr.MATERIAL": ["Canvas"]})}).json()["items"]

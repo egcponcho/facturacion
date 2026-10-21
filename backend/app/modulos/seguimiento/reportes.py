@@ -105,11 +105,11 @@ def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, ord
             det = [f for f in det if f["oc_id"] in ocs]
         hojas = [{"titulo": "Detail by SKU", "columnas": [
             ("PO", 1.3, False), ("Line", 0.5, False), ("SKU", 1.3, False), ("Brand", 0.8, False),
-            ("Group", 0.8, False), ("Style", 1, False), ("Color", 1.2, False), ("Size", 0.5, False),
+            ("Group", 0.8, False), ("Style / model", 1, False), ("Variant", 1.7, False),
             ("Storage loc.", 0.7, False), ("Quantity", 0.8, True), ("UoM", 0.5, False), ("Stage", 1.6, False),
             ("Invoice", 1.3, False), ("PL", 0.7, False), ("Container / AWB", 1.3, False), ("BL / AWB", 1.3, False),
             ("ETA", 0.9, False), ("In store", 0.9, False), ("Vs. store", 1.1, False)],
-            "filas": [[f["oc"], f["posicion"], f["sku"], f["marca"], f["grupo"], f["estilo"], f["color"], f["talla"],
+            "filas": [[f["oc"], f["posicion"], f["sku"], f["marca"], f["grupo"], f["estilo"], f["variante"],
                        f["almacen"], f["cantidad"], f["unidad"], ETAPAS[f["etapa"]], f["factura"], f["pl"],
                        f["contenedor"], f["documento"], _fecha(f["arribo_real"] or f["eta"]),
                        _fecha(f["fecha_tienda"]), _holgura(f["holgura"])] for f in det]}]

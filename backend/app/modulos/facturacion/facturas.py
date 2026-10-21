@@ -50,6 +50,7 @@ from app.modulos.facturacion.cantidades import (
     totales_pl,
 )
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL, ESTADO_TXT
+from app.modulos.maestros.variantes import texto_linea as texto_variante
 from app.modulos.productos.productos import partida_para, producto_de, sin_marca
 
 ETIQUETAS = {
@@ -894,6 +895,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "estilo": l.estilo,
             "color": l.color,
             "talla": l.talla,
+            "variante": texto_variante(l.variante),
             "descripcion": l.descripcion,
             "unidad": l.unidad,
             "marca": l.marca,

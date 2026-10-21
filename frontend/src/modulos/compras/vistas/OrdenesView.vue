@@ -18,7 +18,7 @@ import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '@/stores/carrito'
 import { camposPropios, nombreProveedor, puede, sesion, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { cantTxt, unidadTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, useSeleccion } from '@/nucleo/utils'
+import { cantTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, textoArticulo, textoVariante, unidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
 import { estadosOC, estado as leerEstado } from '@/nucleo/estados.js'
 
@@ -82,7 +82,7 @@ const columnasOC = computed(() => [
 const columnasLineas = computed(() => [
   { clave: 'posicion', texto: t('Line'), fija: true, prioridad: 1 },
   { clave: 'articulo', texto: t('Item'), prioridad: 1, valor: (p) => [p.marca, p.estilo, p.color].filter(Boolean).join(' · ') },
-  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
   { clave: 'partida', texto: t('HS code'), prioridad: 3, valor: (p) => p.partida_arancelaria || null },
   { clave: 'almacen', texto: t('Warehouse'), grupo: 'codigos_internos', prioridad: 3 },
@@ -531,7 +531,7 @@ alCambiar(() => consultar(), ['/ordenes'])
               <span v-if="p.marca" class="fuerte">{{ tx(p.marca) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}
               <span class="sub codigo">{{ tx(p.codigo_articulo) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
             </template>
-            <template #celda-talla="{ fila: p }"><strong>{{ tx(p.talla) }}</strong></template>
+            <template #celda-variante="{ fila: p }"><strong>{{ tx(textoVariante(p)) }}</strong></template>
             <template #celda-unidad="{ fila: p }"><span class="etiqueta ms-0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></template>
             <template #celda-partida="{ fila: p }">
               <router-link v-if="p.clasificacion?.producto_id" :to="`/productos/${p.clasificacion.producto_id}`" class="enlace"
@@ -631,7 +631,7 @@ alCambiar(() => consultar(), ['/ordenes'])
           </div>
           <div v-for="i in g.items" :key="i.posicion_id" class="item-carrito">
             <div>
-              <span class="codigo">{{ tx(i.posicion) }}</span> {{ tx(i.estilo) }} {{ tx(i.color) }} <b>{{ tx(i.talla) }}</b>
+              <span class="codigo">{{ tx(i.posicion) }}</span> {{ tx(i.estilo) }} <b>{{ tx(textoVariante(i)) }}</b>
               <div class="ayuda">
                 {{ t('{0} available', [cantTxt(i.disponible, i.unidad)]) }}<template v-if="i.inner_pack">&nbsp;{{ t('· inner packs of {0}', [i.inner_pack]) }}</template><template v-if="i.aviso">. {{ tx(i.aviso) }}</template>
               </div>
@@ -671,7 +671,7 @@ alCambiar(() => consultar(), ['/ordenes'])
   </aside>
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" :cajas="explosion.cajas" @cerrar="explosion = null" />
   <Modal v-if="empaque" :titulo="t('Packing of PO {0} line {1}', [empaque.oc.numero, empaque.p.posicion])" ancho="520px" @cerrar="empaque = null">
-    <p class="ayuda mt-0">{{ t('{0} · {1} · size {2} · {3}', [empaque.p.estilo, empaque.p.color, empaque.p.talla, cantTxt(empaque.p.cantidad, empaque.p.unidad)]) }}</p>
+    <p class="ayuda mt-0">{{ [textoArticulo(empaque.p), cantTxt(empaque.p.cantidad, empaque.p.unidad)].filter(Boolean).join(' · ') }}</p>
     <Segmentos v-model="empaque.modo" :opciones="[['receta', t('Recipe')], ['casepack', t('Casepack and inner')]]" :etiqueta="t('Packing')" />
     <form v-if="empaque.modo === 'receta'" id="form-empaque" class="form-receta" @submit.prevent="guardarEmpaque">
       <label class="campo"><span>{{ t('Packing recipe') }}</span>

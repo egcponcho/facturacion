@@ -185,3 +185,9 @@ export async function enfocarUltimo(selector) {
   ultima.scrollIntoView({ block: 'center', behavior: 'smooth' })
   ultima.querySelector('input:not([type=checkbox]), textarea, button.sb-boton, select')?.focus({ preventScroll: true })
 }
+
+// Variante de una línea o un artículo de cualquier producto: sus valores en orden
+// («BLACK · 9.5», «30 % · 1 L»); sin variante guardada, color y talla
+export const textoVariante = (x) => x?.variante || [x?.color, x?.talla].filter(Boolean).join(' · ')
+// El artículo en una línea: estilo o modelo (si lo usa) y su variante
+export const textoArticulo = (x) => [x?.estilo, textoVariante(x)].filter(Boolean).join(' · ')

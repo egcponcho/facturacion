@@ -165,8 +165,13 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
     from app.modulos.productos.productos import MSG_CODIGO, codigo_valido
 
     voc = _vocab(db)
-    alias = {**voc["alias"], "generic_code": "generico", "generic": "generico", "generico": "generico",
-             "size_code": "sufijo", "sufijo": "sufijo"}
+    from app.modelos import AtributoVariante
+
+    # Cualquier atributo de variante va en su columna (por código o nombre): talla, color, sabor, envase…
+    atributos = list(db.scalars(select(AtributoVariante).where(AtributoVariante.activo.is_(True))))
+    de_atributo = {norm(x): (a.columna or f"atr.{a.codigo}") for a in atributos for x in (a.codigo, a.nombre)}
+    alias = {**de_atributo, **voc["alias"], "generic_code": "generico", "generic": "generico", "generico": "generico",
+             "product_code": "generico", "size_code": "sufijo", "variant_code": "sufijo", "sufijo": "sufijo"}
     gens = leer(nombre, contenido, alias, hoja="Generics", vacio_ok=True)
     tallas = leer(nombre, contenido, alias, hoja="Sizes", vacio_ok=True)
     # Marca, grupo y proveedor por código o nombre, escritos de cualquier forma
@@ -189,9 +194,8 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
         unidad = normalizar(f.get("unidad")) or (f.get("unidad") or "").strip().upper()
         if unidad not in de_articulo():
             faltan.append(f"Unit must be one of {', '.join(de_articulo())}")
-        estilo, color = (f.get("estilo") or "").strip().upper(), (f.get("color") or "").strip()
-        if not estilo or not color:
-            faltan.append("Style and color are required")
+        # Estilo y color son opcionales: los usa quien identifica así sus productos
+        estilo, color = (f.get("estilo") or "").strip().upper() or None, (f.get("color") or "").strip() or None
         if faltan:
             errores.append({"fila": f"Generics {f['_fila']}", "mensaje": "; ".join(faltan) + "."})
             continue
@@ -199,8 +203,9 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
         if p and not edita:
             errores.append({"fila": f"Generics {f['_fila']}", "mensaje": SIN_EDITAR})
             continue
-        if p and db.scalar(_articulos(db, gen).limit(1)) and (p.estilo != estilo or (p.color or "") != color or p.proveedor_id != ids["proveedor"]):
-            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"Generic {gen} already exists as {p.estilo} {p.color}."})
+        if p and db.scalar(_articulos(db, gen).limit(1)) and (p.estilo != estilo or p.color != color or p.proveedor_id != ids["proveedor"]):
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje":
+                            f"Product {gen} already has items with another supplier, style or color."})
             continue
         try:
             with db.begin_nested():
@@ -220,7 +225,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
                     errores.append({"fila": f"Generics {f['_fila']}", "mensaje": aviso})
                 productos[p.id] = p.estado
         except IntegrityError:
-            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"{estilo} {color} already exists with another generic."})
+            errores.append({"fila": f"Generics {f['_fila']}", "mensaje": f"Product {gen} could not be saved (duplicated data)."})
     cat = cat_svc.CATALOGOS["articulos"]
     tallas_creadas = tallas_act = 0
     for f in tallas:
@@ -230,18 +235,28 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
             gen = (db.scalar(select(Articulo.generico).where(Articulo.sku == sku)) or "")
         p = producto_por_generico(db, gen)
         talla = (f.get("talla") or "").strip().upper()
-        if not p or not talla:
-            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": f"Generic {gen or '(empty)'} does not exist or the size is empty."})
+        propios = {k[4:]: v.strip() for k, v in f.items() if k.startswith("atr.") and (v or "").strip()}
+        color_fila = (f.get("color") or "").strip() or p.color if p else None
+        if not p or not (talla or propios or sku or color_fila):
+            errores.append({"fila": f"Sizes {f['_fila']}", "mensaje":
+                            f"Product {gen or '(empty)'} does not exist or the row has no variant values."})
             continue
         suf = (f.get("sufijo") or "").strip().upper()
         if sku and not codigo_valido(sku):
             errores.append({"fila": f"Sizes {f['_fila']}", "mensaje": f"Item code: {MSG_CODIGO}"})
             continue
-        existente = (db.scalar(select(Articulo).where(Articulo.sku == (sku or gen + suf))) if sku or suf else None) or db.scalar(
-            _articulos(db, gen).where(Articulo.tipo == "SOLIDO", Articulo.talla == talla))
-        datos = {"sku": existente.sku if existente else sku or gen + (suf or siguiente_sufijo(db, gen, talla=talla)), "generico": gen,
-                 "estilo": p.estilo, "color": p.color, "talla": talla, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
-                 "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or "UN"}
+        valores = {k: v for k, v in {"talla": talla or None, "color": color_fila}.items() if v}
+        buscados = {**valores, **propios}
+        existente = (db.scalar(select(Articulo).where(Articulo.sku == (sku or gen + suf))) if sku or suf else None) or next(
+            (a for a in db.scalars(_articulos(db, gen).where(Articulo.tipo == "SOLIDO"))
+             if buscados and {k: str(v).upper() for k, v in {**{c: getattr(a, c) for c in ("talla", "color") if getattr(a, c)},
+                                                             **{k: v for k, v in a.variantes.items()
+                                                                if k in propios}}.items()}
+             == {k: str(v).upper() for k, v in buscados.items()}), None)
+        datos = {"sku": existente.sku if existente else sku or gen + (suf or siguiente_sufijo(db, gen, talla=talla or "")),
+                 "generico": gen, "estilo": p.estilo, "color": color_fila, "talla": talla or None, "marca_id": p.marca_id,
+                 "grupo_id": p.grupo_id, "proveedor_id": p.proveedor_id, "tipo": "SOLIDO", "unidad": p.unidad or de_articulo()[0],
+                 **{f"atr.{k}": v for k, v in propios.items()}}
         for k in ("upc", "sku_proveedor"):
             if f.get(k):
                 datos[k] = f[k].strip()

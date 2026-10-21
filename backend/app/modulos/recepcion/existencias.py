@@ -58,25 +58,28 @@ def _base(db: Session, user: Usuario, centro: str | None, q: str | None, proveed
 
 def existencias(db: Session, user: Usuario, centro: str | None = None, q: str | None = None,
                 proveedor_id: int | None = None) -> dict:
-    claves = (RecepcionRegistro.centro, FacturaLinea.almacen, FacturaLinea.codigo_articulo, FacturaLinea.talla,
+    # El código del artículo ya es la variante (de cualquier producto): las existencias van por artículo
+    claves = (RecepcionRegistro.centro, FacturaLinea.almacen, FacturaLinea.codigo_articulo,
               FacturaLinea.unidad, Proveedor.id, Proveedor.nombre)
     consulta = _base(db, user, centro, q, proveedor_id).add_columns(
-        *claves,
+        *claves, func.max(FacturaLinea.talla),
         func.max(FacturaLinea.descripcion), func.max(FacturaLinea.estilo), func.max(FacturaLinea.color),
         func.sum(RecepcionMovimiento.cantidad), func.sum(RecepcionMovimiento.danada),
         func.max(RecepcionRegistro.fecha), func.count(func.distinct(RecepcionRegistro.id)),
-    ).group_by(*claves).order_by(RecepcionRegistro.centro, FacturaLinea.codigo_articulo, FacturaLinea.talla)
+    ).group_by(*claves).order_by(RecepcionRegistro.centro, FacturaLinea.codigo_articulo)
     filas = db.execute(consulta.limit(MAX_FILAS + 1)).all()
+    variante = _variantes(db, {f[2] for f in filas[:MAX_FILAS]})
     nombres = dict(db.execute(select(Centro.codigo, Centro.nombre)).all())
     tipos = dict(db.execute(select(Centro.codigo, Centro.tipo)).all())
     items = []
-    for (c, almacen, codigo, talla, unidad, prov_id, prov, desc, estilo, color, recibido, danado, ultimo, ingresos) in filas[:MAX_FILAS]:
+    for (c, almacen, codigo, unidad, prov_id, prov, talla, desc, estilo, color, recibido, danado, ultimo, ingresos) in filas[:MAX_FILAS]:
         recibido, danado = cant(recibido or 0), cant(danado or 0)
         if not recibido and not danado:
             continue  # un ajuste dejó la fila en cero
         items.append({
             "centro": c, "centro_nombre": nombres.get(c), "centro_tipo": tipos.get(c), "almacen": almacen,
-            "codigo": codigo, "talla": talla, "descripcion": desc, "estilo": estilo, "color": color, "unidad": unidad,
+            "codigo": codigo, "talla": talla, "variante": variante.get(codigo), "descripcion": desc, "estilo": estilo,
+            "color": color, "unidad": unidad,
             "proveedor_id": prov_id, "proveedor": prov, "recibido": recibido, "danado": danado,
             "disponible": cant(recibido - danado), "ultimo_ingreso": ultimo, "ingresos": ingresos,
         })
@@ -89,6 +92,16 @@ def existencias(db: Session, user: Usuario, centro: str | None = None, q: str | 
         for k in ("recibido", "danado", "disponible"):
             u[k] = cant(u[k] + it[k])
     return {"items": items, "truncado": len(filas) > MAX_FILAS, "bodegas": list(bodegas.values())}
+
+
+def _variantes(db: Session, codigos: set[str]) -> dict[str, str]:
+    """El texto de la variante de cada artículo («BLACK · 9.5», «30 % · 1 L»)."""
+    from app.modelos import Articulo
+    from app.modulos.maestros import variantes
+
+    if not codigos:
+        return {}
+    return {a.sku: variantes.texto(variantes.de_articulo(db, a)) for a in db.scalars(select(Articulo).where(Articulo.sku.in_(codigos)))}
 
 
 def movimientos(db: Session, user: Usuario, centro: str, codigo: str, talla: str | None = None,
@@ -104,7 +117,7 @@ def movimientos(db: Session, user: Usuario, centro: str, codigo: str, talla: str
         .join(PackingList, PackingList.id == PLLinea.pl_id) \
         .where(FacturaLinea.codigo_articulo == codigo) \
         .order_by(RecepcionRegistro.fecha.desc(), RecepcionRegistro.id.desc())
-    consulta = consulta.where(FacturaLinea.talla == talla) if talla else consulta.where(FacturaLinea.talla.is_(None))
+    # `talla` queda por compatibilidad: el código del artículo ya distingue la variante
     if almacen:
         consulta = consulta.where(FacturaLinea.almacen == almacen)
     filas = db.execute(consulta.limit(500)).all()

@@ -42,6 +42,7 @@ from app.modulos.acceso.permisos import exigir_alguno, tiene
 from app.modulos.comun.historial import registrar, requerir_motivo
 from app.modulos.facturacion.cantidades import nombre_factura
 from app.modulos.maestros.unidades import error_cantidad
+from app.modulos.maestros.variantes import texto_linea as texto_variante
 from app.modulos.transporte.alcance import en_alcance
 
 VER = ("recepcion.registrar", "transporte.gestionar", "inventario.ver")
@@ -375,7 +376,7 @@ def detalle(db: Session, user: Usuario, unidad_id: int) -> dict:
         filas.append({
             "pl_linea_id": ln.id, "pl_id": ln.pl_id, "pl": ln.pl.numero, "factura_id": ln.pl.factura_id,
             "factura": nombre_factura(ln.pl.factura), "proveedor": ln.pl.factura.proveedor.nombre,
-            "oc": fl.oc_numero, "codigo": fl.codigo_articulo, "talla": fl.talla,
+            "oc": fl.oc_numero, "codigo": fl.codigo_articulo, "talla": fl.talla, "variante": texto_variante(fl.variante),
             "descripcion": fl.descripcion_comercial or fl.descripcion, "unidad": fl.unidad,
             "enviado": cant(ln.cantidad), "recibido": cant(r), "danado": cant(d),
             "pendiente": cant(max(float(ln.cantidad) - r, 0)), "diferencia": cant(r - float(ln.cantidad)),

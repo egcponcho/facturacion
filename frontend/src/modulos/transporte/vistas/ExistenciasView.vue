@@ -35,12 +35,12 @@ function buscar() {
   clearTimeout(espera)
   espera = setTimeout(cargar, 300)
 }
-const clave = (f) => `${f.centro}|${f.almacen || ''}|${f.codigo}|${f.talla || ''}|${f.unidad}|${f.proveedor_id}`
+const clave = (f) => `${f.centro}|${f.almacen || ''}|${f.codigo}|${f.unidad}|${f.proveedor_id}`
 async function abrir(f) {
   const k = clave(f)
   if (kardex[k]) return
   try {
-    kardex[k] = await api.get('/existencias/movimientos', { centro: f.centro, codigo: f.codigo, talla: f.talla || undefined, almacen: f.almacen || undefined })
+    kardex[k] = await api.get('/existencias/movimientos', { centro: f.centro, codigo: f.codigo, almacen: f.almacen || undefined })
   } catch (err) {
     errorApi(err)
   }
@@ -92,7 +92,7 @@ alCambiar(() => cargar(), ['/existencias'])
       <SelectBusqueda v-model="filtros.centro" :opciones="opcionesBodega" :vacio="t('All warehouses')" :etiqueta="t('Warehouse')" />
     </template>
     <template #celda-centro="{ fila: f }"><b class="codigo">{{ tx(f.centro) }}</b><span class="sub">{{ tx(f.centro_nombre || '') }}</span></template>
-    <template #celda-codigo="{ fila: f }"><span class="codigo">{{ tx(f.codigo) }}</span><template v-if="f.talla"> · {{ tx(f.talla) }}</template><span class="sub">{{ tx([f.estilo, f.color].filter(Boolean).join(' · ')) }}</span></template>
+    <template #celda-codigo="{ fila: f }"><span class="codigo">{{ tx(f.codigo) }}</span><template v-if="f.variante || f.talla"> · {{ tx(f.variante || f.talla) }}</template><span class="sub">{{ tx(f.estilo || f.descripcion) }}</span></template>
     <template #celda-recibido="{ fila: f }">{{ fmtCant(f.recibido) }}</template>
     <template #celda-danado="{ fila: f }"><span :class="{ 'texto-aviso': f.danado > 0 }">{{ fmtCant(f.danado) }}</span></template>
     <template #celda-disponible="{ fila: f }"><b>{{ fmtCant(f.disponible) }}</b></template>

@@ -213,6 +213,14 @@ def es_interno(user: Usuario) -> bool:
     return user.rol in INTERNOS
 
 
+def exigir_interno(user: Usuario, *permisos: str) -> None:
+    """Configuración: alguno de los permisos y ser del equipo interno. Un
+    proveedor no la ve aunque su rol tenga el permiso de ver (solo lo suyo)."""
+    exigir_alguno(user, *permisos)
+    if not es_interno(user):
+        raise ErrorNegocio("You do not have permission for this action.", 403, "sin_permiso")
+
+
 # ---- Alcance de los datos ---------------------------------------------------
 # Qué datos ve cada usuario (Usuarios y accesos → Usuario → Alcance):
 # - Un proveedor ve lo suyo y lo de los demás proveedores que representa

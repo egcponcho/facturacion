@@ -2,7 +2,7 @@
 import { t, tx } from '@/i18n/index.js'
 import { computed, reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
-import { plural } from '@/nucleo/utils'
+import { plural, textoVariante } from '@/nucleo/utils'
 import { errorApi } from '@/stores/ui'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import GenericoModal from './GenericoModal.vue'
@@ -44,7 +44,7 @@ const columnasTallas = [
   { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
   { clave: 'codigo_talla', texto: t('Size code'), prioridad: 3, valor: (a) => a.sku.slice(8) },
   { clave: 'tipo', texto: t('Type'), prioridad: 2, opciones: [['SOLIDO', t('Solid')], ['PREPACK', t('Prepack')]] },
-  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'upc', texto: 'UPC', prioridad: 3, textoValor: (v) => v || '—' },
   { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3, textoValor: (v) => v || '—' },
   { clave: 'activo', texto: t('Active'), prioridad: 2, opciones: [[true, t('Yes')], [false, t('No')]] },

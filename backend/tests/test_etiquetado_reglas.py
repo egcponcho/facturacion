@@ -174,7 +174,7 @@ def test_matriz_cobertura_y_producto(interno, tnf, caso):
     r = interno.get("/etiquetas/resumen", params={"origen": "OC", "id": caso["oc_id"]}).json()
     assert r["total"] >= 1 and any(t["tipo"]["id"] == caso["tipo"]["id"] for t in r["tipos"])
     # Un proveedor ve pero no cambia
-    assert tnf.get("/etiquetas/matriz").status_code in (200, 403)
+    assert tnf.get("/etiquetas/matriz").status_code == 403
     assert tnf.post("/etiquetas/usos", {"tipo_etiqueta_id": caso["tipo"]["id"], "plantilla_id": caso["d"]["general"]["id"],
                                         "nivel": "GENERAL"}).status_code == 403
 

@@ -19,9 +19,9 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '@/modulos/clasificacion/useClasificacion'
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modulos/clasificacion/formato.js'
-import { puede, sesion as sesionUsuario } from '@/stores/sesion'
+import { esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtFecha, fmtFechaHora } from '@/nucleo/utils'
+import { fmtFecha, fmtFechaHora, textoVariante } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 
 // Ficha técnica del producto (estilo-color) y su clasificación arancelaria.
@@ -39,7 +39,7 @@ const r = ref(null) // respuesta del motor
 const tocados = reactive(new Set())
 const filas = reactive({}) // filas de composición que se editan, por campo comp.*
 // ?vista=etiquetas abre la pestaña de etiquetas (enlaces desde el etiquetado)
-const pestana = ref(useRoute().query.vista === 'etiquetas' ? 'etiquetas' : 'ficha')
+const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : 'ficha')
 const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
 const calculando = ref(false)
@@ -581,13 +581,13 @@ const colCodigosVersion = [
 // Tallas (artículos) del genérico
 const codigoTalla = (a) => (a.sku.length === 11 ? a.sku.slice(8) : null)
 const descripcionArticulo = (a) => (p.value.descripcion_comercial
-  ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? t('prepack') : t('size')} ${a.talla}` : a.descripcion)
+  ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? `${t('pack')} ${a.talla}` : textoVariante(a)}` : a.descripcion)
 const colArticulos = [
   { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
   { clave: 'codigo_talla', texto: t('Size code'), prioridad: 3, valor: codigoTalla },
   { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3 },
   { clave: 'upc', texto: 'UPC', prioridad: 3 },
-  { clave: 'talla', texto: t('Size'), prioridad: 1 },
+  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
   { clave: 'descripcion', texto: t('Description'), prioridad: 3, valor: (a) => descripcionArticulo(a) },
   { clave: 'activo', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
@@ -702,7 +702,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
             <span class="cuenta">{{ tx(p.versiones.length + 1) }}</span></button>
-          <button v-if="puede('etiquetas.ver')" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
+          <button v-if="puede('etiquetas.ver') && esInterno()" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'historial'" @click="pestana = 'historial'"><Icono nombre="historial" :tam="16" />{{ t('History') }}</button>
         </div>
 
@@ -785,7 +785,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           </div>
           <div v-for="x in p.prepacks" :key="x.id" class="panel mt">
             <div class="panel-cabeza"><div><h2>{{ t('Prepack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per carton', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
-            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.talla) }} × {{ tx(c.cantidad) }}</span></div>
+            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.variante || c.talla || c.sku) }} × {{ tx(c.cantidad) }}</span></div>
           </div>
         </div>
 

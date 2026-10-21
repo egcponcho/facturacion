@@ -35,9 +35,13 @@ async function cargar() {
     cargando.value = false
   }
 }
+// Atributos de variante de la empresa: cada familia elige los que distinguen a sus variantes
+const atributos = ref([])
 onMounted(() => {
   cargar()
   api.get('/grupos-producto/campos').then((c) => (catalogo.value = c)).catch(() => {})
+  api.get('/catalogos/atributos_variante', { size: 200 }).then((r) => (atributos.value = (r.items || []).filter((a) => a.activo !== false)))
+    .catch(() => {})
 })
 alCambiar(cargar, ['/grupos-producto'])
 
@@ -77,10 +81,10 @@ const edicion = ref(null)
 const guardando = ref(false)
 function nuevo(clase = 'FAMILIA', padre = null) {
   edicion.value = reactive({ id: null, clase, codigo: '', nombre: '', descripcion: '', padre_id: padre?.id ?? '',
-    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], activa: true })
+    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], ejes_variante: [], activa: true })
 }
 function editar(g) {
-  edicion.value = reactive({ ...g, descripcion: g.descripcion || '', padre_id: g.padre_id ?? '',
+  edicion.value = reactive({ ...g, descripcion: g.descripcion || '', padre_id: g.padre_id ?? '', ejes_variante: [...(g.ejes_variante || [])],
     condiciones: (g.condiciones || []).map((c) => ({ ...c, valor: Array.isArray(c.valor) ? c.valor.join(', ') : c.valor })) })
 }
 // Una familia no puede quedar dentro de sí misma ni de una de sus subfamilias
@@ -100,7 +104,7 @@ async function guardar() {
   const e = edicion.value
   const cuerpo = { codigo: e.codigo, nombre: e.nombre, descripcion: e.descripcion || null,
     padre_id: e.padre_id === '' ? null : Number(e.padre_id), activa: e.activa,
-    ...(e.clase === 'CATEGORIA' ? { condiciones: condicionesLimpias(e.condiciones) } : {}) }
+    ...(e.clase === 'CATEGORIA' ? { condiciones: condicionesLimpias(e.condiciones) } : { ejes_variante: e.ejes_variante }) }
   guardando.value = true
   try {
     if (e.id) await api.patch(`/grupos-producto/${e.id}`, cuerpo)
@@ -195,6 +199,11 @@ async function quitar(g) {
           <option v-for="f in padresPosibles" :key="f.id" :value="f.id">{{ tx(f.ruta) }}</option>
         </Seleccion></label>
       <label class="campo"><span>{{ t('Description') }}</span><input v-model="edicion.descripcion" maxlength="300" /></label>
+      <div v-if="edicion.clase === 'FAMILIA'" class="campo"><span>{{ t('Variant attributes of its products') }}</span>
+        <div class="fila-flex gap-2 envolver">
+          <label v-for="a in atributos" :key="a.codigo" class="check"><input v-model="edicion.ejes_variante" type="checkbox" :value="a.codigo" /> {{ tx(a.nombre) }}</label>
+        </div>
+        <small class="ayuda">{{ t('What tells the variants of its products apart (e.g. color and size; flavor and presentation; concentration and container). Empty: the ones of the parent family, or all.') }}</small></div>
       <EditorCondiciones v-if="edicion.clase === 'CATEGORIA'" v-model="edicion.condiciones" :campos="catalogo.campos"
                          :operadores="catalogo.operadores" :titulo="t('Recognized when (all must be met; empty: only by hand)')" />
       <label class="check"><input v-model="edicion.activa" type="checkbox" /> {{ t('Active') }}</label>

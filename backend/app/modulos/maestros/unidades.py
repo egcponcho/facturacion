@@ -8,7 +8,7 @@ y proveedores (PR, PCS, KGS, LTS…).
 from app.core import listas
 from app.core.errores import ErrorNegocio
 
-# La caja de prepack: unidad de sistema, solo para prepacks (no para un sólido)
+# La caja de prepack de fábrica: la unidad de un compuesto si la empresa no marca otra
 PREPACK = "CJ"
 
 
@@ -16,9 +16,20 @@ def codigos() -> list[str]:
     return listas.codigos("unidad")
 
 
+def de_compuestos() -> list[str]:
+    """Unidades solo para packs y kits (atributo «compuesto» de la lista)."""
+    return [u["codigo"] for u in listas.valores("unidad") if u.get("compuesto")]
+
+
+def de_compuesto() -> str:
+    """La unidad con que se cuenta un compuesto por defecto: la primera solo para compuestos."""
+    return next(iter(de_compuestos()), PREPACK)
+
+
 def de_articulo() -> list[str]:
-    """Unidades de un artículo sólido."""
-    return [c for c in codigos() if c != PREPACK]
+    """Unidades de un artículo simple (las solo para compuestos no)."""
+    solo = set(de_compuestos())
+    return [c for c in codigos() if c not in solo]
 
 
 def _alias() -> dict[str, str]:
@@ -54,6 +65,24 @@ def contable(unidad: str | None) -> bool:
     """Lo que se cuenta va en enteros; lo que se mide admite hasta 3 decimales."""
     u = listas.valor("unidad", unidad or "UN")
     return bool(u.get("contable")) if u else True
+
+
+def a_base(cantidad: float, unidad: str | None) -> tuple[float, str | None]:
+    """La cantidad en la unidad base de su unidad (3 docenas → 36 UN). Una unidad
+    sin base es su propia base."""
+    u = listas.valor("unidad", normalizar(unidad) or unidad)
+    if u and u.get("base") and u.get("equivale"):
+        return round(float(cantidad) * float(u["equivale"]), 6), u["base"]
+    return float(cantidad), (u["codigo"] if u else unidad)
+
+
+def convertir(cantidad: float, de: str | None, a: str | None) -> float | None:
+    """La cantidad en otra unidad, si las dos llegan a la misma base (o None)."""
+    valor, base = a_base(cantidad, de)
+    uno, base_a = a_base(1, a)
+    if base is None or base != base_a or not uno:
+        return None
+    return round(valor / uno, 6)
 
 
 def error_cantidad(cantidad, unidad: str | None) -> str | None:

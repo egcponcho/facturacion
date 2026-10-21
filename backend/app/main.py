@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.routing import APIRoute
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
@@ -202,9 +203,21 @@ async def _error_negocio(_: Request, exc: ErrorNegocio):
 
 @app.exception_handler(IntegrityError)
 async def _error_integridad(_: Request, exc: IntegrityError):
+    texto = str(getattr(exc, "orig", exc)).lower()
+    if "foreign key" in texto:  # se quiso borrar o cambiar algo que otros registros usan (p. ej. etiquetas generadas)
+        return JSONResponse(status_code=409, content={
+            "mensaje": "Other records use this one (for example, labels already generated): it cannot be removed or changed.",
+            "codigo": "en_uso", "detalle": None})
     return JSONResponse(status_code=409, content={
-        "mensaje": "The value already exists or conflicts with another record (for example, a repeated invoice number).",
-        "codigo": "integridad", "detalle": None})
+        "mensaje": "The value already exists or conflicts with another record.", "codigo": "integridad", "detalle": None})
+
+
+@app.exception_handler(ValidationError)
+async def _error_modelo(_: Request, exc: ValidationError):
+    """Datos guardados que no cumplen su forma (un parámetro viejo, por ejemplo): 422 y no un error del servidor."""
+    detalle = [{"campo": ".".join(str(x) for x in e["loc"]), "mensaje": e["msg"]} for e in exc.errors()]
+    return JSONResponse(status_code=422, content={
+        "mensaje": "Check the data you sent.", "codigo": "datos_invalidos", "detalle": detalle})
 
 
 @app.exception_handler(RequestValidationError)

@@ -95,4 +95,30 @@ def validar(db: Session, final: dict, actual, limpio: dict, lista: str | None = 
         errores.append({"campo": "factor", "mensaje": "Chargeable weight needs the volumetric factor (kg per m³)."})
     if lista == "modalidad_transporte" and not final.get("padre"):
         errores.append({"campo": "padre", "mensaje": "Choose the transport mode of this modality."})
+    if lista == "unidad":
+        errores += _validar_base(db, final, actual)
     return errores
+
+
+def _validar_base(db: Session, final: dict, actual) -> list[dict]:
+    """Una unidad convierte a una base de un solo paso: la base no convierte a otra
+    (así cualquier cantidad pasa a su base con una multiplicación)."""
+    base, equivale = final.get("base") or None, final.get("equivale")
+    codigo = final.get("codigo") or (actual.codigo if actual else None)
+    if (base is None) != (equivale is None):
+        return [{"campo": "equivale" if base else "base",
+                 "mensaje": "Write both the base unit and how many of it one equals, or neither."}]
+    if base is None:
+        return []
+    if equivale <= 0:
+        return [{"campo": "equivale", "mensaje": "The equivalence must be greater than zero."}]
+    if base == codigo:
+        return [{"campo": "base", "mensaje": "A unit cannot convert to itself."}]
+    otra = db.scalar(select(UnidadMedida).where(UnidadMedida.codigo == base))
+    if otra is None:
+        return [{"campo": "base", "mensaje": "The base unit is not in the list."}]
+    if otra.base:
+        return [{"campo": "base", "mensaje": f"{base} converts to {otra.base}: choose {otra.base} as the base."}]
+    if codigo and db.scalar(select(UnidadMedida.id).where(UnidadMedida.base == codigo).limit(1)):
+        return [{"campo": "base", "mensaje": "Other units convert to this one: it is a base unit."}]
+    return []

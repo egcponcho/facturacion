@@ -172,7 +172,7 @@ const etiquetaCampo = (n) => campos.value.find((c) => c.nombre === n)?.etiqueta 
 const viendo = ref(null) // { fila, historial }
 const camposVista = computed(() => porSeccion(campos.value.filter((c) => !c.mostrar_si || c.mostrar_si.valores.includes(viendo.value?.fila?.[c.mostrar_si.campo]))))
 async function ver(fila) {
-  viendo.value = { fila, historial: null }
+  viendo.value = { fila, historial: null, versiones: null }
   try {
     const h = await api.get(`/catalogos/${tipo.value}/${fila.id}/historial`)
     if (viendo.value?.fila === fila) viendo.value.historial = h
@@ -180,7 +180,19 @@ async function ver(fila) {
     errorApi(e)
     if (viendo.value) viendo.value.historial = []
   }
+  // Un artículo muestra también sus versiones: cómo era cuando cada OC o factura lo usó
+  if (tipo.value === 'articulos') {
+    try {
+      const v = await api.get(`/catalogos/articulos/${fila.id}/versiones`)
+      if (viendo.value?.fila === fila) viendo.value.versiones = v
+    } catch (e) {
+      errorApi(e)
+      if (viendo.value) viendo.value.versiones = []
+    }
+  }
 }
+const cambiosVersion = (v) => v.cambios.slice(0, 8).map((c) => `${c.campo}: ${valorTxt(c.antes)} → ${valorTxt(c.despues)}`).join(' · ')
+  + (v.cambios.length > 8 ? ` · +${v.cambios.length - 8}` : '')
 function editarDesdeVista() {
   const fila = viendo.value.fila
   viendo.value = null
@@ -411,15 +423,17 @@ async function cargarArchivo() {
 // La explosión solo se ve; nunca se modifica.
 const explosion = ref(null)
 const solidos = ref([])
-const nuevoPP = reactive({ tipo: 'CURVA', sku: '', codigo: '', estilo: '', color: '', descripcion: '', cantidades: {} })
+const nuevoPP = reactive({ tipo: 'CURVA', sku: '', codigo: '', estilo: '', generico: '', descripcion: '', cantidades: {} })
+// La variante de un artículo de la lista: talla, color y sus atributos propios (atr.*)
+const varTxt = (a) => [a.color, a.talla, ...Object.entries(a).filter(([k, v]) => k.startsWith('atr.') && v).map(([, v]) => v)].filter(Boolean).join(' · ')
 // Kit: artículos de cualquier estilo con su cantidad
 const kitItems = ref([])
 const kitElegido = ref('')
 const opcionesKit = computed(() => solidos.value.filter((a) => !kitItems.value.some((k) => k.articulo_id === a.id))
-  .map((a) => ({ valor: a.id, texto: `${a.sku} · ${a.estilo} ${a.color || ''} ${a.talla || ''}`.trim() })))
+  .map((a) => ({ valor: a.id, texto: [a.sku, a.estilo, varTxt(a)].filter(Boolean).join(' · ') })))
 watch(kitElegido, (id) => {
   const a = solidos.value.find((x) => x.id === id)
-  if (a) kitItems.value.push({ articulo_id: a.id, sku: a.sku, texto: `${a.estilo} ${a.color || ''} ${a.talla || ''}`.trim(), cantidad: 1 })
+  if (a) kitItems.value.push({ articulo_id: a.id, sku: a.sku, texto: [a.estilo, varTxt(a)].filter(Boolean).join(' · ') || a.sku, cantidad: 1 })
   kitElegido.value = ''
 })
 const erroresPP = ref({})
@@ -430,16 +444,22 @@ async function cargarSolidos() {
     errorApi(e)
   }
 }
-const estilosPP = computed(() => [...new Set(solidos.value.map((a) => a.estilo))].sort())
-const coloresPP = computed(() => [...new Set(solidos.value.filter((a) => a.estilo === nuevoPP.estilo).map((a) => a.color))].sort())
-const tallasPP = computed(() => solidos.value.filter((a) => a.estilo === nuevoPP.estilo && a.color === nuevoPP.color))
+// Un pack lleva variantes de un mismo producto: se elige el producto y se reparten sus variantes
+const productosPP = computed(() => {
+  const vistos = new Map()
+  for (const a of solidos.value) {
+    if (a.generico && !vistos.has(a.generico)) vistos.set(a.generico, { valor: a.generico, texto: a.generico, sub: [a.estilo, a.descripcion].filter(Boolean).join(' · ') })
+  }
+  return [...vistos.values()].sort((x, y) => x.texto.localeCompare(y.texto))
+})
+const tallasPP = computed(() => solidos.value.filter((a) => a.generico && a.generico === nuevoPP.generico))
 const totalPP = computed(() => nuevoPP.tipo === 'KIT'
   ? kitItems.value.reduce((t, k) => t + (Number(k.cantidad) || 0), 0)
   : tallasPP.value.reduce((t, a) => t + (Number(nuevoPP.cantidades[a.id]) || 0), 0))
-watch(() => [nuevoPP.estilo, nuevoPP.color], async () => {
+watch(() => nuevoPP.generico, async () => {
   nuevoPP.cantidades = {}
-  // El prepack lleva el genérico de sus sólidos; se propone genérico + código libre
-  const gen = tallasPP.value[0]?.generico
+  // El pack es del producto de sus variantes; se propone el código del producto + un código libre
+  const gen = nuevoPP.generico
   if (!gen) return
   try {
     const d = await api.get(`/catalogos/genericos/${encodeURIComponent(gen)}`)
@@ -456,8 +476,8 @@ async function crearPrepack() {
       ? kitItems.value.filter((k) => Number(k.cantidad) > 0).map((k) => ({ articulo_id: k.articulo_id, cantidad: Number(k.cantidad) }))
       : tallasPP.value.filter((a) => Number(nuevoPP.cantidades[a.id]) > 0)
         .map((a) => ({ articulo_id: a.id, cantidad: Number(nuevoPP.cantidades[a.id]) }))
-    const r = await api.post('/catalogos/prepacks', { ...nuevoPP, cantidades: undefined, componentes })
-    avisar(t('Prepack {0} created with item code {1} ({2} per carton).', [r.codigo, r.sku, r.total]))
+    const r = await api.post('/catalogos/prepacks', { ...nuevoPP, generico: undefined, cantidades: undefined, componentes })
+    avisar(t('Pack {0} created with item code {1} ({2} per unit).', [r.codigo, r.sku, r.total]))
     Object.assign(nuevoPP, { sku: '', codigo: '', descripcion: '', cantidades: {} })
     kitItems.value = []
     formAbierto.value = false
@@ -622,31 +642,26 @@ onMounted(async () => {
       <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
         <div class="campo"><span class="req">{{ t('Kind') }}</span>
           <div class="pestanas-pildora" role="radiogroup" :aria-label="t('Kind')">
-            <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'CURVA'" @click="nuevoPP.tipo = 'CURVA'">{{ t('Size assortment') }}</button>
+            <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'CURVA'" @click="nuevoPP.tipo = 'CURVA'">{{ t('Pack of variants') }}</button>
             <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'KIT'" @click="nuevoPP.tipo = 'KIT'">{{ t('Kit') }}</button>
           </div>
-          <small class="ayuda">{{ nuevoPP.tipo === 'KIT' ? t('A kit puts together items of any style (a set, a gift box).') : t('Sizes of one style and color per master carton.') }}</small>
+          <small class="ayuda">{{ nuevoPP.tipo === 'KIT' ? t('A kit puts together items of any products (a set, a gift box).') : t('Variants of one product (sizes, flavors, presentations…) per unit.') }}</small>
         </div>
         <label class="campo"><span class="req">{{ t('Item code') }}</span>
-          <input v-model="nuevoPP.sku" maxlength="40" :placeholder="t('Your item code for the prepack')" required />
+          <input v-model="nuevoPP.sku" maxlength="40" :placeholder="t('Your item code for the pack')" required />
           <small v-if="erroresPP.sku" class="nota error relleno-chico">{{ tx(erroresPP.sku) }}</small>
-          <small v-else class="ayuda">{{ t('Any code in your format. The prepack takes the generic of its solids; a code is proposed when you choose style and color.') }}</small>
+          <small v-else class="ayuda">{{ t('Any code in your format. A pack belongs to the product of its variants; a code is proposed when you choose the product.') }}</small>
         </label>
-        <label v-if="nuevoPP.tipo === 'KIT'" class="campo"><span class="req">{{ t('Kit style') }}</span>
-          <input class="mayus" v-model="nuevoPP.estilo" maxlength="40" required />
+        <label v-if="nuevoPP.tipo === 'KIT'" class="campo"><span>{{ t('Kit style / model') }}</span>
+          <input class="mayus" v-model="nuevoPP.estilo" maxlength="40" :placeholder="t('Optional')" />
         </label>
-        <template v-else>
-          <label class="campo"><span class="req">{{ t('Style') }}</span>
-            <SelectBusqueda v-model="nuevoPP.estilo" :opciones="estilosPP" requerido :etiqueta="t('Style')" />
-          </label>
-          <label class="campo"><span class="req">{{ t('Color') }}</span>
-            <SelectBusqueda v-model="nuevoPP.color" :opciones="coloresPP" requerido :etiqueta="t('Color')" :deshabilitado="!nuevoPP.estilo" />
-          </label>
-        </template>
-        <label class="campo"><span class="req">{{ t('Prepack ID (size)') }}</span>
+        <label v-else class="campo"><span class="req">{{ t('Product') }}</span>
+          <SelectBusqueda v-model="nuevoPP.generico" :opciones="productosPP" requerido :etiqueta="t('Product')" />
+        </label>
+        <label class="campo"><span class="req">{{ t('Pack ID') }}</span>
           <input class="mayus" v-model="nuevoPP.codigo" maxlength="10" placeholder="AB12" required />
           <small v-if="erroresPP.codigo" class="nota error relleno-chico">{{ tx(erroresPP.codigo) }}</small>
-          <small v-else class="ayuda">{{ t('Usually 2 letters and 2 digits. It is the size of the prepack item.') }}</small>
+          <small v-else class="ayuda">{{ t('Usually 2 letters and 2 digits. It tells the packs of a product apart.') }}</small>
         </label>
         <label class="campo"><span>{{ t('Description') }}</span><input v-model="nuevoPP.descripcion" /></label>
         <div v-if="nuevoPP.tipo === 'KIT'" class="campo">
@@ -668,23 +683,23 @@ onMounted(async () => {
           </div>
           <small v-if="erroresPP.componentes" class="nota error relleno-chico">{{ tx(erroresPP.componentes) }}</small>
         </div>
-        <div v-else-if="nuevoPP.estilo && nuevoPP.color" class="campo">
-          <span class="req">{{ t('Breakdown per master carton') }}<template v-if="tallasPP.length"> ({{ tx(tallasPP[0].unidad) }})</template></span>
+        <div v-else-if="nuevoPP.generico" class="campo">
+          <span class="req">{{ t('Contents per unit') }}<template v-if="tallasPP.length"> ({{ tx(tallasPP[0].unidad) }})</template></span>
           <div class="tabla-marco tabla-captura">
             <table class="tabla" v-tarjetas>
-              <thead><tr><th>{{ t('Size') }}</th><th>SKU</th><th class="num">{{ t('Qty') }}</th></tr></thead>
+              <thead><tr><th>{{ t('Variant') }}</th><th>SKU</th><th class="num">{{ t('Qty') }}</th></tr></thead>
               <tbody>
                 <tr v-for="a in tallasPP" :key="a.id">
-                  <td><b>{{ tx(a.talla) }}</b></td>
+                  <td><b>{{ tx(varTxt(a) || a.sku) }}</b></td>
                   <td class="codigo">{{ tx(a.sku) }}</td>
-                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num ancho-xs con-borde" type="number" min="0" :aria-label="t('Quantity size {0}', [a.talla])" /></td>
+                  <td class="num"><input v-model.number="nuevoPP.cantidades[a.id]" class="celda num ancho-xs con-borde" type="number" min="0" :aria-label="t('Quantity of {0}', [varTxt(a) || a.sku])" /></td>
                 </tr>
               </tbody>
-              <tfoot><tr><td colspan="2">{{ t('Total per carton') }}</td><td class="num">{{ tx(totalPP) }}</td></tr></tfoot>
+              <tfoot><tr><td colspan="2">{{ t('Total per unit') }}</td><td class="num">{{ tx(totalPP) }}</td></tr></tfoot>
             </table>
           </div>
           <small v-if="erroresPP.componentes" class="nota error relleno-chico">{{ tx(erroresPP.componentes) }}</small>
-          <small v-else class="ayuda">{{ t('Only solids of {0} {1}. Leave at 0 the sizes it does not carry. Once created it never changes.', [nuevoPP.estilo, nuevoPP.color]) }}</small>
+          <small v-else class="ayuda">{{ t('Only variants of product {0}. Leave at 0 the ones it does not carry. Once created it never changes.', [nuevoPP.generico]) }}</small>
         </div>
         <p class="leyenda-req">{{ t('Required') }}</p>
         <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ nuevoPP.tipo === 'KIT' ? t('Create kit') : t('Create prepack') }}</button>
@@ -745,6 +760,23 @@ onMounted(async () => {
           <div><b>{{ tx(ACCIONES[h.accion] || h.accion) }}</b><div v-if="cambiosTxt(h)" class="ayuda">{{ tx(cambiosTxt(h)) }}</div></div>
         </li>
         <li v-if="!viendo.historial.length"><span></span><span class="ayuda">{{ t('No changes recorded.') }}</span></li>
+      </ul>
+    </section>
+    <section v-if="tipo === 'articulos'" class="vista-seccion">
+      <h3>{{ t('Versions used by documents') }}</h3>
+      <p class="ayuda">{{ t('Each PO and invoice line keeps the version of the item it used: changing the item does not change old documents.') }}</p>
+      <p v-if="!viendo.versiones" class="ayuda">{{ t('Loading…') }}</p>
+      <ul v-else class="linea-tiempo">
+        <li v-for="v in viendo.versiones" :key="v.id">
+          <span class="ayuda">{{ fmtFechaHora(v.creada_en) }}</span>
+          <div>
+            <b>{{ t('Version {0}', [v.numero]) }}</b>
+            <span class="ayuda"> · {{ t('{0} PO lines · {1} invoice lines', [v.lineas_oc, v.lineas_factura]) }}</span>
+            <div v-if="v.migracion" class="ayuda">{{ t('Data of the item when versions started (older documents).') }}</div>
+            <div v-else-if="v.cambios.length" class="ayuda">{{ cambiosVersion(v) }}</div>
+          </div>
+        </li>
+        <li v-if="!viendo.versiones.length"><span></span><span class="ayuda">{{ t('No document uses this item yet.') }}</span></li>
       </ul>
     </section>
     <template #pie>

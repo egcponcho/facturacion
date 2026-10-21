@@ -38,6 +38,7 @@ from app.modulos.facturacion.cantidades import (
 from app.modulos.facturacion.estados import EDITABLE_PL, ESTADO_TXT
 from app.modulos.facturacion.facturas import cargar_factura
 from app.modulos.maestros.unidades import error_cantidad
+from app.modulos.maestros.variantes import texto_linea as texto_variante
 from app.modulos.recepcion.recepcion import de_pl as recepcion_de_pl
 from app.modulos.transporte.sugerencias import sugerir_unidades
 
@@ -198,7 +199,7 @@ def regla_empaque(fl) -> tuple[str, int | None]:
 
 
 def etiqueta_caja(g, pl: PackingList | None = None) -> dict:
-    """Estándar: una sola OC, estilo, color y talla. Consolidada: varias."""
+    """Estándar: una sola línea (una OC y un artículo). Consolidada: varias."""
     lineas = [x.factura_linea for x, _ in empaques.contenido(pl or g.pl, g)]
     ocs = sorted({fl.oc_numero for fl in lineas})
     destinos = sorted({fl.centro_destino for fl in lineas if fl.centro_destino})
@@ -1289,6 +1290,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "estilo": fl.estilo,
             "color": fl.color,
             "talla": fl.talla,
+            "variante": texto_variante(fl.variante),
             "descripcion": fl.descripcion,
             "unidad": fl.unidad,
             "peso_unitario": empaques.peso_linea(fl),
@@ -1330,7 +1332,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             fl = pll.factura_linea
             return {
                 "pl_linea_id": pll.id, "codigo_articulo": fl.codigo_articulo, "estilo": fl.estilo, "color": fl.color,
-                "talla": fl.talla, "unidad": fl.unidad, "cantidad_por_caja": n, "cantidad_total": n * g.num_cajas,
+                "talla": fl.talla, "variante": texto_variante(fl.variante), "unidad": fl.unidad, "cantidad_por_caja": n, "cantidad_total": n * g.num_cajas,
                 "peso_unitario": empaques.peso_linea(fl), "inner_pack": inner_de(fl),
                 "inner_packs_por_caja": (n // inner_de(fl) if inner_de(fl) else None),
             }
@@ -1424,5 +1426,3 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         # La recepción es del contenedor en el que viaja (docs/FLUJOS.md §3)
         "recepcion_unidad": recepcion_de_pl(db, user, pl),
     }
-
-

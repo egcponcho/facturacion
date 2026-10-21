@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.core import campos_propios
 from app.modelos import (
@@ -30,6 +30,7 @@ from app.modelos import (
     PLLinea,
     PosicionOC,
     Sociedad,
+    Usuario,
 )
 from app.modulos.etiquetado.datos_campos import EJEMPLO, ORIGEN
 
@@ -134,23 +135,23 @@ _FIJOS = [
     Campo("oc.proveedor_codigo", "Supplier code"),
     Campo("oc.proveedor", "Supplier"),
     Campo("oc.proveedor_razon_social", "Supplier legal name"),
-    Campo("oc.sociedad", "Company code"),
+    Campo("oc.sociedad", "Company code", dato="codigos_internos"),
     Campo("oc.sociedad_nombre", "Company"),
-    Campo("oc.centro_destino", "Destination plant code"),
+    Campo("oc.centro_destino", "Destination plant code", dato="codigos_internos"),
     Campo("oc.centro_destino_nombre", "Destination plant"),
-    Campo("oc.centro", "Plant code"),
+    Campo("oc.centro", "Plant code", dato="codigos_internos"),
     Campo("oc.puerto_despacho", "Port of loading"),
     Campo("oc.pais_origen", "Country of origin (PO)"),
     Campo("oc.incoterm", "Incoterm"),
     Campo("oc.fecha_xf", "Ship date (XF)", "fecha"),
-    Campo("oc.fecha_tienda", "In-store date", "fecha"),
+    Campo("oc.fecha_tienda", "In-store date", "fecha", dato="fechas_internas"),
     Campo("oc.condicion_pago", "Payment terms"),
     Campo("linea.posicion", "Line number"),
     Campo("linea.cantidad", "Quantity ordered", "numero"),
     Campo("linea.unidad", "Unit of measure (line)"),
     Campo("linea.precio", "Unit price", "numero", dato="precios"),
     Campo("linea.fecha_entrega", "Delivery date (line)", "fecha"),
-    Campo("linea.almacen", "Warehouse (line)"),
+    Campo("linea.almacen", "Warehouse (line)", dato="codigos_internos"),
     Campo("linea.casepack", "Units per case (casepack)", "numero"),
     Campo("linea.inner_pack", "Inner pack", "numero"),
     Campo("linea.prepack", "Prepack (line)"),
@@ -218,11 +219,47 @@ _FIJOS = [
 ]
 
 
+def defs_ficha(db: Session) -> dict[str, dict]:
+    """Atributos activos de la ficha técnica (clasificación): los de cualquier tipo de
+    producto, definidos con datos. Una vez por sesión."""
+    from app.modelos import AtributoDef
+
+    res = db.info.get("defs_ficha")
+    if res is None:
+        res = db.info["defs_ficha"] = {
+            a.codigo: {"etiqueta": a.etiqueta, "tipo": a.tipo_dato, "unidad": a.unidad,
+                       "opciones": {o.codigo: o.etiqueta for o in a.opciones}}
+            for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones))
+                                .where(AtributoDef.activo.is_(True)).order_by(AtributoDef.orden, AtributoDef.codigo))}
+    return res
+
+
+def texto_ficha(d: dict, v):
+    """El valor de un atributo de la ficha como se imprime: el nombre de la opción,
+    Sí/No, la lista de opciones o la composición; un número queda número."""
+    if v is None or v == "" or v == [] or v == {}:
+        return None
+    if d["tipo"] == "boolean":
+        return "Yes" if v else "No"
+    if d["tipo"] == "number":
+        return v
+    if isinstance(v, list):
+        return ", ".join(str(d["opciones"].get(x, x)) for x in v)
+    if isinstance(v, dict):
+        return "; ".join(f"{k.replace('_', ' ').capitalize()}: {x}" for k, x in v.items() if x not in (None, "")) or None
+    return d["opciones"].get(v, v)
+
+
 def _dinamicos(db: Session) -> list[Campo]:
-    """Atributos de variante propios de la empresa y campos propios de artículos y OC."""
-    res = [Campo(f"articulo.atributo.{a.codigo}", a.nombre, origen_propio=f"articulo_atributos.valor[{a.codigo}]")
+    """Atributos de variante propios de la empresa, atributos de la ficha técnica y
+    campos propios de artículos y OC."""
+    res = [Campo(f"articulo.atributo.{a.codigo}", a.nombre, "numero" if a.tipo == "numero" else "texto",
+                 origen_propio=f"articulo_atributos.valor[{a.codigo}]")
            for a in db.scalars(select(AtributoVariante).where(AtributoVariante.activo.is_(True), AtributoVariante.columna.is_(None))
                                .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
+    res += [Campo(f"producto.atributo.{k}", d["etiqueta"] + (f" ({d['unidad']})" if d["unidad"] else ""),
+                  "numero" if d["tipo"] == "number" else "texto", origen_propio=f"productos.ficha[{k}]")
+            for k, d in defs_ficha(db).items()]
     for entidad, grupo in (("articulos", "articulo"), ("ordenes", "oc")):
         for d in campos_propios.definiciones(entidad):
             tipo = {"numero": "numero", "fecha": "fecha"}.get(d.get("tipo"), "texto")
@@ -314,14 +351,21 @@ def guardar_personalizados(db: Session, user, cambios) -> dict[str, dict]:
     return limpio
 
 
-def ejemplos(db: Session, sujeto: str | None = None) -> dict:
-    """Valores para diseñar sin elegir un registro: los de un artículo real de la
-    empresa (el último con OC) sobre ejemplos neutros, así la vista previa se
-    parece a lo que se va a imprimir."""
+def ejemplos(db: Session, sujeto: str | None = None, user: Usuario | None = None) -> dict:
+    """Valores para diseñar sin elegir un registro: los de un artículo real (el
+    último con OC) sobre ejemplos neutros, así la vista previa se parece a lo que
+    se va a imprimir. Los reales son solo de los proveedores que el usuario ve;
+    sin usuario, solo los neutros."""
+    from app.modulos.acceso.permisos import proveedor_filtro
+
     res = {c.clave: c.ejemplo for c in catalogo(db, sujeto) if c.ejemplo is not None}
     res.update({c.clave: EJEMPLO[c.clave] for c in colecciones(sujeto) if c.clave in EJEMPLO})
-    if sujeto in (None, "ARTICULO", "BULTO"):
-        p = db.scalar(select(PosicionOC).where(PosicionOC.articulo_id.is_not(None)).order_by(PosicionOC.id.desc()).limit(1))
+    if user is not None and sujeto in (None, "ARTICULO", "BULTO"):
+        c = select(PosicionOC).join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id).where(PosicionOC.articulo_id.is_not(None))
+        prov = proveedor_filtro(user)
+        if prov is not None:
+            c = c.where(OrdenCompra.proveedor_id.in_(prov))
+        p = db.scalar(c.order_by(PosicionOC.id.desc()).limit(1))
         if p is not None:
             reales = {**valores_articulo(p.articulo), **valores_linea(p)}
             reales.update({k: v for k, v in valores_oc(db, p.oc).items() if k != "oc.lineas"})
@@ -376,6 +420,12 @@ def valores_articulo(a: Articulo) -> dict:
         v[f"articulo.atributo.{x.atributo.codigo}"] = x.valor
     for k, val in (a.extra or {}).items():
         v[f"articulo.extra.{k}"] = _txt(val)
+    db = object_session(a)
+    if p is not None and p.ficha and db is not None:
+        defs = defs_ficha(db)
+        for k, val in p.ficha.items():
+            if k in defs:
+                v[f"producto.atributo.{k}"] = texto_ficha(defs[k], val)
     return v
 
 

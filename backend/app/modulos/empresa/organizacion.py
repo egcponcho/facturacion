@@ -51,14 +51,16 @@ PREFERENCIAS = {"idioma": "es", "moneda": "USD", "zona_horaria": "UTC", "formato
 MARCA = {"color": "", "titulo": "", "ingreso_titulo": "", "ingreso_texto": "", "ingreso_ayuda": ""}
 # Documentos (PDF): tamaño del papel, declaraciones legales de la factura y de
 # la lista de empaque y si los reportes llevan el logo de la empresa.
-DOCUMENTOS = {"papel": "LETTER", "declaracion_factura": "", "declaracion_packing": "", "logo_en_reportes": True}
+DOCUMENTOS = {"papel": "LETTER", "declaracion_factura": "", "declaracion_packing": "", "logo_en_reportes": True,
+              # Datos del artículo en las líneas de factura y lista de empaque: variante, estilo, UPC, atributo.<código>
+              "columnas_linea": ",".join(("estilo", "variante"))}
 PAPELES = ("LETTER", "A4")
 # Textos propios: la empresa reemplaza cualquier texto del sistema (pantallas y
 # documentos) por su propia terminología, en cada idioma: {"es": {original: texto}}
 IDIOMAS_TEXTOS = ("es", "en")
 MAX_TEXTOS = 300
 LARGOS = {"titulo": 60, "ingreso_titulo": 120, "ingreso_texto": 300, "ingreso_ayuda": 160,
-          "declaracion_factura": 1000, "declaracion_packing": 1000}
+          "declaracion_factura": 1000, "declaracion_packing": 1000, "columnas_linea": 300}
 
 
 def _reglas_de(o: Organizacion) -> dict:
@@ -70,7 +72,8 @@ def atributos_variante(db: Session) -> list[dict]:
     """Atributos de variante propios y activos (los de sistema son columnas del artículo)."""
     from app.modelos import AtributoVariante
 
-    return [{"codigo": a.codigo, "nombre": a.nombre} for a in db.scalars(
+    return [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo or "texto", "opciones": a.opciones, "unidad": a.unidad}
+            for a in db.scalars(
         select(AtributoVariante).where(AtributoVariante.columna.is_(None), AtributoVariante.activo.is_(True))
         .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
 
@@ -250,6 +253,13 @@ def _validar_seccion(base: dict, valores: dict) -> dict:
                 raise ErrorNegocio("Enter the color as #RRGGBB, for example #3355E0.", 422, "validacion")
             if k == "papel" and v not in PAPELES:
                 raise ErrorNegocio(f"The paper size must be one of {', '.join(PAPELES)}.", 422, "validacion")
+            if k == "columnas_linea":
+                v = ",".join(x.strip() for x in v.split(",") if x.strip())
+                malos = [x for x in v.split(",") if x and x not in ("estilo", "variante", "upc")
+                         and not re.fullmatch(r"atributo\.[A-Z][A-Z0-9_]{0,19}", x)]
+                if malos:
+                    raise ErrorNegocio(f"{malos[0]} is not a line column (variante, estilo, upc or atributo.<code>).",
+                                       422, "validacion")
             if k in LARGOS and len(v) > LARGOS[k]:
                 raise ErrorNegocio(f"The text is too long ({LARGOS[k]} characters maximum).", 422, "validacion")
         limpio[k] = v

@@ -22,7 +22,7 @@ from app.modelos import (
     UsoDiseno,
     Usuario,
 )
-from app.modulos.acceso.permisos import exigir, exigir_alguno
+from app.modulos.acceso.permisos import exigir, exigir_alguno, exigir_interno
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.etiquetado import campos as svc_campos
@@ -76,7 +76,7 @@ def _conteos(db: Session) -> dict:
 
 
 def listar(db: Session, user: Usuario, activas: bool | None = None) -> list[dict]:
-    exigir_alguno(user, "etiquetas.ver", "etiquetas.familias")
+    exigir_interno(user, "etiquetas.ver", "etiquetas.familias")
     c = select(FamiliaEtiquetado).order_by(FamiliaEtiquetado.orden, FamiliaEtiquetado.nombre)
     if activas is not None:
         c = c.where(FamiliaEtiquetado.activa.is_(activas))

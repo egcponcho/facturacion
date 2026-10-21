@@ -13,6 +13,8 @@ siempre salen completos porque son documentos legales.
 La pantalla usa la misma lista (`/auth/me` → `datos_ocultos`) para quitar las
 columnas y los filtros de esos datos.
 """
+import functools
+from contextlib import contextmanager
 from contextvars import ContextVar
 
 from app.modelos import Usuario
@@ -68,7 +70,7 @@ DEFECTO_POR_TIPO = {"proveedor": ["fechas_internas", "liberaciones", "impuestos"
 # (catálogos, arancel, usuarios) no: ahí se administran esos datos.
 RUTAS = ("/api/ordenes", "/api/facturas", "/api/packing-lists", "/api/seguimiento", "/api/embarques",
          "/api/unidades", "/api/dashboard", "/api/buscar", "/api/productos", "/api/alertas", "/api/recoleccion",
-         "/api/tableros", "/api/reportes")
+         "/api/tableros", "/api/reportes", "/api/etiquetas")
 
 # Configuración que administra esos datos: quien la edita la ve completa;
 # quien solo la consulta (p. ej. un proveedor que revisa los requisitos de
@@ -119,6 +121,27 @@ def oculto(grupo: str) -> bool:
     return grupo in _ocultos.get()
 
 
+@contextmanager
+def completo():
+    """Lo impreso manda: dentro, los datos reservados se leen completos (una
+    etiqueta lleva el precio aunque quien la genera no lo vea en pantalla). La
+    respuesta se sigue filtrando al salir."""
+    marca = _ocultos.set(frozenset())
+    try:
+        yield
+    finally:
+        _ocultos.reset(marca)
+
+
+def con_datos_completos(f):
+    """Decorador de `completo` para lo que arma o dibuja lo que se imprime."""
+    @functools.wraps(f)
+    def envuelta(*args, **kwargs):
+        with completo():
+            return f(*args, **kwargs)
+    return envuelta
+
+
 def _claves() -> set[str]:
     return set().union(*(GRUPOS[g]["claves"] for g in _ocultos.get())) if _ocultos.get() else set()
 
@@ -129,7 +152,9 @@ def quitar(datos, claves: set[str] | None = None):
     if not claves:
         return datos
     if isinstance(datos, dict):
-        return {k: quitar(v, claves) for k, v in datos.items() if k not in claves}
+        # «linea.precio», «oc.fecha_tienda»: los campos con prefijo (valores de una etiqueta) también
+        return {k: quitar(v, claves) for k, v in datos.items()
+                if k not in claves and not (isinstance(k, str) and k.rsplit(".", 1)[-1] in claves)}
     if isinstance(datos, list):
         return [quitar(v, claves) for v in datos]
     return datos
