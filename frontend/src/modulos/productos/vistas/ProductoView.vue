@@ -239,7 +239,7 @@ async function cargar() {
     tomar(det)
   } catch (e) {
     errorApi(e)
-    if (e.status === 404) router.replace('/productos')
+    if (e.status === 404) router.replace('/productos/catalogo')
   }
 }
 
@@ -638,7 +638,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
 <template>
   <div v-if="p && ctx">
-    <router-link to="/productos" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Products') }}</router-link>
+    <router-link to="/productos/catalogo" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Catalog') }}</router-link>
     <AvisoEdicion :edicion="p.edicion" :pausado="edicion.pausado.value" entidad="producto" :id="Number(props.id)" @liberado="cargar" @continuar="edicion.continuar" />
 
     <section class="doc-cabeza">
@@ -695,7 +695,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         <div class="pestanas" role="tablist">
           <button class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
             <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />{{ t('Sizes and prepacks') }}
+          <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />{{ t('Variants and packs') }}
             <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
             <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
@@ -773,10 +773,10 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         <div v-else-if="pestana === 'tallas'">
           <div class="fila-flex mt-chico entre">
             <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(style-color) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
-            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add sizes') }}</button>
+            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add variants') }}</button>
           </div>
           <div class="mt-chico">
-            <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Sizes and prepacks')">
+            <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Variants and packs')">
               <template #celda-sku="{ fila: a }"><span class="fuerte">{{ tx(a.sku) }}</span><span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Prepack') }}</span></template>
               <template #celda-codigo_talla="{ fila: a }"><span class="apagado">{{ tx(codigoTalla(a) || '—') }}</span></template>
               <template #celda-descripcion="{ fila: a }"><span class="apagado">{{ tx(descripcionArticulo(a)) }}</span></template>

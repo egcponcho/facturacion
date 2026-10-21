@@ -80,7 +80,6 @@ onMounted(cargar)
   <div class="pagina-cabeza">
     <div>
       <div class="pestanas-pildora sub-mod">
-        <router-link to="/productos" class="pildora">{{ t('Products') }}</router-link>
         <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Product families') }}</span>
         <router-link v-if="puede('aranceles.ver')" to="/aranceles" class="pildora">{{ t('Tariff schedule') }}</router-link>
       </div>

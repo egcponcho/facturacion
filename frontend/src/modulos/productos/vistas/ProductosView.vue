@@ -104,7 +104,17 @@ const columnas = computed(() => [
 ])
 
 // Filtros de la pantalla que viajan con la lista, los valores de cada columna y la exportación
-const pantalla = () => ({ estado: filtros.estado, q: filtros.q, marca_id: filtros.marcas.join(','), proveedor_id: sesion.proveedorId || undefined })
+// Desde el resumen: ?familia=<id> muestra solo esa familia (y sus subfamilias)
+const familia = ref(route.query.familia ? String(route.query.familia) : '')
+const nombreFamilia = ref('')
+if (familia.value) api.get('/grupos-producto').then((l) => (nombreFamilia.value = (l || []).find((x) => String(x.id) === familia.value)?.nombre || '')).catch(() => {})
+function quitarFamilia() {
+  familia.value = ''
+  router.replace({ query: { ...route.query, familia: undefined } })
+  recargar()
+}
+const pantalla = () => ({ estado: filtros.estado, q: filtros.q, marca_id: filtros.marcas.join(','), proveedor_id: sesion.proveedorId || undefined,
+  familia: familia.value || undefined })
 const filtrosColumna = (c) => (c && Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined)
 const valores = (columna, buscar, otros) => api.get('/productos/valores', { columna, buscar, f: JSON.stringify(otros), ...pantalla() })
 
@@ -252,11 +262,6 @@ alCambiar(() => consultar(), ['/productos'])
 <template>
   <div class="pagina-cabeza">
     <div>
-      <div v-if="puede('aranceles.ver') || puede('clasificacion.ver')" class="pestanas-pildora sub-mod">
-        <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Products') }}</span>
-        <router-link v-if="puede('clasificacion.ver')" to="/familias" class="pildora">{{ t('Product families') }}</router-link>
-        <router-link v-if="puede('aranceles.ver')" to="/aranceles" class="pildora">{{ t('Tariff schedule') }}</router-link>
-      </div>
       <h1>{{ t('Products') }}</h1>
       <p v-if="interno">{{ t('Technical sheets and tariff classification. Approved HS codes flow to purchase orders and invoices for each destination country.') }}</p>
       <p v-else>{{ t('Complete the technical sheet of each product. Customs uses it to classify it; the approved code appears on your orders and invoices.') }}</p>
@@ -281,6 +286,8 @@ alCambiar(() => consultar(), ['/productos'])
     </template>
     <template #filtros>
       <Segmentos :model-value="filtros.estado" :opciones="VISTAS" :etiqueta="t('View')" @change="elegirVista" />
+      <button v-if="familia" type="button" class="chip-filtro" :aria-label="t('Remove filter {0}', [tx(nombreFamilia || familia)])" @click="quitarFamilia">
+        {{ t('Family: {0}', [tx(nombreFamilia || familia)]) }}<Icono nombre="cerrar" :tam="13" /></button>
     </template>
     <template v-if="opciones.marcas.length > 1 || filtros.marcas.length" #mas-filtros>
       <FiltroMulti v-model="filtros.marcas" :etiqueta="t('Brand')" :opciones="opcionesMarca" @change="recargar" />
@@ -360,4 +367,7 @@ alCambiar(() => consultar(), ['/productos'])
 .sub-mod .pildora { text-decoration: none; }
 .recortar { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .miniatura img { width: 100%; height: 100%; object-fit: cover; }
+.chip-filtro { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--acento-medio); background: var(--acento-claro); color: var(--acento-texto);
+  border-radius: 20px; padding: 4px 10px; font: inherit; font-size: 0.84rem; font-weight: 600; cursor: pointer; }
+.chip-filtro:hover { border-color: var(--acento); }
 </style>

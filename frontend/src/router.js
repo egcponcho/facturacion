@@ -17,10 +17,16 @@ const routes = [
   { path: '/facturas', component: () => import('@/modulos/facturacion/vistas/FacturasView.vue'), meta: { permiso: 'factura.ver' } },
   { path: '/facturas/:id', component: () => import('@/modulos/facturacion/vistas/FacturaView.vue'), props: true, meta: { permiso: 'factura.ver' } },
   { path: '/packing-lists/:id', component: () => import('@/modulos/empaque/vistas/PackingListView.vue'), props: true, meta: { permiso: ['factura.ver', 'recepcion.registrar'] } },
-  { path: '/productos', component: () => import('@/modulos/productos/vistas/ProductosView.vue'), meta: { permiso: 'producto.ver' } },
+  // Productos: un solo módulo (resumen, catálogo, nuevo producto, ficha y configuración). Los enlaces
+  // de antes a /productos?estado=… abren el catálogo con ese filtro.
+  { path: '/productos', component: () => import('@/modulos/productos/vistas/ResumenProductosView.vue'), meta: { permiso: 'producto.ver' },
+    beforeEnter: (to) => (Object.keys(to.query).length ? { path: '/productos/catalogo', query: to.query } : true) },
+  { path: '/productos/catalogo', component: () => import('@/modulos/productos/vistas/ProductosView.vue'), meta: { permiso: 'producto.ver' } },
+  { path: '/productos/nuevo', component: () => import('@/modulos/productos/vistas/NuevoProductoView.vue'), meta: { permiso: 'catalogos.crear' } },
+  { path: '/productos/configuracion', component: () => import('@/modulos/productos/vistas/ConfiguracionProductosView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/aranceles', component: () => import('@/modulos/clasificacion/vistas/ArancelesView.vue'), meta: { permiso: 'aranceles.ver' } },
   { path: '/familias', component: () => import('@/modulos/clasificacion/vistas/FamiliasView.vue'), meta: { permiso: 'clasificacion.ver' } },
-  { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
+  { path: '/productos/:id(\\d+)', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
   // Etiquetado: Imprimir (trabajos), Diseños y Configuración (qué diseño lleva cada cosa, tipos, familias, campos, historial).
   // Las direcciones con ?vista= de la pantalla anterior de 7 pestañas llevan a su lugar nuevo.
   { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/ImprimirView.vue'), meta: { permiso: 'etiquetas.ver' },

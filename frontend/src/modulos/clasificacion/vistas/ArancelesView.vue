@@ -409,7 +409,6 @@ onMounted(async () => {
   <div class="pagina-cabeza">
     <div>
       <div class="pestanas-pildora sub-mod">
-        <router-link to="/productos" class="pildora">{{ t('Products') }}</router-link>
         <router-link v-if="puede('clasificacion.ver')" to="/familias" class="pildora">{{ t('Product families') }}</router-link>
         <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Tariff schedule') }}</span>
       </div>

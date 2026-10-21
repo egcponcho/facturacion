@@ -454,6 +454,17 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--acento); width
 .panel-cabeza p { color: var(--tinta-3); font-size: 0.84rem; margin-top: 2px; }
 .panel-plano { box-shadow: none; }
 
+/* Barra del módulo (como en el ERP): apartados en pestañas y la acción principal a la derecha */
+.modulo-barra { display: flex; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--linea); margin: -6px 0 20px; }
+.modulo-barra .pestanas { margin: 0; border-bottom: 0; flex: 1; min-width: 0; }
+.modulo-barra .pestana { padding: 12px 14px; font-size: 0.94rem; text-decoration: none; }
+.modulo-barra .pestana[aria-current] { color: var(--acento-texto); border-bottom-color: var(--acento); }
+.modulo-barra-accion { padding-bottom: 8px; flex: none; }
+@media (max-width: 600px) {
+  .modulo-barra { flex-wrap: wrap-reverse; align-items: stretch; }
+  .modulo-barra-accion { width: 100%; padding: 0; }
+  .modulo-barra-accion .btn { width: 100%; justify-content: center; }
+}
 .pestanas { display: flex; gap: 2px; border-bottom: 1px solid var(--linea); margin: 20px 0 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .pestanas::-webkit-scrollbar { display: none; }
 .pestana { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; color: var(--tinta-3); font-weight: 600; font-size: 0.9rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; margin-bottom: -1px; }

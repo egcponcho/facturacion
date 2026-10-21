@@ -13,11 +13,11 @@ import EditorReglaLT from '@/modulos/maestros/componentes/EditorReglaLT.vue'
 import Icono from '@/componentes/Icono.vue'
 import Modal from '@/componentes/Modal.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
-import GenericoModal from '@/modulos/maestros/componentes/GenericoModal.vue'
 import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { avisar, errorApi } from '@/stores/ui'
 import { ACCIONES, fmtFecha, fmtFechaHora } from '@/nucleo/utils'
+import { catalogosHermanos } from '@/nucleo/modulos.js'
 
 // Un solo lugar para todos los datos maestros. Cada catálogo llega descrito
 // desde el servidor (campos, tipos, obligatorios, filtros) y esta vista dibuja
@@ -45,7 +45,6 @@ const erroresForm = ref({})
 const modal = ref(null)
 const ocupado = ref(false)
 const formAbierto = ref(false) // alta y edición en ventana emergente
-const genericoNuevo = ref(false)
 // Artículos: compacto por genérico (por defecto) o listado de todos los artículos
 const leerVista = () => { try { return localStorage.getItem('mant.vistaArticulos') } catch { return null } }
 const vista = ref(route.query.vista || leerVista() || 'compacta')
@@ -68,8 +67,12 @@ const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
 const acciones = computed(() => cat.value?.puede || {})
 // Catálogos de uso diario: a la vista; los de configuración, en «Más catálogos»
 const PRINCIPALES = ['articulos', 'prepacks', 'marcas', 'proveedores', 'grupos', 'centros']
-const principales = computed(() => catalogos.value.filter((c) => PRINCIPALES.includes(c.tipo)))
-const otros = computed(() => catalogos.value.filter((c) => !PRINCIPALES.includes(c.tipo)))
+// Cada módulo ve solo sus catálogos (nucleo/modulos.js): los de productos en
+// Productos, los de lugares y transportistas en Logística…
+const hermanos = computed(() => catalogosHermanos(tipo.value))
+const delModulo = computed(() => (hermanos.value ? catalogos.value.filter((c) => hermanos.value.includes(c.tipo)) : catalogos.value))
+const principales = computed(() => delModulo.value.filter((c) => PRINCIPALES.includes(c.tipo) || delModulo.value.length <= 6))
+const otros = computed(() => delModulo.value.filter((c) => !principales.value.includes(c)))
 const campos = computed(() => cat.value?.campos || [])
 // Un campo que solo aplica a algunos registros (mostrar_si) empieza visible si
 // aplica a lo filtrado en su columna base o, sin filtro, si algún registro de la página lo tiene
@@ -524,8 +527,8 @@ onMounted(async () => {
         <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
         <button v-if="cat && acciones.crear" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
       </MasOpciones>
-      <button v-if="tipo === 'articulos' && acciones.crear" class="btn btn-primario" :title="t('Generic (style-color) with its sizes')" @click="genericoNuevo = true"><Icono nombre="mas" />{{ t('New generic') }}</button>
-      <button v-else-if="cat && tipo !== 'articulos' && acciones.crear" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ tr('New {0}', [cat.singular]) }}</button>
+      <!-- Los artículos se crean con su producto: «Nuevo producto» en la barra del módulo -->
+      <button v-if="cat && tipo !== 'articulos' && acciones.crear" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ tr('New {0}', [cat.singular]) }}</button>
     </div>
   </div>
 
@@ -533,7 +536,7 @@ onMounted(async () => {
   <label class="selector-catalogo solo-movil">
     <span>{{ t('Catalog') }}</span>
     <Seleccion class="entrada" :value="tipo" @change="elegir">
-      <option v-for="c in catalogos" :key="c.tipo" :value="c.tipo">{{ tx(c.titulo) }} ({{ tx(c.total) }})</option>
+      <option v-for="c in delModulo" :key="c.tipo" :value="c.tipo">{{ tx(c.titulo) }} ({{ tx(c.total) }})</option>
     </Seleccion>
   </label>
   <!-- Los catálogos de uso diario como pestañas; el resto en una lista con búsqueda -->
@@ -543,7 +546,7 @@ onMounted(async () => {
         {{ tx(c.titulo) }}<span class="cuenta">{{ tx(c.total) }}</span>
       </button>
     </div>
-    <SelectBusqueda :model-value="otros.some((c) => c.tipo === tipo) ? tipo : ''" :opciones="otros.map((c) => ({ valor: c.tipo, texto: c.titulo, sub: String(c.total) }))"
+    <SelectBusqueda v-if="otros.length" :model-value="otros.some((c) => c.tipo === tipo) ? tipo : ''" :opciones="otros.map((c) => ({ valor: c.tipo, texto: c.titulo, sub: String(c.total) }))"
                     :vacio="t('More catalogs')" :etiqueta="t('Catalog')" :prefijo="false" :busqueda="true" class="selector-otros"
                     :class="{ activo: otros.some((c) => c.tipo === tipo) }" @update:model-value="(v) => v && elegir(v)" />
   </div>
@@ -829,7 +832,6 @@ onMounted(async () => {
     </template>
   </Modal>
 
-  <GenericoModal v-if="genericoNuevo" @cerrar="genericoNuevo = false" @listo="genericoNuevo = false; cargarMeta(); cargar()" />
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" @cerrar="explosion = null" />
 </template>
 
