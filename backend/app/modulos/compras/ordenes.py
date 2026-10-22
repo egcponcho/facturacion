@@ -987,7 +987,10 @@ def aplicar_importacion(db: Session, user: Usuario, imp: ImportacionOC, propia: 
         if not info["nueva"] and info["detalle"]:
             detalle["cambios"] = dict(list(info["detalle"].items())[:60])
         registrar(db, user, "orden", oc.id, "importada" if info["nueva"] else "actualizada", detalle)
-    resultado = {"resumen": _resumen(clasificadas), "aplicadas": aplicadas}
+    # Las OCs creadas o cambiadas: la capa de integración guarda su referencia externa
+    ocs = [{"id": i["oc"].id, "numero": i["oc"].numero, "proveedor": i["oc"].proveedor.codigo, "nueva": i["nueva"]}
+           for i in ocs_tocadas.values() if i["oc"].id is not None]
+    resultado = {"resumen": _resumen(clasificadas), "aplicadas": aplicadas, "ocs": ocs}
     imp.estado = "APLICADA"
     imp.resultado = resultado
     registrar(db, user, "importacion_oc", imp.id, "aplicar", resultado)

@@ -71,6 +71,7 @@ const routes = [
   { path: '/bienvenida', name: 'bienvenida', component: () => import('@/modulos/acceso/vistas/BienvenidaView.vue'), meta: { sinMarco: true } },
   { path: '/admin', component: () => import('@/modulos/acceso/vistas/AdminView.vue'), meta: { permiso: 'admin' } },
   { path: '/empresa', component: () => import('@/modulos/empresa/vistas/EmpresaView.vue'), meta: { permiso: 'admin' } },
+  { path: '/integraciones', component: () => import('@/modulos/integraciones/vistas/IntegracionesView.vue'), meta: { permiso: 'integraciones.ver' } },
   { path: '/plataforma', component: () => import('@/modulos/plataforma/vistas/OrganizacionesView.vue'), meta: { plataforma: true } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

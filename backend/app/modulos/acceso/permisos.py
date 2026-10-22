@@ -75,6 +75,11 @@ MODULOS = [
         ("seguimiento.ver", "See tracking and lead times", INTERNOS, True),
         ("alertas.ver", "See and resolve alerts", INTERNOS, False),
     ]),
+    ("Integrations", [
+        ("integraciones.ver", "See ERP integrations and their run log", {"admin"}, False),
+        ("integraciones.configurar", "Configure ERP integrations and their field mappings", {"admin"}, False),
+        ("integraciones.ejecutar", "Import and export data with an ERP integration", {"admin"}, False),
+    ]),
     ("Administration", [
         ("admin", "Users, roles and suppliers", {"admin"}, False),
     ]),

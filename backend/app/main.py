@@ -29,6 +29,7 @@ from app.modulos.empresa import api as empresa_api
 from app.modulos.etiquetado import api as etiquetado_api
 from app.modulos.facturacion import api as facturacion_api
 from app.modulos.grupos import api as grupos_api
+from app.modulos.integraciones import api as integraciones_api
 from app.modulos.maestros import api as maestros_api
 from app.modulos.maestros import api_listas as maestros_api_listas
 from app.modulos.plataforma import api as plataforma_api
@@ -233,7 +234,7 @@ RUTAS = (
     clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
     compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, recepcion_api, comun_api,
     seguimiento_api, transporte_api_leadtimes, empaque_api_plantillas, empaque_api_recetas, maestros_api_listas, plataforma_api, reportes_api,
-    etiquetado_api, grupos_api,
+    etiquetado_api, grupos_api, integraciones_api,
 )
 ETIQUETA_DE = {
     acceso_api: "Acceso", plataforma_api: "Plataforma", empresa_api: "Empresa",
@@ -244,6 +245,7 @@ ETIQUETA_DE = {
     productos_api: "Productos", productos_api_flujo: "Productos",
     clasificacion_api: "Clasificación arancelaria", clasificacion_api_conocimiento: "Clasificación arancelaria",
     seguimiento_api: "Seguimiento e indicadores", reportes_api: "Reportes", comun_api: "Común", etiquetado_api: "Etiquetado",
+    integraciones_api: "Integraciones",
 }
 
 

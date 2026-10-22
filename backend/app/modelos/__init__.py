@@ -88,6 +88,7 @@ from app.modelos.etiquetado import (
 )
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
 from app.modelos.grupos import GrupoCategoria, GrupoFamilia, GrupoProducto
+from app.modelos.integraciones import EjecucionIntegracion, Integracion, IntegracionMapeo, ReferenciaExterna
 from app.modelos.maestros import (
     AcuerdoComercial,
     Almacen,
@@ -279,4 +280,8 @@ __all__ = [
     "UnidadMedida",
     "Usuario",
     "VersionDataset",
+    "EjecucionIntegracion",
+    "Integracion",
+    "IntegracionMapeo",
+    "ReferenciaExterna",
 ]

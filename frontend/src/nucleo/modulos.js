@@ -84,6 +84,7 @@ export const MODULOS = () => [
     apartados: [
       { a: '/empresa', texto: t('Company'), permiso: 'admin', prefijos: ['/empresa'] },
       { a: '/admin', texto: t('Users and access'), permiso: 'admin', prefijos: ['/admin'] },
+      { a: '/integraciones', texto: t('Integrations'), permiso: 'integraciones.ver', prefijos: ['/integraciones'] },
       catalogo('configuracion', t('Countries'), 'paises'),
       { a: '/plataforma', texto: t('Organizations'), plataforma: true, prefijos: ['/plataforma'] },
     ],
