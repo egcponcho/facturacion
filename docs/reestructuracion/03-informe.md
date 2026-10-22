@@ -143,11 +143,10 @@ Se revisó en el navegador en escritorio (1400 px) y en celular (390 px), con us
 | Lint de la interfaz | `npx eslint src` | Sin errores |
 | Compilación | `npx vite build` | Correcta |
 | Idiomas | `pytest tests/test_i18n.py` y la extracción de claves | Pasa |
-| Suite completa del servidor (SQLite) | `pytest -q` | _ver abajo_ |
+| Suite completa del servidor (SQLite) | `pytest -q`. Las pruebas arrancan la aplicación, que aplica todas las migraciones hasta 0090; `test_integridad_bd` comprueba restricciones y llaves. | **Primera corrida:** 728 pasan, 1 falla, 4 omitidas. Falló `test_api_docs`: faltaba la etiqueta «Integraciones». **Tras corregirla:** 729 pasan, 0 fallan, 4 omitidas. **Corrida final, con la corrección del conteo de familias:** en curso al escribir esto; su resultado se agrega en el commit siguiente. |
 | Migraciones 0088, 0089 y 0090 | Subida, bajada y otra subida sobre la base de demostración | Correctas (pasos R3 a R5) |
-| Recorrido del navegador | `node e2e/recorrido.mjs` (4 usuarios × 2 anchos) | _ver abajo_ |
-
-_Los resultados de la suite completa y del recorrido se agregan en el commit de este informe, con las cifras exactas._
+| Recorrido del navegador | `node e2e/recorrido.mjs`: 4 usuarios × 2 anchos (1440 y 390 px), 59 a 63 pantallas cada uno | **Primera corrida:** 8 problemas, todos el mismo 403 de `/logistica/resumen` para los proveedores (apartado 11). **Tras corregirlo:** las 8 combinaciones sin problemas. |
+| Etiquetado en el navegador | `node e2e/etiquetado.mjs` | **Sobre la base demo usada antes:** 3 fallas, por una familia `E2EWIZ` que dejó una corrida anterior. **Sobre una base demo nueva:** 42 de 43 bien. Falló «al terminar se crea la familia con lo elegido» por el conteo de productos (apartado 11). **Tras corregirlo:** 43 de 43, sin fallas. |
 
 **PostgreSQL.** No se ejecutó en esta etapa porque no hay un servidor PostgreSQL en el entorno. Las políticas RLS de 0090 se escribieron con el mismo helper (`instalacion.esquema.rls`) que ya cubren las pruebas de aislamiento de las migraciones anteriores, pero **no se probaron sobre PostgreSQL**.
 
@@ -155,6 +154,7 @@ _Los resultados de la suite completa y del recorrido se agregan en el commit de 
 
 | Error | Causa | Corrección |
 |---|---|---|
+| La familia de etiquetado mostraba **0 productos** aunque tuviera productos asignados, o 1 en una familia cualquiera. Error previo a esta etapa: era la falla del asistente de familias reportada en la sesión anterior. | `Producto.familia_etiquetado_id` es una subconsulta, porque sale del grupo de producto. El conteo no tenía `FROM productos` y contaba una sola fila. | Se agregó `select_from(Producto)` en `etiquetado/familias._conteos`. Hay una prueba de regresión en `test_etiquetado_familias.py`: falla sin la corrección y pasa con ella. |
 | El proveedor podía abrir `/logistica/resumen` por su dirección y recibía un 403 de la API. El recorrido lo detectó 8 veces: tnf y vans, en dos anchos. | Las rutas de resumen de R6 no tenían permiso de ruta. | Las rutas `/<módulo>/resumen` llevan el mismo permiso que su pestaña. |
 | La prueba `test_ficha_aprobacion_y_documentos` fallaba. | En R3 la hoja «Sizes» del Excel de la ficha pasó a llamarse «Variants», y la prueba no se actualizó. | Se actualizó la prueba. Al probar R3 solo se corrieron las pruebas de documentos; por eso no se vio antes. |
 | Se subió un commit con la prueba de idiomas fallando. | La traducción de «packs» era igual a la clave, y `tail` ocultaba el código de salida. | Se corrigió en `99e3b83`. Desde entonces, cada commit pasa por una verificación estricta (`set -euo pipefail`). |
@@ -179,7 +179,7 @@ Hasta que decidas, no se construye nada encima de esas estructuras. Las tablas d
 - **G-07 y D-02.** Retirar las columnas fijas `estilo`, `color` y `talla`. Hay que hacerlo en otra migración, cuando ninguna lectura las use. Antes hay que revisar las importaciones de OC y los reportes guardados.
 - **Integración.** Faltan más entidades (recepciones, maestros, embarques), una conexión directa por API y una ejecución programada.
 - **Infraestructura.** Las dependencias no tienen versión fija (`requirements.txt` usa `>=`), no hay integración continua y faltan las pruebas sobre PostgreSQL de esta etapa.
-- **Etiquetado.** La prueba de navegador del asistente de etiquetas falló en la sesión anterior: el asistente asignaba el artículo en vez del producto. Su estado actual está en el apartado 10.
+- **Pruebas de navegador.** Comparten la base demo y dependen de su estado. Una corrida que se corta a la mitad deja datos (la familia `E2EWIZ`) que hacen fallar la siguiente. Conviene que cada corrida empiece desde una base nueva.
 
 **Riesgos:**
 
