@@ -206,6 +206,9 @@ def test_asistente_de_familia_se_termina_de_una_vez_o_no_cambia_nada(interno, ad
     assert r.status_code == 200, r.text
     fam = r.json()["familia"]
     assert fam["codigo"] == "WIZ" and r.json()["hecho"]["productos"] == 1 and r.json()["hecho"]["disenos"] == 1
+    # La familia cuenta su producto (el conteo recorre los productos, no una sola fila)
+    assert fam["productos"] == 1
+    assert next(f for f in interno.get("/etiquetas/familias").json() if f["id"] == fam["id"])["productos"] == 1
     celda = interno.get("/etiquetas/celda", params={"tipo": t["id"], "nivel": "FAMILIA", "destino_id": fam["id"]}).json()
     assert celda["normal"]["plantilla_id"] == p["id"]
     # Volver a terminar con lo mismo no repite cambios; dejar el diseño vacío lo hereda

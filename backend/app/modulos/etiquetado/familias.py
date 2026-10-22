@@ -65,7 +65,9 @@ def _conteos(db: Session) -> dict:
     for fid, n in db.execute(select(GrupoArticulo.familia_etiquetado_id, func.count())
                              .where(GrupoArticulo.familia_etiquetado_id.is_not(None)).group_by(GrupoArticulo.familia_etiquetado_id)):
         res.setdefault(fid, {})["grupos"] = n
-    for fid, n in db.execute(select(Producto.familia_etiquetado_id, func.count())
+    # familia_etiquetado_id del producto es una subconsulta (sale de su grupo de producto): sin el FROM
+    # explícito, la consulta no recorre los productos y cuenta una sola fila
+    for fid, n in db.execute(select(Producto.familia_etiquetado_id, func.count()).select_from(Producto)
                              .where(Producto.familia_etiquetado_id.is_not(None)).group_by(Producto.familia_etiquetado_id)):
         res.setdefault(fid, {})["productos"] = n
     for fid, n in db.execute(select(UsoDiseno.grupo_id, func.count()).where(UsoDiseno.nivel == "FAMILIA",
