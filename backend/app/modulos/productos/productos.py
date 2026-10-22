@@ -67,8 +67,6 @@ def destinos(db: Session) -> list[dict]:
              "base_legal": x.base_legal} for x in filas]
 
 
-def digitos_pais(db: Session) -> dict:
-    return {d["iso"]: d["digitos"] for d in destinos(db)}
 # Borrador (incompleto o completo) → enviado a revisión → aprobado o devuelto.
 # Mientras es borrador, lo edita cualquiera con permiso; enviado queda
 # cerrado para el proveedor hasta que se apruebe o se devuelva.
@@ -547,11 +545,6 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
     if not flujo.ve_sugerencia(db, user) and not p.aprobado:
         flujo.ocultar_resumen(r)
     return r
-
-
-def _inciso_ctx(x: IncisoNacional) -> dict:
-    return {"id": x.id, "pais": x.pais, "codigo": x.codigo, "cond": x.cond or {}, "prio": x.prio,
-            "dai": "" if x.dai is None else x.dai, "descripcion": x.descripcion, "nota": x.nota, "fuente": x.fuente}
 
 
 def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dict:

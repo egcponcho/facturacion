@@ -569,7 +569,7 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: var(--td-fs); l
 .enlace-doc:hover, .enlace-doc:hover .codigo { text-decoration: underline; }
 .tabla td a:not(.btn):not(.enlace-doc) { text-decoration: none; }
 .tabla td a:not(.btn):not(.enlace-doc):hover { text-decoration: underline; }
-/* Botón «Columnas» y su menú (SelectorColumnas y TablaDatos) */
+/* Botón «Columnas» y su menú (TablaDatos) */
 .sel-columnas { position: relative; }
 .sel-columnas .cuenta { margin-inline-start: 4px; font-size: var(--t-xs); color: var(--tinta-3); font-weight: 600; }
 .sel-columnas-menu { position: absolute; z-index: 30; inset-inline-end: 0; top: calc(100% + 6px); min-width: 260px; max-height: 420px; overflow: auto;

@@ -27,15 +27,6 @@ ETAPAS = ("por_facturar", "sin_pl", "sin_caja", "empacado", "embarcado")
 ESTADOS_EN_CAMINO = ("PLANIFICADO", "EN_TRANSITO", "ARRIBADO")
 
 
-def _meses(n: int) -> list[str]:
-    hoy = date.today().replace(day=1)
-    res = []
-    for _ in range(n):
-        res.append(hoy.strftime("%Y-%m"))
-        hoy = (hoy - timedelta(days=1)).replace(day=1)
-    return list(reversed(res))
-
-
 def _flujo(db: Session, facturas: list[Factura], saldo: dict) -> dict:
     """Dónde está la mercancía, por unidad de medida: por facturar, facturada
     sin packing list, en PL sin caja, empacada y ya embarcada."""
@@ -90,10 +81,6 @@ def _cubetas(desde: date, hasta: date) -> tuple[str, list[tuple[date, date, str]
         out.append((max(d, desde), min(sig - timedelta(days=1), hasta), d.strftime(fmt)))
         d = sig
     return "mes", out
-
-
-def _fecha_factura(f: Factura) -> date | None:
-    return f.fecha or (f.finalizado_en.date() if f.finalizado_en else None)
 
 
 def _serie_facturado(fact: dict, moneda: str | None, desde: date, hasta: date) -> dict:

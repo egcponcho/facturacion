@@ -458,11 +458,6 @@ def problemas_version(v: VersionDataset | None) -> list[str]:
     return out
 
 
-def exigir_trazable(v: VersionDataset | None) -> None:
-    if p := problemas_version(v):
-        raise ErrorNegocio("Official data needs a traceable source: " + " ".join(p), 422, "fuente_no_trazable", [{"mensaje": x} for x in p])
-
-
 def verificar_fuente(db: Session, user: Usuario, fuente_id: int, datos: dict) -> dict:
     """Registra que alguien comparó la fuente con la publicación oficial: el
     documento o dataset exacto, el enlace y la fecha. Queda en la bitácora."""

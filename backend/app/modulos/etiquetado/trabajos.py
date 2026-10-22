@@ -727,11 +727,6 @@ def _renovar(db: Session, trabajo_id: int, ficha: str) -> bool:
     return r.rowcount == 1
 
 
-def _soltar(db: Session, trabajo_id: int, ficha: str) -> None:
-    db.execute(update(T).where(T.c.id == trabajo_id, T.c.ejecutor == ficha).values(ejecutor=None, arriendo_hasta=None))
-    db.commit()
-
-
 class _Latido:
     """Renueva el arriendo desde otro hilo mientras se dibuja una parte larga."""
 

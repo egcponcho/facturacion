@@ -19,15 +19,3 @@ def acuerdos_contexto(db: Session) -> list[dict]:
              "prueba": x.prueba, "nota": x.nota}
             for x in db.scalars(select(AcuerdoComercial).where(AcuerdoComercial.activo.is_(True))
                                 .order_by(AcuerdoComercial.codigo))]
-
-
-def acuerdos_para(db: Session, origen: str | None, destinos: list[str]) -> dict[str, list[dict]]:
-    """Por país destino, los acuerdos que cubren el origen dado."""
-    origen = (origen or "").upper()
-    res: dict[str, list[dict]] = {d: [] for d in destinos}
-    for a in acuerdos_contexto(db):
-        if origen in a["origenes"]:
-            for d in destinos:
-                if d in a["destinos"]:
-                    res[d].append(a)
-    return res

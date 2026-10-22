@@ -110,10 +110,6 @@ def oc_llegada_tarde(filas: list[dict]) -> set:
     return {f["oc_id"] for f in filas if f["riesgo"] == "ATRASO" and f["etapa"] != "RECIBIDO"}
 
 
-def oc_poca_holgura(filas: list[dict]) -> set:
-    return {f["oc_id"] for f in filas if f["riesgo"] == "JUSTO" and f["etapa"] != "RECIBIDO"}
-
-
 ETAPAS_SALDO = ("POR_FACTURAR", "PEND_LIBERACION")
 
 

@@ -185,12 +185,6 @@ class Estandares:
         return out
 
 
-def dias_post_arribo(est: dict) -> int:
-    """Días naturales que necesita la mercancía después del puerto para estar en tienda."""
-    hoy = date.today()
-    return (entre(hoy, est, "arribo", "tienda") - hoy).days
-
-
 def limite_puerto(fecha_tienda: date | None, est: dict) -> date | None:
     """Última fecha de arribo al puerto destino para llegar a tiempo a tienda."""
     return entre(fecha_tienda, est, "tienda", "arribo")

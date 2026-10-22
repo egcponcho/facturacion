@@ -111,7 +111,7 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     x = vans.get(f"/productos/{p['id']}/ficha", params={"formato": "xlsx", "version": 1})
     assert x.status_code == 200 and x.content[:2] == b"PK"
     wb = load_workbook(io.BytesIO(x.content))
-    assert {"Composition", "National codes", "Sizes"} <= set(wb.sheetnames)
+    assert {"Composition", "National codes", "Variants"} <= set(wb.sheetnames)
     assert vans.get(f"/productos/{p['id']}/ficha", params={"formato": "pdf"}).content[:4] == b"%PDF"
 
 
