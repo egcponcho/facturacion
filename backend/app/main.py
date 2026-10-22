@@ -136,6 +136,9 @@ ETIQUETAS = [
     {"name": "Etiquetado", "description": "Tipos de etiqueta, familias, diseños con versiones y aprobación, qué diseño "
                                           "lleva cada cosa, trabajos desde OC, artículos y listas de empaque, descargas e "
                                           "historial."},
+    {"name": "Integraciones", "description": "Sistemas externos (ERP u otros): adaptadores de formato, mapeos "
+                                             "versionados, entrada de OCs, salida de facturas, bitácora y "
+                                             "referencias externas (docs/INTEGRACIONES.md)."},
     {"name": "Común", "description": "Edición exclusiva de un registro y bitácora de auditoría."},
     {"name": "Sistema", "description": "Estado del servidor."},
 ]

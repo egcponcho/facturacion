@@ -84,13 +84,14 @@ Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `
 
 ## Menú por módulos
 
-El menú lateral tiene una sola entrada por módulo: **Inicio, Compras, Facturación, Logística, Productos, Etiquetas, Análisis y Configuración**. Cada módulo abre con una barra de pestañas con sus apartados y su acción principal (*Nueva OC*, *Producto nuevo*…), como en el ERP. Los catálogos de datos maestros ya no forman un módulo aparte: cada uno vive en el módulo que lo usa (proveedores en Compras; centros, almacenes, puertos, transportistas y lead times en Logística; artículos, marcas, atributos de variante, escalas, packs y kits en Productos…) y la pantalla de catálogos muestra solo los del módulo. La definición está en `frontend/src/nucleo/modulos.js`; el diseño (colores, tipografía Plus Jakarta Sans, espaciado) en `design-system/facturacion/MASTER.md`.
+El menú lateral tiene una sola entrada por módulo: **Inicio, Compras, Facturación, Logística, Productos, Etiquetas, Análisis y Configuración**. Cada módulo abre con una barra de pestañas con sus apartados y su acción principal (*Nueva OC*, *Producto nuevo*…), como en el ERP. Los catálogos de datos maestros ya no forman un módulo aparte: cada uno vive en el módulo que lo usa (proveedores en Compras; centros, almacenes, puertos, transportistas y lead times en Logística; artículos, marcas, atributos de variante, escalas, packs y kits en Productos…) y la pantalla de catálogos muestra solo los del módulo. Compras, Facturación y Logística abren en su **Resumen**: los indicadores del módulo con periodo, metas y tendencia (`/compras/resumen`, `/facturacion/resumen`, `/logistica/resumen`; los de Productos están en su propio resumen). Análisis queda para los cruces entre módulos y los reportes. **Configuración** abre en una portada con todo lo que se ajusta: la empresa, usuarios, roles, bitácora, países, integraciones y un acceso a la configuración de cada módulo, cada tarjeta con el permiso de su pantalla y cuántos registros tiene. La definición está en `frontend/src/nucleo/modulos.js`; el diseño (colores, tipografía Plus Jakarta Sans con una escala de nueve tamaños `--t-2xs` … `--t-3xl`, espaciado) en `design-system/facturacion/MASTER.md` y `docs/DISENO.md`.
 
 ### Módulo de Productos
 
 - **Resumen** (`/productos`): cuántos productos y variantes hay, en qué estado están, cómo se reparten por familia, qué falta completar (sin familia, sin variantes, variantes sin código de barras, los que bloquean facturas), lo último modificado y la puesta en marcha (proveedores y marcas → atributos de variante → familias → primer producto). Cada cifra abre el catálogo con ese filtro (`GET /api/productos/resumen`).
 - **Catálogo** (`/productos/catalogo`): la bandeja de productos con su ficha técnica y clasificación; acepta `?familia=<id>` (incluye sus subfamilias).
 - **Producto nuevo** (`/productos/nuevo`): asistente de cuatro pasos para cualquier tipo de producto — tipo (la familia, que define qué atributos distinguen sus variantes), datos generales, variantes (valores escritos, tramos como `7-10` o `S-XL`, escalas y combinaciones) y revisar. Guarda borrador en el servidor y al crear abre la página del producto para completar su ficha.
+- **Página del producto**: además de la ficha y sus variantes, la pestaña **Uso** muestra en qué OCs, facturas y embarques aparece (solo lo que el rol y el alcance del usuario permiten ver) y **Empaque**, las reglas de empaque que pueden aplicarle, en el orden en que compiten, y las recetas con que realmente se pidió.
 - **Clasificación** y **Configuración**: arancel y familias de clasificación; y la portada con todo lo que se configura una vez (familias, atributos de variante, escalas, packs y kits, artículos, marcas, grupos, listas, acuerdos y dominios), cada uno con cuántos registros tiene.
 
 ## Módulos y campos propios
@@ -336,9 +337,9 @@ Los lead times son reglas configurables con herencia por nivel geográfico (`bac
 
 Para el equipo interno: el rol de proveedor no lo incluye (se puede otorgar en su rol).
 
-Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, estilo, color, talla, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegada tardía y rangos de ETA, XF y fecha en tienda), cada uno descargable en **PDF o Excel**:
+Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, **un filtro por cada atributo de variante del catálogo** —talla y color en ropa, concentración o envase en químicos—, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegada tardía y rangos de ETA, XF y fecha en tienda), cada uno descargable en **PDF o Excel**:
 
-- **Órdenes de compra:** liberaciones, estado, avance, XF vencida y holgura frente a la fecha límite en puerto; cada OC se abre en su **detalle por SKU**.
+- **Órdenes de compra:** liberaciones (las opciones del filtro son los estados de liberación del catálogo, con los códigos que manda el ERP de la empresa), estado, avance, XF vencida y holgura frente a la fecha límite en puerto; cada OC se abre en su **detalle por SKU**.
 - **Embarques y unidades de carga:** una fila por embarque y documento de transporte, que se abre en unidades y en lo que lleva cada unidad por OC.
 - **Facturación y listas de empaque:** en qué paso está cada documento y qué falta.
 - **Lead times:** promedio de días de cada etapa **por país de origen** (OC creada → liberación comercial → liberación logística → producción y recolección → salida → tránsito al puerto de destino → puerto a bodega → ingreso a bodega), el porcentaje de liberaciones logísticas a tiempo frente a su meta antes de la XF, la recolección frente a la XF y la holgura en puerto. Cada OC se abre en sus **hitos**, cada uno con su meta, su fecha real o estimada y cuántos días de adelanto o atraso tiene. Filtros: periodo (OCs creadas; últimos 12 meses por defecto), origen, región y proveedor.
@@ -351,13 +352,17 @@ Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, estilo, color
 
 Cada factura y lista de empaque se descarga en **PDF** (lista para imprimir y firmar) o **Excel**, siguiendo los requisitos aduaneros centroamericanos (CAUCA/RECAUCA y DUCA):
 
-- **Partes:** exportador/vendedor, importador/facturar a (sociedad con NIT) y consignatario/notify party.
+- **Partes:** exportador/vendedor, importador/facturar a (sociedad con su identificación fiscal, rotulada como la llama su país: NIT, RTN, RUC, cédula jurídica…; se configura en el catálogo de países) y consignatario/notify party.
 - **Condiciones:** número y fecha, incoterm, moneda, condiciones de pago, países de origen y procedencia, transporte, puertos, transportista y BL/AWB, contenedores y marchamos. Los encabezados no listan órdenes de compra ni centros de destino (serían demasiado largos); **cada línea muestra su OC y línea**.
-- **Detalle:** OC y línea, código y UPC, descripción comercial, **partida arancelaria (SAC)**, origen, cantidad, unidad, precio y total. En la lista de empaque, por grupo de cajas: rango y número de cajas, contenido por caja, **inner packs**, medidas, pesos neto y bruto, m³, pallet y tipo de etiqueta.
+- **Detalle:** OC y línea, código y UPC, descripción comercial, **partida arancelaria** (con el nombre de la nomenclatura del país destino: SAC en Centroamérica, el que se configure en *Productos → Clasificación → Arancel* para otro país), origen, cantidad, unidad, precio y total. En la lista de empaque, por grupo de cajas: rango y número de cajas, contenido por caja, **inner packs**, medidas, pesos neto y bruto, m³, pallet y tipo de etiqueta.
 - **Totales:** cantidad por unidad, bultos, pesos, volumen, valor, **monto en letras** (“SAY: FOUR THOUSAND … US DOLLARS AND 00/100” en inglés, “SON: …” en español), marcas de embarque y la declaración firmada del exportador.
 - Hasta que se finaliza, el PDF lleva la marca de agua **BORRADOR · NO OFICIAL** (*DRAFT · NOT OFFICIAL* en inglés); cada página muestra “Página X de Y”.
 - Salen completos aunque el rol del usuario oculte datos: son documentos legales.
 - El idioma del documento es el que la persona eligió en su perfil (vea *Idiomas*).
+
+## Integraciones con ERP y otros sistemas
+
+*Configuración → Integraciones* conecta cualquier sistema que exporte o importe **CSV, Excel o JSON**: se elige el formato, se mapean los campos y códigos del sistema externo (con versiones) y se cargan órdenes de compra o se generan archivos de facturas finalizadas. Cada intercambio queda en una bitácora con su huella, para no aplicar dos veces el mismo contenido, y cada registro guarda su identificador externo. **No hay adaptadores propios de SAP, Oracle, Dynamics u Odoo ni conexión directa por API**: se conectan por archivo. Detalle y cómo agregar un adaptador en **[docs/INTEGRACIONES.md](docs/INTEGRACIONES.md)**.
 
 ## Reglas principales
 
@@ -501,7 +506,10 @@ backend/app/
     reportes/        generador de reportes: fuentes permitidas, ejecución, exportación y reportes guardados
     productos/       ficha técnica, flujo de clasificación y descripciones
     clasificacion/   arancel oficial, motor de clasificación, atributos, reglas, familias, conocimiento
-    documentos/      PDF y Excel (factura, lista de empaque, plantillas), montos en letras, idioma del documento
+    documentos/      PDF y Excel (factura, lista de empaque, plantillas), montos en letras, idioma del documento,
+                     nombres aduaneros por país (aduana.py)
+    integraciones/   capa de integración: adaptadores de formato, entidades, mapeos versionados, bitácora y
+                     referencias externas (el núcleo no la conoce)
   instalacion/       arranque de una instalación: migraciones.py, datos incluidos, primer administrador (inicial.py),
                      demostración (demo.py)
   i18n/              textos del servidor (claves.json) y su traducción al español (es.json)
@@ -513,14 +521,17 @@ frontend/src/
   main.js, App.vue, router.js, styles.css   arranque, marco de la aplicación, rutas y estilos
   nucleo/            cliente de la API (api.js), formatos (utils.js), búsqueda, unidades de medida, directivas
   componentes/       interfaz compartida: íconos, modales, tablas (paginación, orden, columnas), filtros, selectores,
-                     estados, gráficas SVG, barra de acciones en bloque, cargas de archivos, búsqueda global
-  composables/       tablas, columnas por usuario, edición exclusiva, rutas
+                     estados, gráficas SVG, barra de acciones en bloque, cargas de archivos, búsqueda global,
+                     portada de configuración (tarjetas)
+  composables/       edición exclusiva, rutas
   stores/            sesión, selección para facturar, preferencias, tema, avisos
   i18n/              es.json, glosario.json y claves.json
   modulos/<dominio>/ vistas/ (pantallas) y componentes/ propios de cada dominio:
     plataforma/      organizaciones de la instalación
     acceso/          ingreso, bienvenida, Mi perfil, Usuarios y accesos (con la bitácora)
     empresa/         Configuración → Empresa
+    configuracion/   portada de Configuración
+    integraciones/   Configuración → Integraciones
     inicio/          tablero de inicio
     compras/         órdenes de compra y su carga
     facturacion/     facturas

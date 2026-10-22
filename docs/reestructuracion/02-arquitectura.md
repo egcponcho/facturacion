@@ -119,7 +119,7 @@ Según tu regla, cuando un cambio exige migrar datos existentes, primero van las
 
 Se conserva la base del ERP aplicada en `ca63bb7`: paleta azul petróleo y marino, Plus Jakarta Sans y tokens en `styles.css`. Se completa con:
 
-- **Escala tipográfica:** tokens `--texto-xs` (12), `--texto-sm` (13), `--texto-base` (14), `--texto-md` (16), `--texto-lg` (20) y `--texto-xl` (28). Se reemplazan los tamaños escritos a mano (U-01).
+- **Escala tipográfica:** nueve pasos sobre la base de 14 px, de `--t-2xs` (≈10 px, insignias) a `--t-3xl` (≈29 px, cifra principal), que extienden los seis tokens `--t-*` que ya existían. Se reemplazan los tamaños escritos a mano (U-01).
 - **Colores fuera de tokens** pasan a tokens semánticos (U-02).
 - **Patrón de módulo:** barra de módulo con su acción principal, luego Resumen, luego lista con filtros, luego ficha con pestañas y acciones en contexto. La ficha del producto agrega «Uso» (dónde se usa) y «Empaque» (M-03).
 - **Paneles laterales** en lugar de ventanas emergentes largas en los documentos (U-03), por etapas y empezando por la lista de empaque.

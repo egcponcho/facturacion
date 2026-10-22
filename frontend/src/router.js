@@ -66,8 +66,9 @@ const routes = [
   { path: '/leadtimes', component: () => import('@/modulos/transporte/vistas/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/reportes', component: () => import('@/modulos/seguimiento/vistas/ReportesView.vue') },
   // El resumen de cada módulo es su tablero de indicadores; Análisis conserva el general y el de productos
-  ...['compras', 'facturacion', 'logistica'].flatMap((m) => [
-    { path: `/${m}/resumen`, component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: { modulo: m, incrustado: true } },
+  // (con el mismo permiso que su pestaña en nucleo/modulos.js: sin él, el servidor respondería 403)
+  ...Object.entries({ compras: 'oc.ver', facturacion: 'factura.ver', logistica: ['transporte.gestionar', 'seguimiento.ver'] }).flatMap(([m, permiso]) => [
+    { path: `/${m}/resumen`, component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: { modulo: m, incrustado: true }, meta: { permiso } },
     { path: `/tableros/${m}`, redirect: (to) => ({ path: `/${m}/resumen`, query: to.query }) },
   ]),
   { path: '/tableros/:modulo?', component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: true },
