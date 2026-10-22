@@ -28,6 +28,8 @@ export const MODULOS = () => [
   {
     clave: 'compras', texto: t('Purchasing'), icono: 'ordenes',
     apartados: [
+      // Cada módulo abre en su resumen: los indicadores del módulo (seguimiento/indicadores.py)
+      { a: '/compras/resumen', texto: t('Summary'), permiso: 'oc.ver', exacto: true },
       { a: '/ordenes', texto: t('Purchase orders'), permiso: 'oc.ver', prefijos: ['/ordenes'] },
       { a: '/importar', texto: t('Load purchase orders'), permiso: 'oc.importar', prefijos: ['/importar'] },
       catalogo('compras', t('Suppliers and companies'), 'proveedores'),
@@ -37,6 +39,7 @@ export const MODULOS = () => [
   {
     clave: 'facturacion', texto: t('Invoicing'), icono: 'factura',
     apartados: [
+      { a: '/facturacion/resumen', texto: t('Summary'), permiso: 'factura.ver', exacto: true },
       { a: '/facturas', texto: t('Invoices and packing lists'), permiso: 'factura.ver', prefijos: ['/facturas', '/packing-lists'] },
       { a: '/empaque/recetas', texto: t('Packing recipes'), permiso: 'catalogos.ver', prefijos: ['/empaque'] },
       { a: '/plantillas', texto: t('Packing templates'), permiso: 'plantilla.editar', prefijos: ['/plantillas'] },
@@ -46,6 +49,7 @@ export const MODULOS = () => [
   {
     clave: 'logistica', texto: t('Logistics'), icono: 'barco',
     apartados: [
+      { a: '/logistica/resumen', texto: t('Summary'), permiso: ['transporte.gestionar', 'seguimiento.ver'], exacto: true },
       { a: '/transporte', texto: t('Shipments'), permiso: 'transporte.gestionar', prefijos: ['/transporte'] },
       { a: '/inventario', texto: t('Stock'), permiso: ['inventario.ver', 'recepcion.registrar'], prefijos: ['/inventario'] },
       { a: '/seguimiento', texto: t('Tracking'), permiso: 'seguimiento.ver', prefijos: ['/seguimiento'] },

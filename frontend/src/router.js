@@ -65,6 +65,11 @@ const routes = [
   { path: '/mantenimiento', component: () => import('@/modulos/maestros/vistas/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/leadtimes', component: () => import('@/modulos/transporte/vistas/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/reportes', component: () => import('@/modulos/seguimiento/vistas/ReportesView.vue') },
+  // El resumen de cada módulo es su tablero de indicadores; Análisis conserva el general y el de productos
+  ...['compras', 'facturacion', 'logistica'].flatMap((m) => [
+    { path: `/${m}/resumen`, component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: { modulo: m, incrustado: true } },
+    { path: `/tableros/${m}`, redirect: (to) => ({ path: `/${m}/resumen`, query: to.query }) },
+  ]),
   { path: '/tableros/:modulo?', component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: true },
   { path: '/seguimiento', component: () => import('@/modulos/seguimiento/vistas/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
   { path: '/perfil', component: () => import('@/modulos/acceso/vistas/PerfilView.vue') },

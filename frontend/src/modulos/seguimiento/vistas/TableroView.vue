@@ -16,7 +16,10 @@ import Segmentos from '@/componentes/Segmentos.vue'
 // Tablero de un módulo: los indicadores que la persona eligió (o los de su
 // rol), cada uno con su fórmula, su período y su fuente. Los números los
 // calcula el servidor con el alcance de datos del usuario.
-const props = defineProps({ modulo: { type: String, default: '' } })
+// `incrustado`: el tablero es el resumen de su módulo (Compras, Facturación, Logística): sin las
+// pestañas de los demás tableros, que en Análisis se reducen al general y a los que no tienen módulo propio
+const props = defineProps({ modulo: { type: String, default: '' }, incrustado: Boolean })
+const EN_SU_MODULO = new Set(['compras', 'facturacion', 'logistica'])
 const route = useRoute()
 const router = useRouter()
 const d = ref(null)
@@ -29,7 +32,7 @@ const PERIODOS = [[7, t('7 days')], [30, t('30 days')], [90, t('90 days')], [365
 async function cargar() {
   if (!props.modulo) {
     try {
-      modulos.value = await api.get('/tableros')
+      modulos.value = (await api.get('/tableros')).filter((m) => !EN_SU_MODULO.has(m.clave))
       if (modulos.value.length) router.replace({ path: `/tableros/${modulos.value[0].clave}`, query: route.query })
     } catch (e) {
       errorApi(e)
@@ -39,9 +42,9 @@ async function cargar() {
   cargando.value = true
   try {
     d.value = await api.get(`/tableros/${props.modulo}`, { dias: dias.value })
-    modulos.value = d.value.modulos
+    modulos.value = props.incrustado ? [] : d.value.modulos.filter((m) => !EN_SU_MODULO.has(m.clave))
   } catch (e) {
-    errorApi(e)
+    if (!(props.incrustado && e.status === 403)) errorApi(e)
   } finally {
     cargando.value = false
   }
@@ -160,7 +163,7 @@ async function guardar(destino) {
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>{{ t('Indicators') }}</h1>
+      <h1>{{ props.incrustado ? tx(d?.titulo || t('Summary')) : t('Indicators') }}</h1>
       <p>{{ t('How the operation is doing: each figure against the previous period, with its trend.') }}</p>
     </div>
     <div class="acciones">
@@ -174,7 +177,7 @@ async function guardar(destino) {
                  :aria-selected="m.clave === props.modulo">{{ tx(m.titulo) }}</router-link>
   </nav>
 
-  <EstadoVacio v-if="!modulos.length && !cargando" icono="grafica" :titulo="t('No indicators for your role')"
+  <EstadoVacio v-if="props.incrustado ? !d && !cargando : !modulos.length && !cargando" icono="grafica" :titulo="t('No indicators for your role')"
                :texto="t('Indicators appear for the modules your role can see (orders, invoices, shipments, products).')" />
 
   <template v-if="d">
