@@ -1395,6 +1395,7 @@
 "Quantity in the item unit.":"Cantidad en la unidad del artículo.",
 "Quantity ordered":"Cantidad pedida",
 "Quantity packed in the package":"Cantidad empacada en el bulto",
+"Quantity written by hand: {0} (the data give {1}).":"Cantidad escrita a mano: {0} (según los datos serían {1}).",
 "Quetzal":"Quetzal",
 "RGI for the general rules, XI for a section, 64 for a chapter.":"RGI para las reglas generales, XI para una sección, 64 para un capítulo.",
 "Rate and calculation basis are required.":"La tasa y la base de cálculo son obligatorias.",

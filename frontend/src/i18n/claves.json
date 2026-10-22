@@ -3812,6 +3812,7 @@
  "Quantity per carton",
  "Quantity to invoice on {0}",
  "Quantity written by hand",
+ "Quantity written by hand: {0} (the data give {1}).",
  "Quantity {0}",
  "Question",
  "Question created.",

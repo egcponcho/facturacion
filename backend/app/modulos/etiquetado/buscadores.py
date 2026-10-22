@@ -42,7 +42,8 @@ def ordenes_familia(db: Session, user: Usuario, familia_id: int | None = None, q
                        .offset((page - 1) * size).limit(size)).all()
     ids = [o.id for o, _, _ in filas]
     hechas = dict(db.execute(select(GeneracionEtiquetas.oc_id, func.count()).where(
-        GeneracionEtiquetas.oc_id.in_(ids), GeneracionEtiquetas.estado == "GENERADA").group_by(GeneracionEtiquetas.oc_id)).all())
+        GeneracionEtiquetas.oc_id.in_(ids), GeneracionEtiquetas.estado == "GENERADA",
+        GeneracionEtiquetas.anulada_en.is_(None)).group_by(GeneracionEtiquetas.oc_id)).all())
     return {"total": total, "items": [{
         "id": o.id, "numero": o.numero, "proveedor": o.proveedor.nombre if o.proveedor else None, "estado": o.estado,
         "fecha": o.fecha, "lineas": lineas_, "articulos": articulos_, "generaciones": hechas.get(o.id, 0),

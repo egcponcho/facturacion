@@ -577,24 +577,24 @@ def _nombre_tipo(g: GrupoCajas) -> str | None:
 def _unidades(pl: PackingList, nodos: list[GrupoCajas], hijos: dict, por_tipo: bool) -> list[Bulto]:
     """Una etiqueta por unidad de cada nodo, numeradas n de N (por tipo de
     empaque o en conjunto) con su código (C3, P1…) y el empaque que la contiene."""
+    from app.modulos.empaque import empaques
+
     padres = {g.id: g for g in pl.grupos}
     clave = (lambda g: g.tipo_empaque_id) if por_tipo else (lambda g: None)
     total: dict = {}
     for g in nodos:
         total[clave(g)] = total.get(clave(g), 0) + g.num_cajas
-    # Número de la primera unidad de cada nodo dentro de su tipo (para los códigos de los contenedores)
-    inicio, cuenta = {}, {}
-    for g in sorted(pl.grupos, key=lambda x: x.id):
-        cuenta[g.tipo_empaque_id] = cuenta.get(g.tipo_empaque_id, 0)
-        inicio[g.id] = cuenta[g.tipo_empaque_id]
-        cuenta[g.tipo_empaque_id] += g.num_cajas
+    # El código de cada unidad (C3, P1…) es el del documento de la lista de empaque: la misma
+    # numeración y el mismo prefijo, para que la caja rotulada «C3» sea la «C3» del packing list
+    rangos = empaques.numeracion(pl)
+    inicio = {gid: desde - 1 for gid, (desde, _) in rangos.items()}
     emb = pl.unidad.embarque.codigo if pl.unidad and pl.unidad.embarque else None
     res: list[Bulto] = []
     n: dict = {}
     for g in nodos:
         uniforme = _uniforme(g, hijos)
         medidas = " × ".join(f"{x:g}" for x in (g.largo, g.ancho, g.alto) if x) or None
-        prefijo = g.tipo_empaque.prefijo if g.tipo_empaque and g.tipo_empaque.prefijo else ""
+        prefijo = empaques.prefijo(g)
         padre = padres.get(g.padre_id)
         armado = None
         for k in range(g.num_cajas):
@@ -614,8 +614,7 @@ def _unidades(pl: PackingList, nodos: list[GrupoCajas], hijos: dict, por_tipo: b
             contenedor = None
             if padre is not None and padre.num_cajas:
                 por_padre = max(g.num_cajas // padre.num_cajas, 1)
-                ppref = padre.tipo_empaque.prefijo if padre.tipo_empaque and padre.tipo_empaque.prefijo else ""
-                contenedor = f"{ppref}{inicio[padre.id] + min(k // por_padre, padre.num_cajas - 1) + 1}"
+                contenedor = f"{empaques.prefijo(padre)}{inicio[padre.id] + min(k // por_padre, padre.num_cajas - 1) + 1}"
             res.append(Bulto(g.id, numero, total[clave(g)], {
                 "bulto.numero": numero, "bulto.total": total[clave(g)], "bulto.packing_list": pl.numero,
                 "bulto.factura": pl.factura.numero, "bulto.embarque": emb, "bulto.peso_bruto": g.peso_bruto_caja,
@@ -623,7 +622,7 @@ def _unidades(pl: PackingList, nodos: list[GrupoCajas], hijos: dict, por_tipo: b
                 "bulto.contenido": contenido, "bulto.tipo": _nombre_tipo(g),
                 "bulto.tipo_codigo": g.tipo_empaque.codigo if g.tipo_empaque else None,
                 "bulto.parcial": bool(g.es_parcial), "bulto.mixto": len(articulos) > 1,
-                "bulto.codigo": f"{prefijo}{inicio[g.id] + k + 1}" if prefijo else None, "bulto.contenedor": contenedor,
+                "bulto.codigo": f"{prefijo}{inicio[g.id] + k + 1}", "bulto.contenedor": contenedor,
                 "bulto.lineas": lineas, "bulto.componentes": componentes},
                 pos_ids, pl.id, g.tipo_empaque_id, dict(por_posicion),
                 g.tipo_empaque.cuenta_como if g.tipo_empaque else "BULTO", bool(g.es_parcial), list(avisos), k + 1, articulos))

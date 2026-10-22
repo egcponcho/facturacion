@@ -1396,6 +1396,7 @@
  "Quantity in the item unit.",
  "Quantity ordered",
  "Quantity packed in the package",
+ "Quantity written by hand: {0} (the data give {1}).",
  "Quetzal",
  "RGI for the general rules, XI for a section, 64 for a chapter.",
  "Rate and calculation basis are required.",

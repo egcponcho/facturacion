@@ -7798,5 +7798,6 @@
 "The companies that use this installation and their administrators.": "Las empresas que usan esta instalación y sus administradores.",
 "What each role may do in every module, the data it never sees and its home panels.": "Qué puede hacer cada rol en cada módulo, los datos que nunca ve y los paneles de su inicio.",
 "Who works in the system, their role, the data they see and two-step sign-in.": "Quién trabaja en el sistema, su rol, los datos que ve y el ingreso en dos pasos.",
-"Your company": "Tu empresa"
+"Your company": "Tu empresa",
+"Quantity written by hand: {0} (the data give {1}).": "Cantidad escrita a mano: {0} (según los datos serían {1})."
 }

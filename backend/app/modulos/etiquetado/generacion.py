@@ -168,6 +168,22 @@ def _manual(pedido: dict, clave: str, defecto: int = 0) -> int:
     return _entero((pedido.get("cantidades") or {}).get(clave), defecto)
 
 
+def _escritas(pedido: dict, grupos: list[Grupo]) -> None:
+    """La cantidad que el usuario escribió para un registro manda sobre la calculada (una por
+    unidad, una por línea, una por bulto…), como muestra la pantalla del trabajo; la diferencia
+    queda como advertencia para que se vea antes de generar. MANUAL ya la usó al calcular."""
+    escritas = pedido.get("cantidades") or {}
+    for g in grupos:
+        if g.clave not in escritas or (g.eleccion is not None and g.eleccion.cantidad == "MANUAL"):
+            continue
+        n = _manual(pedido, g.clave, g.cantidad)
+        # Con la cantidad escrita ya no hace falta contar unidades que no son contables
+        g.problemas = [x for x in g.problemas if x["codigo"] != "unidad_no_contable"]
+        if n != g.cantidad:
+            g.problema("advertencia", "cantidad_a_mano", f"Quantity written by hand: {n} (the data give {g.cantidad}).")
+            g.cantidad = n
+
+
 class _Decide:
     """Resuelve la regla de cada registro fino (una línea, un artículo, un
     empaque, un documento) una sola vez: qué diseño, si la etiqueta va o no,
@@ -396,6 +412,7 @@ def armar(db: Session, user: Usuario, pedido: dict) -> tuple[OrdenCompra | None,
                            "mensaje": (f"{t.nombre}: there is nothing to label here (packages need a packing list, "
                                        "documents need a PO or a packing list).") if origen == "ARTICULOS" or t.sujeto != "ARTICULO"
                            else f"{t.nombre}: there are no lines to label."})
+        _escritas(pedido, nuevos)
         grupos += nuevos
     return oc, pl, grupos, avisos
 
@@ -564,7 +581,7 @@ def _previas(db: Session, grupos: list[Grupo]) -> dict:
     c = (select(GeneracionItem, GeneracionEtiquetas.creada_en, GeneracionEtiquetas.creada_por, GeneracionEtiquetas.oc_id,
                 GeneracionEtiquetas.pl_id)
          .join(GeneracionEtiquetas, GeneracionEtiquetas.id == GeneracionItem.generacion_id)
-         .where(GeneracionEtiquetas.estado == "GENERADA",
+         .where(GeneracionEtiquetas.estado == "GENERADA", GeneracionEtiquetas.anulada_en.is_(None),  # un lote anulado no cuenta
                 (GeneracionItem.posicion_id.in_(posiciones)) | (GeneracionItem.pl_id.in_(pls))
                 | (GeneracionEtiquetas.oc_id.in_(ocs)) | (GeneracionEtiquetas.pl_id.in_(pls)))
          .order_by(GeneracionEtiquetas.creada_en.desc()))
@@ -684,7 +701,7 @@ CATEGORIAS = {
     "tipo_no_aplica": "configuracion", "pl_sin_finalizar": "empaque", "sin_contenido": "empaque", "casepack_distinto": "inconsistencia",
     "inner_incompleto": "inconsistencia", "prepack_sin_componentes": "inconsistencia", "unidad_no_contable": "empaque",
     "bulto_parcial": "empaque",
-    "ya_generada": "excepcion", "diseno_forzado": "excepcion", "cantidad": "cantidad", "lote_grande": "cantidad",
+    "ya_generada": "excepcion", "diseno_forzado": "excepcion", "cantidad": "cantidad", "cantidad_a_mano": "cantidad", "lote_grande": "cantidad",
     "codigo_invalido": "codigo", "codigo_contraste": "codigo", "codigo_pequeno": "codigo", "codigo_bajo": "codigo",
     "codigo_ilegible": "codigo",
 }
@@ -948,7 +965,7 @@ def resumen(db: Session, user: Usuario, origen: str, id_: int) -> dict:
     if origen in ("OC", "PACKING"):
         col = GeneracionEtiquetas.oc_id if origen == "OC" else GeneracionEtiquetas.pl_id
         generadas = db.scalar(select(func.coalesce(func.sum(GeneracionEtiquetas.total), 0)).where(
-            col == id_, GeneracionEtiquetas.estado == "GENERADA")) or 0
+            col == id_, GeneracionEtiquetas.estado == "GENERADA", GeneracionEtiquetas.anulada_en.is_(None))) or 0
     return {"tipos": [{**x, "disenos": list(x["disenos"].values()), "problemas": x["problemas"][:50],
                        "con_problemas": len(x["problemas"])} for x in por_tipo.values()],
             "total": plan["total"], "problemas": plan["problemas"], "ya_generadas": generadas,
