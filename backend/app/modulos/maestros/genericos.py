@@ -36,7 +36,7 @@ from app.modulos.comun import tabla
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.maestros import catalogos as cat_svc
-from app.modulos.maestros import gobierno
+from app.modulos.maestros import gobierno, variantes
 from app.modulos.maestros import tallas as tallas_svc
 from app.modulos.maestros.unidades import de_articulo, normalizar
 from app.modulos.productos.productos import (
@@ -301,6 +301,7 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
             "grupo_id": p.grupo_id, "grupo": p.grupo.codigo if p.grupo else None,
             "proveedor_id": p.proveedor_id, "proveedor": p.proveedor.nombre if p.proveedor else None,
             "unidad": p.unidad, "tallas": [a.talla for a in solidos], "rango_tallas": rango_tallas([a.talla for a in solidos]),
+            "resumen_variantes": variantes.resumen(db, solidos),
             "n_tallas": len(solidos), "n_prepacks": len(ls) - len(solidos), "activos": sum(1 for a in ls if a.activo),
             "descripcion_comercial": p.descripcion_comercial, "estado": p.estado, "estado_txt": ESTADOS.get(p.estado, p.estado),
             "codigo": fmt_codigo(p.codigo) if p.codigo else None,

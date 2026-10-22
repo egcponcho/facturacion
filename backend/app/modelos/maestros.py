@@ -531,8 +531,9 @@ class Articulo(DeOrganizacion, Base):
         if self.producto is not None and self.producto.familia_etiquetado_id:
             return "PRODUCTO"
         return "GRUPO" if self.grupo and self.grupo.familia_etiquetado_id else None
-    # Valores de los atributos de variante propios de la empresa (material,
-    # voltaje, sabor…); talla y color son columnas
+    # Valores de los atributos de variante (talla, color, material, voltaje,
+    # sabor…): la fuente de verdad. Las columnas talla y color son una copia
+    # para lo que todavía las lee (ver _aplicar_variantes)
     atributos: Mapped[list["ArticuloAtributo"]] = relationship(
         back_populates="articulo", cascade="all, delete-orphan", lazy="selectin", order_by="ArticuloAtributo.id")
 

@@ -62,7 +62,7 @@ const columnasLineas = [
   { clave: 'posicion', texto: t('Line'), fija: true, prioridad: 1 },
   { clave: 'sku', texto: 'SKU', prioridad: 1 },
   { clave: 'marca', texto: t('Brand · group'), prioridad: 2 },
-  { clave: 'estilo', texto: t('Style · color'), prioridad: 2, valor: (l) => `${l.estilo} · ${l.color}` },
+  { clave: 'estilo', texto: t('Style / model'), prioridad: 3, inicial: false, textoValor: (v) => v || '—' },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'almacen', texto: t('Warehouse'), prioridad: 3, textoValor: (v) => v || '—' },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },

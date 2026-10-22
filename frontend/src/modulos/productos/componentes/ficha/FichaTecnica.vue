@@ -154,7 +154,7 @@ function editarDesc() {
         </div>
         <div class="campo-f">
           <span class="lbl-f">{{ t('Generic') }}</span>
-          <span class="generico-fijo" :title="t('Generic (style-color): all its sizes share this sheet')">{{ tx(producto.codigo_generico || '—') }}<small>{{ tx(producto.skus) }} {{ tx(producto.skus === 1 ? 'size' : 'sizes') }}<template v-if="producto.rango_tallas"> ({{ tx(producto.rango_tallas) }})</template><template v-if="producto.n_prepacks"> · {{ tx(producto.n_prepacks) }} {{ tx(producto.n_prepacks === 1 ? 'prepack' : 'prepacks') }}</template></small></span>
+          <span class="generico-fijo" :title="t('Product code: all its variants share this sheet')">{{ tx(producto.codigo_generico || '—') }}<small>{{ tx(producto.skus) }} {{ tx(producto.skus === 1 ? 'variant' : 'variants') }}<template v-if="producto.resumen_variantes"> ({{ tx(producto.resumen_variantes) }})</template><template v-if="producto.n_prepacks"> · {{ tx(producto.n_prepacks) }} {{ tx(producto.n_prepacks === 1 ? 'pack' : 'packs') }}</template></small></span>
         </div>
       </div>
       <div v-if="camposProducto.length" class="fila3">

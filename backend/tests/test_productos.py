@@ -21,6 +21,9 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
     assert old["estado"] == "aprobado" and old["codigo"] == "6404.19" and old["skus"] >= 6
     # El prepack no se clasifica: toma el producto (y la partida) de sus sólidos
     assert old["n_prepacks"] >= 1 and old["rango_tallas"] == "7–12"
+    # El resumen de variantes es por atributo del catálogo, para cualquier tipo de producto
+    nombres = {a["codigo"]: a["nombre"] for a in interno.get("/catalogos/atributos_variante", params={"size": 200}).json()["items"]}
+    assert f"{nombres['TALLA']} 7–12" in old["resumen_variantes"]
     assert old["descripcion_comercial"] == "CALZADO VANS" and old["codigo_generico"] == "30095125"
     # Solo GT, SV y HN tienen arancel nacional oficial cargado; NI, CR y PA no cuentan como completos
     assert old["paises_ok"] == 3 and old["paises_total"] == 6

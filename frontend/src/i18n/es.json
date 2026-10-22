@@ -7692,5 +7692,10 @@
 "from its parent": "de su familia superior",
 "Commercial rel.: {0}": "Lib. comercial: {0}",
 "Logistics rel.: {0}": "Lib. logística: {0}",
-"Style / model: all": "Estilo / modelo: todos"
+"Style / model: all": "Estilo / modelo: todos",
+"Product code: all its variants share this sheet": "Código del producto: todas sus variantes comparten esta ficha",
+"no variants": "sin variantes",
+"packs": "packs",
+"variant": "variante",
+"variants": "variantes"
 }

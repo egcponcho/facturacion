@@ -36,7 +36,7 @@ const columnas = computed(() => [
   { clave: 'grupo_id', texto: t('Group'), prioridad: 3, textoValor: (v) => props.nombre('grupo_id', v) },
   { clave: 'proveedor_id', texto: t('Supplier'), prioridad: 2, textoValor: (v) => props.nombre('proveedor_id', v) },
   { clave: 'unidad', texto: t('Unit'), prioridad: 3, inicial: false },
-  { clave: 'tallas', texto: t('Sizes'), prioridad: 2, ordenable: false },
+  { clave: 'tallas', texto: t('Variants'), prioridad: 2, ordenable: false },
   { clave: 'descripcion_comercial', texto: t('Description · HS code'), prioridad: 3 },
   { clave: 'estado', texto: t('Sheet status'), prioridad: 3, inicial: false, opciones: ESTADOS },
 ])
@@ -101,8 +101,8 @@ watch(() => props.recarga, () => {
     <template #celda-grupo_id="{ fila: g }"><span class="codigo">{{ tx(g.grupo || '—') }}</span></template>
     <template #celda-proveedor_id="{ fila: g }">{{ tx(g.proveedor || '—') }}</template>
     <template #celda-tallas="{ fila: g }">
-      <span class="fuerte">{{ tx(g.rango_tallas || '—') }}</span>
-      <span class="sub">{{ plural(g.n_tallas, t('size'), t('sizes')) }}<template v-if="g.n_prepacks"> · {{ plural(g.n_prepacks, t('prepack'), t('prepacks')) }}</template></span>
+      <span class="fuerte">{{ tx(g.resumen_variantes || '—') }}</span>
+      <span class="sub">{{ plural(g.n_tallas, t('variant'), t('variants')) }}<template v-if="g.n_prepacks"> · {{ plural(g.n_prepacks, t('pack'), t('packs')) }}</template></span>
     </template>
     <template #celda-descripcion_comercial="{ fila: g }">
       <span>{{ tx(g.descripcion_comercial || '—') }}</span>

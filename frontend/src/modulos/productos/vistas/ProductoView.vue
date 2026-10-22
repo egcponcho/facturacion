@@ -578,13 +578,11 @@ const colCodigosVersion = [
   { clave: 'estado', texto: t('Status'), prioridad: 2 },
   { clave: 'fuente', texto: t('Source'), prioridad: 3 },
 ]
-// Tallas (artículos) del genérico
-const codigoTalla = (a) => (a.sku.length === 11 ? a.sku.slice(8) : null)
+// Variantes (artículos) del producto
 const descripcionArticulo = (a) => (p.value.descripcion_comercial
   ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? `${t('pack')} ${a.talla}` : textoVariante(a)}` : a.descripcion)
 const colArticulos = [
   { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
-  { clave: 'codigo_talla', texto: t('Size code'), prioridad: 3, valor: codigoTalla },
   { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3 },
   { clave: 'upc', texto: 'UPC', prioridad: 3 },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
@@ -668,7 +666,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         </div>
       </div>
       <div class="doc-meta">
-        <span>{{ t('Sizes') }} <b>{{ tx(p.rango_tallas || '—') }}</b></span>
+        <span>{{ t('Variants') }} <b>{{ tx(p.resumen_variantes || '—') }}</b></span>
         <span>{{ t('SKUs') }} <b>{{ tx(p.skus) }}</b></span>
         <span>{{ t('Origin') }} <b>{{ tx(f.origen || '—') }}</b></span>
         <span v-if="p.revisado_por">{{ t('Reviewed by') }} <b>{{ tx(p.revisado_por) }}</b> · {{ fmtFecha(p.revisado_en) }}</span>
@@ -778,7 +776,6 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <div class="mt-chico">
             <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Variants and packs')">
               <template #celda-sku="{ fila: a }"><span class="fuerte">{{ tx(a.sku) }}</span><span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Prepack') }}</span></template>
-              <template #celda-codigo_talla="{ fila: a }"><span class="apagado">{{ tx(codigoTalla(a) || '—') }}</span></template>
               <template #celda-descripcion="{ fila: a }"><span class="apagado">{{ tx(descripcionArticulo(a)) }}</span></template>
               <template #celda-activo="{ fila: a }"><span v-if="a.activo" class="etiqueta ok ms-0">{{ t('Active') }}</span><span v-else class="etiqueta ms-0">{{ t('Inactive') }}</span></template>
             </TablaDatos>

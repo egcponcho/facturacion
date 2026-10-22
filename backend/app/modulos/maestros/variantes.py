@@ -81,3 +81,62 @@ def nombres(db: Session) -> dict[str, str]:
 def texto_linea(valores: dict | None) -> str | None:
     """El texto de la variante guardada en una línea de documento (o None)."""
     return texto(valores) or None
+
+
+ORDEN_LETRAS = ["XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL"]
+EQUIV_LETRAS = {"2XS": "XXS", "3XS": "XXXS", "2XL": "XXL", "3XL": "XXXL", "XXXXL": "4XL"}
+
+
+def rango(valores: list) -> str:
+    """Valores de un atributo en texto corto: tramos seguidos como «7–10» y
+    los saltos separados por comas («7–9, 11»). Sirve para números (tallas,
+    volúmenes, concentraciones), para la escala de letras S, M, L… y, si no es
+    ninguna de las dos, deja la lista sin repetidos."""
+    ts = [str(t).strip().upper() for t in valores if str(t or "").strip()]
+    if not ts:
+        return ""
+
+    def tramos(valores: list, paso, texto) -> str:
+        grupos, actual = [], [valores[0]]
+        for v in valores[1:]:
+            if abs((v - actual[-1]) - paso) < 1e-9:
+                actual.append(v)
+            else:
+                grupos.append(actual)
+                actual = [v]
+        grupos.append(actual)
+        out = []
+        for g in grupos:
+            if len(g) >= 3:
+                out.append(f"{texto(g[0])}–{texto(g[-1])}")
+            else:
+                out += [texto(x) for x in g]
+        return ", ".join(out)
+
+    try:
+        nums = sorted({float(t.replace(",", ".")) for t in ts})
+        paso = 0.5 if any(not n.is_integer() for n in nums) else 1
+        return tramos(nums, paso, lambda n: str(int(n)) if n.is_integer() else str(n))
+    except ValueError:
+        pass
+    letras = [EQUIV_LETRAS.get(t, t) for t in ts]
+    if all(t in ORDEN_LETRAS for t in letras):
+        idx = sorted({ORDEN_LETRAS.index(t) for t in letras})
+        return tramos(idx, 1, lambda i: ORDEN_LETRAS[i])
+    return ", ".join(dict.fromkeys(ts))
+
+
+def resumen(db: Session | None, articulos: list) -> str:
+    """Las variantes de un producto por atributo, en texto corto: «Size 7–12 ·
+    Color BLACK, WHITE» o «Concentration 5 %, 10 % · Container 1 L, 5 L». Los
+    packs no cuentan: no son una variante sino una combinación de ellas."""
+    if db is None:
+        return ""
+    por_atributo: dict[str, list] = {}
+    for a in articulos:
+        if getattr(a, "tipo", "SOLIDO") == "PREPACK":
+            continue
+        for k, v in de_articulo(db, a).items():
+            por_atributo.setdefault(k, []).append(v)
+    nombres_atr = nombres(db)
+    return SEPARADOR.join(f"{nombres_atr.get(k, k)} {rango(vs)}" for k, vs in por_atributo.items())

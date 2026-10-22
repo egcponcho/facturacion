@@ -300,8 +300,8 @@ alCambiar(() => consultar(), ['/productos'])
           <Icono v-else nombre="caja" :tam="18" />
         </span>
         <span>
-          <router-link :to="`/productos/${p.id}`" class="enlace-doc" @click.stop><strong><span v-if="p.codigo_generico" class="codigo">{{ tx(p.codigo_generico) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}</strong></router-link>
-          <span class="sub">{{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.rango_tallas || t('no sizes')) }}</span>
+          <router-link :to="`/productos/${p.id}`" class="enlace-doc" @click.stop><strong><span v-if="p.codigo_generico" class="codigo">{{ tx(p.codigo_generico) }}</span> {{ tx(p.nombre || [p.estilo, p.color].filter(Boolean).join(' · ') || '—') }}</strong></router-link>
+          <span class="sub">{{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.resumen_variantes || t('no variants')) }}</span>
         </span>
       </div>
     </template>
