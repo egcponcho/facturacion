@@ -21,7 +21,7 @@ const CLAVE = 'Supplier2026'
 const H = { 'X-Requested-With': 'fetch' }
 
 const PANTALLAS = [
-  '/', '/compras/resumen', '/facturacion/resumen', '/logistica/resumen', '/integraciones', '/ordenes', '/facturas', '/productos', '/productos/catalogo', '/productos/nuevo', '/productos/configuracion', '/transporte', '/reportes', '/tableros/compras', '/tableros/facturacion',
+  '/', '/compras/resumen', '/facturacion/resumen', '/logistica/resumen', '/integraciones', '/configuracion', '/ordenes', '/facturas', '/productos', '/productos/catalogo', '/productos/nuevo', '/productos/configuracion', '/transporte', '/reportes', '/tableros/compras', '/tableros/facturacion',
   '/seguimiento', '/seguimiento?vista=embarques', '/seguimiento?vista=documentos', '/seguimiento?vista=leadtimes',
   '/mantenimiento', '/mantenimiento?catalogo=listas', '/mantenimiento?catalogo=tipos_unidad', '/mantenimiento?catalogo=liberaciones',
   '/mantenimiento?catalogo=atributos_variante', '/mantenimiento?catalogo=prepacks', '/mantenimiento?catalogo=acuerdos',

@@ -17,7 +17,7 @@ import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { avisar, errorApi } from '@/stores/ui'
 import { ACCIONES, fmtFecha, fmtFechaHora } from '@/nucleo/utils'
-import { catalogosHermanos } from '@/nucleo/modulos.js'
+import { catalogosHermanos, modulosVisibles, ubicar } from '@/nucleo/modulos.js'
 
 // Un solo lugar para todos los datos maestros. Cada catálogo llega descrito
 // desde el servidor (campos, tipos, obligatorios, filtros) y esta vista dibuja
@@ -70,6 +70,11 @@ const PRINCIPALES = ['articulos', 'prepacks', 'marcas', 'proveedores', 'grupos',
 // Cada módulo ve solo sus catálogos (nucleo/modulos.js): los de productos en
 // Productos, los de lugares y transportistas en Logística…
 const hermanos = computed(() => catalogosHermanos(tipo.value))
+// El título es el del apartado del módulo en que está este catálogo (p. ej. «Lugares y transportistas»)
+const titulo = computed(() => {
+  const ap = ubicar(modulosVisibles(), route).apartado
+  return ap?.titulo || ap?.texto || t('Master data')
+})
 const delModulo = computed(() => (hermanos.value ? catalogos.value.filter((c) => hermanos.value.includes(c.tipo)) : catalogos.value))
 const principales = computed(() => delModulo.value.filter((c) => PRINCIPALES.includes(c.tipo) || delModulo.value.length <= 6))
 const otros = computed(() => delModulo.value.filter((c) => !principales.value.includes(c)))
@@ -517,7 +522,7 @@ onMounted(async () => {
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>{{ t('Master data') }}</h1>
+      <h1>{{ titulo }}</h1>
       <p>{{ t('Master data used across the system: it validates the PO upload, defines the packing rules and feeds the filters. Every catalog can be edited here, loaded from Excel and exported with the filters you apply. The technical sheet, description and HS code of each item live in Products.') }}</p>
     </div>
     <div class="acciones">

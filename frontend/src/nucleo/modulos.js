@@ -8,7 +8,8 @@ import { esInterno, puede, sesion } from '@/stores/sesion'
 //
 // Cada apartado dice a dónde lleva (a), quién lo ve (permiso: uno o varios, basta
 // uno) y qué direcciones son suyas (prefijos de ruta, o catálogos de datos
-// maestros que se abren en /mantenimiento?catalogo=…).
+// maestros que se abren en /mantenimiento?catalogo=…). Con titulo, el encabezado
+// de sus páginas no repite la pestaña (p. ej. «Configuración» → «Configuración de productos»).
 
 // Catálogos de datos maestros por módulo (los que no estén aquí van a Configuración)
 export const CATALOGOS_DE = {
@@ -63,7 +64,7 @@ export const MODULOS = () => [
       { a: '/productos', texto: t('Summary'), permiso: 'producto.ver', exacto: true },
       { a: '/productos/catalogo', texto: t('Catalog'), permiso: 'producto.ver', prefijos: ['/productos/catalogo', '/productos/nuevo'], patron: /^\/productos\/\d+/ },
       { a: '/familias', texto: t('Classification'), permiso: ['clasificacion.ver', 'aranceles.ver'], prefijos: ['/familias', '/aranceles'] },
-      { a: '/productos/configuracion', texto: t('Setup'), permiso: 'catalogos.ver', prefijos: ['/productos/configuracion', '/grupos-producto'],
+      { a: '/productos/configuracion', texto: t('Setup'), titulo: t('Products setup'), permiso: 'catalogos.ver', prefijos: ['/productos/configuracion', '/grupos-producto'],
         catalogos: CATALOGOS_DE.productos },
     ],
     accion: { a: '/productos/nuevo', texto: t('New product'), permiso: 'catalogos.crear' },
@@ -86,6 +87,8 @@ export const MODULOS = () => [
   {
     clave: 'configuracion', texto: t('Settings'), icono: 'engrane',
     apartados: [
+      // Portada: todo lo que se configura, también lo de cada módulo, en un solo lugar
+      { a: '/configuracion', texto: t('Overview'), permiso: ['admin', 'integraciones.ver', 'catalogos.ver'], exacto: true },
       { a: '/empresa', texto: t('Company'), permiso: 'admin', prefijos: ['/empresa'] },
       { a: '/admin', texto: t('Users and access'), permiso: 'admin', prefijos: ['/admin'] },
       { a: '/integraciones', texto: t('Integrations'), permiso: 'integraciones.ver', prefijos: ['/integraciones'] },
@@ -95,7 +98,8 @@ export const MODULOS = () => [
   },
 ]
 
-const visible = (x) => {
+// ¿Esta persona ve el apartado? (también lo usa la portada de Configuración)
+export const visible = (x) => {
   if (x.plataforma) return !!sesion.usuario?.plataforma
   if (x.interno && !esInterno()) return false
   return !x.permiso || puede(x.permiso)
