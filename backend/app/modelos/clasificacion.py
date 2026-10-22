@@ -50,6 +50,10 @@ class PaisArancel(Base):
     fuente_id: Mapped[int | None] = mapped_column(ForeignKey("fuentes_oficiales.id"))
     mcca: Mapped[bool] = mapped_column(Boolean, default=False)
     impuesto: Mapped[str | None] = mapped_column(String(60))  # p. ej. "VAT 13%"
+    # Cómo llama el país a su nomenclatura y a su derecho de importación en los
+    # documentos (SAC y DAI en Centroamérica, HTS y duty en EE. UU.…)
+    nomenclatura: Mapped[str | None] = mapped_column(String(20))
+    nombre_derecho: Mapped[str | None] = mapped_column(String(20))
     nota: Mapped[str | None] = mapped_column(String(300))
     base_legal: Mapped[str | None] = mapped_column(String(300))  # arancel y norma que lo pone en vigor
     orden: Mapped[int] = mapped_column(Integer, default=0)

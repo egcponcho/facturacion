@@ -5245,7 +5245,7 @@
 "Tax ID": "NIT",
 "Tax ID (NIT / RUC): {0}": "NIT / RUC: {0}",
 "Tax ID {0} ·": "NIT {0} ·",
-"Tax ID: {0}": "NIT: {0}",
+"Tax ID: {0}": "Identificación fiscal: {0}",
 "Tax ID: {0} · {1} · {2}": "NIT: {0} · {1} · {2}",
 "Tax address": "Dirección fiscal",
 "Tax regime": "Régimen fiscal",
@@ -7697,5 +7697,15 @@
 "no variants": "sin variantes",
 "packs": "paquetes",
 "variant": "variante",
-"variants": "variantes"
+"variants": "variantes",
+"Documents show «HS code (name)» for this country.": "Los documentos muestran «Partida arancelaria (nombre)» para este país.",
+"Import duty name": "Nombre del derecho de importación",
+"central american": "centroamericano",
+"Tax ID ({0}): {1}": "{0}: {1}",
+"Tax ID name": "Nombre de la identificación fiscal",
+"HS code ({0})": "Partida arancelaria ({0})",
+"Duty ({0})": "Arancel ({0})",
+"Nomenclature name": "Nombre de la nomenclatura",
+"Duty": "Arancel",
+"How the company tax ID is called in this country (NIT, RUC, RFC, EIN…). Documents use it.": "Cómo se llama la identificación fiscal de una empresa en este país (NIT, RUC, RFC, EIN…). La usan los documentos."
 }

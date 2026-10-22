@@ -226,6 +226,8 @@ CATALOGOS = {
             c("nombre", "Name", obligatorio=True, formato="nombre"),
             c("region", "Lead time region", "codigo", catalogo="regiones", filtro=True,
               ayuda="Origin region (e.g. ASIA). Lead time plans can apply to the whole region."),
+            c("nombre_id_fiscal", "Tax ID name", max=30,
+              ayuda="How the company tax ID is called in this country (NIT, RUC, RFC, EIN…). Documents use it."),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modelos import Centro, Contacto, Pais, Puerto, Sociedad
+from app.modulos.documentos import aduana
 
 
 def _contactos(db: Session, **filtro) -> list[dict]:
@@ -33,6 +34,7 @@ def partes(db: Session, sociedad: str | None, centro: str | None, centro_destino
         "facturar_a": {
             "codigo": sociedad, "nombre": soc.nombre if soc else None,
             "razon_social": soc.razon_social if soc else None, "id_fiscal": soc.id_fiscal if soc else None,
+            "id_fiscal_nombre": aduana.nombre_id_fiscal(db, soc.pais) if soc else None,
             "direccion": soc.direccion if soc else None, "pais": _pais(db, soc.pais) if soc else None,
             "correos": soc.correos if soc else None,
             "contactos": _contactos(db, sociedad_id=soc.id) if soc else [],

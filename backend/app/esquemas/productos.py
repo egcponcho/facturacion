@@ -82,6 +82,8 @@ class PaisArancelIn(BaseModel):
     nombre: str = Field(min_length=2, max_length=80)
     digitos: int = Field(ge=6, le=14)
     mcca: bool = False
+    nomenclatura: str | None = Field(None, max_length=20)  # SAC, HTS, TARIC…: como lo leen los documentos
+    nombre_derecho: str | None = Field(None, max_length=20)  # DAI, duty, IGI…
     impuesto: str | None = Field(None, max_length=60)
     nota: str | None = Field(None, max_length=300)
     base_legal: str | None = Field(None, max_length=300)

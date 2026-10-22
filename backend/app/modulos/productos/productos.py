@@ -50,6 +50,7 @@ from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
 from app.modulos.comun.texto import filtro_texto
+from app.modulos.documentos import aduana
 from app.modulos.maestros import variantes as var_svc
 from app.modulos.maestros.acuerdos import acuerdos_contexto
 from app.modulos.productos import flujo
@@ -1179,7 +1180,8 @@ def etiquetas_ficha(db: Session) -> dict:
             "valores": {a.codigo: {o.codigo: o.etiqueta for o in a.opciones} for a in cat.atributos if a.opciones},
             "partes": {a.codigo[5:]: a.etiqueta for a in cat.atributos if a.codigo.startswith("comp.")},
             "tipos": {c.codigo: c.nombre_corto or c.nombre for c in cat.categorias.values()},
-            "paises": [p.iso for p in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))]}
+            "paises": [p.iso for p in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))],
+            "aduana": aduana.nombres(db)}
 
 
 def ficha_de_version(db: Session, user: Usuario, producto_id: int, version: int | None = None) -> dict:
@@ -1294,7 +1296,8 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
         {"titulo": "Composition", "columnas": [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False),
                                                ("Part", 1.6, False), ("Materials", 5, False)], "filas": partes},
         {"titulo": "National codes", "columnas": [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False),
-                                                  ("Country", 0.7, False), ("Code", 1.6, False), ("Duty (DAI)", 0.9, False),
+                                                  ("Country", 0.7, False), ("Code", 1.6, False),
+                                                  (aduana.titulo_derecho(aduana.nombres(db)), 0.9, False),
                                                   ("Status", 0.9, False), ("Source", 0.9, False)], "filas": codigos_filas},
     ]
     return exportar.exportar_reporte(titulo, sub, texto, indicadores, columnas, filas, hojas)

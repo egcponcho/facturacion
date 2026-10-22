@@ -23,8 +23,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import dinero
-from app.modelos import Pais, Proveedor, Puerto
+from app.modelos import Centro, Pais, Proveedor, Puerto
 from app.modulos.acceso.preferencias import fecha_hora_txt, fecha_txt
+from app.modulos.documentos import aduana
 from app.modulos.documentos.idioma_doc import L
 from app.modulos.documentos.partes import partes
 from app.modulos.facturacion.cantidades import cbm_caja, cubierto, inner_de, nombre_factura, numeracion, totales_pl
@@ -164,7 +165,8 @@ def _puerto(db: Session, codigo: str | None) -> str | None:
 
 def _exportador(db: Session, prov: Proveedor) -> dict:
     return {"codigo": prov.codigo, "nombre": prov.razon_social or prov.nombre, "comercial": prov.nombre,
-            "id_fiscal": prov.id_fiscal, "direccion": prov.direccion, "pais": _pais(db, prov.pais),
+            "id_fiscal": prov.id_fiscal, "id_fiscal_nombre": aduana.nombre_id_fiscal(db, prov.pais),
+            "direccion": prov.direccion, "pais": _pais(db, prov.pais),
             "contacto": prov.contacto, "correos": prov.correos, "telefono": prov.telefono}
 
 
@@ -271,6 +273,9 @@ def datos_factura(db: Session, f) -> dict:
         "pais_origen": ", ".join(sorted({x for x in (_pais(db, l.pais_origen) for l in f.lineas) if x})) or "—",
         "pais_procedencia": ", ".join(sorted({x for x in (_pais(db, o.pais_procedencia) for o in ocs) if x})) or "—",
         "pais_destino": p["destino"]["pais"] if p.get("destino") else p["notify"]["pais"],
+        # Nombres aduaneros del país de destino (nomenclatura y derecho), no fijos
+        "aduana": aduana.nombres(db, [x for x in [db.scalar(select(Centro.pais).where(
+            Centro.codigo == (f.centro_destino or f.centro)))] if x] or None),
         "puerto_embarque": ", ".join(sorted({x for x in (_puerto(db, o.puerto_despacho) for o in ocs) if x})) or None,
         "transporte": _transporte(db, pls), "lineas": lineas,
         "totales": {"por_unidad": por_unidad, "importe": importe, "bultos": bultos, "peso_neto": round(neto, 2),
@@ -455,7 +460,7 @@ def _parte(e, titulo: str, p: dict | None) -> list:
     lineas = [Paragraph(titulo, e["etiqueta"]),
               Paragraph(f"<b>{_esc(p.get('codigo'))} · {_esc(nombre)}</b>", e["base"])]
     if p.get("id_fiscal"):
-        lineas.append(Paragraph(L("Tax ID (NIT / RUC): {0}", _esc(p['id_fiscal'])), e["chico"]))
+        lineas.append(Paragraph(_esc(aduana.texto_id_fiscal(p)), e["chico"]))
     lineas.append(Paragraph(_esc(p.get("direccion")) + (f" · {_esc(p['pais'])}" if p.get("pais") else ""), e["chico"]))
     if p.get("puerto"):
         lineas.append(Paragraph(L("Port of arrival: {0}", _esc(p.get('puerto_nombre') or p['puerto'])), e["chico"]))
@@ -560,7 +565,7 @@ def pdf_factura(d: dict) -> bytes:
                       _num(l["cantidad"]), l["unidad"], _precio(l["precio"]), _num(l["total"], 2)])
     t = d["totales"]
     h.append(_tabla(e, [(L("PO / line"), 1.75, False), (L("Item code"), 1.45, False), (L("Brand"), 0.9, False), (L("Customs description"), 3.1, False),
-                        (L("HS code (SAC)"), 1.2, False), (L("Origin"), 0.7, False), (L("Quantity"), 0.9, True),
+                        (aduana.titulo_codigo(d.get("aduana")), 1.2, False), (L("Origin"), 0.7, False), (L("Quantity"), 0.9, True),
                         (L("UoM"), 0.5, False), (L("Unit price"), 1.1, True), (L("Amount"), 1.3, True)],
                     filas, ancho, pie=["", "", "", L("{0} lines", len(d['lineas'])), "", "", _num(sum(l['cantidad'] for l in d['lineas'])),
                                        "", L("Total"), f"{d['moneda']} {_num(t['importe'], 2)}"]))
@@ -751,7 +756,8 @@ def secciones_ficha(d: dict) -> dict:
     vista de versiones anteriores)."""
     estado = d.get("estado_txt") or d.get("estado")
     codigo = d.get("codigo") or d.get("sugerido")
-    clasif = [(L("HS code (SAC)"), codigo or L("Not classified")), (L("Status"), estado or "—"),
+    et_aduana = (d.get("etiquetas") or {}).get("aduana")
+    clasif = [(aduana.titulo_codigo(et_aduana), codigo or L("Not classified")), (L("Status"), estado or "—"),
               (L("Confidence"), d.get("confianza") or "—"),
               (L("Reviewed by"), f"{d.get('revisado_por') or '—'}" + (f" · {_fecha(d['revisado_en'])}" if d.get("revisado_en") else ""))]
     et = d.get("etiquetas") or {}
@@ -768,7 +774,7 @@ def secciones_ficha(d: dict) -> dict:
     datos = [(L("Product type"), an.get("tipo_txt") or (et.get("tipos") or {}).get(d.get("tipo"), d.get("tipo")) or "—"),
              (L("Country of origin"), d.get("pais_origen") or "—"),
              (L("Product code"), d.get("codigo_generico") or "—"), (L("Group"), d.get("grupo") or "—")]
-    for k, lbl in (("uso", L("Use")), ("tallas", L("Sizes"))):
+    for k, lbl in (("uso", L("Use")), ("tallas", L("Sizes"))):  # campos de la ficha, si la familia los tiene
         if f.get(k):
             datos.append((lbl, str(f[k])))
     if an.get("atributos"):
@@ -821,7 +827,8 @@ def pdf_ficha_producto(d: dict) -> bytes:
     h.append(Spacer(1, 8))
     if x["partidas"]:
         h += [Paragraph(L("NATIONAL TARIFF CODES BY DESTINATION"), e["etiqueta"]), Spacer(1, 2),
-              _tabla(e, [(L("Country"), 0.8, False), (L("Code"), 1.6, False), (L("Duty (DAI)"), 0.8, True),
+              _tabla(e, [(L("Country"), 0.8, False), (L("Code"), 1.6, False),
+                         (aduana.titulo_derecho((d.get("etiquetas") or {}).get("aduana")), 0.8, True),
                          (L("Status"), 0.8, False), (L("Source"), 0.8, False)], x["partidas"], ancho), Spacer(1, 8)]
     h += [Paragraph(L("PRODUCT DATA"), e["etiqueta"]), Spacer(1, 2), _rejilla(e, x["datos"], ancho), Spacer(1, 8)]
     if x["composicion"]:

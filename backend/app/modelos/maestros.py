@@ -86,7 +86,8 @@ class Proveedor(ExtensionDeTercero, DeOrganizacion, Base):
 
 
 class Sociedad(ConContacto, DeOrganizacion, Base):
-    """Sociedad legal (compañía de SAP). Sus centros son bodegas fiscales."""
+    """Sociedad legal de la empresa (la razón social que compra e importa; en un
+    ERP suele llamarse compañía o sociedad). Sus centros son bodegas fiscales."""
 
     __tablename__ = "sociedades"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_sociedades_org_codigo"),)
@@ -109,7 +110,7 @@ class Sociedad(ConContacto, DeOrganizacion, Base):
 
 
 class Centro(ConContacto, DeOrganizacion, Base):
-    """Centro de SAP asignado a una sociedad. Es la bodega fiscal a la que
+    """Centro (planta o bodega) de una sociedad. Es la bodega fiscal a la que
     llega la mercancía (notify party) y, como centro de destino de la OC,
     indica el país final. Su puerto es el de llegada de los embarques."""
 
@@ -181,6 +182,7 @@ class Pais(Base):
     codigo: Mapped[str] = mapped_column(String(2), unique=True)  # ISO 3166-1 alfa-2
     nombre: Mapped[str] = mapped_column(String(100))
     region: Mapped[str | None] = mapped_column(String(10))  # región de origen para los lead times (ASIA…)
+    nombre_id_fiscal: Mapped[str | None] = mapped_column(String(30))  # NIT, RUC, RFC, EIN…: como se lee en los documentos
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -392,7 +394,7 @@ class EstadoLiberacion(DeOrganizacion, Base):
     """Estado de liberación de una OC tal como lo manda el ERP de la empresa.
 
     Hay dos liberaciones (comercial y logística) y cada empresa define sus
-    códigos (p. ej. SAP: comercial C/P, logística 300/301/304), su nombre,
+    códigos (los que manda su ERP, p. ej. comercial C/P, logística 300/301/304), su nombre,
     si permite facturar, cuál es el de «liberada con cambios» y cuál se usa
     cuando el archivo no trae el dato. `alias` son otras palabras que el
     importador acepta (separadas por coma)."""

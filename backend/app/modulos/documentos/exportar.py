@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from app.core.archivos import celda_texto
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.preferencias import fecha_hora_txt
-from app.modulos.documentos import idioma_doc
+from app.modulos.documentos import aduana, idioma_doc
 from app.modulos.documentos.documentos import _acento_hex, _fecha, _por_unidad_txt, declaracion
 from app.modulos.documentos.idioma_doc import L
 
@@ -79,7 +79,7 @@ class _Hoja:
         self.unir(1, 1, corte)
         self.celda(2, 1, " · ".join(x for x in (exp.get("direccion"), exp.get("pais")) if x), color=TENUE, tam=8)
         self.unir(2, 1, corte)
-        self.celda(3, 1, " · ".join(x for x in (L("Tax ID: {0}", exp['id_fiscal']) if exp.get("id_fiscal") else None,
+        self.celda(3, 1, " · ".join(x for x in (aduana.texto_id_fiscal(exp) if exp.get("id_fiscal") else None,
                                                   exp.get("correos"), exp.get("telefono")) if x), color=TENUE, tam=8)
         self.unir(3, 1, corte)
         self.celda(1, corte + 1, titulo, negrita=True, color=_acento(), tam=13)
@@ -211,7 +211,7 @@ def _lineas_parte(p: dict | None) -> list[str]:
         return ["—"]
     lineas = [f"{p.get('codigo') or ''} · {p.get('razon_social') or p.get('nombre') or ''}"]
     if p.get("id_fiscal"):
-        lineas.append(L("Tax ID (NIT / RUC): {0}", p['id_fiscal']))
+        lineas.append(aduana.texto_id_fiscal(p))
     lineas.append(" · ".join(x for x in (p.get("direccion"), p.get("pais")) if x) or "—")
     if p.get("puerto"):
         lineas.append(L("Port of arrival: {0}", p.get('puerto_nombre') or p['puerto']))
@@ -264,7 +264,7 @@ def exportar_factura(d: dict) -> bytes:
     fila_cab = h.tabla(
         [(L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("UPC"), None), (L("Brand"), None),
          *[(e, None) for _, e in cols],
-         (L("Customs description"), None), (L("Origin"), None), (L("HS code (SAC)"), None),
+         (L("Customs description"), None), (L("Origin"), None), (aduana.titulo_codigo(d.get("aduana")), None),
          (L("Quantity"), _ENTERO), (L("UoM"), None), (L("Unit price"), "#,##0.0000"), (L("Amount {0}", d['moneda']), _MONEDA)],
         filas, pie=[L("Total"), None, L("{0} lines", len(filas)), None, None, *[None] * len(cols), None, None, None,
                     sum(l["cantidad"] for l in d["lineas"]), None, None, t["importe"]],
@@ -425,9 +425,10 @@ def exportar_ficha(d: dict, x: dict) -> bytes:
     filas += [[L("Reasoning"), "", r] for r in x["razones"]]
     hojas = [
         {"titulo": L("Composition"), "columnas": [(L("Part"), 1.6, False), (L("Materials"), 5, False)], "filas": x["composicion"]},
-        {"titulo": L("National codes"), "columnas": [(L("Country"), 0.8, False), (L("Code"), 1.6, False), (L("Duty (DAI)"), 0.9, False),
+        {"titulo": L("National codes"), "columnas": [(L("Country"), 0.8, False), (L("Code"), 1.6, False),
+                                                  (aduana.titulo_derecho((d.get("etiquetas") or {}).get("aduana")), 0.9, False),
                                                   (L("Status"), 0.9, False), (L("Source"), 0.9, False)], "filas": x["partidas"]},
-        {"titulo": L("Sizes"), "columnas": [(L("SKU"), 1.4, False), (L("UPC"), 1.4, False), (L("Size"), 0.7, False), (L("Unit"), 0.6, False),
+        {"titulo": L("Variants"), "columnas": [(L("SKU"), 1.4, False), (L("UPC"), 1.4, False), (L("Variant"), 0.7, False), (L("Unit"), 0.6, False),
                                          (L("Description"), 3, False)], "filas": x["tallas"]},
     ]
     return exportar_reporte(titulo, sub, estado, [], [(L("Section"), 1.4, False), (L("Field"), 1.8, False), (L("Value"), 6, False)],

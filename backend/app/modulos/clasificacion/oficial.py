@@ -226,6 +226,11 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         if _txt(f.get("legal_basis")):
             x.base_legal = _txt(f.get("legal_basis"))[:300]
         x.mcca = "common market" in (x.contexto or "").lower()
+        # Nombres aduaneros del país: los del paquete si los trae; si no, los de la
+        # integración centroamericana (SAC y DAI) cuando el país la declara
+        centroamericano = "central american" in (x.contexto or "").lower()
+        x.nomenclatura = _txt(f.get("nomenclature")) or x.nomenclatura or ("SAC" if centroamericano else None)
+        x.nombre_derecho = _txt(f.get("duty_name")) or x.nombre_derecho or ("DAI" if centroamericano else None)
         x.nota = _txt(f.get("implementation_note")) or x.nota
         if f.get("active") is not None:
             x.activo = _si(f.get("active"))

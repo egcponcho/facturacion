@@ -336,7 +336,8 @@ async function guardarPais() {
     // Longitudes válidas del código nacional (p. ej. 10, 12): el código se valida contra ellas y nunca se recorta
     const longitudes = String(m.longitudes_txt || '').split(/[\s,;]+/).filter(Boolean).map(Number)
     const cuerpo = { iso: m.iso, nombre: m.nombre, digitos: Number(m.digitos), mcca: !!m.mcca, impuesto: m.impuesto, nota: m.nota, base_legal: m.base_legal || null,
-      activo: m.activo, longitudes, nivel_base: m.nivel_base || null, modelo_arancel: m.modelo_arancel || null, contexto: m.contexto || null, fuente: m.fuente || null }
+      activo: m.activo, longitudes, nivel_base: m.nivel_base || null, modelo_arancel: m.modelo_arancel || null, contexto: m.contexto || null, fuente: m.fuente || null,
+      nomenclatura: m.nomenclatura || null, nombre_derecho: m.nombre_derecho || null }
     if (m.id) await api.put(`/aranceles/paises/${m.id}`, cuerpo)
     else await api.post('/aranceles/paises', cuerpo)
     modal.value = null
@@ -424,7 +425,7 @@ onMounted(async () => {
       <span class="iso">{{ tx(p.iso) }}</span>
       <span class="pt-datos"><b>{{ tx(p.nombre) }}</b><small>{{ t('{0} digits{1} · {2} codes', [p.digitos, p.mcca ? ' · CACM' : '', fmtNum(p.codigos)]) }}</small></span>
     </button>
-    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', base_legal: '', activo: true, longitudes_txt: '', nivel_base: '', modelo_arancel: '', contexto: '', fuente: '' }">
+    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', base_legal: '', activo: true, longitudes_txt: '', nivel_base: '', modelo_arancel: '', contexto: '', fuente: '', nomenclatura: '', nombre_derecho: '' }">
       <Icono nombre="mas" :tam="16" /> {{ t('Add country') }}
     </button>
   </div>
@@ -688,6 +689,9 @@ onMounted(async () => {
         <Seleccion v-model="modal.nivel_base" class="entrada"><option value="">—</option><option value="HS6">{{ t('HS6 (6 digits)') }}</option><option value="SAC8">{{ t('Regional SAC (8 digits)') }}</option></Seleccion></label>
       <label class="campo"><span>{{ t('Tariff model') }}</span><input v-model="modal.modelo_arancel" class="entrada" maxlength="120" :placeholder="t('E.g. regional SAC + national precision')" /></label>
       <label class="campo"><span>{{ t('Context') }}</span><input v-model="modal.contexto" class="entrada" maxlength="120" /></label>
+      <!-- Cómo leen los documentos el código y el derecho de este país -->
+      <label class="campo"><span>{{ t('Nomenclature name') }}</span><input v-model="modal.nomenclatura" class="entrada" maxlength="20" placeholder="SAC, HTS, TARIC…" :title="t('Documents show «HS code (name)» for this country.')" /></label>
+      <label class="campo"><span>{{ t('Import duty name') }}</span><input v-model="modal.nombre_derecho" class="entrada" maxlength="20" placeholder="DAI, Duty, IGI…" /></label>
       <label class="campo"><span>{{ t('Official source') }}</span>
         <Seleccion v-model="modal.fuente" class="entrada"><option value="">—</option><option v-for="f in meta.fuentes_oficiales || []" :key="f.codigo" :value="f.codigo">{{ tx(f.texto) }}</option></Seleccion></label>
       <label class="campo col-completa"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="300" :placeholder="t('Tariff and rule that puts it in force')" /></label>
