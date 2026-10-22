@@ -162,16 +162,16 @@ async function guardar() {
 </template>
 
 <style scoped>
-.paso { font-size: 0.95rem; margin: 14px 0 8px; }
+.paso { font-size: var(--t-base); margin: 14px 0 8px; }
 .paso:first-child { margin-top: 0; }
 .tipos { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
 .tipo { text-align: start; border: 1px solid var(--linea); border-radius: var(--radio); padding: 8px 10px; background: var(--superficie); cursor: pointer; display: grid; gap: 3px; font: inherit; color: inherit; }
-.tipo small { color: var(--tinta-3); font-size: 0.78rem; }
+.tipo small { color: var(--tinta-3); font-size: var(--t-xs); }
 .tipo[aria-checked='true'] { border-color: var(--acento); background: var(--acento-claro); }
 .campo.ancho { grid-column: 1 / -1; }
-.impacto { margin-top: 14px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie-2); padding: 10px 12px; display: grid; gap: 4px; font-size: 0.88rem; }
+.impacto { margin-top: 14px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie-2); padding: 10px 12px; display: grid; gap: 4px; font-size: var(--t-sm); }
 .impacto ul { margin: 4px 0 0; padding-inline-start: 18px; display: grid; gap: 3px; }
 .aviso-txt { color: var(--aviso); }
 .mapa { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
-.mapa-fila { display: grid; grid-template-columns: 1fr 110px; gap: 6px; align-items: center; font-size: 0.85rem; }
+.mapa-fila { display: grid; grid-template-columns: 1fr 110px; gap: 6px; align-items: center; font-size: var(--t-sm); }
 </style>

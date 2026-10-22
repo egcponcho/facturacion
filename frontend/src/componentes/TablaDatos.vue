@@ -609,7 +609,7 @@ th.num .td-th { justify-content: flex-end; }
 .td-filtrar { padding: 3px; opacity: 0.45; display: inline-flex; align-items: center; gap: 2px; }
 .td-filtrar.activo, .td-filtrar[aria-expanded='true'], th:hover .td-filtrar, .td-filtrar:focus-visible { opacity: 1; }
 .td-filtrar.activo { color: var(--acento); }
-.td-n { font-size: 0.68rem; font-weight: 700; }
+.td-n { font-size: var(--t-2xs); font-weight: 700; }
 th { position: relative; }
 .td-filtrada { background: var(--acento-claro); }
 .td-redim { position: absolute; top: 0; inset-inline-end: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 3; }

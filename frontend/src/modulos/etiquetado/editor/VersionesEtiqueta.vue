@@ -213,14 +213,14 @@ const miniatura = (v) => `/api/etiquetas/versiones/${v.id}/miniatura.svg?e=${enc
 .ver-cabeza { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ver-numero { border: 0; background: none; padding: 0; font-weight: 600; color: var(--tinta); cursor: pointer; }
 .ver-numero:hover { color: var(--acento-texto); text-decoration: underline; }
-.ver-dato { margin: 3px 0 0; font-size: 0.75rem; color: var(--tinta-3); }
-.ver-cambios { margin: 5px 0 0; font-size: 0.75rem; color: var(--tinta-2); background: var(--superficie-2); border-radius: 6px; padding: 4px 6px; }
-.ver-comentario { margin: 5px 0 0; font-size: 0.78rem; color: var(--tinta-2); font-style: italic; }
+.ver-dato { margin: 3px 0 0; font-size: var(--t-xs); color: var(--tinta-3); }
+.ver-cambios { margin: 5px 0 0; font-size: var(--t-xs); color: var(--tinta-2); background: var(--superficie-2); border-radius: 6px; padding: 4px 6px; }
+.ver-comentario { margin: 5px 0 0; font-size: var(--t-xs); color: var(--tinta-2); font-style: italic; }
 .ver-comentario.rechazo { color: var(--error); }
 .ver-acciones { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-.bitacora li { display: flex; flex-direction: column; gap: 1px; font-size: 0.78rem; border-left: 2px solid var(--linea); padding-left: 8px; }
-.bit-fecha { color: var(--tinta-3); font-size: 0.72rem; }
-.bit-detalle { color: var(--tinta-2); font-size: 0.74rem; }
+.bitacora li { display: flex; flex-direction: column; gap: 1px; font-size: var(--t-xs); border-left: 2px solid var(--linea); padding-left: 8px; }
+.bit-fecha { color: var(--tinta-3); font-size: var(--t-2xs); }
+.bit-detalle { color: var(--tinta-2); font-size: var(--t-xs); }
 .comparar { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .comparar figure { margin: 0; display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 12px; border: 1px solid var(--linea); border-radius: 10px;
   background: repeating-conic-gradient(#eef1f5 0 25%, #fff 0 50%) 0 0 / 14px 14px; }

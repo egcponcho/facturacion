@@ -206,7 +206,7 @@ const imprimir = computed(() => ({ path: '/etiquetas/trabajos/nuevo', query: { o
 .ep-diseno p { margin: 4px 0; }
 .ep-mini { width: 96px; height: 72px; flex: none; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--linea); border-radius: 8px; padding: 4px; background: var(--superficie-2); }
 .ep-mini img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; }
-.ep-excepciones, .ep-tallas { margin: 0; padding-inline-start: 18px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 2px; }
+.ep-excepciones, .ep-tallas { margin: 0; padding-inline-start: 18px; font-size: var(--t-sm); display: flex; flex-direction: column; gap: 2px; }
 .ep-acciones, .ep-pie { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .ep-tarjeta.editando { border-color: var(--acento); }
 .ep-form { display: flex; flex-direction: column; gap: 12px; }

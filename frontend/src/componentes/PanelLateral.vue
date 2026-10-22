@@ -50,7 +50,7 @@ onBeforeUnmount(() => {
 [dir='rtl'] .pl-fondo { justify-content: flex-start; }
 .pl-cabeza { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 16px 18px 10px; border-bottom: 1px solid var(--linea-suave); }
 .pl-titulos { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.pl-titulos h2 { margin: 0; font-size: 1.15rem; overflow-wrap: anywhere; }
+.pl-titulos h2 { margin: 0; font-size: var(--t-lg); overflow-wrap: anywhere; }
 .pl-cuerpo { flex: 1; min-height: 0; padding: 14px 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
 .pl-pie { display: flex; justify-content: flex-end; gap: var(--e-2); flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--linea-suave); background: var(--superficie); }
 </style>

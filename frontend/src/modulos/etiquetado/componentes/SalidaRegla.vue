@@ -70,9 +70,9 @@ function poner(accion) {
 <style scoped>
 .salida { display: flex; flex-direction: column; gap: 8px; }
 .salida-accion { display: flex; gap: 16px; flex-wrap: wrap; }
-.salida-mas { align-self: flex-start; font-size: 0.86rem; }
+.salida-mas { align-self: flex-start; font-size: var(--t-sm); }
 .salida-opciones { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; border-inline-start: 3px solid var(--linea); padding-inline-start: 10px; }
-.salida-opciones label { display: flex; flex-direction: column; gap: 3px; font-size: 0.86rem; min-width: 200px; }
+.salida-opciones label { display: flex; flex-direction: column; gap: 3px; font-size: var(--t-sm); min-width: 200px; }
 .salida-opciones label > span { color: var(--tinta-2); }
 .salida-prioridad { width: 100px; }
 .salida-ayuda { flex-basis: 100%; margin: 0; }

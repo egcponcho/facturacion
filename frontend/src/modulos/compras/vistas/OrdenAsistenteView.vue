@@ -639,21 +639,21 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
 </template>
 
 <style scoped>
-.campo-error { color: var(--error); font-size: 0.8rem; font-weight: 500; display: block; }
+.campo-error { color: var(--error); font-size: var(--t-xs); font-weight: 500; display: block; }
 .con-error :deep(.entrada), .con-error :deep(.sb-boton) { border-color: var(--error); }
 .lineas-oc { display: flex; flex-direction: column; gap: 10px; }
 .linea-oc { display: grid; grid-template-columns: 28px minmax(220px, 2.2fr) repeat(auto-fit, minmax(120px, 1fr)) auto; gap: 10px; align-items: end;
   padding: 10px; border: 1px solid var(--linea); border-radius: 10px; background: var(--superficie); }
 .linea-oc.invalida { border-color: var(--error); }
-.linea-num { align-self: center; color: var(--tinta-3); font-weight: 650; font-size: 0.85rem; }
+.linea-num { align-self: center; color: var(--tinta-3); font-weight: 650; font-size: var(--t-sm); }
 .linea-oc .quitar { align-self: center; }
-.error-linea { grid-column: 1 / -1; color: var(--error); margin: 0; font-size: 0.84rem; }
+.error-linea { grid-column: 1 / -1; color: var(--error); margin: 0; font-size: var(--t-sm); }
 .con-unidad { display: flex; align-items: center; gap: 6px; }
 .con-unidad small { color: var(--tinta-2); white-space: nowrap; }
 .entrada.precio { width: 130px; text-align: end; }
 .revision { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .revision .panel { margin: 0; }
-.datos { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 0.9rem; }
+.datos { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: var(--t-base); }
 .datos dt { color: var(--tinta-2); }
 .datos dd { margin: 0; color: var(--tinta); min-width: 0; overflow-wrap: anywhere; }
 .datos .notas { white-space: pre-line; }

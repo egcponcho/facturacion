@@ -38,8 +38,8 @@ function cambiar(ev) {
 
 <style scoped>
 .medida { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.medida-etq { font-size: 0.72rem; color: var(--tinta-3); }
+.medida-etq { font-size: var(--t-2xs); color: var(--tinta-3); }
 .medida-caja { position: relative; display: flex; }
 .medida-caja input { width: 100%; padding-right: 26px; min-width: 0; }
-.medida-u { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.72rem; color: var(--tinta-3); pointer-events: none; }
+.medida-u { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: var(--t-2xs); color: var(--tinta-3); pointer-events: none; }
 </style>

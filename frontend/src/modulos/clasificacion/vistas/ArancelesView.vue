@@ -731,16 +731,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.oficial-txt { font-size: 0.8rem; color: var(--tinta-3); margin-top: 4px; }
+.oficial-txt { font-size: var(--t-xs); color: var(--tinta-3); margin-top: 4px; }
 .oficial-txt summary { cursor: pointer; }
-.oficial-fijo { margin: 0; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); font-size: 0.88rem; }
-.enlace-motor { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.88rem; font-weight: 600; color: var(--acento-texto); text-decoration: none; }
+.oficial-fijo { margin: 0; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); font-size: var(--t-sm); }
+.enlace-motor { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: var(--t-sm); font-weight: 600; color: var(--acento-texto); text-decoration: none; }
 .enlace-motor:hover { text-decoration: underline; }
 .sub-mod { margin-bottom: 10px; }
-.hermanos { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px; margin: 8px 0 12px; background: var(--superficie-2); font-size: 0.84rem; }
+.hermanos { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px; margin: 8px 0 12px; background: var(--superficie-2); font-size: var(--t-sm); }
 .hermanos ul { margin: 6px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 3px; }
 .hermanos li.actual { font-weight: 650; }
-.conds .campo > span .etiqueta { margin-inline-start: 6px; font-size: 0.66rem; }
+.conds .campo > span .etiqueta { margin-inline-start: 6px; font-size: var(--t-2xs); }
 .sub-mod .pildora { text-decoration: none; }
 .paises-resumen { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
 .pais-tarjeta { display: flex; align-items: center; gap: 10px; border: 1px solid var(--linea); background: var(--superficie); border-radius: 10px; padding: 8px 12px; cursor: pointer; font: inherit; text-align: start; color: var(--tinta); }
@@ -748,9 +748,9 @@ onMounted(async () => {
 .pais-tarjeta.elegido { border-color: var(--acento); background: var(--acento-claro); }
 .pais-tarjeta.inactivo { opacity: 0.55; }
 .pais-tarjeta.nuevo { border-style: dashed; color: var(--acento-texto); font-weight: 600; }
-.pais-tarjeta .iso { font-weight: 800; font-stretch: 115%; font-size: 1.05rem; color: var(--acento-texto); }
-.pt-datos b { display: block; font-size: 0.86rem; }
-.pt-datos small { color: var(--tinta-3); font-size: 0.76rem; }
+.pais-tarjeta .iso { font-weight: 800; font-stretch: 115%; font-size: var(--t-md); color: var(--acento-texto); }
+.pt-datos b { display: block; font-size: var(--t-sm); }
+.pt-datos small { color: var(--tinta-3); font-size: var(--t-xs); }
 .tabla :deep(.celda)::placeholder { color: var(--tinta-3); font-weight: 400; }
 .cond { display: block; font-size: var(--td-sub); color: var(--tinta-2); min-width: 200px; white-space: normal; }
 .desc-codigo { min-width: 220px; white-space: normal; }

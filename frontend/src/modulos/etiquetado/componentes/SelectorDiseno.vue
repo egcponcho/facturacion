@@ -56,7 +56,7 @@ defineExpose({ elegido, recargar: cargar })
 <style scoped>
 .sd { display: flex; gap: 12px; align-items: flex-start; }
 .sd-campo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.sd-aviso { margin: 0; font-size: 0.82rem; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.sd-aviso { margin: 0; font-size: var(--t-sm); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .sd-mini { width: 112px; height: 84px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--linea); border-radius: 8px; padding: 6px;
   background: repeating-conic-gradient(var(--linea-suave) 0% 25%, var(--superficie-2) 0% 50%) 0 0 / 12px 12px; flex: none; }
 .sd-mini img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 18%); }

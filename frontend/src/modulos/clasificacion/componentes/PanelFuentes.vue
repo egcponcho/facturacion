@@ -124,7 +124,7 @@ const columnasF = computed(() => [
 </template>
 
 <style scoped>
-.titulo-seccion { font-size: 1rem; margin: 14px 0 8px; }
+.titulo-seccion { font-size: var(--t-md); margin: 14px 0 8px; }
 .sub.enlace { display: block; }
 .nota { min-width: 200px; max-width: 420px; white-space: normal; }
 </style>

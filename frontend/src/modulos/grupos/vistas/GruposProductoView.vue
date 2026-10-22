@@ -226,7 +226,7 @@ async function quitar(g) {
 .icono-clase { color: var(--tinta-3); margin-top: 2px; flex: none; }
 .cuerpo { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .titulo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.codigo { font-family: var(--mono, monospace); font-size: 0.82rem; color: var(--tinta-3); }
+.codigo { font-family: var(--mono, monospace); font-size: var(--t-sm); color: var(--tinta-3); }
 .acciones { display: flex; gap: 2px; flex: none; }
 .formulario { display: flex; flex-direction: column; gap: 12px; }
 @media (max-width: 600px) {

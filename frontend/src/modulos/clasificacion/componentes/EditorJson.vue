@@ -64,9 +64,9 @@ function usarEjemplo() {
 <style scoped>
 .editor-json { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.lbl { font-size: 0.84rem; font-weight: 600; }
-textarea { width: 100%; font-family: var(--mono); font-size: 0.8rem; resize: vertical; min-height: 84px; }
+.lbl { font-size: var(--t-sm); font-weight: 600; }
+textarea { width: 100%; font-family: var(--mono); font-size: var(--t-xs); resize: vertical; min-height: 84px; }
 textarea.mal { border-color: var(--error); }
-.error { color: var(--error); font-size: 0.8rem; margin: 0; }
+.error { color: var(--error); font-size: var(--t-xs); margin: 0; }
 .ayuda { margin: 0; }
 </style>

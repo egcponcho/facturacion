@@ -124,13 +124,13 @@ async function guardarEspecial() {
 .re-fila { width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; text-align: start; background: none; border: 0;
   font: inherit; color: inherit; padding: 6px; cursor: pointer; min-height: 40px; }
 .re-fila:disabled { cursor: default; }
-.re-detalle { padding: 0 6px 6px; font-size: 0.86rem; }
+.re-detalle { padding: 0 6px 6px; font-size: var(--t-sm); }
 .re-detalle p { margin: 2px 0; }
-.re-problema { color: var(--aviso); display: flex; gap: 6px; align-items: center; margin: 0 6px 6px; font-size: 0.86rem; flex-wrap: wrap; }
-.re-generales li { display: flex; gap: 6px; align-items: baseline; font-size: 0.86rem; }
+.re-problema { color: var(--aviso); display: flex; gap: 6px; align-items: center; margin: 0 6px 6px; font-size: var(--t-sm); flex-wrap: wrap; }
+.re-generales li { display: flex; gap: 6px; align-items: baseline; font-size: var(--t-sm); }
 .re-generales .error { color: var(--error); }
 .re-generales .advertencia { color: var(--aviso); }
 .re-form { display: flex; flex-direction: column; gap: 14px; }
 .re-volver { align-self: flex-start; margin-bottom: 4px; }
-.re-titulo { margin: 0 0 12px; font-size: 1rem; }
+.re-titulo { margin: 0 0 12px; font-size: var(--t-md); }
 </style>

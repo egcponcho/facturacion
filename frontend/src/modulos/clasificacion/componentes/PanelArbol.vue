@@ -173,12 +173,12 @@ const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Su
 <style scoped>
 .arbol-arancel { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 14px; align-items: start; }
 .cabeza { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.cabeza h3 { margin: 0; font-size: 1rem; display: flex; gap: 6px; align-items: center; }
+.cabeza h3 { margin: 0; font-size: var(--t-md); display: flex; gap: 6px; align-items: center; }
 .arbol .buscador { width: 100%; max-width: none; }
-.conteo { margin: 6px 0; font-size: 0.78rem; }
+.conteo { margin: 6px 0; font-size: var(--t-xs); }
 .lista-arbol { list-style: none; margin: 0; padding: 0; max-height: 64vh; overflow-y: auto; }
 .lista-arbol li { padding-inline-start: calc(var(--nivel, 0) * 16px); }
-.nodo { display: flex; gap: 6px; align-items: baseline; width: 100%; text-align: start; border: 0; background: none; padding: 5px 6px; border-radius: 8px; cursor: pointer; color: inherit; font: inherit; font-size: 0.86rem; }
+.nodo { display: flex; gap: 6px; align-items: baseline; width: 100%; text-align: start; border: 0; background: none; padding: 5px 6px; border-radius: 8px; cursor: pointer; color: inherit; font: inherit; font-size: var(--t-sm); }
 .nodo:hover { background: var(--superficie-2); }
 .nodo.elegido { background: var(--acento-claro); color: var(--acento-texto); }
 .nodo.off .cod { opacity: 0.6; }
@@ -189,14 +189,14 @@ const NIVEL = { CAPITULO: t('Chapter'), PARTIDA: t('Heading'), SUBPARTIDA: t('Su
 .txt { color: var(--tinta-2); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .txt small { display: block; color: var(--tinta-3); }
 .detalle { min-height: 300px; }
-.ruta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 0.82rem; color: var(--tinta-3); }
+.ruta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: var(--t-sm); color: var(--tinta-3); }
 .ruta > * + *::before { content: '›'; margin-inline-end: 4px; color: var(--tinta-3); }
 .titulo { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
-.titulo h3 { margin: 0; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.titulo h3 { margin: 0; font-size: var(--t-2xl); font-variant-numeric: tabular-nums; }
 .dai { margin-inline-start: auto; font-weight: 700; padding: 4px 10px; border-radius: 99px; background: var(--superficie-2); }
 .texto { margin: 8px 0; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-h4 { margin: 16px 0 6px; font-size: 0.9rem; }
+h4 { margin: 16px 0 6px; font-size: var(--t-base); }
 .hijos { list-style: none; margin: 0; padding: 0; border: 1px solid var(--linea); border-radius: var(--radio); max-height: 280px; overflow-y: auto; }
 .hijos li + li { border-top: 1px solid var(--linea); }
 .paises { display: grid; gap: 6px; }
@@ -206,8 +206,8 @@ h4 { margin: 16px 0 6px; font-size: 0.9rem; }
 .pais-datos { display: grid; gap: 5px; min-width: 0; }
 .fila-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .etiqueta.aviso { display: inline-flex; gap: 4px; align-items: center; }
-.pais .codigo-sac { font-size: 0.8rem; padding: 2px 6px; }
-.nota-legal { border: 1px solid var(--linea); border-radius: var(--radio); padding: 6px 10px; margin-bottom: 6px; font-size: 0.86rem; }
+.pais .codigo-sac { font-size: var(--t-xs); padding: 2px 6px; }
+.nota-legal { border: 1px solid var(--linea); border-radius: var(--radio); padding: 6px 10px; margin-bottom: 6px; font-size: var(--t-sm); }
 .nota-legal summary { cursor: pointer; font-weight: 600; }
 .vacio-det { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 260px; padding-block: 0; }
 @media (max-width: 900px) { .arbol-arancel { grid-template-columns: 1fr; } }

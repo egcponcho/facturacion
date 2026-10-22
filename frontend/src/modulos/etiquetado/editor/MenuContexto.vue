@@ -65,10 +65,10 @@ onBeforeUnmount(() => {
 .menu-contexto { position: fixed; z-index: 80; min-width: 220px; padding: 6px; display: flex; flex-direction: column; gap: 1px;
   background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; box-shadow: var(--sombra-flotante); }
 .menu-contexto button { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: transparent; text-align: start;
-  padding: 6px 9px; border-radius: 6px; font: inherit; font-size: 0.85rem; color: var(--tinta); cursor: pointer; }
+  padding: 6px 9px; border-radius: 6px; font: inherit; font-size: var(--t-sm); color: var(--tinta); cursor: pointer; }
 .menu-contexto button:hover:not(:disabled) { background: var(--superficie-2); }
 .menu-contexto button:disabled { opacity: 0.45; cursor: default; }
 .menu-contexto button.peligro { color: var(--error); }
-.menu-contexto kbd { margin-inline-start: auto; font-size: 0.72rem; color: var(--tinta-3); font-family: ui-monospace, monospace; }
+.menu-contexto kbd { margin-inline-start: auto; font-size: var(--t-2xs); color: var(--tinta-3); font-family: ui-monospace, monospace; }
 .menu-contexto hr { border: 0; border-top: 1px solid var(--linea); margin: 4px 2px; }
 </style>

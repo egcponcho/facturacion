@@ -1006,28 +1006,28 @@ async function otroIgual() {
 </template>
 
 <style scoped>
-.tj-estado { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; }
+.tj-estado { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--t-base); }
 .tj-bloque { display: flex; flex-direction: column; gap: 12px; }
 .tj-fila { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .tj-fila > .campo { flex: 1 1 220px; }
-.tj-h { margin: 0; font-size: 0.95rem; font-weight: 650; }
+.tj-h { margin: 0; font-size: var(--t-base); font-weight: 650; }
 .tj-origenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
 .tj-origen { display: flex; flex-direction: column; gap: 4px; text-align: start; border: 1px solid var(--linea); border-radius: 10px; padding: 12px;
   background: var(--superficie); font: inherit; color: var(--tinta); cursor: pointer; min-height: 44px; }
-.tj-origen span { color: var(--tinta-3); font-size: 0.85rem; }
+.tj-origen span { color: var(--tinta-3); font-size: var(--t-sm); }
 .tj-origen[aria-checked='true'] { border-color: var(--acento); background: var(--acento-claro); }
 .tj-origen:disabled:not([aria-checked='true']) { opacity: 0.5; cursor: default; }
 .tj-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--linea); border-radius: 16px; padding: 2px 4px 2px 10px; font-size: 0.85rem; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--linea); border-radius: 16px; padding: 2px 4px 2px 10px; font-size: var(--t-sm); }
 .tj-lineas summary, .tj-problema-det summary, .tj-historial summary { cursor: pointer; }
-.tj-lineas h4 { margin: 8px 0 4px; font-size: 0.9rem; }
+.tj-lineas h4 { margin: 8px 0 4px; font-size: var(--t-base); }
 .tj-tipos, .tj-modo, .tj-carpetas { border: 1px solid var(--linea); border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
 .tj-modo { flex-direction: row; gap: 18px; flex-wrap: wrap; }
 .tj-tipo { display: grid; grid-template-columns: auto minmax(140px, 1fr) 80px minmax(0, 1.4fr); gap: 10px; align-items: center; min-height: 36px; }
 .tj-tipo.apagado { opacity: 0.6; }
 .tj-tipo .num { text-align: end; font-variant-numeric: tabular-nums; }
 .tj-cajas { max-width: 520px; border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.tj-cajas legend { font-weight: 600; font-size: 0.86rem; margin-bottom: 4px; }
+.tj-cajas legend { font-weight: 600; font-size: var(--t-sm); margin-bottom: 4px; }
 .tj-problema { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .tj-problema-det p { margin: 4px 0 0 22px; }
 .tj-pestanas { margin: 0 0 8px; }
@@ -1039,28 +1039,28 @@ tr.con-error > td { background: var(--error-fondo, transparent); }
 .tj-carpetas { flex-direction: row; gap: 14px; flex-wrap: wrap; }
 .tj-avance { position: relative; height: 22px; border-radius: 6px; background: var(--linea-suave); overflow: hidden; }
 .tj-avance > div { height: 100%; background: var(--acento); transition: width 0.3s; }
-.tj-avance > span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.8rem; }
+.tj-avance > span { position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--t-xs); }
 .tj-generar { align-self: flex-start; }
 .tj-acciones { display: flex; gap: 6px; flex-wrap: wrap; }
 .tj-num { width: 5.5em; }
 .tj-reimpresiones { cursor: help; }
 .tj-svg { background: var(--papel); border: 1px dashed var(--linea); padding: 12px; --previa-alto: min(56vh, 520px); }
 .tj-svg :deep(svg) { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); background: #fff; }
-.tj-valores { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 0.84rem; margin: 0; }
+.tj-valores { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: var(--t-sm); margin: 0; }
 .tj-valores dt { color: var(--tinta-3); font-family: var(--mono, monospace); }
 .tj-valores dd { margin: 0; overflow-wrap: anywhere; }
 .ok-txt { color: var(--ok); display: flex; gap: 6px; align-items: center; }
 .error-txt { color: var(--error); margin: 0; }
 .aviso-txt { color: var(--aviso); margin: 0; }
 @media (max-width: 640px) { .tj-tipo { grid-template-columns: auto 1fr auto; } .tj-tipo .ayuda { grid-column: 2 / -1; } }
-.tj-cambios { margin: 8px 0 0; padding-inline-start: 18px; max-height: 45vh; overflow: auto; font-size: 0.9rem; }
+.tj-cambios { margin: 8px 0 0; padding-inline-start: 18px; max-height: 45vh; overflow: auto; font-size: var(--t-base); }
 .tj-completar { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow: auto; }
 /* Posiciones de la OC */
 .tj-posiciones { display: flex; flex-direction: column; gap: 10px; }
 .tj-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
 .tj-seg button { display: flex; flex-direction: column; gap: 2px; text-align: start; border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px;
   background: var(--superficie); font: inherit; color: var(--tinta); cursor: pointer; }
-.tj-seg button span { font-size: 0.8rem; color: var(--tinta-3); }
+.tj-seg button span { font-size: var(--t-xs); color: var(--tinta-3); }
 .tj-seg button.activo { border-color: var(--acento); background: var(--acento-claro); }
 .tj-barra-lista { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .tj-barra-lista .crece { flex: 1; }
@@ -1073,12 +1073,12 @@ tr.con-error > td { background: var(--error-fondo, transparent); }
 .tj-tabla .chk { width: 32px; }
 /* Revisar */
 .segmentos-txt { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--superficie-2); border: 1px solid var(--linea); }
-.segmentos-txt button { border: 0; background: none; border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 0.82rem; color: var(--tinta-2); cursor: pointer; }
+.segmentos-txt button { border: 0; background: none; border-radius: 6px; padding: 5px 10px; font: inherit; font-size: var(--t-sm); color: var(--tinta-2); cursor: pointer; }
 .segmentos-txt button.activo { background: var(--superficie); color: var(--tinta); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.1); }
 .tj-cantidad { white-space: nowrap; }
 .tj-cantidad .btn-icono { vertical-align: middle; margin-inline-start: 2px; }
 .tj-num.propia { border-color: var(--acento-medio); background: var(--acento-claro); }
-.tj-lote { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; }
+.tj-lote { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-sm); }
 .tj-lote input { color: var(--tinta); background: var(--superficie); }
 /* Arreglar en el mismo lugar (sin ventanas) */
 .tj-problema-caja { display: flex; flex-direction: column; gap: 6px; }

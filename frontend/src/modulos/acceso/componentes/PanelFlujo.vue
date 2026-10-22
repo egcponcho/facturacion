@@ -66,7 +66,7 @@ onMounted(cargar)
 
 <style scoped>
 .flujo-grupos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-.flujo-grupo h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); margin: 0 0 8px; }
+.flujo-grupo h3 { font-size: var(--t-sm); text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); margin: 0 0 8px; }
 .flujo-fila { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--linea); cursor: pointer; }
 .flujo-fila span { display: flex; flex-direction: column; gap: 2px; }
 .flujo-fila small { color: var(--tinta-3); line-height: 1.35; }

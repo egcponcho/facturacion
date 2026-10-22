@@ -592,8 +592,8 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
         <div class="cifra"><span>{{ t('Volume') }}</span><b>{{ fmtNum(pl.totales.cbm, 2) }} m³</b></div>
 
         <div class="cifra"><span>{{ t('Load unit') }}</span>
-          <b v-if="pl.transporte" style="font-size: 0.95rem">{{ tx(pl.transporte.unidad) }} · {{ tx(pl.transporte.embarque) }} <EstadoBadge :estado="pl.transporte.asignacion" /></b>
-          <b v-else class="apagado" style="font-size: 0.95rem">{{ t('Not assigned') }}</b>
+          <b v-if="pl.transporte" style="font-size: var(--t-base)">{{ tx(pl.transporte.unidad) }} · {{ tx(pl.transporte.embarque) }} <EstadoBadge :estado="pl.transporte.asignacion" /></b>
+          <b v-else class="apagado" style="font-size: var(--t-base)">{{ t('Not assigned') }}</b>
         </div>
       </div>
       <Pasos :pasos="pasos" />
@@ -1168,5 +1168,5 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
 </template>
 
 <style scoped>
-.numero-editable { font: inherit; font-stretch: 125%; font-weight: 780; font-size: 1.6rem; max-width: 100%; width: 16ch; }
+.numero-editable { font: inherit; font-stretch: 125%; font-weight: 780; font-size: var(--t-2xl); max-width: 100%; width: 16ch; }
 </style>

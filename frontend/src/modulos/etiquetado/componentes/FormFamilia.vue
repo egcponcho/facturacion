@@ -67,7 +67,7 @@ const nombreCampo = (clave) => campos.value.find((c) => c.clave === clave)?.etiq
 <style scoped>
 .ff { display: flex; flex-direction: column; gap: 14px; }
 .ff-campos { max-height: 340px; overflow: auto; border: 1px solid var(--linea); border-radius: 8px; }
-.ff-campos .tabla { font-size: 0.84rem; }
+.ff-campos .tabla { font-size: var(--t-sm); }
 .ff-campos thead th { position: sticky; top: 0; background: var(--superficie-2); }
 .centro { text-align: center; }
 </style>

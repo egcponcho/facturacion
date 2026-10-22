@@ -112,7 +112,7 @@ const ocultos = computed(() => sel.value.length > 0 && sel.value.every((e) => e.
 .be-sep { width: 1px; height: 24px; background: var(--linea); margin: 0 4px; flex: none; }
 .be-crece { flex: 1; min-width: 8px; }
 .be-btn { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 8px; border: 1px solid transparent; border-radius: 7px;
-  background: none; color: var(--tinta-2); font: inherit; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+  background: none; color: var(--tinta-2); font: inherit; font-size: var(--t-xs); cursor: pointer; white-space: nowrap; }
 .be-btn:hover:not(:disabled) { background: var(--superficie-2); color: var(--tinta); }
 .be-btn:disabled { opacity: 0.4; cursor: default; }
 .be-btn.activo { background: var(--acento-claro); border-color: var(--acento-medio); color: var(--acento-texto); }

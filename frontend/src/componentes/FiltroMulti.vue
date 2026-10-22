@@ -53,13 +53,13 @@ function limpiar() {
 
 <style scoped>
 .fm { position: relative; }
-.fm-boton { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie); cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--tinta-2); white-space: nowrap; }
+.fm-boton { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--superficie); cursor: pointer; font: inherit; font-size: var(--t-sm); color: var(--tinta-2); white-space: nowrap; }
 .fm-boton b { color: var(--tinta); font-weight: 620; }
 .fm-boton.activo { border-color: var(--acento); background: var(--acento-claro); }
 .fm-velo { position: fixed; inset: 0; z-index: 60; }
 .fm-panel { position: absolute; z-index: 39; top: calc(100% + 4px); inset-inline-start: 0; min-width: 240px; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; box-shadow: var(--sombra-flotante); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .fm-lista { max-height: 280px; overflow: auto; display: flex; flex-direction: column; }
-.fm-op { display: flex; gap: 8px; align-items: center; padding: 5px 6px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; }
+.fm-op { display: flex; gap: 8px; align-items: center; padding: 5px 6px; border-radius: 6px; font-size: var(--t-sm); cursor: pointer; }
 .fm-op:hover { background: var(--acento-claro); }
 .fm-op input { accent-color: var(--acento); }
 </style>

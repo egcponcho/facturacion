@@ -44,16 +44,16 @@ function alternar() {
 
 <style scoped>
 .comportamiento { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px 8px; margin: 0 0 12px; display: grid; gap: 8px; min-width: 0; }
-.comportamiento legend { font-weight: 650; font-size: 0.92rem; padding: 0 4px; }
+.comportamiento legend { font-weight: 650; font-size: var(--t-base); padding: 0 4px; }
 .comportamiento .ayuda { margin: 0; }
-.avanzado { justify-self: end; font-size: 0.8rem; }
+.avanzado { justify-self: end; font-size: var(--t-xs); }
 .comportamiento :deep(.cfilas) { display: grid; gap: 8px; }
 .comportamiento :deep(.cfila.bloque) { border: 1px solid var(--linea-suave); border-radius: 9px; padding: 8px; display: grid; gap: 6px; background: var(--superficie-2); }
 .comportamiento :deep(.linea) { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-.comportamiento :deep(.ccampo) { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; color: var(--tinta-2); min-width: 140px; flex: 1; }
+.comportamiento :deep(.ccampo) { display: flex; flex-direction: column; gap: 3px; font-size: var(--t-xs); color: var(--tinta-2); min-width: 140px; flex: 1; }
 .comportamiento :deep(.ccampo.ancho) { flex: 3; min-width: 200px; }
 .comportamiento :deep(.ccampo.corto) { flex: 0 0 90px; min-width: 90px; }
-.comportamiento :deep(.ccheck) { display: inline-flex; gap: 6px; align-items: center; font-size: 0.82rem; padding-bottom: 8px; }
+.comportamiento :deep(.ccheck) { display: inline-flex; gap: 6px; align-items: center; font-size: var(--t-sm); padding-bottom: 8px; }
 .comportamiento :deep(.crece) { flex: 1; min-width: 180px; }
 .comportamiento :deep(.btn-chico) { justify-self: start; }
 </style>

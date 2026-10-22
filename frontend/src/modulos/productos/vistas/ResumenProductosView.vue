@@ -193,7 +193,7 @@ a.barra-fila:hover { background: var(--fila-hover); }
 @media (max-width: 600px) { .barra-fila { grid-template-columns: minmax(0, 1fr) 3rem; } .barra-riel { grid-column: 1 / -1; grid-row: 2; } }
 @media (prefers-reduced-motion: reduce) { .barra-dato { transition: none; } }
 /* Estado: color con forma (el texto lo dice) */
-.estado { display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; font-weight: 650; padding: 1px 9px 1px 8px; border-radius: 20px; white-space: nowrap; line-height: 1.65; }
+.estado { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-xs); font-weight: 650; padding: 1px 9px 1px 8px; border-radius: 20px; white-space: nowrap; line-height: 1.65; }
 .estado-marca { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .estado-neutro { background: var(--linea-suave); color: var(--tinta-2); }
 .estado-neutro .estado-marca { border: 2px solid var(--tinta-3); }
@@ -203,6 +203,6 @@ a.barra-fila:hover { background: var(--fila-hover); }
 .estado-aviso .estado-marca { background: linear-gradient(90deg, var(--aviso) 50%, transparent 50%); border: 1.5px solid var(--aviso); }
 .estado-info { background: var(--info-fondo); color: var(--info-texto); }
 .estado-info .estado-marca { background: var(--info); border-radius: 2px; }
-.lista-accion-ir { display: inline-flex; align-items: center; gap: 4px; font-size: 0.84rem; font-weight: 600; color: var(--acento-texto); }
+.lista-accion-ir { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t-sm); font-weight: 600; color: var(--acento-texto); }
 .mt { margin-top: 16px; }
 </style>

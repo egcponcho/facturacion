@@ -206,18 +206,18 @@ const noCabe = computed(() => {
 
 <style scoped>
 .nota-auto { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin: 0 0 6px; }
-.nota-auto p { margin: 0; font-size: 0.8rem; }
+.nota-auto p { margin: 0; font-size: var(--t-xs); }
 .panel-prop { display: flex; flex-direction: column; gap: 8px; }
-.panel-prop h4 { margin: 12px 0 0; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
+.panel-prop h4 { margin: 12px 0 0; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .panel-prop h4:first-child { margin-top: 0; }
 .rejilla-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
 .campo-mini { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.campo-mini > span { font-size: 0.72rem; color: var(--tinta-3); }
-.check-linea { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--tinta-2); min-height: 30px; }
-.ayuda { font-size: 0.74rem; margin: 0; }
+.campo-mini > span { font-size: var(--t-2xs); color: var(--tinta-3); }
+.check-linea { display: flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--tinta-2); min-height: 30px; }
+.ayuda { font-size: var(--t-xs); margin: 0; }
 .segmentos { display: flex; flex-wrap: wrap; }
 .btn-chico { align-self: flex-start; }
 .variable { border: 1px solid var(--linea); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .variable-pie { display: flex; align-items: center; gap: 8px; }
-.variable-pie code { font-size: 0.72rem; color: var(--tinta-3); flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.variable-pie code { font-size: var(--t-2xs); color: var(--tinta-3); flex: 1; overflow: hidden; text-overflow: ellipsis; }
 </style>

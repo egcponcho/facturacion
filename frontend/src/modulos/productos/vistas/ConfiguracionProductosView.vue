@@ -81,7 +81,7 @@ const textoCuenta = (n) => (n === 1 ? t('1 record') : t('{0} records', [fmtNum(n
 
 <style scoped>
 .config-portada { display: flex; flex-direction: column; gap: 22px; }
-.config-grupo { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 650; margin: 0 0 10px; }
+.config-grupo { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 650; margin: 0 0 10px; }
 .config-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .config-tarjeta {
   display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; gap: 4px 14px; padding: 16px; color: inherit; text-decoration: none;
@@ -91,9 +91,9 @@ const textoCuenta = (n) => (n === 1 ? t('1 record') : t('{0} records', [fmtNum(n
 .config-tarjeta:hover { border-color: var(--acento-medio); box-shadow: var(--sombra-media); }
 .config-icono { grid-row: span 2; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--acento-claro); color: var(--acento-texto); }
 .config-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.config-texto b { font-size: 0.98rem; }
-.config-texto small { color: var(--tinta-3); font-size: 0.84rem; line-height: 1.45; }
-.config-cuenta { font-size: 0.8rem; font-weight: 650; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+.config-texto b { font-size: var(--t-md); }
+.config-texto small { color: var(--tinta-3); font-size: var(--t-sm); line-height: 1.45; }
+.config-cuenta { font-size: var(--t-xs); font-weight: 650; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
 .config-cuenta.vacia { color: var(--aviso); }
 @media (max-width: 400px) { .config-tarjetas { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .config-tarjeta { transition: none; } }

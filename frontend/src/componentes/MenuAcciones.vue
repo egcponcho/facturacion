@@ -49,6 +49,6 @@ onBeforeUnmount(() => document.removeEventListener('click', fuera))
   background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; box-shadow: var(--sombra-flotante);
   display: flex; flex-direction: column; }
 .menu-acciones-lista :deep(button) { justify-content: flex-start; width: 100%; border: 0; background: transparent; text-align: start;
-  padding: 8px 10px; border-radius: 6px; font: inherit; font-size: 0.9rem; color: var(--tinta); cursor: pointer; }
+  padding: 8px 10px; border-radius: 6px; font: inherit; font-size: var(--t-base); color: var(--tinta); cursor: pointer; }
 .menu-acciones-lista :deep(button:hover), .menu-acciones-lista :deep(button:focus-visible) { background: var(--superficie-2); outline: none; }
 </style>

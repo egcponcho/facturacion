@@ -31,9 +31,9 @@ function escribir(ev) {
 
 <style scoped>
 .campo-color { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.medida-etq { font-size: 0.72rem; color: var(--tinta-3); }
+.medida-etq { font-size: var(--t-2xs); color: var(--tinta-3); }
 .cc-fila { display: flex; gap: 4px; align-items: center; }
 .cc-fila input[type='color'] { width: 34px; height: 32px; padding: 2px; border: 1px solid var(--linea); border-radius: 6px; background: var(--superficie); flex: none; }
 .cc-fila input[type='color'].sin { background: repeating-linear-gradient(45deg, #fff 0 4px, #e5e7eb 4px 8px); }
-.cc-hex { width: 100%; min-width: 0; font-family: ui-monospace, monospace; font-size: 0.8rem; }
+.cc-hex { width: 100%; min-width: 0; font-family: ui-monospace, monospace; font-size: var(--t-xs); }
 </style>

@@ -368,6 +368,6 @@ alCambiar(() => consultar(), ['/productos'])
 .recortar { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .miniatura img { width: 100%; height: 100%; object-fit: cover; }
 .chip-filtro { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--acento-medio); background: var(--acento-claro); color: var(--acento-texto);
-  border-radius: 20px; padding: 4px 10px; font: inherit; font-size: 0.84rem; font-weight: 600; cursor: pointer; }
+  border-radius: 20px; padding: 4px 10px; font: inherit; font-size: var(--t-sm); font-weight: 600; cursor: pointer; }
 .chip-filtro:hover { border-color: var(--acento); }
 </style>

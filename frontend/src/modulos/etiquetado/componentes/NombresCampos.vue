@@ -95,5 +95,5 @@ async function guardar() {
 .nc-cab > div { flex: 1 1 320px; }
 .nc-cab h3 { margin: 0 0 4px; }
 .nc-input { width: 100%; min-width: 140px; }
-code { font-size: 0.8rem; color: var(--tinta-3); }
+code { font-size: var(--t-xs); color: var(--tinta-3); }
 </style>

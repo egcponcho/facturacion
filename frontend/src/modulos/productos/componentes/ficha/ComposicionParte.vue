@@ -160,11 +160,11 @@ function pegar() {
 <style scoped>
 .cparte { border: 1px solid var(--linea); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--superficie); }
 .chead { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
-.lbl { font-size: 0.86rem; font-weight: 620; }
+.lbl { font-size: var(--t-sm); font-weight: 620; }
 .opcional { font-weight: 400; color: var(--tinta-3); }
 .cmat { position: relative; display: block; min-width: 0; }
 .cmat input { width: 100%; padding-inline-end: 150px; }
-.ctag { position: absolute; inset-inline-end: 6px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; font-weight: 650; padding: 2px 7px; border-radius: 999px;
+.ctag { position: absolute; inset-inline-end: 6px; top: 50%; transform: translateY(-50%); font-size: var(--t-2xs); font-weight: 650; padding: 2px 7px; border-radius: 999px;
   background: var(--superficie-2); color: var(--tinta-2); border: 1px solid var(--linea); pointer-events: auto; white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 .ctag.cuero { background: var(--aviso-fondo); color: var(--aviso); border-color: var(--aviso-borde); }
 .ctag.textil { background: var(--info-fondo); color: var(--info-texto); border-color: transparent; }
@@ -176,25 +176,25 @@ function pegar() {
 .cpct span { position: absolute; inset-inline-end: 10px; top: 50%; transform: translateY(-50%); color: var(--tinta-3); font-weight: 620; pointer-events: none; }
 .cx { border: 1px solid var(--linea); background: none; border-radius: 7px; height: 36px; cursor: pointer; color: var(--tinta-3); font-size: 17px; line-height: 1; }
 .cx:hover { color: var(--error); border-color: var(--error); background: var(--error-fondo); }
-.cvacio { font-size: 0.84rem; color: var(--tinta-3); margin: 0 0 6px; }
-.est { font-size: 0.74rem; font-weight: 620; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.cvacio { font-size: var(--t-sm); color: var(--tinta-3); margin: 0 0 6px; }
+.est { font-size: var(--t-xs); font-weight: 620; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
 .est.ok { background: var(--ok-fondo); color: var(--ok); }
 .est.pend { background: var(--aviso-fondo); color: var(--aviso); }
 .est.mal { background: var(--error-fondo); color: var(--error); }
 .mchips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; align-items: center; }
-.mlbl { font-size: 0.76rem; color: var(--tinta-3); margin-inline-end: 2px; }
-.mchips button { border: 1px dashed var(--borde-hover); background: none; border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; cursor: pointer; color: var(--tinta); font-family: inherit; }
+.mlbl { font-size: var(--t-xs); color: var(--tinta-3); margin-inline-end: 2px; }
+.mchips button { border: 1px dashed var(--borde-hover); background: none; border-radius: 999px; padding: 2px 10px; font-size: var(--t-xs); cursor: pointer; color: var(--tinta); font-family: inherit; }
 .mchips button:hover { border-color: var(--acento); color: var(--acento-texto); background: var(--acento-claro); }
 .mchips button.rel, .mchips button.fix { border-style: solid; border-color: var(--acento); color: var(--acento-texto); font-weight: 600; }
 .mchips button small { color: var(--tinta-3); font-weight: 400; margin-inline-start: 5px; }
 .mchips .lleno { border-style: solid; background: var(--acento); border-color: var(--acento); color: var(--sobre-acento); font-weight: 650; }
 .mchips .lleno:hover { background: var(--acento-hover); color: var(--sobre-acento); }
 .chips-lectura { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.chip-l { font-size: 0.78rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--linea); color: var(--tinta-2); }
+.chip-l { font-size: var(--t-xs); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--linea); color: var(--tinta-2); }
 .chip-l.main { border-color: var(--acento); color: var(--acento-texto); font-weight: 600; }
-.teach { display: inline-flex; gap: 6px; align-items: center; font-size: 0.8rem; border: 1px solid var(--aviso-borde); border-radius: 8px; padding: 3px 6px; background: var(--aviso-fondo); color: var(--aviso); }
+.teach { display: inline-flex; gap: 6px; align-items: center; font-size: var(--t-xs); border: 1px solid var(--aviso-borde); border-radius: 8px; padding: 3px 6px; background: var(--aviso-fondo); color: var(--aviso); }
 .ctexto { margin-top: 8px; }
-.ctexto .resumen { border: 1px solid var(--linea); border-radius: 7px; background: var(--superficie-2); font-size: 0.78rem; font-weight: 600; padding: 3px 10px; cursor: pointer; color: var(--tinta-2); font-family: inherit; }
+.ctexto .resumen { border: 1px solid var(--linea); border-radius: 7px; background: var(--superficie-2); font-size: var(--t-xs); font-weight: 600; padding: 3px 10px; cursor: pointer; color: var(--tinta-2); font-family: inherit; }
 .ctexto .resumen:hover { border-color: var(--acento); }
 .ctexto input { margin-top: 6px; width: 100%; }
 </style>

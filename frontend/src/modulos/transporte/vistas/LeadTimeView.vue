@@ -205,39 +205,39 @@ const totalDias = computed(() => linea.value.max - linea.value.min)
 .selectores { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 14px; }
 .selectores :deep(.sb) { min-width: 0; max-width: none; width: 100%; }
 .n-GLOBAL { --c: var(--tinta-3); }
-.n-REGION { --c: #2f7dd3; }
+.n-REGION { --c: var(--info); }
 .n-PAIS { --c: var(--ok); }
 .n-PUERTO { --c: var(--acento); }
 .niveles { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.niveles li { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: var(--radio-pildora); border: 1px solid var(--linea); background: var(--superficie); font-size: 0.84rem; }
+.niveles li { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: var(--radio-pildora); border: 1px solid var(--linea); background: var(--superficie); font-size: var(--t-sm); }
 .niveles li i, .leyenda i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); display: inline-block; flex: none; }
 .niveles li.vacio { opacity: 0.6; }
-.nivel { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 700; }
-.cuenta { font-size: 0.72rem; font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); border-radius: 99px; padding: 0 7px; }
+.nivel { font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 700; }
+.cuenta { font-size: var(--t-2xs); font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); border-radius: 99px; padding: 0 7px; }
 .panel { margin-bottom: 14px; }
 /* Línea de tiempo: rótulo del carril a la izquierda y la pista con los números */
 .linea { display: flex; flex-direction: column; gap: 4px; }
 .eje-fila, .carril { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 10px; align-items: center; }
 .eje { position: relative; height: 18px; margin-inline: 14px; }
-.tick { position: absolute; transform: translateX(-50%); font-size: 0.7rem; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+.tick { position: absolute; transform: translateX(-50%); font-size: var(--t-2xs); color: var(--tinta-3); font-variant-numeric: tabular-nums; }
 .tick.cero { color: var(--tinta); font-weight: 700; }
-.doc { font-size: 0.8rem; font-weight: 650; color: var(--tinta-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc { font-size: var(--t-xs); font-weight: 650; color: var(--tinta-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pista { position: relative; height: calc(12px + var(--filas) * 26px); margin-inline: 14px; background: var(--superficie-2); border-radius: var(--radio); }
 .pista::before { content: ''; position: absolute; inset-inline: 0; top: 50%; height: 1px; background: var(--linea); }
 .ancla { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--tinta-3); opacity: 0.5; }
 .marca { position: absolute; top: calc(6px + var(--fila) * 26px); transform: translateX(-50%); width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 0.7rem; font-weight: 700; color: var(--c); background: var(--superficie); border: 2px solid var(--c); cursor: default; font-variant-numeric: tabular-nums; }
+  font-size: var(--t-2xs); font-weight: 700; color: var(--c); background: var(--superficie); border: 2px solid var(--c); cursor: default; font-variant-numeric: tabular-nums; }
 .marca.medido { background: var(--c); color: var(--superficie); }
-.leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.78rem; color: var(--tinta-2); margin-top: 12px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--t-xs); color: var(--tinta-2); margin-top: 12px; }
 .leyenda span { display: inline-flex; align-items: center; gap: 5px; }
 .medido-ley i { background: var(--tinta-3); }
 .leyenda > span:not(.medido-ley) i { background: transparent; border: 2px solid var(--c); width: 10px; height: 10px; }
-.num-paso { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 0.75rem; font-weight: 700; color: var(--c); border: 2px solid var(--c); }
+.num-paso { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font-size: var(--t-xs); font-weight: 700; color: var(--c); border: 2px solid var(--c); }
 .num-paso.medido { background: var(--c); color: var(--superficie); }
 .icono-medido { color: var(--tinta-3); margin-inline-start: 4px; vertical-align: -1px; }
 .tabla-pasos tr.sobrescrito > td { background: color-mix(in srgb, var(--c) 6%, transparent); }
 .tabla-pasos s { color: var(--tinta-3); }
-.origen { font-size: 0.75rem; font-weight: 650; color: var(--c); padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--c) 12%, transparent); white-space: nowrap; }
+.origen { font-size: var(--t-xs); font-weight: 650; color: var(--c); padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--c) 12%, transparent); white-space: nowrap; }
 /* Celular: cada paso en dos renglones (número · paso · día / documento · nivel) */
 @media (max-width: 720px) {
   .tabla-pasos thead, .tabla-pasos .col-sec { display: none; }
@@ -245,7 +245,7 @@ const totalDias = computed(() => linea.value.max - linea.value.min)
   .tabla-pasos tr { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--linea-suave); }
   .tabla-pasos td { padding: 0; border: 0; white-space: normal; min-width: 0; max-width: none; }
   .tabla-pasos td:nth-child(1) { grid-row: span 2; }
-  .tabla-pasos td:nth-child(3) { grid-column: 2; grid-row: 2; font-size: 0.78rem; color: var(--tinta-3); }
+  .tabla-pasos td:nth-child(3) { grid-column: 2; grid-row: 2; font-size: var(--t-xs); color: var(--tinta-3); }
   .tabla-pasos td:nth-child(5) { grid-column: 3; grid-row: 1; }
   .tabla-pasos td:nth-child(6) { grid-column: 3; grid-row: 2; text-align: end; }
 }

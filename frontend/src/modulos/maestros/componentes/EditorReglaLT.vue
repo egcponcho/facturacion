@@ -172,11 +172,11 @@ const disponibles = computed(() => catalogo.value.filter((p) => !filas.value.lis
 .paso.heredado { background: var(--superficie-2); }
 .paso.heredado .titulo b { color: var(--tinta-2); }
 .paso.cambio { border-color: color-mix(in srgb, var(--acento) 45%, var(--linea)); }
-.num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--acento-claro); color: var(--acento-texto); font-size: 0.75rem; font-weight: 700; }
+.num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--acento-claro); color: var(--acento-texto); font-size: var(--t-xs); font-weight: 700; }
 .titulo { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
-.origen { font-size: 0.75rem; color: var(--tinta-3); }
+.origen { font-size: var(--t-xs); color: var(--tinta-3); }
 .origen.propio { color: var(--acento-texto); font-weight: 650; }
-.sub { font-size: 0.8rem; color: var(--tinta-3); margin-top: 2px; }
+.sub { font-size: var(--t-xs); color: var(--tinta-3); margin-top: 2px; }
 .campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px 10px; margin-top: 6px; align-items: end; }
 .campos .dias input { width: 100%; }
 .campos .check { padding-bottom: 8px; }

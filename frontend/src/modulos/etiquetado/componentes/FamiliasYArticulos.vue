@@ -430,9 +430,9 @@ async function mover(f, delta) {
 .fa-arbol { position: sticky; top: 12px; max-height: calc(100vh - 140px); overflow: auto; padding: 12px; }
 .fa-arbol ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .fa-cabeza, .fa-titulo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-.fa-cabeza h3, .fa-titulo h3 { margin: 0; font-size: 0.95rem; }
+.fa-cabeza h3, .fa-titulo h3 { margin: 0; font-size: var(--t-base); }
 .fa-item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: start; background: none; border: 0;
-  border-radius: 8px; padding: 7px 10px; padding-inline-start: calc(10px + var(--nivel, 0) * 16px); font: inherit; font-size: 0.88rem; color: var(--tinta);
+  border-radius: 8px; padding: 7px 10px; padding-inline-start: calc(10px + var(--nivel, 0) * 16px); font: inherit; font-size: var(--t-sm); color: var(--tinta);
   cursor: pointer; min-height: 36px; position: relative; }
 .fa-item.sub::before { content: ''; position: absolute; inset-inline-start: calc(var(--nivel) * 16px - 4px); top: 6px; bottom: 6px; border-inline-start: 1px solid var(--linea); }
 .fa-item:hover { background: var(--superficie-2); }
@@ -441,28 +441,28 @@ async function mover(f, delta) {
 .fa-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fa-nombre small { font-weight: 400; }
 .fa-sin { margin-top: 6px; border-top: 1px solid var(--linea-suave); border-radius: 0; }
-.fa-cuenta { color: var(--tinta-3); font-size: 0.76rem; font-weight: 500; flex: none; background: var(--superficie-2); border-radius: 10px; padding: 1px 7px; }
+.fa-cuenta { color: var(--tinta-3); font-size: var(--t-xs); font-weight: 500; flex: none; background: var(--superficie-2); border-radius: 10px; padding: 1px 7px; }
 .fa-item[aria-pressed='true'] .fa-cuenta { background: var(--superficie); }
 .fa-contenido { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 /* Ficha */
 .fa-ficha { display: flex; flex-direction: column; gap: 12px; }
 .fa-ficha-cabeza { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
-.fa-ficha-titulo h3 { margin: 0; font-size: 1.15rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fa-ficha-titulo h3 { margin: 0; font-size: var(--t-lg); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fa-ficha-titulo p { margin: 4px 0 0; }
-.fa-ruta { font-size: 0.78rem; color: var(--tinta-3); margin: 0 0 2px !important; }
+.fa-ruta { font-size: var(--t-xs); color: var(--tinta-3); margin: 0 0 2px !important; }
 .fa-ficha-acciones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fa-etiquetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-.fa-etiquetas-titulo { grid-column: 1 / -1; margin: 0; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
+.fa-etiquetas-titulo { grid-column: 1 / -1; margin: 0; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .fa-etiqueta { display: flex; flex-direction: column; gap: 3px; text-align: start; border: 1px solid var(--linea); border-radius: 10px; padding: 8px 10px;
   background: var(--superficie); font: inherit; color: var(--tinta); cursor: pointer; }
 .fa-etiqueta:hover { border-color: var(--acento); background: var(--acento-claro); }
 .fa-etiqueta.falta { border-color: var(--aviso); background: var(--aviso-fondo); }
-.fa-etiqueta-tipo { font-size: 0.76rem; color: var(--tinta-3); }
-.fa-etiqueta-diseno { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; font-size: 0.86rem; flex-wrap: wrap; }
+.fa-etiqueta-tipo { font-size: var(--t-xs); color: var(--tinta-3); }
+.fa-etiqueta-diseno { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; font-size: var(--t-sm); flex-wrap: wrap; }
 .fa-etiqueta-diseno.apagado { font-weight: 400; color: var(--tinta-2); }
 .fa-etiqueta-diseno.aviso { color: var(--aviso); }
 .fa-etiqueta-diseno small { color: var(--tinta-3); font-weight: 400; }
-.fa-etiqueta-extra { font-size: 0.74rem; color: var(--tinta-2); }
+.fa-etiqueta-extra { font-size: var(--t-xs); color: var(--tinta-2); }
 .fa-campos-txt { margin: 0; }
 /* Barra de la tabla */
 .fa-barra { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
@@ -473,7 +473,7 @@ async function mover(f, delta) {
 /* Edición */
 .fa-edicion { display: flex; flex-direction: column; gap: 14px; }
 .fa-edicion-cabeza { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--linea); padding-bottom: 12px; }
-.fa-edicion-cabeza h3 { flex: 1; margin: 0; font-size: 1.05rem; }
+.fa-edicion-cabeza h3 { flex: 1; margin: 0; font-size: var(--t-md); }
 .fa-edicion-pie { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--linea); padding-top: 12px; }
 .fa-destino { min-width: 200px; }
 @media (max-width: 860px) { .fa { grid-template-columns: 1fr; } .fa-arbol { position: static; max-height: none; } }

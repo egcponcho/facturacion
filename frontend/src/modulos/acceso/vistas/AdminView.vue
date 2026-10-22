@@ -435,17 +435,17 @@ onMounted(cargar)
 </template>
 
 <style scoped>
-.sub-panel { margin: 2px 0 0; font-size: 0.84rem; color: var(--tinta-3); }
+.sub-panel { margin: 2px 0 0; font-size: var(--t-sm); color: var(--tinta-3); }
 .rol-form { display: flex; flex-direction: column; gap: 12px; }
 .datos-rol { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 4px 16px; }
-.lbl-permisos { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.86rem; font-weight: 620; }
+.lbl-permisos { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--t-sm); font-weight: 620; }
 .modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
 .modulo { margin: 0; padding: 8px 12px 10px; border: 1px solid var(--linea); border-radius: 8px; min-width: 0; }
-.modulo legend { padding: 0 4px; font-weight: 650; font-size: 0.88rem; }
-.permiso { display: flex; align-items: flex-start; gap: 6px; font-size: 0.84rem; padding: 3px 0; }
-.permiso small { font-size: 0.74rem; }
+.modulo legend { padding: 0 4px; font-weight: 650; font-size: var(--t-sm); }
+.permiso { display: flex; align-items: flex-start; gap: 6px; font-size: var(--t-sm); padding: 3px 0; }
+.permiso small { font-size: var(--t-xs); }
 .permiso.apagado { color: var(--tinta-3); text-decoration: line-through; }
 .clave-temporal { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radio); background: var(--superficie-2); }
-.clave-temporal code { font-size: 1.15rem; letter-spacing: 0.04em; flex: 1; overflow-wrap: anywhere; }
+.clave-temporal code { font-size: var(--t-lg); letter-spacing: 0.04em; flex: 1; overflow-wrap: anywhere; }
 .usuario-fila { display: flex; align-items: center; gap: 8px; }
 </style>

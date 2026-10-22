@@ -142,15 +142,15 @@ async function terminar() {
 
 <style scoped>
 .pu { max-width: 900px; }
-.pu-sup { margin: 0 0 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 600; }
+.pu-sup { margin: 0 0 8px; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 600; }
 .pu-pasos { list-style: none; margin: 0 0 18px; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
-.pu-pasos li { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--tinta-3); }
+.pu-pasos li { display: flex; align-items: center; gap: 6px; font-size: var(--t-sm); color: var(--tinta-3); }
 .pu-pasos li + li::before { content: ''; width: 24px; height: 1px; background: var(--linea); margin-right: 2px; }
-.pu-pasos li span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--linea); font-size: 0.75rem; }
+.pu-pasos li span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--linea); font-size: var(--t-xs); }
 .pu-pasos li.actual { color: var(--tinta); font-weight: 600; }
 .pu-pasos li.actual span { background: var(--acento); border-color: var(--acento); color: #fff; }
 .pu-pasos li.hecho span { background: var(--acento-claro); border-color: var(--acento-medio); color: var(--acento-texto); }
-.pu-titulo { margin: 0 0 12px; font-size: 1.05rem; }
+.pu-titulo { margin: 0 0 12px; font-size: var(--t-md); }
 .pu-pie { display: flex; gap: 8px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--linea); }
 .pu-saltar { margin-inline-end: auto; }
 .pu-lista { display: flex; flex-direction: column; gap: 10px; }

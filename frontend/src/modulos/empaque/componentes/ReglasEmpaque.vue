@@ -288,7 +288,7 @@ const recetaTxt = (id) => recetas.value.find((x) => x.id === Number(id))
 .paso { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .palabra { font-weight: 650; }
 .impacto { border-top: 1px solid var(--linea); padding-top: 8px; }
-.ejemplos { margin: 4px 0; padding-inline-start: 18px; font-size: 0.86rem; }
+.ejemplos { margin: 4px 0; padding-inline-start: 18px; font-size: var(--t-sm); }
 .probar summary { cursor: pointer; font-weight: 600; }
 .tabla-scroll { overflow-x: auto; }
 @media (max-width: 600px) { .regla { flex-wrap: wrap; } }

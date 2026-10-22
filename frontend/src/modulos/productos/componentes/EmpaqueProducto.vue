@@ -51,5 +51,5 @@ const ORIGEN = { MANUAL: t('chosen by hand'), REGLA: t('by rule'), DATOS: t('fro
 .emp-secciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
 .emp-secciones h3 { margin: 0 0 6px; }
 .emp-lista { margin: 8px 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 8px; }
-.emp-lista .sub { display: block; color: var(--tinta-3); font-size: 0.86rem; }
+.emp-lista .sub { display: block; color: var(--tinta-3); font-size: var(--t-sm); }
 </style>

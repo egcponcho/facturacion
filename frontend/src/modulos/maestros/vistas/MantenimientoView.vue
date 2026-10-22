@@ -838,13 +838,13 @@ onMounted(async () => {
 <style scoped>
 .desc-corta { max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gobierno { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--linea);
-  border-radius: var(--radio); background: var(--superficie-2); color: var(--tinta-2); font-size: 0.86rem; }
+  border-radius: var(--radio); background: var(--superficie-2); color: var(--tinta-2); font-size: var(--t-sm); }
 .gobierno .btn { margin-inline-start: auto; }
-.seccion-form { grid-column: 1 / -1; margin: 6px 0 -4px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-3); }
+.seccion-form { grid-column: 1 / -1; margin: 6px 0 -4px; font-size: var(--t-xs); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-3); }
 .seccion-form:first-child { margin-top: 0; }
 .vista-seccion + .vista-seccion { margin-top: 16px; }
-.vista-seccion h3 { margin: 0 0 8px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-3); }
-.datos { display: grid; grid-template-columns: minmax(140px, auto) 1fr; gap: 6px 16px; margin: 0; font-size: 0.9rem; }
+.vista-seccion h3 { margin: 0 0 8px; font-size: var(--t-xs); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tinta-3); }
+.datos { display: grid; grid-template-columns: minmax(140px, auto) 1fr; gap: 6px 16px; margin: 0; font-size: var(--t-base); }
 .datos dt { color: var(--tinta-2); }
 .datos dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .lista-checks { display: flex; flex-wrap: wrap; gap: 8px 20px; }

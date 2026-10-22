@@ -90,17 +90,17 @@ const textoEnSeleccion = computed(() => ed.unico.value?.tipo === 'texto')
 <style scoped>
 .biblioteca { display: flex; flex-direction: column; gap: 14px; }
 .bib-campo:disabled { opacity: 0.55; cursor: default; }
-.bib-campos .ayuda { margin: -4px 0 8px; font-size: 0.76rem; }
+.bib-campos .ayuda { margin: -4px 0 8px; font-size: var(--t-xs); }
 .bib-buscar { width: 100%; max-width: 100%; box-sizing: border-box; margin-bottom: 6px; }
 .bib-buscar input { min-width: 0; width: 100%; }
 .bib-grupo { display: flex; flex-direction: column; margin-bottom: 4px; }
-.bib-grupo-titulo { display: flex; align-items: center; gap: 4px; padding: 6px 2px; border: 0; background: none; font-size: 0.8rem; font-weight: 600;
+.bib-grupo-titulo { display: flex; align-items: center; gap: 4px; padding: 6px 2px; border: 0; background: none; font-size: var(--t-xs); font-weight: 600;
   color: var(--tinta); cursor: pointer; text-align: left; }
 .bib-grupo-titulo.fijo { cursor: default; color: var(--acento-texto); margin: 0; }
-.bib-grupo-titulo .cuenta { margin-left: auto; font-weight: 500; color: var(--tinta-3); font-size: 0.74rem; }
+.bib-grupo-titulo .cuenta { margin-left: auto; font-weight: 500; color: var(--tinta-3); font-size: var(--t-xs); }
 .bib-campo { display: flex; flex-direction: column; gap: 1px; padding: 5px 8px 5px 22px; border: 0; border-radius: 6px; background: none; text-align: left; cursor: grab; }
 .bib-campo:hover:not(:disabled) { background: var(--acento-claro); }
-.bib-campo-nombre { font-size: 0.8rem; color: var(--tinta); }
-.bib-campo-ej { font-size: 0.72rem; color: var(--tinta-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bib-campo-nombre { font-size: var(--t-xs); color: var(--tinta); }
+.bib-campo-ej { font-size: var(--t-2xs); color: var(--tinta-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .req { color: var(--error); margin-left: 2px; }
 </style>

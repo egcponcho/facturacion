@@ -52,7 +52,7 @@ async function liberar() {
 .aviso-edicion { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 16px; border-radius: var(--radio-panel);
   background: var(--aviso-fondo); border: 1px solid color-mix(in srgb, var(--aviso) 35%, transparent); color: var(--tinta); }
 .aviso-edicion > :deep(svg) { color: var(--aviso); flex: none; }
-.aviso-edicion .sub { display: block; font-size: 0.85rem; color: var(--tinta-2); margin-top: 2px; }
+.aviso-edicion .sub { display: block; font-size: var(--t-sm); color: var(--tinta-2); margin-top: 2px; }
 .aviso-edicion.pausado { background: var(--info-fondo); border-color: color-mix(in srgb, var(--info) 35%, transparent); }
 .aviso-edicion.pausado > :deep(svg) { color: var(--info); }
 </style>

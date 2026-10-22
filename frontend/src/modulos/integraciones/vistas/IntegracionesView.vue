@@ -280,7 +280,7 @@ const resumenTexto = (r) => Object.entries(r || {}).filter(([, v]) => typeof v =
 .int-detalle { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .int-detalle h2, .int-detalle h3 { margin: 0; }
 .int-mapeo, .int-previa { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
-.lista-errores { margin: 0; padding-inline-start: 18px; color: var(--peligro); font-size: 0.86rem; }
+.lista-errores { margin: 0; padding-inline-start: 18px; color: var(--peligro); font-size: var(--t-sm); }
 .entre { justify-content: space-between; align-items: flex-start; }
 @media (max-width: 800px) { .int-rejilla { grid-template-columns: minmax(0, 1fr); } }
 </style>

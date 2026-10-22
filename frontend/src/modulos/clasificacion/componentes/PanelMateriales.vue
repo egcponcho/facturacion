@@ -85,7 +85,7 @@ async function agregar() {
 </template>
 
 <style scoped>
-h3 { margin: 0 0 6px; font-size: 1rem; display: flex; gap: 6px; align-items: center; }
+h3 { margin: 0 0 6px; font-size: var(--t-md); display: flex; gap: 6px; align-items: center; }
 .celda { width: 100%; min-width: 90px; }
 .celda::placeholder { color: var(--tinta-3); }
 .celda.ancha { min-width: 220px; }

@@ -205,20 +205,20 @@ function agregar(d) {
 <style scoped>
 .dominios { display: grid; gap: 12px; }
 .dominio header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-.dominio h3 { margin: 0; font-size: 1.05rem; }
+.dominio h3 { margin: 0; font-size: var(--t-md); }
 .dominio p { margin: 2px 0 0; }
 .caps { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
-.cap { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 8px; font-size: 0.82rem; border: 1px solid var(--linea); }
+.cap { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 8px; font-size: var(--t-sm); border: 1px solid var(--linea); }
 .cap.primario { background: var(--acento-claro); color: var(--acento-texto); border-color: transparent; }
 .cap.secundario { background: var(--superficie-2); }
 .cap.off { opacity: 0.5; text-decoration: line-through; }
-.mini { border: 0; background: none; cursor: pointer; color: inherit; font-size: 0.72rem; padding: 0 2px; opacity: 0.7; }
+.mini { border: 0; background: none; cursor: pointer; color: inherit; font-size: var(--t-2xs); padding: 0 2px; opacity: 0.7; }
 .mini:hover { opacity: 1; }
 .cab { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .dom-acc { display: flex; gap: 8px; align-items: center; }
 .cats { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 8px 0; }
-.cats .lbl { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 650; margin-inline-end: 4px; }
-.cat-chip { border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 3px 10px; font: inherit; font-size: 0.8rem; cursor: pointer; color: inherit; }
+.cats .lbl { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 650; margin-inline-end: 4px; }
+.cat-chip { border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 3px 10px; font: inherit; font-size: var(--t-xs); cursor: pointer; color: inherit; }
 .cat-chip small { color: var(--tinta-3); }
 .cat-chip.off { opacity: 0.5; text-decoration: line-through; }
 .cat-nueva .entrada { width: 180px; }

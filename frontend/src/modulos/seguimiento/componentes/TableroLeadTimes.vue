@@ -234,32 +234,32 @@ watch(() => [periodo.value, sesion.proveedorId], recargar, { deep: true })
 .lt-origenes td { white-space: nowrap; }
 /* En pantallas angostas las etapas se leen en la barra (con su detalle al pasar el cursor) */
 @media (max-width: 1360px) { .col-etapa { display: none; } }
-.lt-origenes th { white-space: normal; vertical-align: bottom; min-width: 64px; line-height: 1.25; font-size: 0.7rem; }
+.lt-origenes th { white-space: normal; vertical-align: bottom; min-width: 64px; line-height: 1.25; font-size: var(--t-2xs); }
 .lt-origenes th .punto { margin-inline-end: 2px; }
 .lt-barra .apilada { height: 16px; border-radius: 8px; line-height: 1; }
-.apilada > span { display: grid; place-items: center; color: #fff; font-size: 0.65rem; font-weight: 700; overflow: hidden; }
-.num-etapa { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; color: #fff; font-size: 0.66rem; margin-inline-end: 5px; }
+.apilada > span { display: grid; place-items: center; color: #fff; font-size: var(--t-2xs); font-weight: 700; overflow: hidden; }
+.num-etapa { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; color: #fff; font-size: var(--t-2xs); margin-inline-end: 5px; }
 details.ayuda summary { cursor: pointer; color: var(--tinta-2); font-weight: 600; }
 details.ayuda[open] summary { margin-bottom: 4px; }
 /* Hitos de la OC: una barra de pasos numerados que cabe en el ancho del
    detalle, agrupada por el documento que cumple cada paso */
 .lt-grupos { display: flex; gap: 10px; min-width: 0; }
 .lt-grupo { flex: 1 1 0; min-width: 0; }
-.lt-grupo h4 { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 700;
+.lt-grupo h4 { font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 700;
   padding-bottom: 4px; margin-bottom: 8px; border-bottom: 2px solid var(--linea); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lt-grupo ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px; }
-.lt-grupo li { --c: var(--tinta-3); position: relative; display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 0.78rem; }
+.lt-grupo li { --c: var(--tinta-3); position: relative; display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: var(--t-xs); }
 .lt-grupo li.hito-ok { --c: var(--ok); }
 .lt-grupo li.hito-error { --c: var(--error); }
 .lt-grupo li.hito-aviso { --c: var(--aviso); }
 .lt-grupo li.hito-info { --c: var(--azul); }
 .lt-grupo li::before { content: ''; position: absolute; top: 10px; inset-inline: 22px -4px; height: 2px; background: var(--linea); }
 .lt-grupo li:last-child::before { display: none; }
-.h-num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.7rem; font-weight: 700; color: #fff; background: var(--c); margin-bottom: 3px; position: relative; }
+.h-num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: var(--t-2xs); font-weight: 700; color: #fff; background: var(--c); margin-bottom: 3px; position: relative; }
 .hito-neutro .h-num { background: var(--superficie); color: var(--tinta-2); box-shadow: inset 0 0 0 2px var(--linea); }
-.h-nombre { color: var(--tinta-2); font-weight: 600; font-size: 0.74rem; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.5em; }
+.h-nombre { color: var(--tinta-2); font-weight: 600; font-size: var(--t-xs); line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.5em; }
 .h-fecha { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.h-estado { display: inline-flex; align-items: center; gap: 3px; color: var(--c); font-size: 0.7rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-estado { display: inline-flex; align-items: center; gap: 3px; color: var(--c); font-size: var(--t-2xs); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hito-neutro .h-estado { color: var(--tinta-3); }
 @media (max-width: 900px) {
   .lt-grupos { flex-direction: column; gap: 8px; }

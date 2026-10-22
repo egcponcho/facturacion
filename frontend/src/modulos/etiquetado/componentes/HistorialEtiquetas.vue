@@ -129,7 +129,7 @@ alCambiar(() => consultar(), ['/etiquetas/generaciones'])
 </template>
 
 <style scoped>
-.campo-linea { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--tinta-2); }
+.campo-linea { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-sm); color: var(--tinta-2); }
 .datos-lote { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
 .datos-lote dt { color: var(--tinta-3); }
 .datos-lote dd { margin: 0; }

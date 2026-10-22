@@ -185,7 +185,7 @@ const conDisenos = computed(() => edicion.value?.id && edicion.value.disenos > 0
 <style scoped>
 .form-tipo-panel { margin-bottom: 16px; border-color: var(--acento-medio); }
 .ft-cabeza { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.ft-cabeza h3 { margin: 0; font-size: 1rem; }
+.ft-cabeza h3 { margin: 0; font-size: var(--t-md); }
 .form-tipo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
 .form-tipo > .check, .form-tipo > fieldset, .ft-pie { grid-column: 1 / -1; }
 .ft-empaques .ayuda { display: block; margin-top: 6px; }

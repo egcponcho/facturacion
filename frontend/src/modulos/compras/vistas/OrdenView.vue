@@ -365,8 +365,8 @@ const estadoAprobacion = (e) => ({ PENDIENTE: 'EN_APROBACION', APROBADA: 'APROBA
 .nota { margin-bottom: 16px; }
 .resumen-oc { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .resumen-oc .panel { margin: 0; }
-.resumen-oc h2 { font-size: 0.95rem; margin: 0 0 10px; }
-.datos { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 0.9rem; }
+.resumen-oc h2 { font-size: var(--t-base); margin: 0 0 10px; }
+.datos { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: var(--t-base); }
 .datos dt { color: var(--tinta-2); }
 .datos dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .datos .notas { white-space: pre-line; }

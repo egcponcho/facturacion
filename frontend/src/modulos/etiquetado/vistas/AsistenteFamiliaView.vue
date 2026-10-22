@@ -382,21 +382,21 @@ onBeforeRouteLeave(async (to) => {
 .af-pasos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .af-pasos li + li::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--linea); vertical-align: middle; margin-inline-end: 6px; }
 .af-paso { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--linea); border-radius: 999px; padding: 5px 12px 5px 6px; background: var(--superficie);
-  font: inherit; font-size: 0.84rem; color: var(--tinta-2); cursor: pointer; }
+  font: inherit; font-size: var(--t-sm); color: var(--tinta-2); cursor: pointer; }
 .af-paso.actual { border-color: var(--acento); color: var(--acento-texto); font-weight: 600; }
-.af-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--superficie-2); font-size: 0.75rem; font-weight: 700; }
+.af-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--superficie-2); font-size: var(--t-xs); font-weight: 700; }
 .af-paso.actual .af-num { background: var(--acento); color: var(--sobre-acento, #fff); }
 .af-paso.hecho .af-num { background: var(--ok); color: #fff; }
 .af-borrador { align-items: center; }
 .af-borrador .enlace { margin-inline-start: auto; }
 .af-cabeza { margin-bottom: 16px; }
-.af-sup { margin: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
-.af-cabeza h2 { margin: 2px 0 4px; font-size: 1.2rem; }
+.af-sup { margin: 0; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
+.af-cabeza h2 { margin: 2px 0 4px; font-size: var(--t-lg); }
 .af-cabeza .ayuda { margin: 0; max-width: 760px; }
 .af-barra { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .af-buscar { flex: 1; min-width: 200px; }
 .af-buscar input { min-width: 0; }
-.af-elegidos { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px; margin-bottom: 10px; border-radius: 10px; background: var(--acento-claro); font-size: 0.82rem; }
+.af-elegidos { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px; margin-bottom: 10px; border-radius: 10px; background: var(--acento-claro); font-size: var(--t-sm); }
 .af-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border-radius: 999px; background: var(--superficie); border: 1px solid var(--acento-medio); }
 .af-chip button { border: 0; background: none; padding: 2px; cursor: pointer; color: var(--tinta-3); display: inline-flex; }
 .af-disenos { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
@@ -407,10 +407,10 @@ onBeforeRouteLeave(async (to) => {
 .af-opcion:has(input:checked) { border-color: var(--acento); background: var(--acento-claro); }
 .af-opcion :deep(.sb) { min-width: 0; width: 100%; }
 .af-resumen { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px 16px; margin: 0 0 14px; }
-.af-resumen dt { color: var(--tinta-3); font-size: 0.84rem; font-weight: 600; }
+.af-resumen dt { color: var(--tinta-3); font-size: var(--t-sm); font-weight: 600; }
 .af-resumen dd { margin: 0; }
 .af-lista { margin: 0 0 4px; padding-inline-start: 18px; }
-.af-cambiar { margin-inline-start: 8px; font-size: 0.82rem; }
+.af-cambiar { margin-inline-start: 8px; font-size: var(--t-sm); }
 .af-falta { margin-top: 8px; align-items: center; }
 .af-falta .enlace { margin-inline-start: auto; }
 .af-pie { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--linea); }

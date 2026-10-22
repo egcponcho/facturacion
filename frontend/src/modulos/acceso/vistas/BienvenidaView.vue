@@ -132,17 +132,17 @@ async function salir() {
   radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--acento) 18%, transparent), transparent 45%), var(--papel); }
 .tarjeta { width: min(640px, 100%); background: var(--superficie); border: 1px solid var(--linea); border-radius: 16px; box-shadow: var(--sombra-flotante); padding: 24px; }
 .progreso { list-style: none; margin: 0 0 22px; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
-.progreso li { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--tinta-3); padding: 4px 10px 4px 4px; border-radius: 99px; background: var(--superficie-2); }
-.progreso li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--linea); color: var(--tinta-2); font-weight: 700; font-size: 0.76rem; }
+.progreso li { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-sm); color: var(--tinta-3); padding: 4px 10px 4px 4px; border-radius: 99px; background: var(--superficie-2); }
+.progreso li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--linea); color: var(--tinta-2); font-weight: 700; font-size: var(--t-xs); }
 .progreso li.actual { color: var(--acento-texto); background: var(--acento-claro); }
 .progreso li.actual span { background: var(--acento); color: #fff; }
 .progreso li.hecho span { background: var(--ok); color: #fff; }
 .paso { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
-.paso h1 { margin: 6px 0 0; font-size: 1.45rem; }
+.paso h1 { margin: 6px 0 0; font-size: var(--t-xl); }
 .paso > p { margin: 0; color: var(--tinta-2); max-width: 48ch; }
 .datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; width: 100%; margin: 8px 0 0; text-align: start; }
 .datos div { padding: 10px 12px; border-radius: var(--radio); background: var(--superficie-2); }
-.datos dt { font-size: 0.76rem; color: var(--tinta-3); }
+.datos dt { font-size: var(--t-xs); color: var(--tinta-3); }
 .datos dd { margin: 2px 0 0; font-weight: 620; overflow-wrap: anywhere; }
 .foto-grande { position: relative; border: 0; background: none; cursor: pointer; padding: 6px; border-radius: 50%; }
 .foto-grande .camara { position: absolute; inset-inline-end: 6px; bottom: 10px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--acento); color: #fff; border: 2px solid var(--superficie); }

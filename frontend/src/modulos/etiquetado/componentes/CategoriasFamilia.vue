@@ -186,14 +186,14 @@ const listo = computed(() => formulario.value && formulario.value.codigo.trim() 
 <style scoped>
 .cats { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--linea-suave); padding-top: 10px; }
 .cats-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.cats-titulo { margin: 0; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
+.cats-titulo { margin: 0; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .cats-form { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--acento); border-radius: 10px; padding: 12px; }
-.cats-form label { display: flex; flex-direction: column; gap: 3px; font-size: 0.86rem; }
+.cats-form label { display: flex; flex-direction: column; gap: 3px; font-size: var(--t-sm); }
 .cats-form label.check { flex-direction: row; align-items: center; }
 .cats-form-fila { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .cats-form-fila .crece { flex: 1 1 220px; }
-.cats-prueba { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.86rem; }
-.cats-ejemplos { margin: 0; padding-inline-start: 18px; font-size: 0.84rem; max-height: 180px; overflow: auto; }
+.cats-prueba { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: var(--t-sm); }
+.cats-ejemplos { margin: 0; padding-inline-start: 18px; font-size: var(--t-sm); max-height: 180px; overflow: auto; }
 .cats-form-pie { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .separar-fin { margin-inline-end: auto; }
 .cats-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -204,10 +204,10 @@ const listo = computed(() => formulario.value && formulario.value.codigo.trim() 
 .cats-condiciones { margin: 0; }
 .cats-etiquetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
 .cats-etiqueta { display: flex; flex-direction: column; gap: 2px; text-align: start; border: 1px dashed var(--linea); border-radius: 8px; padding: 6px 8px;
-  background: none; font: inherit; font-size: 0.84rem; color: var(--tinta); cursor: pointer; }
+  background: none; font: inherit; font-size: var(--t-sm); color: var(--tinta); cursor: pointer; }
 .cats-etiqueta.propia { border-style: solid; font-weight: 600; }
 .cats-etiqueta:hover { border-color: var(--acento); background: var(--acento-claro); }
-.cats-etiqueta-tipo { font-size: 0.74rem; color: var(--tinta-3); font-weight: 400; }
+.cats-etiqueta-tipo { font-size: var(--t-xs); color: var(--tinta-3); font-weight: 400; }
 .ok-txt { color: var(--ok); }
 .aviso-txt { color: var(--aviso); }
 </style>

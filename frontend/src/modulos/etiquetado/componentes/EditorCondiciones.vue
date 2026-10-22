@@ -40,7 +40,7 @@ const agregar = () => lista.push({ campo: '', op: 'igual', valor: '' })
 
 <style scoped>
 .condiciones { border: 1px dashed var(--linea); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; margin: 0; }
-.condiciones legend { font-size: 0.86rem; padding: 0 4px; }
+.condiciones legend { font-size: var(--t-sm); padding: 0 4px; }
 .condiciones > .btn { align-self: flex-start; }
 .condicion { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) auto; gap: 6px; align-items: center; }
 @media (max-width: 600px) { .condicion { grid-template-columns: 1fr auto; } }

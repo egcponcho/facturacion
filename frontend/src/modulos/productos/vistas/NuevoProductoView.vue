@@ -279,7 +279,7 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
 .np-familia.elegida { border-color: var(--acento); background: var(--acento-claro); box-shadow: 0 0 0 1px var(--acento); }
 .np-familia:focus-within { outline: 2px solid var(--acento); outline-offset: 2px; }
 .np-familia-nombre { font-weight: 650; }
-.np-ejes { display: inline-flex; gap: 5px; align-items: center; font-size: 0.82rem; color: var(--tinta-2); }
+.np-ejes { display: inline-flex; gap: 5px; align-items: center; font-size: var(--t-sm); color: var(--tinta-2); }
 .np-crear { align-self: flex-start; display: inline-flex; gap: 5px; align-items: center; }
 .np-ejes-captura { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .np-acciones { margin-top: 4px; }
@@ -288,5 +288,5 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
 .np-resumen { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 18px; border: 1px solid var(--linea);
   border-radius: var(--radio-panel); padding: 14px 16px; background: var(--superficie); }
 .np-resumen div { display: flex; flex-direction: column; gap: 2px; }
-.np-resumen span { font-size: 0.78rem; color: var(--tinta-3); }
+.np-resumen span { font-size: var(--t-xs); color: var(--tinta-3); }
 </style>
