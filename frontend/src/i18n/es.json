@@ -7821,5 +7821,7 @@
 "{0} required fields not found in the file": "{0} campos obligatorios no están en el archivo",
 "Optional fields that the file does not bring: {0}": "Campos opcionales que el archivo no trae: {0}",
 "There are no valid rows to apply: fix the file or the mapping and upload it again.": "No hay filas válidas para aplicar: corrija el archivo o el mapeo y vuelva a subirlo.",
-"No row can be applied: fix the mapping or the file and upload it again.": "Ninguna fila se puede aplicar: corrija el mapeo o el archivo y vuelva a subirlo."
+"No row can be applied: fix the mapping or the file and upload it again.": "Ninguna fila se puede aplicar: corrija el mapeo o el archivo y vuelva a subirlo.",
+"Most rows in one file of a bulk upload (purchase orders or an integration)": "Máximo de filas por archivo en una carga masiva (órdenes de compra o una integración)",
+"The file has {0} rows and the maximum per upload is {1}: split it into several files.": "El archivo tiene {0} filas y el máximo por carga es {1}: divídalo en varios archivos."
 }

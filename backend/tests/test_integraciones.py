@@ -271,3 +271,19 @@ def test_otra_empresa_no_ve_las_integraciones(admin, client):
         assert otra.c.post(f"/api/integraciones/{x['id']}/salida/facturas", headers=otra.h).status_code == 404
     finally:
         admin.patch(f"/plataforma/organizaciones/{org['id']}", {"activa": False})
+
+
+def test_tope_de_filas_por_archivo(admin, base_oc, monkeypatch):
+    """Un archivo con más filas de las permitidas no se procesa (ni por integración ni a mano)."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "IMPORTACION_MAX_FILAS", 1)
+    x = _integracion(admin, "INT-TOPE", adaptador="json")
+    fila = {"proveedor": "VANS", "oc": "4400009891", "posicion": "10", "codigo_articulo": base_oc["codigo_articulo"], "cantidad": 1}
+    r = _subir(admin, x["id"], "ordenes_compra", "dos.json", json.dumps([fila, {**fila, "posicion": "20"}]).encode())
+    assert r.status_code == 413 and r.json()["codigo"] == "demasiadas_filas"
+    cabecera = "proveedor,oc,posicion,sociedad,centro,almacen,centro_destino,moneda,incoterm,sku,cantidad,precio\n"
+    lineas = "".join(f"VANS,4400009891,{p},8000,8020,BF20,2220,USD,FOB,{base_oc['codigo_articulo']},1,2\n" for p in (10, 20))
+    m = admin.c.post("/api/ordenes/importar/previa", headers=admin.h,
+                     files={"archivo": ("dos.csv", (cabecera + lineas).encode(), "text/csv")})
+    assert m.status_code == 413, m.text

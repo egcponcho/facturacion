@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.empresa import tope_filas
 from app.core.errores import ErrorNegocio
 from app.modelos import EjecucionIntegracion, Integracion, IntegracionMapeo, ReferenciaExterna, Usuario
 from app.modelos.base import ahora
@@ -316,6 +317,7 @@ def entrada_previa(db: Session, user: Usuario, integracion_id: int, entidad: str
     externas = adaptadores.de(x.adaptador).leer(contenido, archivo, x.parametros or {})
     if not externas:
         raise ErrorNegocio("The content has no rows with data.", 422, "archivo_vacio")
+    tope_filas(len(externas))
     campos = e["campos"]()
     validas, errores = traducir_entrada(externas, mapeo, campos)
     ejec = EjecucionIntegracion(integracion_id=x.id, mapeo_id=mapeo.id if mapeo else None, entidad=entidad,

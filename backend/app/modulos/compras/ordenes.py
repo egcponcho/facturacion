@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core import campos_propios, dinero, empresa, listas
 from app.core.archivos import abrir_libro
-from app.core.empresa import regla
+from app.core.empresa import regla, tope_filas
 from app.core.errores import ErrorNegocio
 from app.core.estados import OC
 from app.modelos import (
@@ -892,6 +892,7 @@ def importar_previa(db: Session, user: Usuario, nombre: str, contenido: bytes, p
     filas = _leer_archivo(nombre, contenido, perfiles.elegido(db, perfil_id))
     if not filas:
         raise ErrorNegocio("The file has no rows with data.", 422, "archivo_vacio")
+    tope_filas(len(filas))
     clasificadas = _clasificar(db, filas)
     imp = ImportacionOC(usuario_id=user.id, nombre_archivo=nombre, filas=filas)
     db.add(imp)
