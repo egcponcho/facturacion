@@ -7767,5 +7767,17 @@
 "{0} must be 1 or more.": "{0} debe ser 1 o más.",
 "{0} must be a whole number.": "{0} debe ser un número entero.",
 "{0} must be one of {1}.": "{0} debe ser uno de {1}.",
-"Write how the external system names each field; empty: its system name. Codes translate values, as pairs separated by commas: APPROVED=C, PENDING=P.": "Escribe cómo nombra el sistema externo cada campo; vacío: su nombre del sistema. Los códigos traducen valores, en pares separados por comas: APPROVED=C, PENDING=P."
+"Write how the external system names each field; empty: its system name. Codes translate values, as pairs separated by commas: APPROVED=C, PENDING=P.": "Escribe cómo nombra el sistema externo cada campo; vacío: su nombre del sistema. Los códigos traducen valores, en pares separados por comas: APPROVED=C, PENDING=P.",
+"For {0}": "Para {0}",
+"Manage packing recipes and rules": "Administrar recetas y reglas de empaque",
+"No PO line of this product has a packing recipe yet.": "Ninguna posición de OC de este producto tiene receta de empaque todavía.",
+"No packing rule applies to this product.": "Ninguna regla de empaque aplica a este producto.",
+"None yet.": "Ninguno todavía.",
+"Packing rules that can apply": "Reglas de empaque que pueden aplicar",
+"Recipes used in its PO lines": "Recetas usadas en sus posiciones de OC",
+"The most specific rule wins (item, product, family, company); with conditions before without. Which one applies to each PO depends on its data.": "Gana la regla más específica (artículo, producto, familia, empresa); con condiciones antes que sin ellas. Cuál aplica en cada OC depende de sus datos.",
+"Usage": "Uso",
+"from the PO data": "de los datos de la OC",
+"if {0}": "si {0}",
+"{0} PO lines": "{0} posiciones de OC"
 }

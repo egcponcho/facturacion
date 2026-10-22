@@ -9,6 +9,8 @@ import AcuerdosOrigen from '@/modulos/productos/componentes/ficha/AcuerdosOrigen
 import FichaTecnica from '@/modulos/productos/componentes/ficha/FichaTecnica.vue'
 import DocumentosTecnicos from '@/modulos/productos/componentes/ficha/DocumentosTecnicos.vue'
 import EtiquetadoProducto from '@/modulos/etiquetado/componentes/EtiquetadoProducto.vue'
+import UsoProducto from '@/modulos/productos/componentes/UsoProducto.vue'
+import EmpaqueProducto from '@/modulos/productos/componentes/EmpaqueProducto.vue'
 import GenericoModal from '@/modulos/maestros/componentes/GenericoModal.vue'
 import AvisoEdicion from '@/componentes/AvisoEdicion.vue'
 import { useEdicion } from '@/composables/useEdicion'
@@ -700,6 +702,9 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
             <span class="cuenta">{{ tx(p.versiones.length + 1) }}</span></button>
+          <!-- Dónde se usa y cómo se empaca: el producto conectado con compras, facturación, logística y empaque -->
+          <button class="pestana" role="tab" :aria-selected="pestana === 'uso'" @click="pestana = 'uso'"><Icono nombre="ruta" :tam="16" />{{ t('Usage') }}</button>
+          <button v-if="puede('catalogos.ver')" class="pestana" role="tab" :aria-selected="pestana === 'empaque'" @click="pestana = 'empaque'"><Icono nombre="caja" :tam="16" />{{ t('Packing') }}</button>
           <button v-if="puede('etiquetas.ver') && esInterno()" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'historial'" @click="pestana = 'historial'"><Icono nombre="historial" :tam="16" />{{ t('History') }}</button>
         </div>
@@ -712,6 +717,8 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         <DocumentosTecnicos v-else-if="pestana === 'documentos'" :producto="p" :campos="r?.campos || []" :editable="puedeEditar" @cambio="recargarDocumentos" />
 
         <!-- Etiquetado: familia y diseño de cada variante -->
+        <UsoProducto v-else-if="pestana === 'uso'" :producto-id="p.id" />
+        <EmpaqueProducto v-else-if="pestana === 'empaque'" :producto-id="p.id" />
         <EtiquetadoProducto v-else-if="pestana === 'etiquetas'" :producto-id="p.id" />
 
         <!-- Acuerdos comerciales por destino según el origen -->

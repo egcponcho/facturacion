@@ -90,6 +90,22 @@ def foto(foto_id: int, db: Db, user: User):
     return FileResponse(f.ruta, media_type=f.tipo_mime, headers={"Cache-Control": "private, max-age=3600"})
 
 
+@router.get("/productos/{producto_id}/uso")
+def producto_uso(producto_id: int, db: Db, user: User):
+    """Dónde se usa el producto: sus OCs, facturas y embarques, según lo que el rol puede ver."""
+    from app.modulos.productos import uso
+
+    return uso.uso(db, user, producto_id)
+
+
+@router.get("/productos/{producto_id}/empaque")
+def producto_empaque(producto_id: int, db: Db, user: User):
+    """Reglas de empaque que pueden aplicarle al producto y recetas con que se pidió."""
+    from app.modulos.productos import uso
+
+    return uso.empaque(db, user, producto_id)
+
+
 @router.get("/productos/{producto_id}")
 def detalle(producto_id: int, db: Db, user: User):
     """Producto con su ficha técnica, partidas por país, artículos, prepacks, versiones e historial."""
