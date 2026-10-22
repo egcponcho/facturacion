@@ -6,7 +6,18 @@ configurar antes de crear productos). Cada cifra abre el catálogo filtrado.
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modelos import Articulo, AtributoVariante, EscalaTalla, GrupoFamilia, GrupoProducto, Marca, Prepack, Producto, Proveedor, Usuario
+from app.modelos import (
+    Articulo,
+    AtributoVariante,
+    EscalaTalla,
+    GrupoFamilia,
+    GrupoProducto,
+    Marca,
+    Prepack,
+    Producto,
+    Proveedor,
+    Usuario,
+)
 from app.modulos.acceso.permisos import tiene
 from app.modulos.productos import productos as svc
 
