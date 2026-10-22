@@ -41,16 +41,23 @@ OC = {"id": "oc", "tipo": "campo", "campo": "oc.numero", "prefijo": "PO ", "x": 
 
 @pytest.fixture(scope="module")
 def familia(interno):
-    """Una familia con el grupo de artículos que más líneas de OC tiene."""
+    """Una familia con los tres productos que más líneas de OC tienen."""
+    from sqlalchemy import func
+
+    from app.modelos import Articulo, PosicionOC, Producto
+
     r = interno.post("/etiquetas/familias", {"codigo": "MASIVO", "nombre": "Bulk family"})
     assert r.status_code == 200, r.text
     f = r.json()
-    grupos = sorted(interno.get("/etiquetas/grupos-articulos").json(), key=lambda g: -g["articulos"])
-    ids = [g["id"] for g in grupos[:3] if g["articulos"]]
-    assert interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": f["id"], "grupo_ids": ids}).status_code == 200
+    with SessionLocal() as db, en_organizacion(1):
+        antes = {pid: fam for pid, fam in db.execute(
+            select(Producto.id, Producto.grupo_producto_id).join(Articulo, Articulo.producto_id == Producto.id)
+            .join(PosicionOC, PosicionOC.articulo_id == Articulo.id).group_by(Producto.id, Producto.grupo_producto_id)
+            .order_by(func.count(PosicionOC.id).desc(), Producto.id).limit(3))}
+    assert interno.post("/etiquetas/productos/familia", {"familia_id": f["id"], "ids": list(antes)}).status_code == 200
     yield f
-    for g in grupos[:3]:
-        interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": g["familia_id"], "grupo_ids": [g["id"]]})
+    for pid, fam in antes.items():
+        interno.post("/etiquetas/productos/familia", {"familia_id": fam, "ids": [pid]})
 
 
 def test_ordenes_de_una_familia_un_pdf_por_oc_y_cada_articulo_una_vez(interno, admin, tnf, familia):

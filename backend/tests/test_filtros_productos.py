@@ -34,7 +34,7 @@ def flujo(admin):
 
 def test_valores_unicos_con_su_cuenta(interno):
     total = _lista(interno, size=1)["total"]
-    for columna in ("estado", "producto", "proveedor", "tipo", "codigo", "origen", "generico", "color"):
+    for columna in ("estado", "producto", "proveedor", "tipo", "codigo", "origen", "generico"):
         vals = _valores(interno, columna)
         assert vals and sum(v["n"] for v in vals) == total, columna
         assert len({v["valor"] for v in vals}) == len(vals), columna

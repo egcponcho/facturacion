@@ -9,20 +9,21 @@ PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08
 
 
 def _producto(api, estilo, color):
+    """El producto de la demostración de ese estilo (atributo MODELO) cuyas variantes son de ese color."""
     items = api.get("/productos", params={"q": estilo, "size": 50}).json()["items"]
-    return next(p for p in items if p["estilo"] == estilo and p["color"] == color)
+    return next(p for p in items if p["atributos"].get("MODELO") == estilo and color.upper() in (p["resumen_variantes"] or ""))
 
 
 def test_lista_contexto_y_separacion(tnf, vans, interno):
     r = interno.get("/productos", params={"size": 100}).json()
     assert r["kpis"]["total"] >= 7 and r["kpis"]["pendientes"] >= 2 and r["kpis"]["aprobados"] >= 5
-    # Cada talla (artículo) pertenece a su producto estilo-color
+    # Cada variante (artículo) pertenece a su producto
     old = _producto(interno, "VN000EE3", "BLK Black")
     assert old["estado"] == "aprobado" and old["codigo"] == "6404.19" and old["skus"] >= 6
-    # El prepack no se clasifica: toma el producto (y la partida) de sus sólidos
-    assert old["n_prepacks"] >= 1 and old["rango_tallas"] == "7–12"
+    # El pack no se clasifica: es del producto de sus variantes (y toma su partida)
+    assert old["n_compuestos"] >= 1
     # El resumen de variantes es por atributo del catálogo, para cualquier tipo de producto
-    nombres = {a["codigo"]: a["nombre"] for a in interno.get("/catalogos/atributos_variante", params={"size": 200}).json()["items"]}
+    nombres = {a["codigo"]: a["nombre"] for a in interno.get("/catalogos/atributos", params={"size": 200}).json()["items"]}
     assert f"{nombres['TALLA']} 7–12" in old["resumen_variantes"]
     assert old["descripcion_comercial"] == "CALZADO VANS" and old["codigo_generico"] == "30095125"
     # Solo GT, SV y HN tienen arancel nacional oficial cargado; NI, CR y PA no cuentan como completos
@@ -43,7 +44,7 @@ def test_lista_contexto_y_separacion(tnf, vans, interno):
 def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
     p = _producto(vans, "VN0A4BV4", "White")
     det = vans.get(f"/productos/{p['id']}").json()
-    assert det["estado"] == "sugerida" and det["articulos"] and det["prepacks"][0]["codigo"] == "CD08"
+    assert det["estado"] == "sugerida" and det["articulos"] and det["compuestos"][0]["codigo"] == "CD08"
 
     # La OC muestra la clasificación del producto; sin aprobar no hay partida
     oc = _oc(vans, "4400003902")
@@ -189,6 +190,6 @@ def test_exportar(vans, interno):
     assert {"Composition", "National codes"} <= set(wb.sheetnames)
     cab = [c.value for fila in wb.worksheets[0].iter_rows(max_row=20) for c in fila]
     assert "Composition" in cab and "Code SV" in cab and "Code PA" in cab
-    assert any(f[3].value == "SV" for f in wb["National codes"].iter_rows() if len(f) > 3)
+    assert any(f[2].value == "SV" for f in wb["National codes"].iter_rows() if len(f) > 2)
     x = vans.get(f"/productos/{p['id']}/ficha", params={"formato": "xlsx"})
     assert x.status_code == 200 and "Composition" in load_workbook(io.BytesIO(x.content)).sheetnames

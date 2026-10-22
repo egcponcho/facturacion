@@ -21,12 +21,10 @@ from sqlalchemy.orm import Session
 
 from app.modelos.compras import PosicionOC
 from app.modelos.facturacion import FacturaLinea
-from app.modelos.maestros import Articulo, ArticuloVersion, AtributoVariante
+from app.modelos.maestros import Articulo, ArticuloVersion, Atributo
 
-CAMPOS_ARTICULO = ("sku", "sku_proveedor", "upc", "generico", "estilo", "color", "talla", "descripcion", "unidad",
-                   "peso_unitario", "tipo")
-CAMPOS_PRODUCTO = ("estilo", "color", "nombre", "codigo_generico", "descripcion_comercial", "pais_origen", "tipo",
-                   "version_ficha", "ficha")
+CAMPOS_ARTICULO = ("sku", "descripcion", "unidad", "peso_unitario", "tipo")
+CAMPOS_PRODUCTO = ("nombre", "codigo_generico", "descripcion_comercial", "pais_origen", "tipo", "version_ficha", "ficha")
 
 
 def foto(a: Articulo) -> dict:
@@ -34,15 +32,13 @@ def foto(a: Articulo) -> dict:
     p, fam = a.producto, a.familia_efectiva
     return {
         "articulo": {**{k: getattr(a, k) for k in CAMPOS_ARTICULO},
-                     "marca": a.marca.codigo if a.marca else None, "marca_nombre": a.marca.nombre if a.marca else None,
-                     "grupo": a.grupo.codigo if a.grupo else None, "grupo_nombre": a.grupo.nombre if a.grupo else None,
-                     "prepack": a.prepack.codigo if a.prepack else None,
                      "familia": fam.codigo if fam else None, "familia_nombre": fam.nombre if fam else None},
         "atributos": dict(sorted(a.variantes.items())),
-        "extra": dict(a.extra or {}),
-        "componentes": sorted(({"sku": c.articulo.sku, "cantidad": c.cantidad} for c in a.prepack.componentes),
-                              key=lambda x: x["sku"]) if a.prepack else [],
-        "producto": {"id": p.id, **{k: getattr(p, k) for k in CAMPOS_PRODUCTO}} if p else None,
+        "codigos": sorted([c.tipo, c.valor] for c in a.codigos),
+        "componentes": sorted(({"sku": c.componente.sku, "cantidad": c.cantidad} for c in a.componentes),
+                              key=lambda x: x["sku"]),
+        "producto": {"id": p.id, **{k: getattr(p, k) for k in CAMPOS_PRODUCTO},
+                     "atributos": dict(sorted(p.valores.items()))} if p else None,
     }
 
 
@@ -95,6 +91,8 @@ def _fijar_versiones(db: Session, _contexto, _instancias) -> None:
             obj.articulo_version = vigente(db, a, ya) if a is not None else None
             if obj.variante is None or obj not in db.new:
                 obj.variante = _variante(db, obj, a, ya)
+            if obj.atributos is None or obj not in db.new:
+                obj.atributos = _atributos(db, obj, a)
 
 
 def _variante(db: Session, obj, a: Articulo | None, ya: dict) -> dict | None:
@@ -107,8 +105,19 @@ def _variante(db: Session, obj, a: Articulo | None, ya: dict) -> dict | None:
     if a is None:
         return None
     if "orden" not in ya:
-        ya["orden"] = [c for (c,) in db.execute(select(AtributoVariante.codigo).order_by(AtributoVariante.orden,
-                                                                                        AtributoVariante.codigo))]
+        ya["orden"] = [c for (c,) in db.execute(select(Atributo.codigo).order_by(Atributo.orden, Atributo.codigo))]
     valores = {k: v for k, v in a.variantes.items() if v not in (None, "")}
     orden = ya["orden"]
     return {**{k: valores[k] for k in orden if k in valores}, **{k: v for k, v in valores.items() if k not in orden}} or None
+
+
+def _atributos(db: Session, obj, a: Articulo | None) -> dict | None:
+    """Foto de los atributos del producto de la línea: los de la posición de la OC en una
+    factura; si no, los del producto del artículo."""
+    if isinstance(obj, FacturaLinea):
+        p = obj.posicion_oc or (db.get(PosicionOC, obj.posicion_oc_id) if obj.posicion_oc_id else None)
+        if p is not None and p.atributos:
+            return dict(p.atributos)
+    if a is None or a.producto is None:
+        return None
+    return dict(a.producto.valores) or None

@@ -225,15 +225,9 @@ def crear_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: 
     return ejecutar(db, user, clave, lambda: familias.crear(db, user, datos))
 
 
-@router.post("/etiquetas/familias/desde-grupos")
-def familias_desde_grupos(db: Db, user: User):
-    """Primer uso: una familia por cada grupo de artículos sin familia (el grupo queda en ella)."""
-    return ejecutar(db, user, None, lambda: familias.desde_grupos(db, user))
-
-
 @router.post("/etiquetas/familias/configurar")
 def configurar_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Termina el asistente de una familia de una vez: datos, productos/grupos/artículos que entran y diseño por tipo."""
+    """Termina el asistente de una familia de una vez: datos, productos que entran y diseño por tipo."""
     return ejecutar(db, user, clave, lambda: familias.configurar(db, user, datos))
 
 
@@ -294,44 +288,31 @@ def asignar_categoria_productos(db: Db, user: User, categoria_id: int | None = B
 
 @router.get("/etiquetas/articulos")
 def articulos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None, marca_id: int | None = None,
-                      grupo_id: int | None = None, producto_id: int | None = None, ids: str | None = Query(None, pattern=r"^\d+(,\d+)*$"),
+                      producto_id: int | None = None, ids: str | None = Query(None, pattern=r"^\d+(,\d+)*$"),
                       page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), solo_ids: bool = False):
-    """Artículos con su familia de etiquetado (familia=sin: los que no tienen; ids=1,2,3: solo esos;
+    """Artículos con la familia de su producto (familia=sin: los que no tienen; ids=1,2,3: solo esos;
     solo_ids: los números de todos los que cumplen el filtro, para elegirlos de una vez)."""
-    return familias.articulos(db, user, q, familia, marca_id, grupo_id, producto_id, page, size,
+    return familias.articulos(db, user, q, familia, marca_id, producto_id, page, size,
                               [int(x) for x in ids.split(",")][:200] if ids else None, solo_ids)
-
-
-@router.get("/etiquetas/grupos-articulos")
-def grupos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None):
-    """Grupos de artículos con su familia de etiquetado (familia=sin: los que no tienen) y cuántos artículos tienen."""
-    return familias.grupos(db, user, q, familia)
-
-
-@router.post("/etiquetas/grupos-articulos/familia")
-def asignar_familia_grupos(db: Db, user: User, familia_id: int | None = Body(None), grupo_ids: list[int] = Body(...)):
-    """Pone la familia a varios grupos a la vez (o se la quita con familia vacía). Sus artículos la heredan,
-    salvo los que tienen familia propia."""
-    return ejecutar(db, user, None, lambda: familias.asignar_grupos(db, user, familia_id, grupo_ids))
 
 
 @router.get("/etiquetas/productos")
 def productos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None, page: int = Query(1, ge=1),
                       size: int = Query(50, ge=1, le=200)):
-    """Productos (estilo-color) con su familia de etiquetado (familia=sin: los que no tienen)."""
+    """Productos con su familia (familia=sin: los que no tienen)."""
     return familias.productos(db, user, q, familia, page, size)
 
 
 @router.post("/etiquetas/productos/familia")
 def asignar_familia_productos(db: Db, user: User, familia_id: int | None = Body(None), ids: list[int] = Body(...)):
-    """Pone la familia a varios productos (o se la quita): la heredan sus tallas sin familia propia."""
+    """Pone la familia a varios productos (o se la quita): la comparten sus variantes."""
     return ejecutar(db, user, None, lambda: familias.asignar_productos(db, user, familia_id, ids))
 
 
 @router.post("/etiquetas/articulos/familia")
 def asignar_familia(db: Db, user: User, familia_id: int | None = Body(None), ids: list[int] | None = Body(None),
                     filtro: dict[str, Any] | None = Body(None), clave: Clave = None):
-    """Pone la familia (o la quita, con familia_id vacío) a los artículos elegidos o a todos los del filtro."""
+    """Pone la familia (o la quita, con familia_id vacío) a los productos de los artículos elegidos o del filtro."""
     return ejecutar(db, user, clave, lambda: familias.asignar_articulos(db, user, familia_id, ids, filtro))
 
 

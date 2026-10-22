@@ -458,7 +458,7 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
     <!-- 2. Artículos y cantidades -->
     <section v-else-if="paso.clave === 'articulos'" class="panel">
       <div class="panel-cabeza">
-        <div><h2>{{ t('What is ordered') }}</h2><p>{{ t('Items of the supplier from the item master. Solids may bring their casepack (exact quantity per carton); a prepack brings its size run.') }}</p></div>
+        <div><h2>{{ t('What is ordered') }}</h2><p>{{ t('Items of the supplier from the item master. Simple items may bring their casepack (exact quantity per carton); a pack or kit brings its contents.') }}</p></div>
         <div class="fila-flex">
           <span v-if="Object.keys(cantidades).length" class="etiqueta">{{ porUnidadTxt(cantidades, 'cantidad') }}</span>
           <button type="button" class="btn btn-chico" @click="lineas.push(nuevaLinea()); enfocarUltimo('.lineas-oc .linea-oc')"><Icono nombre="mas" :tam="14" />{{ t('Add line') }}</button>
@@ -474,7 +474,7 @@ const valorExtra = (c) => valorPropio(c, cab.extra?.[c.clave])
             <span class="con-unidad"><input v-model="l.cantidad" class="entrada" type="number" :min="pasoCantidad(unidadDe(l))" :step="pasoCantidad(unidadDe(l))" />
               <small>{{ tx(l.codigo_articulo ? unidadTxt(unidadDe(l), 2) : '') }}</small></span></label>
           <label v-if="!esPrepack(l)" class="campo"><span>{{ t('Casepack') }}</span><input v-model="l.casepack" class="entrada" type="number" min="1" step="1" :placeholder="t('Optional')" /></label>
-          <div v-else class="campo"><span>{{ t('Packing') }}</span><span class="sub">{{ t('Size run of the prepack') }}</span></div>
+          <div v-else class="campo"><span>{{ t('Packing') }}</span><span class="sub">{{ t('Contents of the pack') }}</span></div>
           <div v-if="almacenes.length" class="campo"><span>{{ t('Warehouse') }}</span>
             <SelectBusqueda v-model="l.almacen" :opciones="almacenes" :vacio="t('Not defined')" :etiqueta="t('Warehouse')" :prefijo="false" /></div>
           <label class="campo"><span>{{ t('Delivery date') }}</span><CampoFecha v-model="l.fecha_entrega" /></label>

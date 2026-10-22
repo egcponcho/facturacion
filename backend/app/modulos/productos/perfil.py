@@ -4,9 +4,9 @@ Un producto de cualquier rubro se reconoce por lo mismo: su código, su nombre y
 la unidad en que se cuenta; cada variante, por su código y los valores de los
 ejes de su familia. Ese es el núcleo y lo exige siempre el sistema.
 
-Todo lo demás (proveedor, marca, grupo, modelo, código de barras, código del
-proveedor, peso, país de origen, atributos y campos propios) es opcional, y lo
-vuelve obligatorio:
+Todo lo demás (familia, proveedor, atributos de producto como la marca o el
+modelo, atributos de variante, código de barras, código del proveedor, peso,
+país de origen) es opcional, y lo vuelve obligatorio:
 
 - la empresa, para todos sus productos: Datos maestros → Artículos → datos
   obligatorios (maestros/gobierno.py); se aplica en cada variante que se guarda;
@@ -31,14 +31,12 @@ NUCLEO = ("generico", "nombre", "unidad")
 
 # Campos de la familia que se escriben en el producto o en la variante
 EDITABLES = {
-    "articulo.upc", "articulo.sku_proveedor", "articulo.peso_unitario", "articulo.estilo", "articulo.color",
-    "articulo.talla", "articulo.marca", "articulo.marca_codigo", "articulo.grupo", "articulo.grupo_codigo",
+    "articulo.codigo_barras", "articulo.codigo_proveedor", "articulo.peso_unitario",
     "producto.nombre", "producto.descripcion_comercial", "producto.pais_origen",
 }
-PREFIJOS_EDITABLES = ("articulo.atributo.", "articulo.extra.")
-
-# El mismo dato con dos claves (código y nombre): se muestra y se exige una vez
-EQUIVALENTES = {"articulo.marca": "articulo.marca_codigo", "articulo.grupo": "articulo.grupo_codigo"}
+PREFIJOS_EDITABLES = ("articulo.atributo.", "producto.dato.")
+# El nombre de la marca sale del atributo de producto que apunta al catálogo de marcas
+EQUIVALENTES = {"producto.marca": None}
 
 
 def editable(clave: str) -> bool:
@@ -46,22 +44,27 @@ def editable(clave: str) -> bool:
 
 
 def grupo_de(a: Articulo):
-    """El grupo de producto más preciso del artículo: el suyo, el de su producto
-    (que puede ser una categoría) o el de su grupo de artículos."""
-    if a.grupo_producto is not None:
-        return a.grupo_producto
-    if a.producto is not None and a.producto.grupo_producto is not None:
-        return a.producto.grupo_producto
-    return a.grupo.grupo_producto if a.grupo is not None else None
+    """El grupo de producto del artículo: el de su producto (una familia o una categoría)."""
+    return a.producto.grupo_producto if a.producto is not None else None
 
 
-def exigidos(grupo) -> list[str]:
+def _equivalente(db: Session | None, c: str) -> str:
+    """«producto.marca» se exige como el atributo de marca del producto (el que apunta a «marcas»)."""
+    if c in EQUIVALENTES and db is not None:
+        from app.modulos.maestros import variantes
+
+        marca = next((a.codigo for a in variantes.atributos(db, "PRODUCTO") if a.catalogo == "marcas"), None)
+        return f"producto.dato.{marca}" if marca else c
+    return c
+
+
+def exigidos(grupo, db: Session | None = None) -> list[str]:
     """Campos que la familia (y las que la contienen) vuelve obligatorios al guardar."""
     from app.modulos.etiquetado.familias import obligatorios
 
     res = []
     for c in obligatorios(grupo):
-        c = EQUIVALENTES.get(c, c)
+        c = _equivalente(db, c)
         if editable(c) and c not in res:
             res.append(c)
     return res
@@ -78,9 +81,14 @@ def _etiquetas(db: Session) -> dict[str, str]:
 
 
 def faltan_variante(a: Articulo) -> list[str]:
+    from sqlalchemy.orm import object_session
+
     from app.modulos.etiquetado.campos import valores_articulo
 
-    return _faltan(valores_articulo(a), exigidos(grupo_de(a)))
+    claves = exigidos(grupo_de(a), object_session(a))
+    if a.tipo == "PREPACK":  # un pack o kit no tiene valores de variante propios
+        claves = [c for c in claves if not c.startswith("articulo.atributo.")]
+    return _faltan(valores_articulo(a), claves)
 
 
 def exigir_variantes(db: Session, articulos: list[Articulo]) -> None:
@@ -103,17 +111,17 @@ def exigir_variantes(db: Session, articulos: list[Articulo]) -> None:
 
 def exigir_producto(db: Session, p: Producto) -> None:
     """422 si al producto le falta un dato propio (producto.*) que su familia vuelve obligatorio."""
-    claves = [c for c in exigidos(p.grupo_producto) if c.startswith("producto.")]
+    claves = [c for c in exigidos(p.grupo_producto, db) if c.startswith("producto.")]
     if not claves:
         return
     valores = {"producto.nombre": p.nombre, "producto.descripcion_comercial": p.descripcion_comercial,
-               "producto.pais_origen": p.pais_origen}
+               "producto.pais_origen": p.pais_origen, **{f"producto.dato.{k}": v for k, v in p.valores.items()}}
     faltan = _faltan(valores, claves)
     if faltan:
         nombres = _etiquetas(db)
         raise ErrorNegocio("Some data the product family requires is missing.", 422, "perfil_incompleto",
-                           [{"campo": c.split(".", 1)[1], "mensaje": f"The family {p.grupo_producto.nombre} requires "
-                                                                     f"{nombres.get(c, c)}."} for c in faltan])
+                           [{"campo": c.split(".", 1)[1].replace("dato.", "atributos.", 1),
+                             "mensaje": f"The family {p.grupo_producto.nombre} requires {nombres.get(c, c)}."} for c in faltan])
 
 
 def perfil(db: Session, user: Usuario, grupo_id: int | None = None) -> dict:
@@ -131,12 +139,18 @@ def perfil(db: Session, user: Usuario, grupo_id: int | None = None) -> dict:
     campos_art = {c["nombre"]: c["etiqueta"] for c in catalogos.CATALOGOS["articulos"]["campos"]}
     de_familia = []
     for c in obligatorios(grupo):
-        c = EQUIVALENTES.get(c, c)
+        c = _equivalente(db, c)
         if c not in {x["clave"] for x in de_familia}:
             de_familia.append({"clave": c, "etiqueta": nombres.get(c, c), "al_guardar": editable(c)})
+    nombres_atr = variantes.nombres(db)
     return {
         "nucleo": list(NUCLEO),
-        "empresa": [{"campo": c, "etiqueta": campos_art.get(c, c)} for c in sorted(gobierno.obligatorios("articulos"))],
+        "empresa": [{"campo": c, "etiqueta": nombres_atr.get(c[9:], c) if c.startswith("atributo.") else campos_art.get(c, c)}
+                    for c in sorted(gobierno.obligatorios("articulos"))],
         "familia": de_familia,
         "ejes": variantes.ejes_de_grupo(grupo),
+        # Los atributos de producto que la empresa define (el formulario muestra uno por atributo)
+        "atributos": [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo, "catalogo": a.catalogo,
+                       "opciones": [o.strip() for o in (a.opciones or "").split(",") if o.strip()], "unidad": a.unidad}
+                      for a in variantes.atributos(db, "PRODUCTO")],
     }

@@ -12,9 +12,10 @@ from datetime import date
 
 from app.core.errores import ErrorNegocio
 
-# Entidad → etiqueta (las de datos maestros son los catálogos del mismo nombre)
+# Entidad → etiqueta (las de datos maestros son los catálogos del mismo nombre). Los productos y
+# sus variantes no tienen campos propios: tienen atributos (Datos maestros → Atributos)
 ENTIDADES = {
-    "articulos": "Items", "proveedores": "Suppliers", "sociedades": "Companies", "centros": "Plants",
+    "proveedores": "Suppliers", "sociedades": "Companies", "centros": "Plants",
     "marcas": "Brands", "transportistas": "Carriers", "ordenes": "Purchase orders", "facturas": "Invoices",
 }
 TIPOS = {"texto": "Text", "numero": "Number", "fecha": "Date", "bool": "Yes / no", "opcion": "Option"}
@@ -98,7 +99,7 @@ def limpiar(entidad: str, valores: dict | None, actuales: dict | None = None, pa
 
 
 # ---- Guardadas en la tabla definiciones_campo ----------------------------------------------
-TABLAS = {"articulos": "articulos", "proveedores": "proveedores", "sociedades": "sociedades", "centros": "centros",
+TABLAS = {"proveedores": "proveedores", "sociedades": "sociedades", "centros": "centros",
           "marcas": "marcas", "transportistas": "transportistas", "ordenes": "ordenes_compra", "facturas": "facturas"}
 
 

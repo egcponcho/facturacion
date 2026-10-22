@@ -5,7 +5,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { esInterno, sesion, ve } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
-import { fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt, textoVariante, TIEMPO } from '@/nucleo/utils'
+import { fmtDiaMes, fmtFecha, fmtNum, porUnidadTxt, textoProducto, textoVariante, TIEMPO } from '@/nucleo/utils'
 import DetalleAnidado from '@/componentes/DetalleAnidado.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
@@ -61,8 +61,8 @@ const columnas = computed(() => [
 const columnasLineas = [
   { clave: 'posicion', texto: t('Line'), fija: true, prioridad: 1 },
   { clave: 'sku', texto: 'SKU', prioridad: 1 },
-  { clave: 'marca', texto: t('Brand · group'), prioridad: 2 },
-  { clave: 'estilo', texto: t('Style / model'), prioridad: 3, inicial: false, textoValor: (v) => v || '—' },
+  { clave: 'marca', texto: t('Brand · family'), prioridad: 2 },
+  { clave: 'producto', texto: t('Product'), valor: (l) => textoProducto(l), prioridad: 3, inicial: false, textoValor: (v) => v || '—' },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'almacen', texto: t('Warehouse'), prioridad: 3, textoValor: (v) => v || '—' },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
@@ -171,8 +171,8 @@ function proximos7() {
                         :vistas-guardadas="false" :etiqueta="t('PO {0}', [o.oc])">
               <template #celda-posicion="{ fila: l }"><span class="codigo">{{ tx(l.posicion) }}</span></template>
               <template #celda-sku="{ fila: l }"><span class="codigo">{{ tx(l.sku) }}</span></template>
-              <template #celda-marca="{ fila: l }">{{ tx(l.marca) }}<span class="sub">{{ tx(l.grupo) }}</span></template>
-              <template #celda-estilo="{ fila: l }">{{ tx(l.estilo || '—') }}</template>
+              <template #celda-marca="{ fila: l }">{{ tx(l.marca) }}<span class="sub">{{ tx(l.familia) }}</span></template>
+              <template #celda-producto="{ fila: l }">{{ tx(textoProducto(l) || '—') }}</template>
               <template #celda-variante="{ fila: l }">
                 <b>{{ tx(textoVariante(l)) }}</b>
                 <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the pack breakdown')"

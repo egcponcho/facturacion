@@ -85,14 +85,10 @@ def test_campos_dependientes(interno):
     assert vans["proveedores"] == [provs["VANS"]]
     centros = interno.get("/catalogos/centros/opciones").json()
     assert all("sociedad_id" in c and "pais" in c for c in centros)
-    # Una marca que el proveedor no tiene autorizada no se acepta
-    grupo = interno.get("/catalogos/grupos/opciones").json()[0]["id"]
-    r = interno.post("/catalogos/articulos", {"sku": "DEP-TEST-1", "estilo": "DEPTEST", "marca_id": vans["id"], "grupo_id": grupo,
-                                              "proveedor_id": provs["TNF"], "tipo": "SOLIDO", "unidad": "UN"})
-    assert r.status_code == 422 and any(e["campo"] == "marca_id" for e in r.json()["detalle"])
-    r = interno.post("/catalogos/genericos", {"generico": "DEPTEST-X", "estilo": "DEPTEST", "color": "X", "marca_id": vans["id"],
-                                              "grupo_id": grupo, "proveedor_id": provs["TNF"], "unidad": "UN", "tallas": []})
-    assert r.status_code == 422
+    # Una marca que el proveedor no tiene autorizada no se acepta (la marca es un atributo del producto)
+    r = interno.post("/catalogos/genericos", {"generico": "DEPTEST-X", "atributos": {"MARCA": vans["codigo"]},
+                                              "proveedor_id": provs["TNF"], "unidad": "UN"})
+    assert r.status_code == 422 and any(e["campo"] == "atributos.MARCA" for e in r.json()["detalle"]), r.text
 
 
 def test_normalizacion_en_cargas(interno):
@@ -123,26 +119,27 @@ def test_normalizacion_en_cargas(interno):
     assert p["codigo"] == "SVX01" and p["pais"] == "SV" and p["nombre"] == "Puerto de Prueba"
 
 
-def test_escalas_de_tallas(interno):
-    """Escalas de tallas reutilizables: tallas en orden y códigos por regla o escritos."""
+def test_escalas_de_valores(interno):
+    """Escalas de valores reutilizables: valores en orden y códigos por regla o escritos."""
     escalas = {e["codigo"]: e for e in interno.get("/catalogos/escalas/opciones").json()}
-    calz = interno.get(f"/catalogos/escalas/{escalas['US-CALZ']['id']}/tallas").json()["tallas"]
-    assert calz[:3] == [{"talla": "5", "codigo": "050"}, {"talla": "5.5", "codigo": "055"}, {"talla": "6", "codigo": "060"}]
-    letras = interno.get(f"/catalogos/escalas/{escalas['LETRAS']['id']}/tallas").json()["tallas"]
-    assert [x["codigo"] for x in letras[:3]] == ["001", "002", "003"] and letras[2]["talla"] == "S"
-    r = interno.post("/catalogos/escalas", {"codigo": "test", "nombre": "Test", "regla": "TALLA", "tallas": "S=1, M=1"})
+    calz = interno.get(f"/catalogos/escalas/{escalas['US-CALZ']['id']}/valores").json()["valores"]
+    assert calz[:3] == [{"valor": "5", "codigo": "050"}, {"valor": "5.5", "codigo": "055"}, {"valor": "6", "codigo": "060"}]
+    letras = interno.get(f"/catalogos/escalas/{escalas['LETRAS']['id']}/valores").json()["valores"]
+    assert [x["codigo"] for x in letras[:3]] == ["001", "002", "003"] and letras[2]["valor"] == "S"
+    r = interno.post("/catalogos/escalas", {"codigo": "test", "nombre": "Test", "atributo": "TALLA", "regla": "VALOR",
+                                            "valores": "S=1, M=1"})
     assert r.status_code == 422 and "same code" in str(r.json()["detalle"])
-    r = interno.post("/catalogos/escalas", {"codigo": "kids", "nombre": "Kids", "regla": "CONSECUTIVO", "longitud": 2, "tallas": "2T, 3T, 4T"})
+    r = interno.post("/catalogos/escalas", {"codigo": "kids", "nombre": "Kids", "atributo": "TALLA", "regla": "CONSECUTIVO",
+                                            "longitud": 2, "valores": "2T, 3T, 4T"})
     assert r.status_code == 200, r.text
-    # Un genérico parte de la escala: los códigos de talla salen de ella
+    # Un producto parte de la escala: los códigos de sus variantes salen de ella
     provs = {p["codigo"]: p["id"] for p in interno.get("/catalogos/proveedores/opciones").json()}
-    marca = next(m for m in interno.get("/catalogos/marcas/opciones").json() if m["codigo"] == "TNF")["id"]
-    grupo = interno.get("/catalogos/grupos/opciones").json()[0]["id"]
-    r = interno.post("/catalogos/genericos", {"generico": "ESC-TEST", "estilo": "ESCTEST", "color": "Black", "marca_id": marca,
-                                              "grupo_id": grupo, "proveedor_id": provs["TNF"], "unidad": "UN",
-                                              "escala_id": escalas["LETRAS"]["id"], "tallas": [{"talla": "M"}, {"talla": "L"}]})
+    r = interno.post("/catalogos/genericos", {"generico": "ESC-TEST", "atributos": {"MARCA": "TNF", "MODELO": "ESCTEST"},
+                                              "proveedor_id": provs["TNF"], "unidad": "UN", "escala_id": escalas["LETRAS"]["id"],
+                                              "variantes": [{"valores": {"COLOR": "Black", "TALLA": "M"}},
+                                                            {"valores": {"COLOR": "Black", "TALLA": "L"}}]})
     assert r.status_code == 200, r.text
-    skus = sorted(t["sku"] for t in interno.get("/catalogos/genericos/ESC-TEST").json()["tallas"])
+    skus = sorted(t["sku"] for t in interno.get("/catalogos/genericos/ESC-TEST").json()["variantes"])
     assert skus == ["ESC-TEST004", "ESC-TEST005"]
 
 

@@ -13,8 +13,7 @@ from app.modulos.seguimiento import seguimiento as seg
 
 TODO = 100_000
 NOMBRES_FILTRO = {
-    "q": "Search", "oc_id": "PO", "marca": "Brand", "grupo": "Group", "estilo": "Style", "color": "Color",
-    "talla": "Size", "sku": "SKU", "almacen": "Storage loc.", "contenedor": "Container", "documento": "BL / AWB",
+    "q": "Search", "oc_id": "PO", "marca": "Brand", "familia": "Product family", "sku": "SKU", "almacen": "Storage loc.", "contenedor": "Container", "documento": "BL / AWB",
     "etapa": "Stage", "riesgo": "Store arrival", "embarque_id": "Shipment", "estado": "Status",
     "modo": "Mode", "liberacion_comercial": "Comm. release", "liberacion_logistica": "Log. release",
     "proveedor": "Supplier", "sociedad": "Company", "centro": "Plant", "xf_vencida": "XF overdue",
@@ -49,9 +48,9 @@ def _filtros_txt(filtros: dict, columnas: dict | None = None) -> str:
             v = ETAPAS.get(v) or ETAPAS_DOC.get(v) or v
         elif k.endswith(("_desde", "_hasta")) and hasattr(v, "strftime"):
             v = fecha_txt(v)
-        if k.startswith(seg.PREFIJO_VARIANTE):
-            # Atributo de variante: se nombra con su código del catálogo (TALLA, CONC…)
-            partes.append(f"{k[len(seg.PREFIJO_VARIANTE):]}: {v}")
+        if k.startswith((seg.PREFIJO_VARIANTE, seg.PREFIJO_ATRIBUTO)):
+            # Atributo de variante o de producto: se nombra con su código del catálogo (TALLA, MODELO…)
+            partes.append(f"{k.split('_', 1)[1]}: {v}")
             continue
         partes.append(f"{L(NOMBRES_FILTRO.get(k, k))}: {L('yes') if v is True else L(v) if isinstance(v, str) else v}")
     # Los filtros de las columnas de la tabla: los valores elegidos, tal cual
@@ -109,17 +108,22 @@ def reporte_ordenes(db: Session, user: Usuario, proveedor_id, filtros: dict, ord
             det = [f for f in det if f["oc_id"] in ocs]
         hojas = [{"titulo": "Detail by SKU", "columnas": [
             ("PO", 1.3, False), ("Line", 0.5, False), ("SKU", 1.3, False), ("Brand", 0.8, False),
-            ("Group", 0.8, False), ("Style / model", 1, False), ("Variant", 1.7, False),
+            ("Product family", 0.8, False), ("Product attributes", 1, False), ("Variant", 1.7, False),
             ("Storage loc.", 0.7, False), ("Quantity", 0.8, True), ("UoM", 0.5, False), ("Stage", 1.6, False),
             ("Invoice", 1.3, False), ("PL", 0.7, False), ("Container / AWB", 1.3, False), ("BL / AWB", 1.3, False),
             ("ETA", 0.9, False), ("In store", 0.9, False), ("Vs. store", 1.1, False)],
-            "filas": [[f["oc"], f["posicion"], f["sku"], f["marca"], f["grupo"], f["estilo"], f["variante"],
+            "filas": [[f["oc"], f["posicion"], f["sku"], f["marca"], f["familia"], _atributos(f), f["variante"],
                        f["almacen"], f["cantidad"], f["unidad"], ETAPAS[f["etapa"]], f["factura"], f["pl"],
                        f["contenedor"], f["documento"], _fecha(f["arribo_real"] or f["eta"]),
                        _fecha(f["fecha_tienda"]), _holgura(f["holgura"])] for f in det]}]
     return _salida(formato, "Purchase order tracking",
                    "Releases, invoicing progress and arrival against the in-store date.",
                    filtros, indicadores, columnas, filas, hojas, por_columna)
+
+
+def _atributos(f: dict) -> str | None:
+    """Los atributos del producto de la fila (sin la marca, que va en su columna), en texto corto."""
+    return " · ".join(str(v) for v in (f.get("atributos") or {}).values() if v not in (None, "", f.get("marca"))) or None
 
 
 def reporte_embarques(db: Session, user: Usuario, proveedor_id, filtros: dict, orden, formato: str,

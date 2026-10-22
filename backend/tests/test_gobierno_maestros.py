@@ -41,7 +41,7 @@ def test_responsables_del_catalogo(admin, interno, sin_gobierno):
                        files={"archivo": ("m.csv", b"codigo,nombre\nGOB2,Uploaded\n", "text/csv")})
     assert r.status_code == 403
     # Otro catálogo sin responsables sigue igual
-    assert _catalogo(interno, "grupos")["puede"]["crear"]
+    assert _catalogo(interno, "escalas")["puede"]["crear"]
     # Roles que no existen o inactivos: no
     assert admin.put("/catalogos/marcas/gobierno", {"responsables": [999999]}).status_code == 422
     # Los catálogos compartidos entre organizaciones no se configuran aquí

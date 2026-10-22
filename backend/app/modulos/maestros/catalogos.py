@@ -22,15 +22,15 @@ from app.modelos import (
     Almacen,
     Articulo,
     ArticuloAtributo,
-    AtributoVariante,
-    CategoriaArticulo,
+    ArticuloCodigo,
+    ArticuloComponente,
+    Atributo,
     Centro,
     CondicionPago,
     Contacto,
     DominioClasificacion,
-    EscalaTalla,
+    EscalaValores,
     EstadoLiberacion,
-    GrupoArticulo,
     Incoterm,
     Marca,
     ModoTransporte,
@@ -39,8 +39,8 @@ from app.modelos import (
     Pais,
     PasoLeadTime,
     PosicionOC,
-    Prepack,
-    PrepackComponente,
+    Producto,
+    ProductoAtributo,
     Proveedor,
     Puerto,
     RegionLeadTime,
@@ -61,6 +61,7 @@ from app.modulos.comun.normalizar import Referencias
 from app.modulos.comun.normalizar import nombre as nombre_fmt
 from app.modulos.comun.normalizar import texto as texto_fmt
 from app.modulos.comun.texto import filtro_texto
+from app.modulos.maestros import atributos as atr_svc
 from app.modulos.maestros import gobierno, unidades
 from app.modulos.productos.productos import (
     asegurar_producto,
@@ -68,7 +69,6 @@ from app.modulos.productos.productos import (
     fmt_codigo,
     generico_de,
     producto_de,
-    producto_por_generico,
 )
 from app.modulos.transporte import reglas_lt as rlt
 
@@ -121,30 +121,6 @@ def _catalogo_lista(lista: str, modelo, singular: str, max_codigo: int, obligato
 
 
 SIMPLES = [k for k in listas.LISTAS if k not in listas.TABLA]
-TIPOS_VARIANTE = [["texto", "Text"], ["numero", "Number"], ["opcion", "One of the options"]]
-
-
-def opciones_variante(d: dict | AtributoVariante) -> list[str]:
-    texto = d.get("opciones") if isinstance(d, dict) else d.opciones
-    return [x.strip() for x in (texto or "").split(",") if x.strip()]
-
-
-def valor_variante(d: dict | None, v: str) -> tuple[str | None, str | None]:
-    """(valor normalizado, error) de un valor de variante según el tipo de su atributo."""
-    tipo = (d or {}).get("tipo") or "texto"
-    if tipo == "numero":
-        try:
-            n = float(str(v).replace(",", "."))
-        except ValueError:
-            return None, f"{v} is not a number."
-        return (str(int(n)) if n.is_integer() else f"{n:g}"), None
-    if tipo == "opcion":
-        validas = opciones_variante(d)
-        elegida = next((o for o in validas if o.lower() == str(v).lower()), None)
-        if elegida is None:
-            return None, f"{v} is not one of the options ({', '.join(validas)})."
-        return elegida, None
-    return v, None
 CATALOGOS = {
     "sociedades": {
         "modelo": Sociedad, "titulo": "Companies", "singular": "company",
@@ -349,52 +325,46 @@ CATALOGOS = {
         ],
         "buscar": ["codigo", "nombre"],
     },
-    "atributos_variante": {
-        "modelo": AtributoVariante, "titulo": "Variant attributes", "singular": "variant attribute",
-        "ayuda": "What tells the variants of an item apart. Size and color are built in; add your own (material, "
-                 "capacity, voltage…) and each item records its value in the item form.",
+    "atributos": {
+        "modelo": Atributo, "titulo": "Attributes", "singular": "attribute",
+        "ayuda": "The data your company records for its products. Product attributes (brand, model, material, UN "
+                 "number…) are shared by all the variants of a product; variant attributes (size, color, flavor, "
+                 "presentation, concentration…) tell the variants apart. Each product family says which ones its "
+                 "variants use and which ones are required.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True, patron=r"^[A-Z][A-Z0-9_]{0,19}$",
               mensaje_patron="Letters, numbers and _, starting with a letter."),
             c("nombre", "Name", obligatorio=True, max=60),
-            c("tipo", "Kind of value", "opcion", filtro=True, opciones=TIPOS_VARIANTE),
-            c("opciones", "Options (comma-separated)", max=500, ayuda="For the «one of the options» kind: e.g. 110 V, 220 V."),
-            c("unidad", "Unit", "opcion", lista="unidad", ayuda="For numbers: the unit the value is written in (ml, kg, V…)."),
+            c("nivel", "Level", "opcion", filtro=True, opciones=atr_svc.NIVELES, ayuda="Empty = variant."),
+            c("tipo", "Kind of value", "opcion", filtro=True, opciones=atr_svc.TIPOS, ayuda="Empty = text."),
+            c("opciones", "Options (comma-separated)", max=500, mostrar_si={"campo": "tipo", "valores": ["opcion"]},
+              ayuda="For the «one of the options» kind: e.g. 110 V, 220 V."),
+            c("catalogo", "Catalog", "opcion", opciones=atr_svc.CATALOGOS, mostrar_si={"campo": "tipo", "valores": ["catalogo"]},
+              ayuda="For a record of a catalog: the value is the record's code (a brand: brands of the product's supplier)."),
+            c("unidad", "Unit", "opcion", lista="unidad", mostrar_si={"campo": "tipo", "valores": ["numero"]},
+              ayuda="For numbers: the unit the value is written in (ml, kg, V…)."),
             c("orden", "Order", "entero", minimo=0),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
     },
     "escalas": {
-        "modelo": EscalaTalla, "titulo": "Value scales", "singular": "value scale",
-        "ayuda": "Reusable ordered values of a variant attribute: sizes of footwear or apparel, presentations "
+        "modelo": EscalaValores, "titulo": "Value scales", "singular": "value scale",
+        "ayuda": "Reusable ordered values of a variant attribute: a series of sizes, presentations "
                  "(250 ml, 500 ml, 1 L), concentrations… A product's variants start from a scale: its values come in "
                  "order and each item code is generated with the scale's rule or typed in the list.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True),
             c("nombre", "Name", obligatorio=True),
-            c("atributo", "Variant attribute", "codigo", catalogo="atributos_variante", filtro=True,
-              ayuda="Whose values the scale orders. Empty = size (TALLA)."),
-            c("categoria", "Category", "codigo", catalogo="categorias", filtro=True),
+            c("atributo", "Variant attribute", "codigo", catalogo="atributos", obligatorio=True, filtro=True,
+              ayuda="Whose values the scale orders."),
             c("regla", "Code rule", "opcion", obligatorio=True, filtro=True, opciones=[
                 ["MULTIPLICAR", "Value × factor (7.5 × 10 → 075)"], ["CONSECUTIVO", "Consecutive (001, 002…)"],
-                ["TALLA", "Same as the value (S, M, XL)"]]),
+                ["VALOR", "Same as the value (S, M, XL)"]]),
             c("factor", "Factor", "entero", minimo=1, ayuda="For Value × factor, e.g. 10."),
             c("longitud", "Code digits", "entero", minimo=1, ayuda="Zeros on the left, e.g. 3 → 070."),
-            c("tallas", "Values", obligatorio=True,
+            c("valores", "Values", obligatorio=True,
               ayuda="In order, separated by commas. Ranges allowed (6-10, 6.5-9.5). A fixed code with = (7=070)."),
-            c("activo", "Active", "bool", filtro=True),
-        ],
-        "buscar": ["codigo", "nombre"],
-    },
-    "categorias": {
-        "modelo": CategoriaArticulo, "titulo": "Item categories", "singular": "category",
-        "ayuda": "Your company's product lines (footwear, apparel, accessories…). Item groups and size scales use them.",
-        "campos": [
-            c("codigo", "Code", obligatorio=True, max=10, mayus=True),
-            c("nombre", "Name", obligatorio=True),
-            c("dominio", "Classification domain", "codigo", catalogo="dominios", filtro=True,
-              ayuda="The product sheet offers the product categories of this domain first."),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["codigo", "nombre"],
@@ -470,22 +440,6 @@ CATALOGOS = {
     "modos_transporte": _catalogo_lista("modo_transporte", ModoTransporte, "transport mode", 20, obligatorios=("calculo",)),
     "incoterms": _catalogo_lista("incoterm", Incoterm, "incoterm", 10),
     "condiciones_pago": _catalogo_lista("condicion_pago", CondicionPago, "payment term", 20),
-    "grupos": {
-        "modelo": GrupoArticulo, "titulo": "Item groups", "singular": "group",
-        "ayuda": "Each item belongs to a single group. The category sets the packing rule; it does not define the "
-                 "product type, which comes from the technical sheet.",
-        "campos": [
-            c("codigo", "Code", obligatorio=True, max=15, mayus=True),
-            c("nombre", "Name", obligatorio=True, formato="nombre"),
-            c("categoria", "Category", "codigo", catalogo="categorias", obligatorio=True, filtro=True),
-            c("dias_extra", "Extra days after arrival", "numero", minimo=0,
-              ayuda="Handling this product type needs after the port (inspection, labeling, permits). "
-                    "It is added to the in-store estimate; empty = none."),
-            c("activo", "Active", "bool", filtro=True),
-        ],
-        "extras": [{"nombre": "articulos", "etiqueta": "Items", "catalogo": "articulos", "filtro": "grupo_id"}],
-        "buscar": ["codigo", "nombre"],
-    },
     "proveedores": {
         "modelo": Proveedor, "titulo": "Suppliers", "singular": "supplier",
         "ayuda": "Exporters. Each one handles its own brands and items and works with the assigned companies.",
@@ -545,61 +499,37 @@ CATALOGOS = {
     },
     "articulos": {
         "modelo": Articulo, "titulo": "Items", "singular": "item",
-        "ayuda": "Each variant of a product (item): its item code (your company's own format) is not the supplier code. "
-                 "Only the item code, the type and the unit are required; your company (required data) or the product family "
-                 "can require more. Packs and kits are created in their own tab and take their data from their variants.",
+        "ayuda": "Each variant of a product (item) and each pack or kit: its item code (your company's own format) is "
+                 "not the supplier code. Only the item code, the product, the type and the unit are required; your "
+                 "company (required data) or the product family can require more. The product's data (name, family, "
+                 "supplier, brand, model…) is edited on the product.",
         "campos": [
             c("sku", "Item code", obligatorio=True, max=40, mayus=True, patron=r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$",
               mensaje_patron="Letters and numbers (also . - _ /), up to 40 characters."),
             c("generico", "Product code", max=40, mayus=True,
               ayuda="Groups the variants, packs and kits of one product: they share its data. Empty = the item code "
                     "(a product without variants)."),
-            c("sku_proveedor", "Supplier code", max=60, mayus=True,
-              ayuda="The supplier's own code for this variant."),
-            c("estilo", "Model", mayus=True, ayuda="Optional: for companies that name their products by a model or reference."),
-            # Copias de los atributos de variante de sistema (se escriben desde los valores de la variante)
-            c("color", "Color", ayuda="Empty if the item has no color."),
-            c("talla", "Size / pack ID", mayus=True,
-              ayuda="Empty if the item has no size. For a pack it is its pack ID, e.g. AB12."),
-            # Opcionales: la empresa los vuelve obligatorios (gobierno) o los pide la familia del producto
-            c("marca_id", "Brand", "ref", catalogo="marcas", filtro=True,
-              depende={"campo": "proveedor_id", "clave": "proveedores"}),
-            c("grupo_id", "Item group", "ref", catalogo="grupos", filtro=True,
-              ayuda="Optional internal grouping (extra days, reports); the family says what kind of product it is."),
-            c("proveedor_id", "Supplier", "ref", catalogo="proveedores", filtro=True,
-              ayuda="Who sells it to you. Empty for your own products. With a supplier, the brand must be one of theirs."),
+            c("proveedor_id", "Supplier", "ref", catalogo="proveedores", filtro=True, solo_lectura=True,
+              ayuda="The product's supplier: it is changed on the product."),
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
               opciones=[["SOLIDO", "Simple"], ["PREPACK", "Pack or kit"]]),
             c("unidad", "Unit", "opcion", obligatorio=True, lista="unidad", filtro=True),
             c("peso_unitario", "Unit weight (kg)", "numero", minimo=0,
               ayuda="Net weight of one unit of the item (for a pack or kit, all of its contents). The packaging "
                     "weight is not included: each packaging level adds its own tare. Empty in a pack = sum of its contents."),
-            c("upc", "Barcode", ayuda="GTIN, EAN or UPC."),
+            c("codigo_barras", "Barcode", max=40, ayuda="GTIN, EAN or UPC (one per item here; more on the product page)."),
+            c("codigo_proveedor", "Supplier code", max=60, mayus=True, ayuda="The supplier's own code for this item."),
+            c("descripcion", "Description", max=300, ayuda="Empty = made from the product and the variant values."),
             c("activo", "Active", "bool", filtro=True),
         ],
-        "buscar": ["sku", "sku_proveedor", "estilo", "color", "upc", "descripcion"],
-    },
-    "prepacks": {
-        "modelo": Prepack, "titulo": "Packs and kits", "singular": "pack",
-        "ayuda": "A compound item with its own item code. A pack (assortment) carries variants of one product "
-                 "(sizes, flavors, presentations…) and quantities per unit and shares that product's technical sheet; "
-                 "a kit puts together items of any products. Its pack ID (e.g. AB12) identifies it among the product's "
-                 "packs. The breakdown can be viewed but not changed.",
-        "campos": [
-            c("tipo", "Kind", "opcion", filtro=True, opciones=[["CURVA", "Pack of variants"], ["KIT", "Kit"]]),
-            c("codigo", "Pack ID", obligatorio=True, max=10, mayus=True, patron=r"^[A-Z0-9]{2,10}$",
-              mensaje_patron="Letters and numbers only, e.g. AB12."),
-            c("estilo", "Model", mayus=True, filtro=True),
-            c("color", "Color"),
-            c("descripcion", "Description"),
-            c("activo", "Active", "bool", filtro=True),
-        ],
-        "buscar": ["codigo", "estilo", "color", "descripcion"],
+        "buscar": ["sku", "descripcion"],
+        # Datos que no son columnas del artículo: viven en su producto o en sus códigos
+        "virtuales": ("generico", "proveedor_id", "codigo_barras", "codigo_proveedor"),
     },
 }
-ORDEN_CATALOGOS = ["articulos", "prepacks", "atributos_variante", "escalas", "tipos_empaque", "marcas", "grupos", "proveedores", "sociedades", "centros",
+ORDEN_CATALOGOS = ["articulos", "atributos", "escalas", "tipos_empaque", "marcas", "proveedores", "sociedades", "centros",
                    "contactos", "almacenes", "transportistas", "tipos_unidad", "paises", "puertos", "regiones", "pasos_lt", "leadtimes", "acuerdos",
-                   "liberaciones", "categorias", "monedas", "unidades", "incoterms", "condiciones_pago",
+                   "liberaciones", "monedas", "unidades", "incoterms", "condiciones_pago",
                    "modos_transporte", "listas", "series"]
 CORREO = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 
@@ -618,11 +548,9 @@ def exigir_editable(tipo: str) -> None:
 
 def _mostrar(obj) -> str:
     """Texto corto para mostrar un registro referido."""
-    if isinstance(obj, Prepack):
-        return f"{obj.codigo} · {obj.estilo} {obj.color or ''}".strip()
     if isinstance(obj, Contacto):
         return obj.nombre
-    for a, b in (("codigo", "nombre"), ("sku", "estilo"), ("codigo", "descripcion")):
+    for a, b in (("codigo", "nombre"), ("sku", "descripcion"), ("codigo", "descripcion")):
         if hasattr(obj, a):
             extra = getattr(obj, b, None)
             return f"{getattr(obj, a)} · {extra}" if extra else str(getattr(obj, a))
@@ -641,16 +569,18 @@ def _tipo_de(cat: dict) -> str:
 
 
 def campos_variante(cat: dict) -> list[dict]:
-    """Atributos de variante propios de la empresa (material, voltaje…) como
-    campos «atr.<código>» del artículo; se guardan en articulo_atributos."""
+    """Atributos de variante de la empresa (talla, color, voltaje…) como campos
+    «atr.<código>» del artículo; se guardan en articulo_atributos."""
     from app.core.empresa import configuracion_actual
 
     if cat["modelo"] is not Articulo:
         return []
     res = []
-    for x in configuracion_actual().get("atributos_variante") or []:
+    for x in configuracion_actual().get("atributos") or []:
+        if x.get("nivel") != "VARIANTE":
+            continue
         tipo = x.get("tipo") or "texto"
-        extra = ({"opciones": [[o, o] for o in opciones_variante(x)]} if tipo == "opcion"
+        extra = ({"opciones": [[o, o] for o in atr_svc.opciones(x)]} if tipo == "opcion"
                  else {"ayuda": f"Number in {x['unidad']}."} if tipo == "numero" and x.get("unidad") else {})
         res.append(c(f"atr.{x['codigo']}", x["nombre"], "opcion" if tipo == "opcion" else "texto", max=60, propio=True,
                      seccion="variante", filtro=True, **extra))
@@ -670,8 +600,7 @@ def campos_propios(cat: dict) -> list[dict]:
 # Sección de cada dato en el formulario (primero lo común, al final lo propio
 # de la empresa). Un dato que no está aquí va en «general».
 SECCION_CAMPO = {
-    **dict.fromkeys(("marca_id", "grupo_id", "proveedor_id", "marcas", "sociedades", "sociedad_id", "centro_id", "moneda",
-                     "unidad"), "comercial"),
+    **dict.fromkeys(("proveedor_id", "marcas", "sociedades", "sociedad_id", "centro_id", "moneda", "unidad"), "comercial"),
     **dict.fromkeys(("pais", "puerto", "puertos", "region", "peso_unitario"), "logistica"),
     **dict.fromkeys(("direccion", "contacto", "correos", "telefono", "cargo", "rol"), "contacto"),
     **dict.fromkeys(("activo", "activa", "predeterminada", "predeterminado"), "estado"),
@@ -706,14 +635,25 @@ def meta(db: Session, user: Usuario) -> list[dict]:
              "extras": CATALOGOS[t].get("extras", []),
              "total": db.scalar(select(func.count()).select_from(CATALOGOS[t]["modelo"])) or 0,
              "puede": gobierno.puede(user, t),
-             "gobierno": gobierno.resumen(db, t, CATALOGOS[t]["campos"])}
+             "gobierno": gobierno.resumen(db, t, _campos_gobierno(db, t))}
             for t in ORDEN_CATALOGOS]
+
+
+def _campos_gobierno(db: Session, tipo: str) -> list[dict]:
+    """Datos que la empresa puede volver obligatorios: los del catálogo y, en artículos, cada
+    atributo de producto o de variante («atributo.<código>»)."""
+    campos = CATALOGOS[tipo]["campos"]
+    if tipo != "articulos":
+        return campos
+    return campos + [{"nombre": f"atributo.{a.codigo}", "etiqueta": a.nombre, "tipo": "texto", "obligatorio": False}
+                     for a in db.scalars(select(Atributo).where(Atributo.activo.is_(True))
+                                         .order_by(Atributo.nivel, Atributo.orden, Atributo.codigo))]
 
 
 def guardar_gobierno(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     """Responsables y datos obligatorios del catálogo (administración)."""
-    cat = _cat(tipo)
-    return gobierno.guardar(db, user, tipo, cat["campos"], datos)
+    _cat(tipo)
+    return gobierno.guardar(db, user, tipo, _campos_gobierno(db, tipo), datos)
 
 
 def historial(db: Session, user: Usuario, tipo: str, obj_id: int) -> list[dict]:
@@ -761,19 +701,17 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
         if campo["tipo"] == "ref" and v:
             fila[campo["nombre"] + "_txt"] = refs.get((campo["catalogo"], v))
     if isinstance(obj, Articulo):
-        # La ficha técnica y la partida viven en el producto (estilo-color)
+        # La ficha técnica y la partida viven en el producto
         prod = producto_de(obj)
         fila["producto_id"] = prod.id if prod else None
-        # Descripción que se arma con la ficha técnica (comercial + talla)
-        base = prod.descripcion_comercial or prod.nombre if prod else None
-        fila["descripcion"] = f"{base}, {'prepack' if obj.tipo == 'PREPACK' else 'size'} {obj.talla}" if base and obj.talla \
-            else (base or obj.descripcion)
+        fila["descripcion_txt"] = descripcion_articulo(obj)
+        fila["variante"] = " · ".join(str(v) for v in obj.variantes.values() if v not in (None, "")) or None
+        fila["codigo_pack"] = obj.codigo_pack
         fila["partida_txt"] = fmt_codigo(prod.codigo) if prod and prod.codigo else None
         fila["clasificacion"] = prod.estado if prod else None
-    if isinstance(obj, Prepack):
-        fila["total"] = obj.total
-        fila["componentes"] = len(obj.componentes)
-        fila["sku"] = refs.get(("_sku_prepack", obj.id))
+        if obj.tipo == "PREPACK":
+            fila["total"] = obj.total_componentes
+            fila["componentes"] = len(obj.componentes)
     # Relaciones hijas: centros de la sociedad, artículos del grupo, contactos
     if isinstance(obj, Sociedad):
         fila["centros_txt"] = ", ".join(c.codigo for c in obj.centros) or None
@@ -786,15 +724,18 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
 def _refs(db: Session, cat: dict, objs: list) -> dict:
     refs = {}
     ids_obj = [o.id for o in objs]
-    if cat["modelo"] is Prepack and ids_obj:
-        for pid, sku in db.execute(select(Articulo.prepack_id, Articulo.sku).where(Articulo.prepack_id.in_(ids_obj))):
-            refs[("_sku_prepack", pid)] = sku
     for ex in cat.get("extras", []):
         if ex["nombre"] == "centros_txt" or not ids_obj:
             continue
         hijo = CATALOGOS[ex["catalogo"]]["modelo"]
-        col = getattr(hijo, ex["filtro"])
-        for padre, n in db.execute(select(col, func.count()).where(col.in_(ids_obj)).group_by(col)):
+        if hijo is Articulo and ex["filtro"] == "proveedor_id":
+            # El proveedor es del producto: se cuentan las variantes de sus productos
+            col = Producto.proveedor_id
+            consulta = select(col, func.count(Articulo.id)).join(Producto, Producto.id == Articulo.producto_id)
+        else:
+            col = getattr(hijo, ex["filtro"])
+            consulta = select(col, func.count())
+        for padre, n in db.execute(consulta.where(col.in_(ids_obj)).group_by(col)):
             refs[("_" + ex["nombre"], padre)] = n
     for campo in cat["campos"]:
         if campo["tipo"] != "ref":
@@ -865,12 +806,16 @@ def columnas_tabla(cat: dict) -> dict:
     for x in campos_propios(cat):
         res[x["nombre"]] = modelo.extra[x["nombre"][6:]].as_string()
     for x in campos_variante(cat):
-        atributo = select(AtributoVariante.id).where(AtributoVariante.codigo == x["nombre"][4:]).scalar_subquery()
+        atributo = select(Atributo.id).where(Atributo.codigo == x["nombre"][4:]).scalar_subquery()
         res[x["nombre"]] = tabla.Relacion(ArticuloAtributo.valor, ArticuloAtributo.articulo_id, Articulo.id,
                                           donde=ArticuloAtributo.atributo_id == atributo)
-    if modelo is Prepack:
-        # Código de artículo del prepack (el artículo que apunta a él)
-        res["sku"] = tabla.Relacion(Articulo.sku, Articulo.prepack_id, Prepack.id)
+    if modelo is Articulo:
+        # Lo que vive en el producto o en los códigos del artículo
+        res["generico"] = tabla.Relacion(Producto.codigo_generico, Producto.id, Articulo.producto_id)
+        res["proveedor_id"] = tabla.Relacion(Producto.proveedor_id, Producto.id, Articulo.producto_id)
+        for campo, tipo in (("codigo_barras", "BARRAS"), ("codigo_proveedor", "PROVEEDOR")):
+            res[campo] = tabla.Relacion(ArticuloCodigo.valor, ArticuloCodigo.articulo_id, Articulo.id,
+                                        donde=ArticuloCodigo.tipo == tipo)
     return res
 
 
@@ -917,9 +862,12 @@ def _consulta(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dic
         consulta = consulta.where(cat["donde"]())
     if q:
         consulta = consulta.where(filtro_texto(q, lambda p: [getattr(modelo, b).ilike(p) for b in cat["buscar"]
-                                                             if not es_virtual(modelo, b)]))
+                                                             if not es_virtual(modelo, b)] + _buscar_extra(modelo, p)))
     nombres = {x["nombre"]: x for x in cat["campos"]}
     for k, v in filtros.items():
+        if modelo is Articulo and k == "proveedor_id" and v not in (None, ""):
+            consulta = consulta.where(Articulo.producto_id.in_(select(Producto.id).where(Producto.proveedor_id == int(v))))
+            continue
         if k not in nombres or v in (None, "") or es_virtual(modelo, k):
             continue
         campo = nombres[k]
@@ -932,6 +880,26 @@ def _consulta(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dic
             v = int(v)
         consulta = consulta.where(getattr(modelo, k) == v)
     return cat, consulta
+
+
+def _buscar_extra(modelo, p) -> list:
+    """Búsqueda en lo que no es columna del registro: un artículo también por su producto y sus códigos."""
+    if modelo is not Articulo:
+        return []
+    return [Articulo.producto_id.in_(select(Producto.id).where(Producto.codigo_generico.ilike(p) | Producto.nombre.ilike(p))),
+            Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(p)))]
+
+
+def descripcion_articulo(a: Articulo) -> str | None:
+    """La descripción del artículo: la suya o la del producto con los valores de la variante."""
+    if a.descripcion:
+        return a.descripcion
+    prod = a.producto
+    base = (prod.descripcion_comercial or prod.nombre) if prod else None
+    valores = " · ".join(str(v) for v in a.variantes.values() if v not in (None, ""))
+    if a.tipo == "PREPACK" and a.codigo_pack:
+        valores = f"pack {a.codigo_pack}"
+    return ", ".join(x for x in (base, valores) if x) or None
 
 
 def opciones(db: Session, user: Usuario, tipo: str) -> list[dict]:
@@ -1022,6 +990,8 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
     limpio = {}
     for campo in cat["campos"]:
         n = campo["nombre"]
+        if campo.get("solo_lectura"):
+            continue
         obligatorio = _obligatorio(cat, campo)
         if n not in datos:
             if not parcial and obligatorio:
@@ -1120,37 +1090,21 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             continue
         limpio[n] = v
 
-    if isinstance(actual, Prepack) and "tipo" in limpio and limpio["tipo"] != actual.tipo:
-        errores.append({"campo": "tipo", "mensaje": "A prepack's kind cannot change: create a new one."})
-    if isinstance(actual, AtributoVariante) and actual.columna:
-        fijos = [k for k in ("codigo", "activo") if k in limpio and limpio[k] != getattr(actual, k)]
-        if fijos:
-            errores.append({"campo": fijos[0], "mensaje": "Size and color are built in: only their name and order change."})
-    elif isinstance(actual, AtributoVariante) and "codigo" in limpio and limpio["codigo"] != actual.codigo \
-            and db.scalar(select(ArticuloAtributo.id).where(ArticuloAtributo.atributo_id == actual.id).limit(1)):
-        errores.append({"campo": "codigo", "mensaje": "Items already use this attribute: its code cannot change."})
-    if cat["modelo"] is AtributoVariante:
-        errores += _validar_atributo_variante(db, {**({k: getattr(actual, k) for k in ("tipo", "opciones", "unidad")}
-                                                      if actual else {}), **limpio}, actual)
+    if cat["modelo"] is Atributo:
+        d = {**({k: getattr(actual, k) for k in ("codigo", "nivel", "tipo", "opciones", "catalogo", "unidad")}
+                if actual else {}), **limpio}
+        errores += _validar_atributo(db, d, actual)
+        if (d.get("tipo") or "texto") != "catalogo":
+            limpio["catalogo"] = None
 
-    # Atributos de variante propios: texto corto, uno por atributo
+    # Atributos de variante: uno por atributo, con el tipo de valor de cada uno
     if cat["modelo"] is Articulo:
-        validos = {x["nombre"][4:] for x in campos_variante(cat)}
-        atr = {k[4:]: str(v).strip()[:60] if v is not None else "" for k, v in datos.items() if k.startswith("atr.")}
-        desconocidos = sorted(set(atr) - validos)
-        if desconocidos:
-            errores.append({"campo": f"atr.{desconocidos[0]}", "mensaje": f"{desconocidos[0]} is not a variant attribute."})
-        else:
-            from app.core.empresa import configuracion_actual
-
-            defs = {x["codigo"]: x for x in configuracion_actual().get("atributos_variante") or []}
-            for k, v in list(atr.items()):
-                if v:
-                    atr[k], msg = valor_variante(defs.get(k), v)
-                    if msg:
-                        errores.append({"campo": f"atr.{k}", "mensaje": msg})
-            if atr:
-                limpio["variantes"] = {**(actual.variantes if actual else {}), **atr}
+        crudos = {k[4:]: v for k, v in datos.items() if k.startswith("atr.")}
+        if crudos:
+            valores, errs = atr_svc.validar(db, "VARIANTE", crudos, campo="atr")
+            errores += [{**e, "campo": e["campo"].replace("atr.", "atr.", 1)} for e in errs]
+            if not errs:
+                limpio["variantes"] = {k: v for k, v in {**(actual.variantes if actual else {}), **valores}.items() if v}
 
     # Campos propios: se validan con su tipo y se guardan juntos en extra
     propios = {k[6:]: v for k, v in datos.items() if k.startswith("extra.")}
@@ -1160,8 +1114,6 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         except ErrorNegocio as e:
             errores += e.detalle or []
     final = {**({c["nombre"]: getattr(actual, c["nombre"]) for c in cat["campos"]} if actual else {}), **limpio}
-    if cat["modelo"] is EscalaTalla and "atributo" in limpio and not limpio["atributo"]:
-        limpio["atributo"] = final["atributo"] = "TALLA"  # sin atributo, la escala es de tallas
     if cat["modelo"] is PasoLeadTime:
         # Un paso con fecha medida pertenece al documento que la registra
         propio = rlt.DOCUMENTO_HITO.get(final.get("hito") or "")
@@ -1170,66 +1122,15 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         elif propio and final.get("documento") != propio:
             errores.append({"campo": "documento", "mensaje": "That measured date is recorded on another document: "
                             f"{dict(rlt.DOCUMENTOS)[propio].lower()}."})
-    # Reglas propias de los artículos: un compuesto (pack o kit) se crea con su
-    # contenido y ya no cambia lo que lo enlaza
     if cat["modelo"] is Articulo:
-        if final.get("tipo") == "PREPACK" and not (actual and actual.tipo == "PREPACK"):
-            errores.append({"campo": "tipo", "mensaje":
-                            "Packs and kits are created in their own tab, with their item code and breakdown."})
-        elif actual and actual.tipo == "PREPACK":
-            # La explosión es fija: no cambia lo que la enlaza
-            fijos = [c for c in ("tipo", "estilo", "color", "talla", "unidad") if c in limpio and limpio[c] != getattr(actual, c)]
-            if fijos:
-                errores.append({"campo": fijos[0], "mensaje":
-                                "A pack or kit and its breakdown cannot change (style, color, pack ID, unit and type). "
-                                "Create a new one."})
-        elif final.get("tipo") == "SOLIDO":
-            if actual and db.scalar(select(PrepackComponente.id).where(PrepackComponente.articulo_id == actual.id)):
-                fijos = [c for c in ("estilo", "color", "talla", "unidad") if c in limpio and limpio[c] != getattr(actual, c)]
-                if fijos:
-                    errores.append({"campo": fijos[0], "mensaje":
-                                    "This item is part of a pack or kit: its style, "
-                                    "color, size and unit cannot change."})
-            limpio["prepack_id"] = None
-            if final.get("unidad") in unidades.de_compuestos():
-                errores.append({"campo": "unidad", "mensaje": "That unit is only for packs and kits."})
-    # El producto (su código) agrupa sus variantes y compuestos: todos comparten
-    # estilo, marca y proveedor (y el color, si el producto lo fija)
-    if cat["modelo"] is Articulo and generico_de(final):
-        gen = generico_de(final)
-        ref = db.scalar(select(Articulo).where(Articulo.generico == gen, Articulo.tipo == "SOLIDO",
-                                               *([Articulo.id != actual.id] if actual else [])).limit(1))
-        prod = producto_por_generico(db, gen)
-        # El color es un valor de variante más, salvo que el producto lo fije (estilo-color)
-        base = ({"estilo": ref.estilo, "color": prod.color if prod else None, "marca_id": ref.marca_id,
-                 "proveedor_id": ref.proveedor_id}
-                if ref else {"estilo": prod.estilo, "color": prod.color, "marca_id": prod.marca_id,
-                             "proveedor_id": prod.proveedor_id} if prod else None)
-        if base:
-            distintos = [k for k, v in base.items() if v is not None and final.get(k) not in (None, "") and final.get(k) != v]
-            if distintos:
-                nombres = {"estilo": "model", "color": "color", "marca_id": "brand", "proveedor_id": "supplier"}
-                errores.append({"campo": distintos[0], "mensaje":
-                                f"The variants of product {gen} share the {', '.join(nombres[k] for k in distintos)}: "
-                                "use the same ones or another product code."})
-        if final.get("tipo") == "SOLIDO":
-            errores += _variante_repetida(db, gen, final, limpio, actual)
-    if cat["modelo"] is Articulo and final.get("proveedor_id") and final.get("marca_id"):
-        prov = db.get(Proveedor, final["proveedor_id"])
-        if prov and final["marca_id"] not in {m.id for m in prov.marcas}:
-            errores.append({"campo": "marca_id", "mensaje":
-                            f"The brand does not belong to {prov.nombre}; its brands are {', '.join(m.codigo for m in prov.marcas)}."
-                            if prov.marcas else f"{prov.nombre} has no brands yet: assign them in Suppliers first."})
-    if cat["modelo"] is Articulo and actual and "proveedor_id" in limpio and limpio["proveedor_id"] != actual.proveedor_id \
-            and db.scalar(select(PosicionOC.id).where(PosicionOC.articulo_id == actual.id).limit(1)):
-        errores.append({"campo": "proveedor_id", "mensaje": "The item is on purchase orders: its supplier cannot change."})
+        errores += _validar_articulo(db, final, limpio, actual)
     if cat["modelo"] is Proveedor and actual and "marcas" in limpio:
-        quedan = {m.id for m in limpio["marcas"]}
-        usadas = {m for (m,) in db.execute(select(Articulo.marca_id).where(Articulo.proveedor_id == actual.id, Articulo.marca_id.is_not(None)).distinct())}
+        quedan = {m.codigo for m in limpio["marcas"]}
+        usadas = set(db.scalars(select(ProductoAtributo.valor).join(Atributo).join(Producto).where(
+            Atributo.catalogo == "marcas", Producto.proveedor_id == actual.id).distinct()))
         if usadas - quedan:
-            nombres_m = [m.codigo for m in db.scalars(select(Marca).where(Marca.id.in_(usadas - quedan)))]
             errores.append({"campo": "marcas", "mensaje":
-                            f"The supplier has items of {', '.join(nombres_m)}: those brands cannot be removed."})
+                            f"The supplier has products of {', '.join(sorted(usadas - quedan))}: those brands cannot be removed."})
     if cat["modelo"] is Proveedor and actual and "sociedades" in limpio:
         quedan = {x.codigo for x in limpio["sociedades"]}
         usadas = {c for (c,) in db.execute(select(OrdenCompra.sociedad).where(
@@ -1257,12 +1158,16 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         from app.modulos.maestros.listas import validar as validar_valor
 
         errores += validar_valor(db, final, actual, limpio, cat.get("lista"))
-    if cat["modelo"] is EscalaTalla and final.get("tallas"):
-        from app.modulos.maestros.tallas import validar as validar_escala
+    if cat["modelo"] is EscalaValores:
+        from app.modulos.maestros.escalas import validar as validar_escala
 
-        errores += [{"campo": "tallas", "mensaje": m} for m in validar_escala(final["tallas"])]
+        if final.get("valores"):
+            errores += [{"campo": "valores", "mensaje": m} for m in validar_escala(final["valores"])]
         if final.get("regla") == "MULTIPLICAR" and not final.get("factor"):
-            errores.append({"campo": "factor", "mensaje": "Enter the factor for the rule Size × factor."})
+            errores.append({"campo": "factor", "mensaje": "Enter the factor for the rule Value × factor."})
+        if final.get("atributo") and not db.scalar(select(Atributo.id).where(Atributo.codigo == final["atributo"],
+                                                                            Atributo.nivel == "VARIANTE")):
+            errores.append({"campo": "atributo", "mensaje": "Choose a variant attribute."})
     if cat["modelo"] is Contacto and not final.get("sociedad_id") and not final.get("centro_id"):
         errores.append({"campo": "sociedad_id", "mensaje": "Enter the contact's company or plant."})
     if cat["modelo"] in (Centro, Almacen) and actual and "sociedad_id" in limpio and limpio["sociedad_id"] != actual.sociedad_id:
@@ -1272,11 +1177,6 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
             else OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == actual.codigo))).limit(1))
         if en_uso:
             errores.append({"campo": "sociedad_id", "mensaje": "It is used on purchase orders: its company cannot change."})
-    if cat["modelo"] is Prepack and actual:
-        fijos = [c for c in ("codigo", "estilo", "color") if c in limpio and limpio[c] != getattr(actual, c)]
-        if fijos:
-            errores.append({"campo": fijos[0], "mensaje":
-                            "The prepack ID, style and color cannot change; only the description and whether it is active."})
     ya = {e.get("campo") for e in errores}
     errores += [e for e in _dependencias(db, cat, final) if e["campo"] not in ya]
     if errores:
@@ -1289,14 +1189,20 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     exigir_editable(tipo)
     exigir_compartido(user, tipo)
     gobierno.exigir_responsable(db, user, tipo)
-    if tipo == "prepacks":
-        return crear_prepack(db, user, datos)
     cat = _cat(tipo)
     limpio = _limpiar(db, cat, datos, parcial=False)
     for campo in cat["campos"]:
         if campo["tipo"] == "bool" and campo["nombre"] not in datos:
             limpio[campo["nombre"]] = campo.get("defecto", True)
+    virtuales = {k: limpio.pop(k) for k in cat.get("virtuales", ()) if k in limpio}
+    variantes = limpio.pop("variantes", None)
     obj = cat["modelo"](**limpio)
+    if isinstance(obj, Articulo):
+        asegurar_producto(db, obj, virtuales.get("generico"))
+        db.add(obj)
+        if variantes:
+            obj.variantes = variantes
+        _poner_codigos(obj, virtuales)
     try:
         with db.begin_nested():
             db.add(obj)
@@ -1304,7 +1210,7 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
     except IntegrityError:
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
     if isinstance(obj, Articulo):
-        asegurar_producto(db, obj)
+        _exigir_articulo(db, obj)
     _asegurar_tercero(db, obj)
     registrar(db, user, tipo, obj.id, "crear", {"codigo": _mostrar(obj)})
     return _fila(cat, obj, _refs(db, cat, [obj]))
@@ -1334,6 +1240,12 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
         raise ErrorNegocio(f"{obj.codigo} is used in documents or other records: its code cannot change.", 409, "en_uso",
                            [{"campo": "codigo", "mensaje": "It is in use: its code cannot change."}])
     cambios = {}
+    if isinstance(obj, Articulo):
+        cambios.update(_cambiar_virtuales(db, obj, {k: limpio.pop(k) for k in cat.get("virtuales", ()) if k in limpio}))
+        variantes = limpio.pop("variantes", None)
+        if variantes is not None and variantes != obj.variantes:
+            cambios["variantes"] = [obj.variantes, variantes]
+            obj.variantes = variantes
     for k, v in limpio.items():
         if getattr(obj, k) != v:
             antes = getattr(obj, k)
@@ -1347,8 +1259,8 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
             db.flush()
     except IntegrityError:
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
-    if isinstance(obj, Articulo) and {"estilo", "color", "proveedor_id"} & set(cambios):
-        asegurar_producto(db, obj)
+    if isinstance(obj, Articulo) and cambios:
+        _exigir_articulo(db, obj)
     if {"nombre", "razon_social", "id_fiscal", "pais"} & set(cambios):
         _asegurar_tercero(db, obj)
     if cambios:
@@ -1356,39 +1268,116 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
     return _fila(cat, obj, _refs(db, cat, [obj]))
 
 
-def _variante_repetida(db: Session, gen: str, final: dict, limpio: dict, actual) -> list[dict]:
+def _poner_codigos(a: Articulo, virtuales: dict) -> None:
+    if "codigo_barras" in virtuales:
+        a.poner_codigo("BARRAS", virtuales["codigo_barras"])
+    if "codigo_proveedor" in virtuales:
+        a.poner_codigo("PROVEEDOR", virtuales["codigo_proveedor"], a.proveedor_id)
+
+
+def _cambiar_virtuales(db: Session, a: Articulo, virtuales: dict) -> dict:
+    """Producto y códigos del artículo editado en el catálogo: {dato: [antes, después]} de lo que cambió."""
+    cambios = {}
+    gen = virtuales.get("generico")
+    if gen and gen != a.generico:
+        cambios["generico"] = [a.generico, gen]
+        asegurar_producto(db, a, gen)
+    for campo in ("codigo_barras", "codigo_proveedor"):
+        if campo in virtuales and (virtuales[campo] or None) != getattr(a, campo):
+            cambios[campo] = [getattr(a, campo), virtuales[campo]]
+    _poner_codigos(a, {k: v for k, v in virtuales.items() if k in cambios})
+    return cambios
+
+
+def _exigir_articulo(db: Session, a: Articulo) -> None:
+    """Lo que la empresa y la familia exigen a la variante guardada."""
+    from app.modulos.maestros.genericos import _exigidos_empresa
+    from app.modulos.productos import perfil
+
+    db.flush()
+    errores = _exigidos_empresa(db, a)
+    if errores:
+        raise ErrorNegocio("Some data your company requires is missing.", 422, "validacion", errores)
+    perfil.exigir_variantes(db, [a])
+
+
+def _validar_articulo(db: Session, final: dict, limpio: dict, actual: Articulo | None) -> list[dict]:
+    """Reglas del artículo en el catálogo: un compuesto (pack o kit) se crea con su contenido
+    en su propia acción y ya no cambia lo que lo enlaza; una variante que está en un compuesto
+    no cambia su unidad ni sus valores; dos variantes de un producto no repiten valores."""
+    from app.modulos.maestros.genericos import validar_codigos
+
+    errores = []
+    if final.get("tipo") == "PREPACK" and not (actual and actual.tipo == "PREPACK"):
+        errores.append({"campo": "tipo", "mensaje": "Packs and kits are created with their own action, with their item "
+                                                    "code and contents."})
+    elif actual and actual.tipo == "PREPACK":
+        fijos = [c for c in ("tipo", "unidad", "generico") if c in limpio and limpio[c] != getattr(actual, c)]
+        if fijos:
+            errores.append({"campo": fijos[0], "mensaje": "A pack or kit and its contents cannot change (product, unit and "
+                                                          "type). Create a new one."})
+    elif final.get("tipo") == "SOLIDO":
+        if actual and db.scalar(select(ArticuloComponente.id).where(ArticuloComponente.componente_id == actual.id).limit(1)):
+            if ("unidad" in limpio and limpio["unidad"] != actual.unidad) or \
+                    ("variantes" in limpio and limpio["variantes"] != actual.variantes):
+                errores.append({"campo": "unidad", "mensaje": "This item is part of a pack or kit: its unit and its "
+                                                              "variant values cannot change."})
+        if final.get("unidad") in unidades.de_compuestos():
+            errores.append({"campo": "unidad", "mensaje": "That unit is only for packs and kits."})
+    if actual and "generico" in limpio and limpio["generico"] and limpio["generico"] != actual.generico \
+            and db.scalar(select(PosicionOC.id).where(PosicionOC.articulo_id == actual.id).limit(1)):
+        errores.append({"campo": "generico", "mensaje": "The item is on purchase orders: its product cannot change."})
+    errores += [{"campo": "codigo_barras", "mensaje": m} for m in validar_codigos(db, final.get("codigo_barras"),
+                                                                                 final.get("codigo_proveedor"))]
+    gen = generico_de(final)
+    if gen and final.get("tipo") == "SOLIDO":
+        errores += _variante_repetida(db, gen, limpio, actual)
+    return errores
+
+
+def _variante_repetida(db: Session, gen: str, limpio: dict, actual) -> list[dict]:
     """Dos variantes de un mismo producto no pueden tener los mismos valores de variante."""
-    valores = {**(actual.variantes if actual else {}), **(limpio.get("variantes") or {})}
-    for x in db.scalars(select(AtributoVariante).where(AtributoVariante.columna.is_not(None))):
-        if final.get(x.columna) not in (None, ""):
-            valores[x.codigo] = str(final[x.columna])
-        else:
-            valores.pop(x.codigo, None)
-    valores = {k: str(v) for k, v in valores.items() if v not in (None, "")}
+    valores = {k: str(v) for k, v in (limpio.get("variantes") if "variantes" in limpio
+                                      else (actual.variantes if actual else {})).items() if v not in (None, "")}
     if not valores:
         return []
-    otras = db.scalars(select(Articulo).where(Articulo.generico == gen, Articulo.tipo == "SOLIDO",
-                                              *([Articulo.id != actual.id] if actual else [])))
+    otras = db.scalars(select(Articulo).join(Producto).where(Producto.codigo_generico == gen, Articulo.tipo == "SOLIDO",
+                                                             *([Articulo.id != actual.id] if actual else [])))
     for o in otras:
         if {k: str(v) for k, v in o.variantes.items() if v not in (None, "")} == valores:
             return [{"campo": "sku", "mensaje": f"{o.sku} is already the variant {' · '.join(valores.values())} of product {gen}."}]
     return []
 
 
-def _validar_atributo_variante(db: Session, d: dict, actual) -> list[dict]:
-    """Un atributo de opciones necesita sus opciones; la unidad es de los números.
-    Cambiar el tipo de uno en uso solo se puede si los valores guardados siguen valiendo."""
+def _en_uso_atributo(db: Session, atributo_id: int) -> bool:
+    return bool(db.scalar(select(ArticuloAtributo.id).where(ArticuloAtributo.atributo_id == atributo_id).limit(1))
+                or db.scalar(select(ProductoAtributo.id).where(ProductoAtributo.atributo_id == atributo_id).limit(1)))
+
+
+def _validar_atributo(db: Session, d: dict, actual) -> list[dict]:
+    """Un atributo de opciones necesita sus opciones; uno de catálogo, su catálogo; la unidad es de
+    los números. Uno en uso no cambia su código ni su nivel, y cambia su tipo solo si los valores
+    guardados siguen valiendo."""
     tipo = d.get("tipo") or "texto"
-    if tipo == "opcion" and not opciones_variante(d):
+    if tipo == "opcion" and not atr_svc.opciones(d):
         return [{"campo": "opciones", "mensaje": "Write the options, separated by commas."}]
+    if tipo == "catalogo" and not d.get("catalogo"):
+        return [{"campo": "catalogo", "mensaje": "Choose the catalog its values come from."}]
     if d.get("unidad") and tipo != "numero":
         return [{"campo": "unidad", "mensaje": "Only numbers have a unit."}]
-    if actual is not None and actual.columna is None:
-        malos = [v for v in db.scalars(select(ArticuloAtributo.valor).where(ArticuloAtributo.atributo_id == actual.id)
-                                       .distinct().limit(500)) if valor_variante(d, v)[1]]
-        if malos:
-            return [{"campo": "tipo" if tipo != "opcion" else "opciones",
-                     "mensaje": f"Items already have values that do not fit ({', '.join(malos[:5])}): change them first."}]
+    if actual is None or not _en_uso_atributo(db, actual.id):
+        return []
+    if d.get("codigo") != actual.codigo:
+        return [{"campo": "codigo", "mensaje": "Products already use this attribute: its code cannot change."}]
+    if d.get("nivel") != actual.nivel:
+        return [{"campo": "nivel", "mensaje": "Products already use this attribute: its level cannot change."}]
+    usados = list(db.scalars(select(ArticuloAtributo.valor).where(ArticuloAtributo.atributo_id == actual.id)
+                             .distinct().limit(500))) + \
+        list(db.scalars(select(ProductoAtributo.valor).where(ProductoAtributo.atributo_id == actual.id).distinct().limit(500)))
+    malos = [v for v in usados if atr_svc.valor(db, d, v)[1]]
+    if malos:
+        return [{"campo": "tipo" if tipo != "opcion" else "opciones",
+                 "mensaje": f"Products already have values that do not fit ({', '.join(malos[:5])}): change them first."}]
     return []
 
 
@@ -1429,8 +1418,8 @@ def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
 
     if obj.codigo in listas.LISTAS.get(lista_de(obj) or "", {}).get("sistema", []):
         raise ErrorNegocio("The system relies on this value: it can be renamed but not deleted.", 409, "en_uso")
-    if isinstance(obj, AtributoVariante) and obj.columna:
-        raise ErrorNegocio("Size and color are built in: they can be renamed but not deleted.", 409, "en_uso")
+    if isinstance(obj, Atributo) and _en_uso_atributo(db, obj.id):
+        raise ErrorNegocio("Products use this attribute: deactivate it instead.", 409, "en_uso")
     if isinstance(obj, PasoLeadTime):
         usan = [r.nombre for r in db.scalars(select(ReglaLeadTime)) if any(
             e["paso"] == obj.codigo or e.get("ref") == obj.codigo for e in rlt.cargar(r.pasos)["pasos"])]
@@ -1448,30 +1437,31 @@ def eliminar(db: Session, user: Usuario, tipo: str, obj_id: int) -> dict:
     return {"ok": True}
 
 
-# ---- Prepacks: componentes -------------------------------------------------
-def componentes(db: Session, user: Usuario, prepack_id: int, validar: bool = True) -> dict:
+# ---- Packs y kits: su contenido -------------------------------------------
+def componentes(db: Session, user: Usuario, articulo_id: int, validar: bool = True) -> dict:
     if validar:
         exigir(user, "catalogos.ver")
-    p = db.get(Prepack, prepack_id)
-    if not p:
-        raise ErrorNegocio("The prepack does not exist.", 404, "no_encontrado")
-    art = db.scalar(select(Articulo).where(Articulo.prepack_id == p.id))
+    a = db.get(Articulo, articulo_id)
+    if not a or a.tipo != "PREPACK":
+        raise ErrorNegocio("That item is not a pack or kit.", 404, "no_encontrado")
+    from app.modulos.maestros import variantes as var_svc
+
     return {
-        "sku": art.sku if art else None, "unidad": art.unidad if art else unidades.de_compuesto(),
-        "marca": art.marca.codigo if art and art.marca else None,
-        "id": p.id, "codigo": p.codigo, "estilo": p.estilo, "color": p.color, "descripcion": p.descripcion,
-        "total": p.total,
-        "unidad_componentes": p.componentes[0].articulo.unidad if p.componentes else None,
-        "componentes": [{"articulo_id": x.articulo_id, "sku": x.articulo.sku, "estilo": x.articulo.estilo,
-                         "color": x.articulo.color, "talla": x.articulo.talla, "unidad": x.articulo.unidad,
-                         "cantidad": x.cantidad} for x in p.componentes],
+        "id": a.id, "sku": a.sku, "unidad": a.unidad, "codigo": a.codigo_pack, "descripcion": descripcion_articulo(a),
+        "generico": a.generico, "kit": a.es_kit, "total": a.total_componentes,
+        "marca": a.producto.marca_codigo if a.producto else None,
+        "unidad_componentes": a.componentes[0].componente.unidad if a.componentes else None,
+        "componentes": [{"articulo_id": x.componente_id, "sku": x.componente.sku, "unidad": x.componente.unidad,
+                         "valores": var_svc.de_articulo(db, x.componente),
+                         "variante": var_svc.texto(var_svc.de_articulo(db, x.componente)) or None,
+                         "cantidad": x.cantidad} for x in a.componentes],
     }
 
 
-def _validar_curva(db: Session, items: list[dict], kit: bool = False) -> tuple[list, list]:
-    """Solo artículos simples con cantidad y sin repetir artículo. Un pack (curva)
-    junta variantes de un mismo producto (tallas, sabores, presentaciones…) en
-    una misma unidad; un kit junta artículos de cualquier producto."""
+def _validar_contenido(db: Session, items: list[dict], kit: bool = False) -> tuple[list, list]:
+    """Solo artículos simples con cantidad y sin repetir artículo. Un pack junta
+    variantes de un mismo producto (tallas, sabores, presentaciones…) en una misma
+    unidad; un kit junta artículos de cualquier producto."""
     errores = []
     arts = []
     for it in items:
@@ -1484,42 +1474,39 @@ def _validar_curva(db: Session, items: list[dict], kit: bool = False) -> tuple[l
             errores.append({"mensaje": "One of the items does not exist."})
             continue
         if a.tipo != "SOLIDO":
-            errores.append({"mensaje": f"{a.sku}: a breakdown only carries simple items."})
+            errores.append({"mensaje": f"{a.sku}: a pack or kit only carries simple items."})
         if cant < 1:
             errores.append({"mensaje": f"{a.sku}: the quantity must be greater than zero."})
         arts.append((a, cant))
     if not arts:
-        errores.append({"mensaje": "The breakdown needs at least one simple item."})
+        errores.append({"mensaje": "The contents need at least one simple item."})
     if len({a.id for a, _ in arts}) != len(arts):
-        errores.append({"mensaje": "An item appears twice in the breakdown."})
+        errores.append({"mensaje": "An item appears twice in the contents."})
     if not kit and arts:
-        producto = generico_de(arts[0][0])
-        otros = [a for a, _ in arts if generico_de(a) != producto]
+        producto = arts[0][0].producto_id
+        otros = [a for a, _ in arts if a.producto_id != producto]
         if otros:
-            lista = ", ".join(f"{a.sku} ({generico_de(a)})" for a in otros)
-            errores.append({"mensaje": f"A pack carries variants of one product ({producto}): {lista} is another product. "
-                                       "Use a kit."})
+            lista = ", ".join(f"{a.sku} ({a.generico})" for a in otros)
+            errores.append({"mensaje": f"A pack carries variants of one product ({arts[0][0].generico}): {lista} is another "
+                                       "product. Use a kit."})
         if len({a.unidad for a, _ in arts}) > 1:
             errores.append({"mensaje": "The variants of a pack go in the same unit."})
     return arts, errores
 
 
-def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
-    """Crea el compuesto completo en un paso: su contenido (explosión) y su
-    artículo con su propio código. Un pack (curva) es del producto de sus
-    variantes y comparte su ficha; un kit es su propio producto. El contenido
-    ya no cambia."""
+def crear_compuesto(db: Session, user: Usuario, datos: dict) -> dict:
+    """Crea el pack o el kit completo en un paso: su artículo con su propio código, su
+    identificador (p. ej. AB12) y su contenido. Un pack es del producto de sus variantes
+    y comparte su ficha; un kit es su propio producto. El contenido ya no cambia."""
     import re
 
     exigir(user, "catalogos.crear")
-    sku = str(datos.get("sku") or "").strip()
+    gobierno.exigir_responsable(db, user, "articulos")
+    sku = str(datos.get("sku") or "").strip().upper()
     codigo = str(datos.get("codigo") or "").strip().upper()
-    tipo = str(datos.get("tipo") or "CURVA").upper()
-    kit = tipo == "KIT"
+    kit = str(datos.get("tipo") or "PACK").upper() == "KIT"
     unidad = unidades.normalizar(datos.get("unidad")) or unidades.de_compuesto()
     errores = []
-    if tipo not in ("CURVA", "KIT"):
-        errores.append({"campo": "tipo", "mensaje": "Choose a pack of variants or a kit."})
     if not codigo_valido(sku):
         errores.append({"campo": "sku", "mensaje": "Item code: letters and numbers (also . - _ /), up to 40 characters."})
     elif db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
@@ -1528,60 +1515,56 @@ def crear_prepack(db: Session, user: Usuario, datos: dict) -> dict:
         errores.append({"campo": "codigo", "mensaje": "Pack ID: letters and numbers, for example AB12."})
     if unidad not in unidades.codigos() or not unidades.contable(unidad):
         errores.append({"campo": "unidad", "mensaje": "A pack or kit is counted in whole units: choose a counted unit."})
-    arts, err_curva = _validar_curva(db, datos.get("componentes") or [], kit=kit)
-    errores += err_curva
+    arts, err = _validar_contenido(db, datos.get("componentes") or [], kit=kit)
+    errores += err
     base = arts[0][0] if arts else None
     # Un kit es su propio producto; un pack es del producto de sus variantes
-    generico = sku.upper() if kit else (generico_de(base) if base else None)
-    estilo = str(datos.get("estilo") or "").strip().upper() or (base.estilo if base else None)
-    color = str(datos.get("color") or "").strip() or (None if kit or base is None else base.color)
-    if generico and not errores and db.scalar(select(Articulo.id).where(
-            Articulo.generico == generico, Articulo.tipo == "PREPACK", Articulo.talla == codigo)):
+    generico = sku if kit else (base.generico if base else None)
+    if generico and not kit and not errores and db.scalar(
+            select(ArticuloCodigo.id).join(Articulo).where(Articulo.producto_id == base.producto_id,
+                                                          ArticuloCodigo.tipo == "PACK", ArticuloCodigo.valor == codigo)):
         errores.append({"campo": "codigo", "mensaje": f"Pack {codigo} already exists for product {generico}."})
     if errores:
         raise ErrorNegocio("The pack is not valid.", 422, "validacion", errores)
     prod = base.producto
-    nombre = (prod.nombre if prod and prod.nombre else None) or " ".join(x for x in (estilo, color) if x) or generico
+    nombre = (prod.nombre if prod and prod.nombre else None) or generico
     total = sum(c for _, c in arts)
-    p = Prepack(tipo=tipo, codigo=codigo, estilo=estilo, color=color or None, activo=True,
-                descripcion=(datos.get("descripcion") or "").strip()
-                or (f"{nombre} kit {codigo} ({total} pieces)" if kit else
-                    f"{nombre} pack {codigo} ({total} {unidades.texto(base.unidad, total)})"))
-    for a, cant in arts:
-        p.componentes.append(PrepackComponente(articulo_id=a.id, cantidad=cant))
-    db.add(p)
-    db.flush()
-    art = Articulo(sku=sku.upper(), generico=generico, upc=(datos.get("upc") or "").strip() or None, estilo=estilo,
-                   color=color or None, talla=codigo,
-                   descripcion=p.descripcion, marca_id=base.marca_id, grupo_id=base.grupo_id,
-                   proveedor_id=base.proveedor_id, unidad=unidad, tipo="PREPACK", prepack_id=p.id,
-                   activo=True)
+    descripcion = (str(datos.get("descripcion") or "").strip()[:300]
+                   or (f"{nombre} kit {codigo} ({total} pieces)" if kit else
+                       f"{nombre} pack {codigo} ({total} {unidades.texto(base.unidad, total)})"))
+    art = Articulo(sku=sku, descripcion=descripcion, unidad=unidad, tipo="PREPACK", activo=True,
+                   peso_unitario=round(sum((a.peso_unitario or 0) * c for a, c in arts), 4)
+                   if all(a.peso_unitario for a, _ in arts) else None)
+    if kit:
+        asegurar_producto(db, art, generico, prod.proveedor_id if prod else None)
+    else:
+        art.producto = prod
     db.add(art)
+    art.poner_codigo("PACK", codigo)
+    art.poner_codigo("BARRAS", (datos.get("codigo_barras") or "").strip() or None)
+    for a, cant in arts:
+        art.componentes.append(ArticuloComponente(componente=a, cantidad=cant, organizacion_id=art.organizacion_id))
     db.flush()
-    asegurar_producto(db, art)
-    registrar(db, user, "prepacks", p.id, "crear",
-              {"sku": sku, "prepack": codigo, "tipo": tipo,
-               "explosion": {a.sku: c for a, c in arts}})
-    return componentes(db, user, p.id)
+    registrar(db, user, "articulos", art.id, "crear",
+              {"sku": sku, "pack": codigo, "kit": kit, "contenido": {a.sku: c for a, c in arts}})
+    return componentes(db, user, art.id)
 
 
 def explosion(db: Session, user: Usuario, sku: str) -> dict:
-    """Explosión de un artículo prepack, de solo lectura (para OC, factura,
-    packing list y seguimiento)."""
+    """Contenido de un pack o un kit, de solo lectura (para OC, factura, packing list y seguimiento)."""
     exigir(user, "oc.ver")
     a = db.scalar(select(Articulo).where(Articulo.sku == sku))
-    if not a or a.tipo != "PREPACK" or not a.prepack:
-        raise ErrorNegocio("That code is not a prepack item.", 404, "no_encontrado")
-    return componentes(db, user, a.prepack_id, validar=False)
+    if not a or a.tipo != "PREPACK" or not a.componentes:
+        raise ErrorNegocio("That code is not a pack or kit.", 404, "no_encontrado")
+    return componentes(db, user, a.id, validar=False)
 
 
 # ---- Carga masiva ----------------------------------------------------------
 # Columnas de las plantillas en inglés -> nombre interno (también se aceptan los internos)
-COLUMNAS_EN = {"style": "estilo", "size": "talla", "description": "descripcion", "brand": "marca", "group": "grupo",
-               "supplier": "proveedor", "type": "tipo", "uom": "unidad", "unit": "unidad",
-               "hs_code": "partida_arancelaria", "country_of_origin": "pais_origen", "prepack_sku": "sku_prepack",
-               "quantity": "cantidad", "qty": "cantidad"}
-CAMPO_EN = {"marca": "Brand", "grupo": "Group", "proveedor": "Supplier"}
+COLUMNAS_EN = {"description": "descripcion", "supplier": "proveedor", "type": "tipo", "uom": "unidad", "unit": "unidad",
+               "hs_code": "partida_arancelaria", "country_of_origin": "pais_origen", "pack_item_code": "sku_pack",
+               "pack_id": "pack", "item_code": "sku", "quantity": "cantidad", "qty": "cantidad", "kind": "tipo"}
+CAMPO_EN = {"proveedor": "Supplier"}
 
 
 def _filas_archivo(nombre: str, contenido: bytes) -> list[dict]:
@@ -1601,43 +1584,43 @@ def _filas_archivo(nombre: str, contenido: bytes) -> list[dict]:
             for n, f in enumerate(filas[1:], start=2) if any(f)]
 
 
-def importar_prepacks(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
-    """Columnas: sku_prepack (código de producto del prepack), prepack_id,
-    descripcion, sku (sólido) y cantidad. Una fila por talla de la explosión.
-    Estilo y color salen de los sólidos. Un prepack que ya existe no cambia."""
+def importar_compuestos(db: Session, user: Usuario, nombre: str, contenido: bytes) -> dict:
+    """Columnas: sku_pack (código de artículo del pack o kit), pack (su identificador, p. ej.
+    AB12), tipo (PACK o KIT), descripcion, sku (variante simple) y cantidad. Una fila por
+    variante del contenido. Un compuesto que ya existe no cambia."""
     exigir(user, "catalogos.crear")
     filas = _filas_archivo(nombre, contenido)
     grupos: dict[str, dict] = {}
     errores = []
     for f in filas:
-        sku_pp = (f.get("sku_prepack") or f.get("codigo_prepack") or "").strip()
-        codigo = (f.get("prepack_id") or f.get("prepack") or "").strip().upper()
+        sku_pp = (f.get("sku_pack") or f.get("sku_prepack") or "").strip().upper()
+        codigo = (f.get("pack") or f.get("prepack_id") or "").strip().upper()
         sku = (f.get("sku") or "").strip()
         if not sku_pp or not codigo or not sku:
-            errores.append({"fila": f["_fila"], "mensaje": "Missing prepack_sku, prepack_id or sku."})
+            errores.append({"fila": f["_fila"], "mensaje": "Missing pack item code, pack ID or item code."})
             continue
         a = db.scalar(select(Articulo).where(Articulo.sku == sku))
         if not a:
-            errores.append({"fila": f["_fila"], "mensaje": f"SKU {sku} does not exist in the item master."})
+            errores.append({"fila": f["_fila"], "mensaje": f"Item code {sku} does not exist in the item master."})
             continue
-        g = grupos.setdefault(sku_pp, {"codigo": codigo, "estilo": a.estilo, "color": a.color,
+        g = grupos.setdefault(sku_pp, {"codigo": codigo, "tipo": (f.get("tipo") or "PACK").strip().upper(),
                                        "descripcion": f.get("descripcion") or None, "items": []})
         g["items"].append({"articulo_id": a.id, "cantidad": f.get("cantidad") or 0})
     creados = sin_cambio = 0
     for sku_pp, g in grupos.items():
         existente = db.scalar(select(Articulo).where(Articulo.sku == sku_pp))
         if existente:
-            actual = {x.articulo_id: x.cantidad for x in existente.prepack.componentes} if existente.prepack else {}
+            actual = {x.componente_id: x.cantidad for x in existente.componentes}
             nueva = {it["articulo_id"]: int(it["cantidad"] or 0) for it in g["items"]}
             if actual == nueva:
                 sin_cambio += 1
             else:
-                errores.append({"fila": sku_pp, "mensaje": "The prepack already exists with another breakdown; "
-                                                           "the breakdown cannot change. Use a new code."})
+                errores.append({"fila": sku_pp, "mensaje": "The pack already exists with other contents; "
+                                                           "the contents cannot change. Use a new code."})
             continue
         try:
             with db.begin_nested():
-                crear_prepack(db, user, {"sku": sku_pp, **g, "componentes": g["items"]})
+                crear_compuesto(db, user, {"sku": sku_pp, **g, "componentes": g["items"]})
             creados += 1
         except ErrorNegocio as e:
             errores.append({"fila": sku_pp, "mensaje": "; ".join(d["mensaje"] for d in e.detalle or []) or e.mensaje})

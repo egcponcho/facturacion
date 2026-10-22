@@ -59,7 +59,7 @@ def entrada(db: Session, p) -> dict:
 
     r = clasificar_producto(db, productos.entrada_producto(p), paises=False)
     lineas = [f"Category: {(r.get('categoria') or {}).get('nombre') or p.tipo or 'not chosen'}",
-              f"Style / name: {p.estilo} {p.nombre or ''}".strip(), f"Country of origin: {p.pais_origen or 'not given'}"]
+              f"Product: {p.codigo_generico or ''} {p.nombre or ''}".strip(), f"Country of origin: {p.pais_origen or 'not given'}"]
     corregibles = []
     for c in r["campos"]:
         if c["tipo_dato"] == "composition":
@@ -76,7 +76,7 @@ def entrada(db: Session, p) -> dict:
             corregibles.append(f"- {c['codigo']} ({c['etiqueta']}): composition text, e.g. 60% cotton, 40% polyester")
     if (p.ficha or {}).get("uso"):
         lineas.append(f"What it is for: {p.ficha['uso']}")
-    parecidos = [f"{x['estilo']} {x.get('color') or ''}: {x['codigo_txt']}" for x in r.get("parecidos") or []]
+    parecidos = [f"{x.get('nombre') or x.get('generico')}: {x['codigo_txt']}" for x in r.get("parecidos") or []]
     return {"ficha_texto": "\n".join(lineas), "sugerido": r.get("hs6_txt"), "confianza": r["confianza"], "razones": r["razones"][:30],
             "alertas": [a["msg"] for a in r["alertas"]][:30], "parecidos": parecidos[:10], "campos": "\n".join(corregibles)}
 

@@ -17,6 +17,7 @@ from app.modelos import (
     Adjunto,
     Archivo,
     Articulo,
+    ArticuloCodigo,
     Embarque,
     Factura,
     Marca,
@@ -24,6 +25,7 @@ from app.modelos import (
     PackingList,
     PosicionOC,
     Producto,
+    ProductoAtributo,
     ProductoDocumento,
     Proveedor,
     UnidadCarga,
@@ -52,14 +54,14 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
             grupos.append({"tipo": tipo, "items": items, "ver_todos": ver_todos})
 
     if tiene(user, "oc.ver"):
-        # Órdenes por número; las posiciones llevan a su OC (SKU, UPC, estilo, color)
+        # Órdenes por número; las posiciones llevan a su OC (código de artículo, código de barras, descripción)
         c = filtro_texto(q, lambda p: [OrdenCompra.numero.ilike(p)])
         cons = select(OrdenCompra).where(c, *sociedad_filtro(user, OrdenCompra.sociedad)).order_by(OrdenCompra.fecha.desc().nullslast())
         if prov:
             cons = cons.where(OrdenCompra.proveedor_id.in_(prov))
         ocs = {o.id: o for (o,) in _filas(db, cons, limite)}
-        cp = filtro_texto(q, lambda p: [PosicionOC.codigo_articulo.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.estilo.ilike(p),
-                                        PosicionOC.color.ilike(p), PosicionOC.descripcion.ilike(p)])
+        cp = filtro_texto(q, lambda p: [PosicionOC.codigo_articulo.ilike(p), PosicionOC.codigo_barras.ilike(p),
+                                        PosicionOC.descripcion.ilike(p)])
         cons = select(PosicionOC).join(OrdenCompra).where(cp, *sociedad_filtro(user, OrdenCompra.sociedad))
         if prov:
             cons = cons.where(OrdenCompra.proveedor_id.in_(prov))
@@ -68,7 +70,7 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
             if len(ocs) >= limite and p.oc_id not in ocs:
                 continue
             ocs.setdefault(p.oc_id, p.oc)
-            coincidencias.setdefault(p.oc_id, " · ".join(x for x in (p.codigo_articulo, p.estilo, p.color) if x))
+            coincidencias.setdefault(p.oc_id, " · ".join(x for x in (p.codigo_articulo, p.descripcion) if x))
         grupo("ordenes", [{"id": o.id, "titulo": o.numero, "sub": " · ".join(x for x in (o.proveedor.nombre if o.proveedor else "",
                                                                                          coincidencias.get(o.id, "")) if x),
                            "estado": "RELEASED" if o.liberada else "PENDING", "ruta": f"/ordenes?q={o.numero}"}
@@ -90,22 +92,23 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
                                  "ruta": f"/packing-lists/{pl.id}"} for (pl,) in _filas(db, cons, limite)])
 
     if tiene(user, "producto.ver"):
-        c = filtro_texto(q, lambda p: [Producto.estilo.ilike(p), Producto.color.ilike(p), Producto.nombre.ilike(p),
-                                       Producto.codigo_generico.ilike(p), Producto.codigo.ilike(p)])
+        c = filtro_texto(q, lambda p: [Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p), Producto.codigo.ilike(p),
+                                       Producto.id.in_(select(ProductoAtributo.producto_id).where(ProductoAtributo.valor.ilike(p)))])
         cons = select(Producto).where(c).order_by(Producto.actualizado_en.desc().nullslast())
         if prov:
             cons = cons.where(Producto.proveedor_id.in_(prov))
         productos = {p.id: p for (p,) in _filas(db, cons, limite)}
-        # Un SKU o UPC de un artículo lleva a su producto
-        c = filtro_texto(q, lambda p: [Articulo.sku.ilike(p), Articulo.upc.ilike(p), Articulo.sku_proveedor.ilike(p)])
-        cons = select(Articulo).where(c, Articulo.producto_id.is_not(None))
+        # Un código de artículo o uno de sus códigos (de barras, del proveedor) lleva a su producto
+        c = filtro_texto(q, lambda p: [Articulo.sku.ilike(p),
+                                       Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(p)))])
+        cons = select(Articulo).where(c)
         if prov:
-            cons = cons.where(Articulo.proveedor_id.in_(prov))
+            cons = cons.where(Articulo.producto_id.in_(select(Producto.id).where(Producto.proveedor_id.in_(prov))))
         for (a,) in _filas(db, cons, limite):
             if len(productos) < limite:
                 productos.setdefault(a.producto_id, a.producto)
-        grupo("productos", [{"id": p.id, "titulo": " · ".join(x for x in (p.estilo, p.color) if x) or p.nombre or f"#{p.id}",
-                             "sub": " · ".join(x for x in (p.nombre, p.codigo) if x), "estado": p.estado,
+        grupo("productos", [{"id": p.id, "titulo": p.nombre or p.codigo_generico or f"#{p.id}",
+                             "sub": " · ".join(x for x in (p.codigo_generico, p.codigo) if x), "estado": p.estado,
                              "ruta": f"/productos/{p.id}"} for p in productos.values()], f"/productos?q={q}&estado=")
 
     if tiene(user, "transporte.gestionar"):

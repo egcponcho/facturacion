@@ -283,7 +283,7 @@ _REGLAS = [  # id, plantilla, ambito, familia, articulo, oc, prioridad, activa, 
     (2, 2, "GENERAL", None, None, None, 100, 1, [], {}, None, None),  # mismo tipo y lugar que 1: queda de baja
     (3, 1, "FAMILIA", 1, None, None, 200, 1, [], {}, None, None),
     (4, 3, "OC", None, None, 7, 500, 1, [], {}, None, None),
-    (5, 1, "REGLA", None, None, None, 250, 1, [{"campo": "articulo.marca_codigo", "op": "igual", "valor": "TNF"}], {}, None, None),
+    (5, 1, "REGLA", None, None, None, 250, 1, [{"campo": "producto.dato.MARCA", "op": "igual", "valor": "TNF"}], {}, None, None),
     (6, 4, "FAMILIA", 1, None, None, 200, 1, [], {}, None, None),  # caja por familia: de baja
     (7, 5, "GENERAL", None, None, None, 100, 0, [], {}, None, None),  # inactiva: de baja
     (8, 4, "GENERAL", None, None, None, 100, 1, [], {"tipos_empaque": ["MASTER", "NOEXISTE"]}, None, None),
@@ -338,7 +338,8 @@ def test_migracion_convierte_las_reglas_en_tipos_y_usos_de_diseno():
         r = subprocess.run(alembic + ["upgrade", "0075"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         _sembrar_0075(f"{tmp}/m.db")
-        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        # Hasta 0091: 0092 deja la familia solo en el producto y quita usos_diseno.familia_id
+        r = subprocess.run(alembic + ["upgrade", "0091"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         con = sqlite3.connect(f"{tmp}/m.db")
         tipos = {t: (s, c) for t, s, c in con.execute("SELECT id, sujeto, cantidad FROM tipos_etiqueta")}
@@ -369,7 +370,7 @@ def test_migracion_convierte_las_reglas_en_tipos_y_usos_de_diseno():
         assert con.execute("SELECT COUNT(*) FROM asignaciones_etiqueta WHERE activa = 1").fetchone()[0] >= 6
         assert con.execute("SELECT permisos FROM roles WHERE id = 999").fetchone()[0].count("etiquetas.asignar") == 1
         con.close()
-        r = subprocess.run(alembic + ["upgrade", "head"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        r = subprocess.run(alembic + ["upgrade", "0091"], cwd=RAIZ, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
 
 

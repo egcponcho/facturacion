@@ -19,7 +19,7 @@ ENTIDADES = {
     "unidad": "Load unit", "producto": "Product", "usuario": "User", "rol": "Role", "proveedores": "Supplier",
     "organizacion": "Company settings", "alerta": "Alert", "plantilla_caja": "Packing template",
     "aranceles": "Tariff schedule", "clasificacion": "Classification engine", "conocimiento": "Classification engine",
-    "flujo": "Classification workflow", "traduccion": "Translations", "genericos": "Generic items", "prepacks": "Prepacks",
+    "flujo": "Classification workflow", "traduccion": "Translations", "genericos": "Products", "compuestos": "Packs and kits",
     "importacion_oc": "PO import", "perfil_importacion": "Import profile",
 }
 

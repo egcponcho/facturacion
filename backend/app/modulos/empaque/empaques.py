@@ -32,14 +32,14 @@ IDENTIFICADORES = {"SERIAL": "Serial number", "CODIGO_BARRAS": "Barcode", "SSCC"
 
 # ---- Peso de los artículos --------------------------------------------------
 def peso_articulo(articulo) -> float | None:
-    """Peso neto de una unidad del artículo. Un prepack sin peso propio suma el
-    de sus sólidos (curva × peso de cada talla)."""
+    """Peso neto de una unidad del artículo. Un pack o kit sin peso propio suma el
+    de su contenido (cantidad × peso de cada variante)."""
     if not articulo:
         return None
     if articulo.peso_unitario:
         return articulo.peso_unitario
-    if articulo.tipo == "PREPACK" and articulo.prepack and articulo.prepack.componentes:
-        pesos = [(c.cantidad, c.articulo.peso_unitario) for c in articulo.prepack.componentes]
+    if articulo.tipo == "PREPACK" and articulo.componentes:
+        pesos = [(c.cantidad, c.componente.peso_unitario) for c in articulo.componentes]
         if all(p for _, p in pesos):
             return round(sum(n * p for n, p in pesos), 4)
     return None
@@ -273,10 +273,10 @@ def validar(pl: PackingList, rangos=None) -> list[dict]:
 
 
 def producto_de_linea(fl) -> tuple:
-    """El producto de una línea (su código; estilo y color en las que no tienen artículo):
-    sus variantes (tallas, sabores, presentaciones…) son del mismo producto."""
+    """El producto de una línea: sus variantes (tallas, sabores, presentaciones…) son del mismo
+    producto. Una línea sin artículo es su propio producto."""
     a = fl.posicion_oc.articulo if fl.posicion_oc is not None else None
-    return ("P", a.generico or a.producto_id) if a is not None and (a.generico or a.producto_id) else ("E", fl.estilo, fl.color)
+    return ("P", a.producto_id) if a is not None else ("A", fl.codigo_articulo)
 
 
 # ---- Tipos ------------------------------------------------------------------

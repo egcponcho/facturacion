@@ -27,19 +27,17 @@ const APARTADOS = computed(() => [
   { grupo: t('How a product is built'), items: [
     { a: '/grupos-producto', clave: 'grupos_producto', icono: 'capas', nombre: t('Families and categories'),
       texto: t('The kinds of product. Each family says which data its products need and which attributes tell its variants apart; labels and packing use it.') },
-    { a: cat('atributos_variante'), clave: 'atributos_variante', icono: 'lista', nombre: t('Variant attributes'),
-      texto: t('Whatever tells one variant from another: a measure, a color, a presentation, a concentration…') },
+    { a: cat('atributos'), clave: 'atributos', icono: 'lista', nombre: t('Attributes'),
+      texto: t('The data your company defines: of the product (brand, model, material…) or of the variant (a measure, a color, a presentation, a concentration…).') },
     { a: cat('escalas'), clave: 'escalas', icono: 'escala', nombre: t('Value scales'),
       texto: t('Reusable lists of values with the code each value gives to the item.') },
-    { a: cat('prepacks'), clave: 'prepacks', icono: 'caja', nombre: t('Packs and kits'),
-      texto: t('Composite items: a pack of variants of one product or a kit of items of any product.') },
+    { a: cat('articulos'), clave: 'compuestos', icono: 'caja', nombre: t('Packs and kits'),
+      texto: t('Composite items: a pack of variants of one product or a kit of items of any product. They are created in Items with New pack or kit.') },
   ] },
   { grupo: t('Items and commercial data'), items: [
     { a: cat('articulos'), clave: 'articulos', icono: 'etiqueta', nombre: t('Items (variants)'),
       texto: t('Every variant with its item code, barcode and supplier code; bulk upload.') },
     { a: cat('marcas'), clave: 'marcas', icono: 'base', nombre: t('Brands'), texto: t('The brands and which suppliers may sell them.') },
-    { a: cat('grupos'), clave: 'grupos', icono: 'cuadricula', nombre: t('Item groups'), texto: t('Commercial grouping used in orders, reports and filters.') },
-    { a: cat('categorias'), clave: 'categorias', icono: 'filtro', nombre: t('Item categories'), texto: t('Categories of the items for reports and rules.') },
     { a: cat('listas'), clave: 'listas', icono: 'lista', nombre: t('Value lists'), texto: t('Units and other lists the forms offer.') },
   ] },
   { grupo: t('Trade and compliance'), items: [

@@ -41,7 +41,7 @@ def configuracion(db: Session) -> dict:
     varias = (db.scalar(select(func.count()).select_from(Organizacion).where(Organizacion.activa.is_(True))) or 0) > 1
     return {**(o.configuracion or {}), "empresa": {"id": o.id, "nombre": o.nombre, "logo": o.logo},
             "varias_organizaciones": varias, "campos_propios": campos_propios.cargar(db),
-            "atributos_variante": atributos_variante(db)}
+            "atributos": atributos(db)}
 
 
 # ---- Configuración ------------------------------------------------------------
@@ -52,8 +52,8 @@ MARCA = {"color": "", "titulo": "", "ingreso_titulo": "", "ingreso_texto": "", "
 # Documentos (PDF): tamaño del papel, declaraciones legales de la factura y de
 # la lista de empaque y si los reportes llevan el logo de la empresa.
 DOCUMENTOS = {"papel": "LETTER", "declaracion_factura": "", "declaracion_packing": "", "logo_en_reportes": True,
-              # Datos del artículo en las líneas de factura y lista de empaque: variante, estilo, UPC, atributo.<código>
-              "columnas_linea": ",".join(("estilo", "variante"))}
+              # Datos del artículo en las líneas de factura y lista de empaque: variante, codigo_barras, atributo.<código>
+              "columnas_linea": "variante"}
 PAPELES = ("LETTER", "A4")
 # Textos propios: la empresa reemplaza cualquier texto del sistema (pantallas y
 # documentos) por su propia terminología, en cada idioma: {"es": {original: texto}}
@@ -68,14 +68,13 @@ def _reglas_de(o: Organizacion) -> dict:
     return {k: propias.get(k, getattr(settings, k)) for k in REGLAS}
 
 
-def atributos_variante(db: Session) -> list[dict]:
-    """Atributos de variante propios y activos (los de sistema son columnas del artículo)."""
-    from app.modelos import AtributoVariante
+def atributos(db: Session) -> list[dict]:
+    """Atributos activos de la empresa, de producto y de variante, en su orden."""
+    from app.modelos import Atributo
 
-    return [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo or "texto", "opciones": a.opciones, "unidad": a.unidad}
-            for a in db.scalars(
-        select(AtributoVariante).where(AtributoVariante.columna.is_(None), AtributoVariante.activo.is_(True))
-        .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
+    return [{"codigo": a.codigo, "nombre": a.nombre, "nivel": a.nivel, "tipo": a.tipo or "texto", "opciones": a.opciones,
+             "catalogo": a.catalogo, "unidad": a.unidad}
+            for a in db.scalars(select(Atributo).where(Atributo.activo.is_(True)).order_by(Atributo.orden, Atributo.codigo))]
 
 
 def _definiciones(o: Organizacion) -> dict:
@@ -255,10 +254,10 @@ def _validar_seccion(base: dict, valores: dict) -> dict:
                 raise ErrorNegocio(f"The paper size must be one of {', '.join(PAPELES)}.", 422, "validacion")
             if k == "columnas_linea":
                 v = ",".join(x.strip() for x in v.split(",") if x.strip())
-                malos = [x for x in v.split(",") if x and x not in ("estilo", "variante", "upc")
+                malos = [x for x in v.split(",") if x and x not in ("variante", "codigo_barras")
                          and not re.fullmatch(r"atributo\.[A-Z][A-Z0-9_]{0,19}", x)]
                 if malos:
-                    raise ErrorNegocio(f"{malos[0]} is not a line column (variante, estilo, upc or atributo.<code>).",
+                    raise ErrorNegocio(f"{malos[0]} is not a line column (variante, codigo_barras or atributo.<code>).",
                                        422, "validacion")
             if k in LARGOS and len(v) > LARGOS[k]:
                 raise ErrorNegocio(f"The text is too long ({LARGOS[k]} characters maximum).", 422, "validacion")

@@ -5,7 +5,6 @@ import Seleccion from '@/componentes/Seleccion.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/nucleo/api'
 import BotonesExportar from '@/componentes/BotonesExportar.vue'
-import CargaArchivo from '@/componentes/CargaArchivo.vue'
 import CargaArticulos from '@/modulos/maestros/componentes/CargaArticulos.vue'
 import ArticulosGenericos from '@/modulos/maestros/componentes/ArticulosGenericos.vue'
 import CargaMasiva from '@/componentes/CargaMasiva.vue'
@@ -66,7 +65,7 @@ const cat = computed(() => catalogos.value.find((c) => c.tipo === tipo.value))
 // catálogo tiene responsables, que su rol sea uno de ellos (lo decide el servidor)
 const acciones = computed(() => cat.value?.puede || {})
 // Catálogos de uso diario: a la vista; los de configuración, en «Más catálogos»
-const PRINCIPALES = ['articulos', 'prepacks', 'marcas', 'proveedores', 'grupos', 'centros']
+const PRINCIPALES = ['articulos', 'atributos', 'escalas', 'marcas', 'proveedores', 'centros']
 // Cada módulo ve solo sus catálogos (nucleo/modulos.js): los de productos en
 // Productos, los de lugares y transportistas en Logística…
 const hermanos = computed(() => catalogosHermanos(tipo.value))
@@ -92,7 +91,7 @@ const extras = computed(() => cat.value?.extras || [])
 // empiezan ocultos), luego los registros relacionados y lo propio del catálogo.
 // Cada columna filtra por sus valores (el servidor da los valores únicos); las
 // calculadas (relacionados, ficha técnica, total por caja, regla de lead time) no.
-const OCULTAS = ['descripcion', 'direccion', 'razon_social', 'upc']
+const OCULTAS = ['descripcion', 'direccion', 'razon_social', 'codigo_proveedor']
 const SI_NO = [[true, t('Yes')], [false, t('No')]]
 function opcionesColumna(c) {
   if (c.tipo === 'bool') return c.propio ? undefined : SI_NO
@@ -119,8 +118,6 @@ const columnasTabla = computed(() => [
   })),
   ...extras.value.map((ex) => ({ clave: ex.nombre, texto: ex.etiqueta, ordenable: false, filtro: false, prioridad: 3 })),
   ...(tipo.value === 'articulos' ? [{ clave: 'ficha', texto: t('HS code · description'), ordenable: false, filtro: false, prioridad: 3 }] : []),
-  ...(tipo.value === 'prepacks' ? [{ clave: 'sku', texto: t('Item code'), prioridad: 1 },
-    { clave: 'total', texto: t('Per pack'), num: true, ordenable: false, filtro: false, prioridad: 2 }] : []),
 ])
 // Valores únicos de una columna (del servidor, bajo los demás filtros)
 const valoresColumna = (columna, buscar, otros) => api.get(`/catalogos/${tipo.value}/valores`, { columna, buscar, q: filtros.q || undefined, f: JSON.stringify(otros) })
@@ -140,7 +137,7 @@ function ponerFiltroFuera(c, v) {
 }
 const fueraActivos = computed(() => conFiltro.value.filter((c) => filtroFuera(c) !== '').length)
 // Filtros de columna que la vista por genérico y el listado de artículos comparten
-const COMUNES = ['generico', 'estilo', 'color', 'marca_id', 'grupo_id', 'proveedor_id', 'unidad']
+const COMUNES = ['generico', 'proveedor_id', 'unidad']
 const filtrosComunes = (fs) => Object.fromEntries(Object.entries(fs || {}).filter(([k]) => COMUNES.includes(k)))
 const conFiltro = computed(() => campos.value.filter((c) => c.filtro && ['ref', 'codigo', 'multi', 'bool', 'opcion'].includes(c.tipo)))
 // Campos que dependen de otro para mostrarse (p. ej. el país solo en una regla de nivel país)
@@ -293,7 +290,6 @@ function recargar() {
 
 // extra: filtros de columna con los que se abre ({ sociedad_id: 3 } = los de esa sociedad)
 async function elegir(t, extra = {}, q = '') {
-  if (t === 'prepacks' && !solidos.value.length) cargarSolidos()
   tipo.value = t
   router.replace({ query: { catalogo: t } })
   filtros.q = q
@@ -316,7 +312,7 @@ function buscar() {
 // genérico exporta sus artículos con los filtros que comparten)
 const paramsExportar = computed(() => {
   const c = ultima.value || { orden: '', filtros: {} }
-  const fs = compacta.value ? Object.fromEntries(Object.entries(c.filtros).map(([k, v]) => [k === 'tallas' ? 'talla' : k, v])) : c.filtros
+  const fs = compacta.value ? filtrosComunes(c.filtros) : c.filtros
   return { q: filtros.q, orden: c.orden || undefined, f: Object.keys(fs).length ? JSON.stringify(fs) : undefined }
 })
 
@@ -406,42 +402,25 @@ function valorCelda(c, fila) {
 }
 
 // ---- Carga masiva -----------------------------------------------------------
-function abrirCarga() {
-  modal.value = { tipo: 'carga', archivo: null, resultado: null }
+function abrirCarga(packs = false) {
+  modal.value = { tipo: packs ? 'carga_packs' : 'carga' }
 }
-async function cargarArchivo() {
-  const datosForm = new FormData()
-  datosForm.append('archivo', modal.value.archivo)
-  ocupado.value = true
-  try {
-    modal.value.resultado = await api.post(`/catalogos/${tipo.value}/importar`, datosForm)
-    const r = modal.value.resultado
-    avisar(t('{0} created and {1} updated{2}.', [r.creados, r.actualizados, r.errores.length ? t('; {0} rows with errors', [r.errores.length]) : '']),
-      r.errores.length ? 'error' : 'ok')
-    await cargarMeta()
-    cargar()
-  } catch (e) {
-    errorApi(e)
-  } finally {
-    ocupado.value = false
-  }
-}
-
-// ---- Prepacks: se crean en un paso (código de producto + explosión) -------
-// La explosión solo se ve; nunca se modifica.
+// ---- Packs y kits: se crean en un paso (su código y su contenido) ---------
+// Son artículos compuestos del catálogo de artículos; el contenido solo se ve, nunca se modifica.
 const explosion = ref(null)
 const solidos = ref([])
-const nuevoPP = reactive({ tipo: 'CURVA', sku: '', codigo: '', estilo: '', generico: '', descripcion: '', cantidades: {} })
-// La variante de un artículo de la lista: talla, color y sus atributos propios (atr.*)
-const varTxt = (a) => [a.color, a.talla, ...Object.entries(a).filter(([k, v]) => k.startsWith('atr.') && v).map(([, v]) => v)].filter(Boolean).join(' · ')
+const packAbierto = ref(false)
+const nuevoPP = reactive({ tipo: 'PACK', sku: '', codigo: '', generico: '', descripcion: '', codigo_barras: '', cantidades: {} })
+// La variante de un artículo de la lista: los valores de sus atributos de variante
+const varTxt = (a) => a.variante || ''
 // Kit: artículos de cualquier estilo con su cantidad
 const kitItems = ref([])
 const kitElegido = ref('')
 const opcionesKit = computed(() => solidos.value.filter((a) => !kitItems.value.some((k) => k.articulo_id === a.id))
-  .map((a) => ({ valor: a.id, texto: [a.sku, a.estilo, varTxt(a)].filter(Boolean).join(' · ') })))
+  .map((a) => ({ valor: a.id, texto: [a.sku, a.generico, varTxt(a)].filter(Boolean).join(' · ') })))
 watch(kitElegido, (id) => {
   const a = solidos.value.find((x) => x.id === id)
-  if (a) kitItems.value.push({ articulo_id: a.id, sku: a.sku, texto: [a.estilo, varTxt(a)].filter(Boolean).join(' · ') || a.sku, cantidad: 1 })
+  if (a) kitItems.value.push({ articulo_id: a.id, sku: a.sku, texto: [a.generico, varTxt(a)].filter(Boolean).join(' · ') || a.sku, cantidad: 1 })
   kitElegido.value = ''
 })
 const erroresPP = ref({})
@@ -456,7 +435,7 @@ async function cargarSolidos() {
 const productosPP = computed(() => {
   const vistos = new Map()
   for (const a of solidos.value) {
-    if (a.generico && !vistos.has(a.generico)) vistos.set(a.generico, { valor: a.generico, texto: a.generico, sub: [a.estilo, a.descripcion].filter(Boolean).join(' · ') })
+    if (a.generico && !vistos.has(a.generico)) vistos.set(a.generico, { valor: a.generico, texto: a.generico, sub: a.descripcion || '' })
   }
   return [...vistos.values()].sort((x, y) => x.texto.localeCompare(y.texto))
 })
@@ -476,6 +455,11 @@ watch(() => nuevoPP.generico, async () => {
     /* sin genérico registrado: se escribe a mano */
   }
 })
+function abrirPack() {
+  if (!solidos.value.length) cargarSolidos()
+  erroresPP.value = {}
+  packAbierto.value = true
+}
 async function crearPrepack() {
   ocupado.value = true
   erroresPP.value = {}
@@ -484,11 +468,11 @@ async function crearPrepack() {
       ? kitItems.value.filter((k) => Number(k.cantidad) > 0).map((k) => ({ articulo_id: k.articulo_id, cantidad: Number(k.cantidad) }))
       : tallasPP.value.filter((a) => Number(nuevoPP.cantidades[a.id]) > 0)
         .map((a) => ({ articulo_id: a.id, cantidad: Number(nuevoPP.cantidades[a.id]) }))
-    const r = await api.post('/catalogos/prepacks', { ...nuevoPP, generico: undefined, cantidades: undefined, componentes })
+    const r = await api.post('/catalogos/compuestos', { ...nuevoPP, generico: undefined, cantidades: undefined, componentes })
     avisar(t('Pack {0} created with item code {1} ({2} per unit).', [r.codigo, r.sku, r.total]))
-    Object.assign(nuevoPP, { sku: '', codigo: '', descripcion: '', cantidades: {} })
+    Object.assign(nuevoPP, { sku: '', codigo: '', descripcion: '', codigo_barras: '', cantidades: {} })
     kitItems.value = []
-    formAbierto.value = false
+    packAbierto.value = false
     cat.value.total++
     cargar()
   } catch (e) {
@@ -499,15 +483,14 @@ async function crearPrepack() {
   }
 }
 
-// Lo que no se modifica: prepack ID, estilo y color del prepack, y lo que enlaza al artículo prepack
+// Lo que no se modifica en un pack o kit: su tipo, su unidad y los valores de variante (su contenido lo dice)
 const filaEditada = ref(null)
 function bloqueado(c) {
   if (!editando.value) return false
-  if (tipo.value === 'prepacks') return ['codigo', 'estilo', 'color'].includes(c.nombre)
-  if (tipo.value === 'articulos' && filaEditada.value?.tipo === 'PREPACK') return ['tipo', 'estilo', 'color', 'talla', 'unidad'].includes(c.nombre)
+  if (tipo.value === 'articulos' && filaEditada.value?.tipo === 'PREPACK') return ['tipo', 'unidad'].includes(c.nombre) || c.nombre.startsWith('atr.')
   return false
 }
-// Un artículo nuevo aquí siempre es sólido; los prepacks se crean en su pestaña
+// Un artículo nuevo aquí siempre es simple; los packs y kits se crean con «Nuevo pack o kit»
 const opcionesCampo = (c) => (c.nombre === 'tipo' && tipo.value === 'articulos' && !editando.value
   ? c.opciones.filter(([v]) => v === 'SOLIDO') : c.opciones)
 
@@ -529,10 +512,11 @@ onMounted(async () => {
       <MasOpciones>
         <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="paramsExportar" />
         <router-link v-if="tipo === 'leadtimes' || tipo === 'pasos_lt'" class="btn" to="/leadtimes"><Icono nombre="reloj" :tam="15" />{{ t('Effective lead time') }}</router-link>
-        <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
-        <button v-if="cat && acciones.crear" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload products') : tipo === 'prepacks' ? t('Upload packs and kits') : t('Upload Excel')) }}</button>
+        <button v-if="cat && acciones.crear" class="btn" @click="abrirCarga()"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload products') : t('Upload Excel')) }}</button>
+        <button v-if="cat && tipo === 'articulos' && acciones.crear" class="btn" @click="abrirCarga(true)"><Icono nombre="importar" />{{ t('Upload packs and kits') }}</button>
       </MasOpciones>
       <!-- Los artículos se crean con su producto: «Nuevo producto» en la barra del módulo -->
+      <button v-if="cat && tipo === 'articulos' && acciones.crear" class="btn" @click="abrirPack"><Icono nombre="mas" />{{ t('New pack or kit') }}</button>
       <button v-if="cat && tipo !== 'articulos' && acciones.crear" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ tr('New {0}', [cat.singular]) }}</button>
     </div>
   </div>
@@ -622,18 +606,16 @@ onMounted(async () => {
           </button>
         </template>
         <template #celda-ficha="{ fila }">
-          <router-link v-if="fila.producto_id" :to="`/productos/${fila.producto_id}`" class="enlace" :title="t('Technical sheet of {0} {1}', [fila.estilo, fila.color])">
+          <router-link v-if="fila.producto_id" :to="`/productos/${fila.producto_id}`" class="enlace" :title="t('Technical sheet of {0} {1}', [fila.generico, fila.variante || ''])">
             <span v-if="fila.partida_txt" class="codigo-sac">{{ tx(fila.partida_txt) }}</span>
             <template v-else>{{ tx(ESTADO_FICHA[fila.clasificacion] || t('Open sheet')) }}</template>
           </router-link>
           <span v-else class="apagado">—</span>
           <span v-if="fila.descripcion" class="sub desc-corta" :title="tx(fila.descripcion)">{{ tx(fila.descripcion) }}</span>
         </template>
-        <template v-if="tipo === 'prepacks'" #celda-sku="{ fila }"><span class="codigo fuerte">{{ tx(fila.sku || '—') }}</span></template>
-        <template v-if="tipo === 'prepacks'" #celda-total="{ fila }">{{ tx(fila.total) }} <span class="sub">{{ t('{0} variants', [fila.componentes]) }}</span></template>
         <template #acciones="{ fila }">
           <span class="nowrap">
-            <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" type="button" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
+            <button v-if="fila.tipo === 'PREPACK'" type="button" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
                     @click="explosion = { sku: fila.sku }"><Icono nombre="lupa" :tam="13" />{{ t('Breakdown') }}</button>
             <button type="button" class="btn-icono" :aria-label="tr('See {0}', [cat.singular])" :title="t('See details and history')" @click="ver(fila)"><Icono nombre="ojo" :tam="16" /></button>
             <button v-if="acciones.editar" type="button" class="btn-icono" :aria-label="tr('Edit {0}', [cat.singular])" :title="t('Edit')" @click="editar(fila)"><Icono nombre="editar" :tam="16" /></button>
@@ -647,10 +629,49 @@ onMounted(async () => {
 
   <Modal v-if="formAbierto && cat" :titulo="editando ? tr('Edit {0}', [cat.singular]) : tr('New {0}', [cat.singular])" ancho="640px" @cerrar="cerrarForm">
     <p v-if="cat.ayuda" class="ayuda mt-0">{{ tx(cat.ayuda) }}</p>
-      <form v-if="tipo === 'prepacks' && !editando" class="form-catalogo" @submit.prevent="crearPrepack">
+      <form class="form-catalogo" @submit.prevent="guardar">
+        <template v-for="sec in seccionesForm" :key="sec.clave">
+        <h3 v-if="seccionesForm.length > 1" class="seccion-form">{{ tx(sec.titulo) }}</h3>
+        <component :is="c.tipo === 'regla_lt' ? 'div' : 'label'" v-for="c in sec.campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
+          <template v-if="c.tipo === 'bool'">
+            <input v-model="form[c.nombre]" type="checkbox" /> {{ tx(c.etiqueta) }}
+          </template>
+          <template v-else>
+            <span :class="{ req: c.obligatorio }" :title="tx(c.obligatorio_empresa ? t('Required by your company') : '')">{{ tx(c.etiqueta) }}</span>
+            <Seleccion v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
+              <option value="">{{ t('Choose…') }}</option>
+              <option v-for="[v, txt] in opcionesCampo(c)" :key="v" :value="v">{{ tx(txt) }}</option>
+            </Seleccion>
+            <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)"
+                            :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :prefijo="false" :deshabilitado="bloqueado(c)" />
+            <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)" multiple
+                            :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
+            <SelectBusqueda v-else-if="c.tipo === 'opciones'" v-model="form[c.nombre]" :opciones="c.opciones.map(([valor, texto]) => ({ valor, texto: tx(texto) }))" multiple
+                            :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
+            <EditorReglaLT v-else-if="c.tipo === 'regla_lt'" v-model="form[c.nombre]" :form="form" :regla-id="editando" />
+            <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
+                      :placeholder="t('name@company.com, other@company.com')"></textarea>
+            <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : c.tipo === 'fecha' ? 'date' : 'text'"
+                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="tx(bloqueado(c) ? t('Cannot change: it is part of the pack') : '')" />
+            <small v-if="erroresForm[c.nombre]" class="nota error relleno-chico">{{ tx(erroresForm[c.nombre]) }}</small>
+            <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
+          </template>
+        </component>
+        </template>
+        <p class="leyenda-req">{{ t('Required') }}</p>
+        <div class="fila-flex">
+          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? t('Save changes') : tr('Create {0}', [cat.singular]) }}</button>
+          <button class="btn btn-fantasma" type="button" @click="cerrarForm">{{ t('Cancel') }}</button>
+        </div>
+      </form>
+  </Modal>
+
+  <Modal v-if="packAbierto" :titulo="t('New pack or kit')" ancho="640px" @cerrar="packAbierto = false">
+    <p class="ayuda mt-0">{{ t('A pack or a kit is an item made of other items. Its contents are fixed once it is created.') }}</p>
+      <form class="form-catalogo" @submit.prevent="crearPrepack">
         <div class="campo"><span class="req">{{ t('Kind') }}</span>
           <div class="pestanas-pildora" role="radiogroup" :aria-label="t('Kind')">
-            <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'CURVA'" @click="nuevoPP.tipo = 'CURVA'">{{ t('Pack of variants') }}</button>
+            <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'PACK'" @click="nuevoPP.tipo = 'PACK'">{{ t('Pack of variants') }}</button>
             <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'KIT'" @click="nuevoPP.tipo = 'KIT'">{{ t('Kit') }}</button>
           </div>
           <small class="ayuda">{{ nuevoPP.tipo === 'KIT' ? t('A kit puts together items of any products (a set, a gift box).') : t('Variants of one product and how many of each go in one pack.') }}</small>
@@ -660,10 +681,7 @@ onMounted(async () => {
           <small v-if="erroresPP.sku" class="nota error relleno-chico">{{ tx(erroresPP.sku) }}</small>
           <small v-else class="ayuda">{{ t('Any code in your format. A pack belongs to the product of its variants; a code is proposed when you choose the product.') }}</small>
         </label>
-        <label v-if="nuevoPP.tipo === 'KIT'" class="campo"><span>{{ t('Kit model') }}</span>
-          <input class="mayus" v-model="nuevoPP.estilo" maxlength="40" :placeholder="t('Optional')" />
-        </label>
-        <label v-else class="campo"><span class="req">{{ t('Product') }}</span>
+        <label v-if="nuevoPP.tipo !== 'KIT'" class="campo"><span class="req">{{ t('Product') }}</span>
           <SelectBusqueda v-model="nuevoPP.generico" :opciones="productosPP" requerido :etiqueta="t('Product')" />
         </label>
         <label class="campo"><span class="req">{{ t('Pack ID') }}</span>
@@ -672,6 +690,7 @@ onMounted(async () => {
           <small v-else class="ayuda">{{ t('Usually 2 letters and 2 digits. It tells the packs of a product apart.') }}</small>
         </label>
         <label class="campo"><span>{{ t('Description') }}</span><input v-model="nuevoPP.descripcion" /></label>
+        <label class="campo"><span>{{ t('Barcode') }}</span><input v-model="nuevoPP.codigo_barras" maxlength="40" :placeholder="t('Optional')" /></label>
         <div v-if="nuevoPP.tipo === 'KIT'" class="campo">
           <span class="req">{{ t('Kit contents') }}</span>
           <SelectBusqueda v-model="kitElegido" :opciones="opcionesKit" :etiqueta="t('Add item')" :placeholder="t('Add item')" />
@@ -711,41 +730,6 @@ onMounted(async () => {
         </div>
         <p class="leyenda-req">{{ t('Required') }}</p>
         <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ nuevoPP.tipo === 'KIT' ? t('Create kit') : t('Create pack') }}</button>
-      </form>
-      <form v-else class="form-catalogo" @submit.prevent="guardar">
-        <template v-for="sec in seccionesForm" :key="sec.clave">
-        <h3 v-if="seccionesForm.length > 1" class="seccion-form">{{ tx(sec.titulo) }}</h3>
-        <component :is="c.tipo === 'regla_lt' ? 'div' : 'label'" v-for="c in sec.campos" :key="c.nombre" :class="c.tipo === 'bool' ? 'check' : 'campo'">
-          <template v-if="c.tipo === 'bool'">
-            <input v-model="form[c.nombre]" type="checkbox" /> {{ tx(c.etiqueta) }}
-          </template>
-          <template v-else>
-            <span :class="{ req: c.obligatorio }" :title="tx(c.obligatorio_empresa ? t('Required by your company') : '')">{{ tx(c.etiqueta) }}</span>
-            <Seleccion v-if="c.tipo === 'opcion'" v-model="form[c.nombre]" :required="c.obligatorio" :disabled="bloqueado(c)">
-              <option value="">{{ t('Choose…') }}</option>
-              <option v-for="[v, txt] in opcionesCampo(c)" :key="v" :value="v">{{ tx(txt) }}</option>
-            </Seleccion>
-            <SelectBusqueda v-else-if="c.tipo === 'ref' || c.tipo === 'codigo'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)"
-                            :vacio="tx(c.obligatorio ? '' : t('None'))" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" :prefijo="false" :deshabilitado="bloqueado(c)" />
-            <SelectBusqueda v-else-if="c.tipo === 'multi'" v-model="form[c.nombre]" :opciones="opcionesDe(c, form)" multiple
-                            :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
-            <SelectBusqueda v-else-if="c.tipo === 'opciones'" v-model="form[c.nombre]" :opciones="c.opciones.map(([valor, texto]) => ({ valor, texto: tx(texto) }))" multiple
-                            :placeholder="t('Choose one or more…')" :requerido="c.obligatorio" :etiqueta="tx(c.etiqueta)" />
-            <EditorReglaLT v-else-if="c.tipo === 'regla_lt'" v-model="form[c.nombre]" :form="form" :regla-id="editando" />
-            <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
-                      :placeholder="t('name@company.com, other@company.com')"></textarea>
-            <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : c.tipo === 'fecha' ? 'date' : 'text'"
-                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="tx(bloqueado(c) ? t('Cannot change: it is part of the pack') : '')" />
-            <small v-if="erroresForm[c.nombre]" class="nota error relleno-chico">{{ tx(erroresForm[c.nombre]) }}</small>
-            <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
-          </template>
-        </component>
-        </template>
-        <p class="leyenda-req">{{ t('Required') }}</p>
-        <div class="fila-flex">
-          <button class="btn btn-primario" type="submit" :disabled="ocupado"><Icono :nombre="editando ? 'check' : 'mas'" :tam="16" />{{ editando ? t('Save changes') : tr('Create {0}', [cat.singular]) }}</button>
-          <button class="btn btn-fantasma" type="button" @click="cerrarForm">{{ t('Cancel') }}</button>
-        </div>
       </form>
   </Modal>
 
@@ -817,25 +801,12 @@ onMounted(async () => {
   </Modal>
 
   <CargaArticulos v-if="modal?.tipo === 'carga' && tipo === 'articulos'" @cerrar="modal = null" @listo="cargarMeta(); cargar()" />
-  <CargaMasiva v-else-if="modal?.tipo === 'carga' && tipo !== 'prepacks'" :titulo="t('Upload {0}', [cat.titulo.toLowerCase()])" :ruta="`/catalogos/${tipo}/importar`"
+  <CargaMasiva v-else-if="modal?.tipo === 'carga'" :titulo="t('Upload {0}', [cat.titulo.toLowerCase()])" :ruta="`/catalogos/${tipo}/importar`"
                :plantilla="`/catalogos/${tipo}/plantilla`" :ayuda="tx(cat.ayuda)" @cerrar="modal = null" @cargado="cargarMeta(); cargar()" />
-  <Modal v-else-if="modal?.tipo === 'carga'" :titulo="t('Upload packs and kits')" ancho="680px" @cerrar="modal = null">
-    <p class="ayuda">{{ t('One row per item in the pack: sku_prepack (item code of the pack), prepack_id (e.g. AB12), description, item code of the variant and quantity. The pack takes its product data from its variants, which must be of the same product. It creates the pack and its item; an existing pack is never changed.') }}</p>
-    <CargaArchivo v-model="modal.archivo" />
-    <template v-if="modal.resultado">
-      <div class="nota ok"><Icono nombre="check" />{{ t('{0} created and {1} updated.', [modal.resultado.creados, modal.resultado.actualizados]) }}</div>
-      <div v-if="modal.resultado.errores.length" class="tabla-marco tabla-captura alto-limitado">
-        <table class="tabla" v-tarjetas>
-          <thead><tr><th>{{ t('Row') }}</th><th>{{ t('Error') }}</th></tr></thead>
-          <tbody><tr v-for="(er, i) in modal.resultado.errores" :key="i"><td>{{ tx(er.fila) }}</td><td class="envolver">{{ tx(er.mensaje) }}</td></tr></tbody>
-        </table>
-      </div>
-    </template>
-    <template #pie>
-      <button class="btn" @click="modal = null">{{ t('Close') }}</button>
-      <button class="btn btn-primario" :disabled="ocupado || !modal.archivo" @click="cargarArchivo"><Icono nombre="importar" :tam="16" />{{ t('Upload') }}</button>
-    </template>
-  </Modal>
+  <CargaMasiva v-else-if="modal?.tipo === 'carga_packs'" :titulo="t('Upload packs and kits')" ruta="/catalogos/compuestos/importar"
+               plantilla="/catalogos/compuestos/plantilla"
+               :ayuda="t('One row per item in the pack or kit: the item code of the pack, its pack ID (e.g. AB12), PACK or KIT, a description, the item code of the variant and its quantity. A pack carries variants of one product; a kit, items of any product. An existing pack is never changed.')"
+               @cerrar="modal = null" @cargado="cargarMeta(); cargar()" />
 
   <ExplosionPrepack v-if="explosion" :sku="explosion.sku" @cerrar="explosion = null" />
 </template>

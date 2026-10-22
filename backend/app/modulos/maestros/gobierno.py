@@ -23,10 +23,8 @@ from app.modelos import (
     Articulo,
     Centro,
     Embarque,
-    EscalaTalla,
     Factura,
     FacturaLinea,
-    GrupoArticulo,
     OrdenCompra,
     Pais,
     PaisArancel,
@@ -146,7 +144,6 @@ USOS_CODIGO = {
     "puertos": [OrdenCompra.puerto_despacho, Embarque.puerto_origen, Embarque.puerto_destino, Centro.puerto,
                 ReglaLeadTime.puerto],
     "regiones": [Pais.region, ReglaLeadTime.region],
-    "categorias": [GrupoArticulo.categoria, EscalaTalla.categoria, PosicionOC.categoria],
     "paises": [OrdenCompra.pais_origen, OrdenCompra.pais_procedencia, PosicionOC.pais_origen, FacturaLinea.pais_origen,
                Sociedad.pais, Centro.pais, Puerto.pais, Proveedor.pais, Transportista.pais, PaisArancel.iso],
     "monedas": [OrdenCompra.moneda, Factura.moneda, Sociedad.moneda],
@@ -158,8 +155,19 @@ USOS_CODIGO = {
 
 
 def en_uso(db: Session, tipo: str, codigo: str | None) -> bool:
-    return bool(codigo) and any(db.scalar(select(col).where(col == codigo).limit(1)) is not None
-                                for col in USOS_CODIGO.get(tipo, []))
+    if not codigo:
+        return False
+    if any(db.scalar(select(col).where(col == codigo).limit(1)) is not None for col in USOS_CODIGO.get(tipo, [])):
+        return True
+    # Un catálogo al que apuntan atributos (las marcas): lo usan los productos que tienen ese valor
+    from app.modelos import ArticuloAtributo, Atributo, ProductoAtributo
+    from app.modelos.maestros import CATALOGOS_ATRIBUTO
+
+    if tipo not in CATALOGOS_ATRIBUTO:
+        return False
+    return any(db.scalar(select(t.id).join(Atributo, Atributo.id == t.atributo_id)
+                         .where(Atributo.catalogo == tipo, t.valor == codigo).limit(1)) is not None
+               for t in (ProductoAtributo, ArticuloAtributo))
 
 
 def exigir_sin_uso(db: Session, tipo: str, obj) -> None:

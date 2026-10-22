@@ -65,7 +65,7 @@ const pasos = computed(() => {
   const c = r.value?.configuracion
   if (!c) return []
   return [
-    { titulo: t('Variant attributes'), texto: t('What tells the variants of a product apart.'), hecho: c.atributos_variante > 0, a: '/mantenimiento?catalogo=atributos_variante' },
+    { titulo: t('Attributes'), texto: t('The data of your products (brand, model…) and what tells their variants apart (size, color…).'), hecho: c.atributos > 0, a: '/mantenimiento?catalogo=atributos' },
     { titulo: t('Product families'), texto: t('Each family says which data its products need and their variant attributes; labels and packing use it.'), hecho: c.familias > 0, a: '/grupos-producto' },
     { titulo: t('First product'), texto: t('Create it step by step with its variants.'), hecho: r.value.total > 0, a: '/productos/nuevo' },
   ]

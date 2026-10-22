@@ -12,18 +12,19 @@ Las líneas de OC y de factura guardan los valores de variante del artículo
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app.modelos import Articulo, AtributoVariante
+from app.modelos import Articulo, Atributo
 
 SEPARADOR = " · "
 
 
-def atributos(db: Session) -> list[AtributoVariante]:
-    """Los atributos de variante activos, en su orden (una vez por sesión)."""
-    res = db.info.get("atributos_variante")
+def atributos(db: Session, nivel: str = "VARIANTE") -> list[Atributo]:
+    """Los atributos activos de ese nivel (VARIANTE o PRODUCTO), en su orden (una vez por sesión)."""
+    clave = f"atributos_{nivel}"
+    res = db.info.get(clave)
     if res is None:
-        res = db.info["atributos_variante"] = list(db.scalars(
-            select(AtributoVariante).where(AtributoVariante.activo.is_(True))
-            .order_by(AtributoVariante.orden, AtributoVariante.codigo)))
+        res = db.info[clave] = list(db.scalars(
+            select(Atributo).where(Atributo.activo.is_(True), Atributo.nivel == nivel)
+            .order_by(Atributo.orden, Atributo.codigo)))
     return res
 
 
@@ -48,25 +49,31 @@ def ordenar(db: Session, valores: dict | None) -> dict:
     return {**{k: valores[k] for k in orden if k in valores}, **{k: v for k, v in valores.items() if k not in orden}}
 
 
+def ordenar_producto(db: Session | None, valores: dict | None) -> dict:
+    """Los valores de los atributos de producto en el orden de sus atributos."""
+    valores = {k: v for k, v in (valores or {}).items() if v not in (None, "")}
+    if db is None:
+        return valores
+    orden = [a.codigo for a in atributos(db, "PRODUCTO")]
+    return {**{k: valores[k] for k in orden if k in valores}, **{k: v for k, v in valores.items() if k not in orden}}
+
+
 def de_articulo(db: Session, a: Articulo | None) -> dict:
     """Los valores de variante del artículo, en orden."""
     return ordenar(db, a.variantes) if a is not None else {}
 
 
 def de_linea(linea, db: Session | None = None) -> dict:
-    """Los valores de variante guardados en una línea de OC o de factura, en orden.
-
-    Las líneas anteriores al modelo genérico no tienen `variante`: solo las
-    columnas de sistema (`color`, `talla`). Se leen con el atributo que declara
-    esa columna (`atributos_variante.columna`), sin suponer su código.
-    """
+    """Los valores de variante guardados en una línea de OC o de factura, en orden."""
     db = db or object_session(linea)
-    if getattr(linea, "variante", None):
-        return ordenar(db, linea.variante) if db is not None else dict(linea.variante)
-    if db is None:
+    if not getattr(linea, "variante", None):
         return {}
-    return {a.codigo: getattr(linea, a.columna) for a in atributos(db)
-            if a.columna and getattr(linea, a.columna, None) not in (None, "")}
+    return ordenar(db, linea.variante) if db is not None else dict(linea.variante)
+
+
+def de_producto_linea(linea, db: Session | None = None) -> dict:
+    """La foto de los atributos del producto guardada en una línea (marca, modelo…), en orden."""
+    return ordenar_producto(db or object_session(linea), getattr(linea, "atributos", None))
 
 
 def texto(valores: dict | None) -> str:
@@ -75,7 +82,7 @@ def texto(valores: dict | None) -> str:
 
 
 def nombres(db: Session) -> dict[str, str]:
-    return {a.codigo: a.nombre for a in atributos(db)}
+    return {a.codigo: a.nombre for a in (*atributos(db), *atributos(db, "PRODUCTO"))}
 
 
 def texto_linea(valores: dict | None) -> str | None:
@@ -140,3 +147,10 @@ def resumen(db: Session | None, articulos: list) -> str:
             por_atributo.setdefault(k, []).append(v)
     nombres_atr = nombres(db)
     return SEPARADOR.join(f"{nombres_atr.get(k, k)} {rango(vs)}" for k, vs in por_atributo.items())
+
+
+def de_catalogo(db: Session | None, valores: dict | None, catalogo: str) -> str | None:
+    """El valor del atributo de producto que apunta a ese catálogo (la marca: «marcas»), si lo hay."""
+    if db is None or not valores:
+        return None
+    return next((valores[a.codigo] for a in atributos(db, "PRODUCTO") if a.catalogo == catalogo and valores.get(a.codigo)), None)

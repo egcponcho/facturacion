@@ -149,12 +149,16 @@ def test_la_base_tiene_todas_las_llaves(client):
     "UPDATE ordenes_compra SET sociedad = 'NOEXISTE' WHERE id = (SELECT min(id) FROM ordenes_compra)",
     "UPDATE facturas SET centro = 'NOEXISTE' WHERE id = (SELECT min(id) FROM facturas)",
     "UPDATE posiciones_oc SET unidad = 'ZZ' WHERE id = (SELECT min(id) FROM posiciones_oc)",
-    "UPDATE posiciones_oc SET marca = 'NOEXISTE' WHERE id = (SELECT min(id) FROM posiciones_oc)",
+    "UPDATE posiciones_oc SET pais_origen = 'ZZ' WHERE id = (SELECT min(id) FROM posiciones_oc)",
     "UPDATE embarques SET puerto_destino = 'NOEXISTE' WHERE id = (SELECT min(id) FROM embarques)",
     "UPDATE proveedores SET pais = 'ZZ' WHERE id = (SELECT min(id) FROM proveedores)",
     # La unidad base de una conversión y la unidad de un atributo numérico (0089)
     "UPDATE unidades_medida SET base = 'ZZZZ', equivale = 2 WHERE id = (SELECT min(id) FROM unidades_medida)",
-    "UPDATE atributos_variante SET unidad = 'ZZZZ' WHERE id = (SELECT min(id) FROM atributos_variante)",
+    "UPDATE atributos SET unidad = 'ZZZZ' WHERE id = (SELECT min(id) FROM atributos)",
+    # Los valores y los códigos de una variante apuntan a un atributo y a un artículo que existen (0092)
+    "UPDATE articulo_atributos SET atributo_id = 999999 WHERE id = (SELECT min(id) FROM articulo_atributos)",
+    "UPDATE articulo_codigos SET articulo_id = 999999 WHERE id = (SELECT min(id) FROM articulo_codigos)",
+    "UPDATE articulo_componentes SET componente_id = 999999 WHERE id = (SELECT min(id) FROM articulo_componentes)",
     # Un código de otra organización tampoco sirve: la llave incluye la organización
     "UPDATE ordenes_compra SET organizacion_id = 999 WHERE id = (SELECT min(id) FROM ordenes_compra)",
 ])

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.core import dinero
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PackingList, PosicionOC, UnidadCarga, Usuario
 from app.modulos.acceso.permisos import sociedad_filtro
+from app.modulos.maestros import variantes
 
 # OC cuyo saldo se puede facturar / OC que siguen en el seguimiento
 OC_CON_SALDO = ("APROBADA",)
@@ -135,14 +136,15 @@ def facturado(db: Session, user: Usuario, prov, desde: date, hasta: date, marcas
     cond = [Factura.estado == "FINALIZADA", f_dev >= desde, f_dev <= hasta, *sociedad_filtro(user, Factura.sociedad)]
     if prov:
         cond.append(Factura.proveedor_id.in_(prov))
-    if marcas:
-        cond.append(func.coalesce(FacturaLinea.marca, "").in_(marcas))
     filas = db.execute(
-        select(Factura.id, Factura.moneda, f_dev, FacturaLinea.cantidad, FacturaLinea.precio_unitario)
+        select(Factura.id, Factura.moneda, f_dev, FacturaLinea.cantidad, FacturaLinea.precio_unitario, FacturaLinea.atributos)
         .join(FacturaLinea, FacturaLinea.factura_id == Factura.id).where(*cond)
     ).all()
     por_factura: dict[int, dict] = {}
-    for fid, moneda, fecha, cant, precio in filas:
+    for fid, moneda, fecha, cant, precio, atributos in filas:
+        # La marca de la línea: el atributo del producto que apunta al catálogo de marcas (su foto)
+        if marcas and (variantes.de_catalogo(db, atributos, "marcas") or "") not in marcas:
+            continue
         x = por_factura.setdefault(fid, {"id": fid, "moneda": moneda, "fecha": _como_fecha(fecha), "importe": dinero.CERO})
         x["importe"] += dinero.importe(cant, precio, moneda)
     por_moneda: dict[str, object] = defaultdict(lambda: dinero.CERO)
@@ -161,11 +163,12 @@ def _como_fecha(v) -> date | None:
 
 def marcas_facturadas(db: Session, user: Usuario, prov, desde: date, hasta: date) -> list[str]:
     f_dev = fecha_devengo()
-    cond = [Factura.estado == "FINALIZADA", f_dev >= desde, f_dev <= hasta, FacturaLinea.marca.is_not(None),
+    cond = [Factura.estado == "FINALIZADA", f_dev >= desde, f_dev <= hasta, FacturaLinea.atributos.is_not(None),
             *sociedad_filtro(user, Factura.sociedad)]
     if prov:
         cond.append(Factura.proveedor_id.in_(prov))
-    return sorted(m for (m,) in db.execute(select(FacturaLinea.marca).join(Factura).where(*cond).distinct()).all() if m)
+    return sorted({m for (a,) in db.execute(select(FacturaLinea.atributos).join(Factura).where(*cond)).all()
+                   if (m := variantes.de_catalogo(db, a, "marcas"))})
 
 
 def facturas_terminadas():

@@ -43,9 +43,9 @@ export function ejesDeFamilia(familias, id) {
   return []
 }
 
-// g: datos del producto (grupo_producto_id, color); info: el producto existente (al agregar variantes)
+// g: datos del producto (grupo_producto_id); info: el producto existente (al agregar variantes)
 export function useVariantes(g, info = ref(null)) {
-  const atributos = ref([]) // atributos de variante activos (código, nombre, tipo, opciones, columna)
+  const atributos = ref([]) // atributos de variante activos (código, nombre, tipo, opciones)
   const escalas = ref([])
   const familias = ref([])
   const escalaId = ref('')
@@ -55,34 +55,32 @@ export function useVariantes(g, info = ref(null)) {
 
   async function cargar() {
     const [atr, grupos, esc] = await Promise.all([
-      api.get('/catalogos/atributos_variante', { size: 200 }), api.get('/grupos-producto').catch(() => []),
+      api.get('/catalogos/atributos', { size: 200 }), api.get('/grupos-producto').catch(() => []),
       api.get('/catalogos/escalas', { size: 200 }).catch(() => ({ items: [] }))])
-    atributos.value = (atr.items || []).filter((a) => a.activo !== false).sort((a, b) => (a.orden || 0) - (b.orden || 0))
+    atributos.value = (atr.items || []).filter((a) => a.activo !== false && (a.nivel || 'VARIANTE') === 'VARIANTE').sort((a, b) => (a.orden || 0) - (b.orden || 0))
     familias.value = (grupos || []).filter((x) => x.clase === 'FAMILIA' && x.activa !== false)
     escalas.value = (esc.items || []).filter((e) => e.activo !== false)
   }
 
-  // Un color fijo del producto no es un atributo de sus variantes
   const ejes = computed(() => {
     const codigos = ejesDeFamilia(familias.value, g.grupo_producto_id)
-    const lista = codigos.length ? codigos.map((c) => atributos.value.find((a) => a.codigo === c)).filter(Boolean) : atributos.value
-    return lista.filter((a) => !(g.color && a.columna === 'color'))
+    return codigos.length ? codigos.map((c) => atributos.value.find((a) => a.codigo === c)).filter(Boolean) : atributos.value
   })
   watch(ejes, (lista) => {
     for (const a of lista) if (!(a.codigo in valores)) valores[a.codigo] = ''
   }, { immediate: true })
 
-  const escalasDe = (a) => escalas.value.filter((e) => (e.atributo || 'TALLA') === a.codigo)
+  const escalasDe = (a) => escalas.value.filter((e) => e.atributo === a.codigo)
   function usarEscala(a, id) {
     const e = escalas.value.find((x) => String(x.id) === String(id))
     if (!e) return
-    valores[a.codigo] = String(e.tallas || '').split(',').map((x) => x.split('=')[0].trim()).filter(Boolean).join(', ')
+    valores[a.codigo] = String(e.valores || '').split(',').map((x) => x.split('=')[0].trim()).filter(Boolean).join(', ')
     escalaId.value = e.id // sus códigos arman los códigos de artículo
   }
 
   const clave = (v) => ejes.value.map((a) => String(v?.[a.codigo] ?? '').toUpperCase()).join('|')
-  const nuevaFila = (vals = {}) => ({ valores: { ...vals }, sufijo: '', sku: '', upc: '', sku_proveedor: '', peso: pesoTodas.value })
-  const existentes = computed(() => new Set((info.value?.tallas || []).filter((x) => x.tipo === 'SOLIDO').map((x) => clave(x.valores))))
+  const nuevaFila = (vals = {}) => ({ valores: { ...vals }, sufijo: '', sku: '', codigo_barras: '', codigo_proveedor: '', peso: pesoTodas.value })
+  const existentes = computed(() => new Set((info.value?.variantes || []).filter((x) => x.tipo === 'SOLIDO').map((x) => clave(x.valores))))
   const listas = computed(() => ejes.value.map((a) => [a.codigo, expandir(valores[a.codigo])]).filter(([, l]) => l.length))
   const totalCombinaciones = computed(() => (listas.value.length ? listas.value.reduce((n, [, l]) => n * l.length, 1) : 0))
 

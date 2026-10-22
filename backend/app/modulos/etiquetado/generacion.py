@@ -254,7 +254,7 @@ def _grupos_articulo(db: Session, user: Usuario, pedido: dict, t: TipoEtiqueta, 
             clave, referencia = linea, ref
         elif alcance == "PRODUCTO" and a is not None and a.producto_id:
             prod = a.producto
-            clave, referencia = f"r{a.producto_id}", " · ".join(x for x in (prod.estilo, prod.color) if x)
+            clave, referencia = f"r{a.producto_id}", prod.nombre or prod.codigo_generico
         else:  # ARTICULO (o PRODUCTO de un artículo sin producto: cada variante)
             clave = f"a{a.id}" if a is not None else f"c{codigo}"
             referencia = codigo

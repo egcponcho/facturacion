@@ -39,30 +39,34 @@ const vista = ref(VISTAS.some(([v]) => v === inicial) ? inicial : 'ordenes')
 const NOMBRES = {
   estado: t('Status'), modo: t('Mode'), etapa: t('Stage'), liberacion_comercial: t('Commercial rel.'), liberacion_logistica: t('Logistics rel.'),
   proveedor: t('Supplier'), sociedad: t('Company'), centro: t('Plant'), xf_vencida: t('XF overdue'),
-  marca: t('Brand'), grupo: t('Group'), estilo: t('Style / model'), sku: 'SKU', almacen: t('Warehouse'),
+  marca: t('Brand'), familia: t('Product family'), sku: 'SKU', almacen: t('Warehouse'),
   contenedor: t('Load unit'), documento: 'B/L / AWB', riesgo: t('In-store arrival'), embarque_id: t('Shipment'),
   eta_desde: t('ETA from'), eta_hasta: t('ETA to'), fecha_xf_desde: t('XF from'), fecha_xf_hasta: t('XF to'),
   fecha_tienda_desde: t('In store from'), fecha_tienda_hasta: t('In store to'),
 }
-// Filtros de variante: uno por atributo del catálogo (var_<CÓDIGO>), sin suponer cuáles usa la empresa
+// Filtros por atributo, uno por atributo del catálogo, sin suponer cuáles usa la empresa:
+// de la variante (var_<CÓDIGO>) y del producto (atr_<CÓDIGO>)
 const VAR = 'var_'
+const ATR = 'atr_'
+const porAtributo = (k) => k.startsWith(VAR) || k.startsWith(ATR)
 const FILTROS = ['q', ...Object.keys(NOMBRES)]
 const filtros = reactive(Object.fromEntries(FILTROS.map((k) => [k, ''])))
 for (const k of FILTROS) if (route.query[k]) filtros[k] = String(route.query[k])
-for (const [k, v] of Object.entries(route.query)) if (k.startsWith(VAR) && v) filtros[k] = String(v)
-const claves = () => Object.keys(filtros).filter((k) => FILTROS.includes(k) || k.startsWith(VAR))
+for (const [k, v] of Object.entries(route.query)) if (porAtributo(k) && v) filtros[k] = String(v)
+const claves = () => Object.keys(filtros).filter((k) => FILTROS.includes(k) || porAtributo(k))
 // Filtros secundarios: van plegados en «Más filtros», con cuántos hay activos
-const AVANZADOS = ['grupo', 'estilo', 'contenedor', 'documento', 'liberacion_comercial', 'liberacion_logistica', 'sku',
+const AVANZADOS = ['familia', 'contenedor', 'documento', 'liberacion_comercial', 'liberacion_logistica', 'sku',
   'almacen', 'embarque_id', 'riesgo', 'xf_vencida', 'eta_desde', 'eta_hasta', 'fecha_xf_desde', 'fecha_xf_hasta', 'fecha_tienda_desde',
   'fecha_tienda_hasta', 'sociedad', 'centro', 'proveedor']
-const esAvanzado = (k) => AVANZADOS.includes(k) || k.startsWith(VAR)
+const esAvanzado = (k) => AVANZADOS.includes(k) || porAtributo(k)
 const masFiltros = ref(claves().some((k) => esAvanzado(k) && filtros[k]))
 const avanzadosActivos = computed(() => claves().filter((k) => esAvanzado(k) && filtros[k]).length)
 const opciones = ref({})
 // Filtros activos que se mandan a los tableros
 const params = computed(() => Object.fromEntries(claves().filter((k) => filtros[k]).map((k) => [k, filtros[k]])))
 const atributos = computed(() => opciones.value.atributos || [])
-const nombreAtributo = (codigo) => tx(atributos.value.find((a) => a.codigo === codigo)?.nombre || codigo)
+const atributosProducto = computed(() => opciones.value.atributos_producto || [])
+const nombreAtributo = (codigo) => tx([...atributos.value, ...atributosProducto.value].find((a) => a.codigo === codigo)?.nombre || codigo)
 const liberaciones = (tipo) => opciones.value.liberaciones?.[tipo] || []
 const paramsExportar = computed(() => ({ ...params.value, proveedor_id: sesion.proveedorId || undefined }))
 const ESTADOS_EMB = estadosEmbarque()
@@ -76,7 +80,7 @@ const MODOS = computed(() => opcionesLista('modo_transporte'))
 const RIESGOS = Object.fromEntries(Object.entries(TIEMPO).map(([k, v]) => [k, v[0]]))
 
 const activos = computed(() => claves().filter((k) => k !== 'q' && filtros[k]).map((k) => {
-  if (k.startsWith(VAR)) return { k, texto: `${nombreAtributo(k.slice(VAR.length))}: ${lst(filtros[k]).join(', ')}` }
+  if (porAtributo(k)) return { k, texto: `${nombreAtributo(k.slice(VAR.length))}: ${lst(filtros[k]).join(', ')}` }
   let texto = filtros[k]
   const nombres = (lista) => lst(filtros[k]).map((c) => lista.find(([v]) => v === c)?.[1] || c).join(', ')
   if (k === 'etapa') texto = nombres(ETAPAS)
@@ -114,7 +118,7 @@ async function aplicarVista(q) {
     await nextTick()
   }
   for (const k of claves()) filtros[k] = ''
-  for (const [k, v] of Object.entries(q)) if (FILTROS.includes(k) || k.startsWith(VAR)) filtros[k] = v || ''
+  for (const [k, v] of Object.entries(q)) if (FILTROS.includes(k) || porAtributo(k)) filtros[k] = v || ''
   masFiltros.value = masFiltros.value || Object.keys(q).some(esAvanzado)
   aplicar()
 }
@@ -179,8 +183,9 @@ function buscar() {
     </button>
   </div>
   <div v-if="masFiltros" class="filtros filtros-avanzados" v-filtros>
-    <SelectBusqueda multiple :model-value="lst(filtros.grupo)" @update:model-value="(v) => (filtros.grupo = v.join(','))" :opciones="opciones.grupos || []" :vacio="t('Group: all')" :etiqueta="t('Item group')" @change="aplicar" />
-    <SelectBusqueda v-if="(opciones.estilos || []).length" multiple :model-value="lst(filtros.estilo)" @update:model-value="(v) => (filtros.estilo = v.join(','))" :opciones="opciones.estilos" :vacio="t('Style / model: all')" :etiqueta="t('Style / model')" @change="aplicar" />
+    <SelectBusqueda v-if="(opciones.familias || []).length" multiple :model-value="lst(filtros.familia)" @update:model-value="(v) => (filtros.familia = v.join(','))" :opciones="opciones.familias" :vacio="t('Product family: all')" :etiqueta="t('Product family')" @change="aplicar" />
+    <SelectBusqueda v-for="a in atributosProducto" :key="`p-${a.codigo}`" multiple :model-value="lst(filtros[ATR + a.codigo])" @update:model-value="(v) => (filtros[ATR + a.codigo] = v.join(','))"
+                    :opciones="a.valores" :vacio="t('{0}: all', [tx(a.nombre)])" :etiqueta="tx(a.nombre)" @change="aplicar" />
     <SelectBusqueda v-for="a in atributos" :key="a.codigo" multiple :model-value="lst(filtros[VAR + a.codigo])" @update:model-value="(v) => (filtros[VAR + a.codigo] = v.join(','))"
                     :opciones="a.valores" :vacio="t('{0}: all', [tx(a.nombre)])" :etiqueta="tx(a.nombre)" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.contenedor)" @update:model-value="(v) => (filtros.contenedor = v.join(','))" :opciones="opciones.contenedores || []" :vacio="t('Load unit: all')" :etiqueta="t('Container, air waybill or truck')" @change="aplicar" />

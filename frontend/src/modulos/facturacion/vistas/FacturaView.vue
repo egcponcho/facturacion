@@ -21,7 +21,7 @@ import { camposPropios, elegirProveedor, esInterno, valorPropio, ve } from '@/st
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import CargaArchivo from '@/componentes/CargaArchivo.vue'
-import { ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, textoArticulo, textoVariante, useSeleccion } from '@/nucleo/utils'
+import { ACCIONES, fmtFecha, fmtFechaHora, fmtFechaHoraLocal, fmtMoneda, fmtNum, pct, plural, porUnidadTxt, textoArticulo, textoProducto, textoVariante, useSeleccion } from '@/nucleo/utils'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -45,9 +45,9 @@ const plEditables = computed(() => plsActivos.value.some((p) => ['BORRADOR', 'EN
 
 const lineasFiltradas = computed(() => {
   if (!f.value) return []
-  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_articulo, textoArticulo(l), l.oc_numero, l.upc, l.descripcion])
+  return filtrar(f.value.lineas, filtro.value, (l) => [l.codigo_articulo, textoArticulo(l), l.oc_numero, l.codigo_barras, l.descripcion])
 })
-// Unidades o pares por caja: el casepack de la OC o la curva del prepack
+// Unidades por caja: el casepack de la OC o el contenido del pack
 const porCaja = (l) => (l.tipo_empaque === 'PREPACK' ? l.unidades_por_caja : l.casepack || null)
 const innersCaja = (l) => (porCaja(l) && l.inner_pack && l.tipo_empaque !== 'PREPACK' ? porCaja(l) / l.inner_pack : null)
 // Líneas en la tabla común (TablaDatos, modo local): cada columna ordena y
@@ -58,7 +58,7 @@ const columnasLineas = [
   { clave: 'oc', texto: t('PO / line'), prioridad: 2, valor: (l) => `${l.oc_numero}-${String(l.posicion).padStart(5, '0')}`,
     textoValor: (v, l) => `${l.oc_numero} / ${l.posicion}` },
   { clave: 'marca', texto: t('Brand'), prioridad: 3 },
-  { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => [l.estilo, l.color].filter(Boolean).join(' · ') },
+  { clave: 'articulo', texto: t('Item'), fija: true, prioridad: 1, valor: (l) => textoProducto(l) },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'cantidad', texto: req(t('Quantity')), num: true, prioridad: 1 },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
@@ -558,9 +558,9 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
         <template #celda-oc="{ fila: l }"><span class="codigo">{{ tx(l.oc_numero) }} / {{ tx(l.posicion) }}</span><span v-if="l.almacen" class="sub">{{ t('warehouse {0}', [l.almacen]) }}</span></template>
         <template #celda-marca="{ fila: l }"><span class="fuerte">{{ tx(l.marca || '—') }}</span></template>
         <template #celda-articulo="{ fila: l }">
-          {{ tx(l.estilo) }}<template v-if="l.color"> · {{ tx(l.color) }}</template>
-          <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the prepack breakdown')"
-                  @click="explosion = { sku: l.codigo_articulo, cajas: l.cantidad }">{{ t('Prepack {0}', [l.prepack]) }} <Icono nombre="lupa" :tam="12" /></button>
+          {{ tx(textoProducto(l)) }}
+          <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the contents of the pack')"
+                  @click="explosion = { sku: l.codigo_articulo, cajas: l.cantidad }">{{ t('Pack {0}', [l.codigo_pack]) }} <Icono nombre="lupa" :tam="12" /></button>
           <span class="sub codigo">{{ tx(l.codigo_articulo) }}</span>
         </template>
         <template #celda-variante="{ fila: l }"><strong>{{ tx(textoVariante(l)) }}</strong></template>
@@ -569,7 +569,7 @@ const edicion = useEdicion('factura', () => Number(props.id), () => ({ editable:
           <template v-else>{{ fmtNum(l.cantidad) }}</template>
         </template>
         <template #celda-unidad="{ fila: l }"><span class="etiqueta ms-0">{{ tx(l.unidad) }}</span></template>
-        <template #celda-por_caja="{ fila: l }"><span :title="t('Units or pairs per carton: casepack of the PO or the prepack size run')">{{ porCaja(l) ? fmtNum(porCaja(l)) : '—' }}</span></template>
+        <template #celda-por_caja="{ fila: l }"><span :title="t('Units per carton: casepack of the PO or the contents of the pack')">{{ porCaja(l) ? fmtNum(porCaja(l)) : '—' }}</span></template>
         <template #celda-por_inner="{ fila: l }"><span :title="l.inner_pack ? '' : t('Defined in the packing list if needed')">{{ l.inner_pack ? fmtNum(l.inner_pack) : '—' }}</span></template>
         <template #celda-inners_caja="{ fila: l }">{{ innersCaja(l) ? fmtNum(innersCaja(l)) : '—' }}</template>
         <template #celda-precio="{ fila: l }">

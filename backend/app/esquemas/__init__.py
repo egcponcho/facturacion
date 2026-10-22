@@ -89,8 +89,8 @@ from app.esquemas.productos import (
     PartidaSACIn,
     SesionClasificacionIn,
     SinonimoIn,
-    TallaIn,
-    TallasIn,
+    VarianteIn,
+    VariantesIn,
 )
 from app.esquemas.transporte import (
     AsignarPL,
@@ -197,8 +197,8 @@ __all__ = [
     "SesionClasificacionIn",
     "SinonimoBusquedaIn",
     "SinonimoIn",
-    "TallaIn",
-    "TallasIn",
+    "VarianteIn",
+    "VariantesIn",
     "UnidadIn",
     "UnidadPatch",
     "UsuarioIn",

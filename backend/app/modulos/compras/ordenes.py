@@ -16,6 +16,9 @@ from app.modelos import (
     Alerta,
     Almacen,
     Articulo,
+    ArticuloAtributo,
+    ArticuloCodigo,
+    Atributo,
     Centro,
     Factura,
     FacturaLinea,
@@ -23,6 +26,8 @@ from app.modelos import (
     OrdenCompra,
     Pais,
     PosicionOC,
+    Producto,
+    ProductoAtributo,
     Proveedor,
     Puerto,
     Sociedad,
@@ -46,6 +51,7 @@ from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto, terminos
 from app.modulos.empaque import recetas
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
+from app.modulos.maestros import variantes
 from app.modulos.maestros.unidades import error_cantidad
 from app.modulos.maestros.unidades import normalizar as unidad_de
 from app.modulos.maestros.variantes import texto_linea as texto_variante
@@ -57,6 +63,13 @@ from app.modulos.productos.productos import clasificacion_txt, partida_para, pro
 
 
 # ---- Vista general de OCs ---------------------------------------------------
+def articulos_de_marca(marca: str):
+    """Los artículos de los productos de una marca (su atributo de catálogo de marcas)."""
+    return (select(Articulo.id).join(ProductoAtributo, ProductoAtributo.producto_id == Articulo.producto_id)
+            .join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
+            .where(Atributo.catalogo == "marcas", ProductoAtributo.valor == marca))
+
+
 ORDEN_OC = {"numero", "fecha", "fecha_xf", "fecha_tienda", "importe", "avance", "proveedor"}
 
 
@@ -108,7 +121,7 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
         consulta = consulta.where(filtro_texto(q, lambda p: [
             OrdenCompra.numero.ilike(p),
             OrdenCompra.id.in_(select(PosicionOC.oc_id).where(or_(
-                PosicionOC.estilo.ilike(p), PosicionOC.codigo_articulo.ilike(p), PosicionOC.upc.ilike(p), PosicionOC.color.ilike(p)))),
+                PosicionOC.codigo_articulo.ilike(p), PosicionOC.codigo_barras.ilike(p), PosicionOC.descripcion.ilike(p)))),
         ]))
     if centro:
         consulta = consulta.where(OrdenCompra.centro == centro)
@@ -125,7 +138,8 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
     if liberada is not None:
         consulta = consulta.where(OrdenCompra.liberada.is_(liberada))
     if marca:
-        consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.marca == marca)))
+        consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.articulo_id.in_(
+            articulos_de_marca(marca)))))
     if almacen:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == almacen)))
     if solo_disponible:
@@ -202,14 +216,15 @@ def listar_ordenes(
         ).all():
             if alm:
                 almacenes[oc_id].add(alm)
-        for oc_id, unidad, marca_oc, cant in db.execute(
-            select(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.marca, func.sum(PosicionOC.cantidad))
-            .where(PosicionOC.oc_id.in_(ids)).group_by(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.marca)
+        for oc_id, unidad, atributos, cant in db.execute(
+            select(PosicionOC.oc_id, PosicionOC.unidad, PosicionOC.atributos, PosicionOC.cantidad)
+            .where(PosicionOC.oc_id.in_(ids))
         ).all():
             d = por_unidad[oc_id].setdefault(unidad, {"cantidad": 0, "facturado": 0, "disponible": 0})
             d["cantidad"] = cant_norm(d["cantidad"] + (cant or 0))
             d["disponible"] = cant_norm(d["disponible"] + (cant or 0))
-            if marca_oc:
+            # La marca de la línea: el atributo de producto que apunta al catálogo de marcas
+            if marca_oc := variantes.de_catalogo(db, atributos, "marcas"):
                 marcas[oc_id].add(marca_oc)
         for oc_id, unidad, cant in db.execute(
             select(PosicionOC.oc_id, PosicionOC.unidad, func.sum(FacturaLinea.cantidad))
@@ -272,7 +287,11 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
         return sorted({v for (v,) in db.execute(
             select(col).where(PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if v})
 
-    marcas = de_posiciones(PosicionOC.marca)
+    marcas = sorted({v for (v,) in db.execute(
+        select(ProductoAtributo.valor).join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
+        .join(Articulo, Articulo.producto_id == ProductoAtributo.producto_id)
+        .join(PosicionOC, PosicionOC.articulo_id == Articulo.id)
+        .where(Atributo.catalogo == "marcas", PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if v})
     lib = liberaciones.de(db)
     return {
         "sociedades": distintos(sub.c.sociedad),
@@ -346,19 +365,16 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "posicion": p.posicion,
                 "almacen": p.almacen,
                 "codigo_articulo": p.codigo_articulo,
-                "upc": p.upc,
-                "estilo": p.estilo,
-                "color": p.color,
-                "talla": p.talla,
+                "codigo_barras": p.codigo_barras,
                 "variante": texto_variante(p.variante),
+                "valores": dict(p.variante or {}),
+                "atributos": dict(p.atributos or {}),
                 "descripcion": p.descripcion,
-                "marca": p.marca,
-                "grupo": p.grupo,
-                "categoria": p.categoria,
+                "marca": variantes.de_catalogo(db, p.atributos, "marcas"),
                 "tipo_empaque": p.tipo_empaque,
                 "casepack": p.casepack,
                 "inner_pack": p.inner_pack,
-                "prepack": p.prepack,
+                "codigo_pack": p.codigo_pack,
                 "unidades_por_caja": p.unidades_por_caja,
                 "cantidad": p.cantidad,
                 "unidad": p.unidad,
@@ -476,8 +492,8 @@ CAMPOS_CABECERA = ["sociedad", "centro", "centro_destino", "moneda", "incoterm",
                    "pais_origen", "pais_procedencia", "fecha_xf_original", "fecha_xf", "fecha_tienda",
                    "liberacion_comercial"]
 CAMPOS_POSICION = [
-    "almacen", "articulo_id", "codigo_articulo", "upc", "estilo", "color", "talla", "descripcion", "marca", "grupo", "categoria",
-    "tipo_empaque", "casepack", "inner_pack", "prepack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
+    "almacen", "articulo_id", "codigo_articulo", "codigo_barras", "descripcion",
+    "tipo_empaque", "casepack", "inner_pack", "codigo_pack", "unidades_por_caja", "cantidad", "unidad", "precio", "fecha_entrega",
     "pais_origen",
 ]
 
@@ -746,21 +762,21 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
         errores.append(f"SKU {d['codigo_articulo']} does not exist in the item master. Load it first.")
     elif art:
         prov = m.proveedores.get(d["proveedor"])
+        marca = art.producto.marca_codigo if art.producto is not None else None
         if prov and art.proveedor_id and art.proveedor_id != prov.id:
             errores.append(f"SKU {art.sku} belongs to another supplier, not {prov.nombre}.")
-        elif prov and art.marca_id and art.marca_id not in {x.id for x in prov.marcas}:
-            errores.append(f"Brand {art.marca.codigo} of SKU {art.sku} is not a brand of {prov.nombre}.")
+        elif prov and marca and marca not in {x.codigo for x in prov.marcas}:
+            errores.append(f"Brand {marca} of SKU {art.sku} is not a brand of {prov.nombre}.")
         if not art.activo:
             errores.append(f"SKU {art.sku} is inactive in the item master.")
         if d["unidad"] and d["unidad"] != art.unidad:
             errores.append(f"Unit {d['unidad']} does not match the item master ({art.unidad}).")
+        from app.modulos.maestros.catalogos import descripcion_articulo
+
         d.update(
-            articulo_id=art.id, upc=art.upc, estilo=art.estilo, color=art.color, talla=art.talla,
-            descripcion=art.descripcion, marca=art.marca.codigo if art.marca else None,
-            grupo=art.grupo.codigo if art.grupo else None, categoria=art.grupo.categoria if art.grupo else None,
-            tipo_empaque=art.tipo, unidad=art.unidad,
-            prepack=art.prepack.codigo if art.prepack else None,
-            unidades_por_caja=art.prepack.total if art.prepack else None,
+            articulo_id=art.id, codigo_barras=art.codigo_barras, descripcion=descripcion_articulo(art),
+            tipo_empaque=art.tipo, unidad=art.unidad, codigo_pack=art.codigo_pack,
+            unidades_por_caja=art.total_componentes if art.tipo == "PREPACK" else None,
         )
         errores += validar_empaque(art.tipo, d["casepack"], d["inner_pack"], d["cantidad"])
         if d["cantidad"] and (msg := error_cantidad(d["cantidad"], art.unidad)):
@@ -771,14 +787,14 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
 
 def validar_empaque(tipo: str, casepack: int | None, inner_pack: int | None, cantidad: int | None) -> list[str]:
     """Reglas del empaque de una posición:
-    - un prepack ya es una caja definida (su curva): no lleva casepack ni inner pack;
+    - un pack o kit ya es una caja definida (su contenido): no lleva casepack ni inner pack;
     - con casepack e inner pack, el casepack es múltiplo del inner pack;
     - con inner pack, la cantidad de la posición es múltiplo del inner pack
       (todos los inner packs llevan la misma cantidad)."""
     errores = []
     if tipo == "PREPACK":
         if casepack or inner_pack:
-            errores.append("A prepack is already a defined carton (its size run): it takes no casepack or inner pack.")
+            errores.append("A pack or kit is already a defined carton (its contents): it takes no casepack or inner pack.")
         return errores
     if casepack and inner_pack and casepack % inner_pack:
         errores.append(f"The casepack ({casepack}) must be a multiple of the inner pack ({inner_pack}).")
@@ -1150,12 +1166,17 @@ def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = ""
     prov = db.scalar(select(Proveedor).where(Proveedor.codigo == (proveedor or "").upper()))
     if not prov or (proveedores_de(user) is not None and prov.id not in proveedores_de(user)):
         return []
-    consulta = select(Articulo).where(Articulo.proveedor_id == prov.id, Articulo.activo.is_(True))
+    from app.modulos.maestros.catalogos import descripcion_articulo
+
+    consulta = select(Articulo).join(Producto, Producto.id == Articulo.producto_id).where(
+        Producto.proveedor_id == prov.id, Articulo.activo.is_(True))
     if terminos(q):
-        consulta = consulta.where(filtro_texto(q, lambda t: [Articulo.sku.ilike(t), Articulo.estilo.ilike(t), Articulo.color.ilike(t),
-                                                             Articulo.sku_proveedor.ilike(t), Articulo.upc.ilike(t)]))
-    return [{"valor": a.sku, "texto": f"{a.sku} · {a.estilo} {a.color or ''} {a.talla or ''}".strip(), "unidad": a.unidad,
-             "tipo": a.tipo, "sub": " · ".join(x for x in (a.descripcion, a.marca.nombre if a.marca else None) if x),
+        consulta = consulta.where(filtro_texto(q, lambda t: [
+            Articulo.sku.ilike(t), Producto.nombre.ilike(t), Producto.codigo_generico.ilike(t),
+            Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(t))),
+            Articulo.id.in_(select(ArticuloAtributo.articulo_id).where(ArticuloAtributo.valor.ilike(t)))]))
+    return [{"valor": a.sku, "texto": " · ".join(x for x in (a.sku, variantes.texto(variantes.de_articulo(db, a))) if x),
+             "unidad": a.unidad, "tipo": a.tipo, "sub": descripcion_articulo(a),
              "pais_origen": a.producto.pais_origen if a.producto else None}  # el origen es del producto (ficha técnica)
-            for a in db.scalars(consulta.options(selectinload(Articulo.producto), selectinload(Articulo.marca))
-                                .order_by(Articulo.estilo, Articulo.color, Articulo.sku).limit(300))]
+            for a in db.scalars(consulta.options(selectinload(Articulo.producto))
+                                .order_by(Producto.codigo_generico, Articulo.sku).limit(300))]

@@ -64,7 +64,7 @@ def test_una_unidad_nueva_se_usa_en_todo(interno):
         meta = {c["tipo"]: c for c in interno.get("/catalogos").json()}
         unidad = next(c for c in meta["articulos"]["campos"] if c["nombre"] == "unidad")
         assert ["BOT", "bottle"] in unidad["opciones"]
-        assert {"listas", "liberaciones", "categorias", "monedas", "unidades", "incoterms", "condiciones_pago",
+        assert {"listas", "liberaciones", "monedas", "unidades", "incoterms", "condiciones_pago",
                 "modos_transporte"} <= set(meta)
         # Listas de valores ya no ofrece las listas con tabla propia
         lista = next(c for c in meta["listas"]["campos"] if c["nombre"] == "lista")

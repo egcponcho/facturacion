@@ -443,13 +443,11 @@ def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
     árbol oficial; un código nacional no se acepta como código del producto;
     cada país guarda su línea oficial, versión, regla, impuestos y regulaciones."""
     # Un producto propio de esta prueba (los de la demostración los usan otras pruebas)
-    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
-    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    assert interno.post("/catalogos/genericos", {"generico": "30077703", "estilo": "VNEVID01", "color": "White", "marca_id": m["VANS"],
-                                                 "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR",
-                                                 "nombre": "Canvas sneaker", "tallas": [{"talla": "8"}]}).status_code == 200
-    p = next(x for x in interno.get("/productos", params={"q": "VNEVID01"}).json()["items"] if x["estilo"] == "VNEVID01")
+    assert interno.post("/catalogos/genericos", {"generico": "30077703", "atributos": {"MARCA": "VANS", "MODELO": "VNEVID01"},
+                                                 "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Canvas sneaker",
+                                                 "variantes": [{"valores": {"COLOR": "White", "TALLA": "8"}}]}).status_code == 200
+    p = next(x for x in interno.get("/productos", params={"q": "VNEVID01"}).json()["items"] if x["codigo_generico"] == "30077703")
     det = interno.get(f"/productos/{p['id']}").json()
     det = interno.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "tipo": "calzado", "pais_origen": "CN", "ficha": {
         "comp": {"corte": "100% canvas", "suela": "100% rubber"}, "estilo_calzado": "tenis", "altura": "bajo", "genero": "U",

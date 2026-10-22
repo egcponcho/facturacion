@@ -148,7 +148,7 @@ async function guardar() {
       <span v-if="impacto.aprobados_distintos" class="aviso-txt">{{ t('{0} already approved items would get a different suggestion: their approval does not change, but review them.', [impacto.aprobados_distintos]) }}</span>
       <ul v-if="impacto.cambian.length">
         <li v-for="x in impacto.cambian.slice(0, 12)" :key="x.id">
-          <router-link :to="`/productos/${x.id}`" target="_blank">{{ tx(x.estilo) }} · {{ tx(x.color) }}</router-link>
+          <router-link :to="`/productos/${x.id}`" target="_blank">{{ tx([x.codigo_generico, x.nombre].filter(Boolean).join(' · ')) }}</router-link>
           <span class="codigo-sac">{{ tx(x.antes || '—') }}</span> → <span class="codigo-sac">{{ tx(x.despues || '—') }}</span>
         </li>
       </ul>

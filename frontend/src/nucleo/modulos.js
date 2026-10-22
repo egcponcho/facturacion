@@ -13,7 +13,7 @@ import { esInterno, puede, sesion } from '@/stores/sesion'
 
 // Catálogos de datos maestros por módulo (los que no estén aquí van a Configuración)
 export const CATALOGOS_DE = {
-  productos: ['articulos', 'prepacks', 'marcas', 'atributos_variante', 'escalas', 'categorias', 'grupos', 'listas', 'dominios', 'acuerdos'],
+  productos: ['articulos', 'atributos', 'escalas', 'marcas', 'listas', 'dominios', 'acuerdos'],
   compras: ['proveedores', 'sociedades', 'contactos'],
   facturacion: ['tipos_empaque', 'series'],
   logistica: ['centros', 'almacenes', 'puertos', 'regiones', 'transportistas', 'tipos_unidad', 'liberaciones', 'pasos_lt', 'leadtimes'],

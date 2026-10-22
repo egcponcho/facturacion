@@ -2,7 +2,7 @@ import os
 from datetime import date, timedelta
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core import campos_propios, dinero
 from app.core.archivos import DOCUMENTOS, MIME_DOCUMENTO, exigir_tamano, tipo_de
@@ -51,6 +51,7 @@ from app.modulos.facturacion.cantidades import (
     totales_pl,
 )
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL, ESTADO_TXT
+from app.modulos.maestros import variantes
 from app.modulos.maestros.variantes import texto_linea as texto_variante
 from app.modulos.productos.productos import partida_para, producto_de, sin_marca
 
@@ -89,7 +90,8 @@ def exigir_editable(f: Factura) -> None:
 
 
 def _ref_linea(l: FacturaLinea) -> str:
-    return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_articulo}{' size ' + l.talla if l.talla else ''})"
+    variante = texto_variante(l.variante)
+    return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_articulo}{' · ' + variante if variante else ''})"
 
 
 def _validar_numero(db: Session, proveedor_id: int, numero: str | None, excluir_id: int | None) -> None:
@@ -206,8 +208,10 @@ def _preparar_posiciones(
 
 
 def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
-    # Partida, origen y descripción aduanera salen del producto clasificado
+    # Partida, origen y descripción aduanera salen del producto clasificado; la variante y los
+    # atributos del producto, de la foto de la línea de la OC
     prod = producto_de(p.articulo)
+    marca = variantes.de_catalogo(object_session(p), p.atributos, "marcas")
     return FacturaLinea(
         posicion_oc_id=p.id,
         cantidad=cantidad,
@@ -217,18 +221,15 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         posicion=p.posicion,
         almacen=p.almacen,
         codigo_articulo=p.codigo_articulo,
-        upc=p.upc,
-        estilo=p.estilo,
-        color=p.color,
-        talla=p.talla,
+        codigo_barras=p.codigo_barras,
+        variante=dict(p.variante) if p.variante else None,
+        atributos=dict(p.atributos) if p.atributos else None,
         descripcion=p.descripcion,
         unidad=p.unidad,
-        marca=p.marca,
-        categoria=p.categoria,
         tipo_empaque=p.tipo_empaque,
         casepack=p.casepack,
         inner_pack=p.inner_pack,
-        prepack=p.prepack,
+        codigo_pack=p.codigo_pack,
         unidades_por_caja=p.unidades_por_caja,
         receta_id=p.receta_id,
         receta_foto=p.receta_foto,
@@ -236,8 +237,8 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
         partida_arancelaria=partida_para(prod),  # 6 dígitos: el destino es solo proyectado
         # Descripción aduanera del artículo, sin la marca (va en su propia columna)
-        descripcion_comercial=sin_marca((prod.descripcion_aduana or prod.descripcion_comercial) if prod else None, p.marca)
-        or sin_marca(p.descripcion, p.marca),
+        descripcion_comercial=sin_marca((prod.descripcion_aduana or prod.descripcion_comercial) if prod else None, marca)
+        or sin_marca(p.descripcion, marca),
     )
 
 
@@ -892,18 +893,17 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "almacen": l.almacen,
             "posicion": l.posicion,
             "codigo_articulo": l.codigo_articulo,
-            "upc": l.upc,
-            "estilo": l.estilo,
-            "color": l.color,
-            "talla": l.talla,
+            "codigo_barras": l.codigo_barras,
             "variante": texto_variante(l.variante),
+            "valores": dict(l.variante or {}),
+            "atributos": dict(l.atributos or {}),
             "descripcion": l.descripcion,
             "unidad": l.unidad,
-            "marca": l.marca,
+            "marca": variantes.de_catalogo(db, l.atributos, "marcas"),
             "tipo_empaque": l.tipo_empaque,
             "casepack": l.casepack,
             "inner_pack": l.inner_pack,
-            "prepack": l.prepack,
+            "codigo_pack": l.codigo_pack,
             "unidades_por_caja": l.unidades_por_caja,
             "cantidad": l.cantidad,
             "cantidad_oc": l.posicion_oc.cantidad,

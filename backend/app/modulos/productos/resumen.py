@@ -8,12 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.modelos import (
     Articulo,
-    AtributoVariante,
-    EscalaTalla,
+    ArticuloCodigo,
+    Atributo,
+    EscalaValores,
     GrupoFamilia,
     GrupoProducto,
     Marca,
-    Prepack,
     Producto,
     Proveedor,
     Usuario,
@@ -34,7 +34,7 @@ def resumen(db: Session, user: Usuario) -> dict:
     activos = select(Articulo).where(Articulo.activo.is_(True), Articulo.producto_id.in_(ids)).subquery()
     variantes = db.scalar(select(func.count()).select_from(activos)) or 0
     sin_codigo_barras = db.scalar(select(func.count()).select_from(activos).where(
-        func.coalesce(activos.c.upc, "") == "")) or 0
+        ~activos.c.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.tipo == "BARRAS")))) or 0
     sin_variantes = db.scalar(select(func.count()).select_from(sub).where(
         ~sub.c.id.in_(select(Articulo.producto_id).where(Articulo.producto_id.is_not(None))))) or 0
     sin_familia = db.scalar(select(func.count()).select_from(sub).where(sub.c.grupo_producto_id.is_(None))) or 0
@@ -68,10 +68,12 @@ def resumen(db: Session, user: Usuario) -> dict:
 
         res["configuracion"] = {
             "familias": contar(GrupoFamilia, GrupoFamilia.activa.is_(True)),
-            "atributos_variante": contar(AtributoVariante),
-            "escalas": contar(EscalaTalla),
+            "atributos": contar(Atributo, Atributo.activo.is_(True)),
+            "atributos_producto": contar(Atributo, Atributo.activo.is_(True), Atributo.nivel == "PRODUCTO"),
+            "atributos_variante": contar(Atributo, Atributo.activo.is_(True), Atributo.nivel == "VARIANTE"),
+            "escalas": contar(EscalaValores),
             "marcas": contar(Marca),
             "proveedores": contar(Proveedor),
-            "compuestos": contar(Prepack, Prepack.activo.is_(True)),
+            "compuestos": contar(Articulo, Articulo.tipo == "PREPACK", Articulo.activo.is_(True)),
         }
     return res

@@ -1,34 +1,37 @@
 """Productos («genéricos») y sus variantes, de cualquier tipo de producto.
 
-Un producto se crea una vez con su código y sus datos maestros (marca, grupo,
-proveedor, unidad, su familia; estilo y color solo si los usa) y luego se le
-agregan variantes: cada una con sus valores de variante (talla, color, sabor,
-presentación, concentración…) y lo propio (código, UPC, SKU del proveedor,
-peso). Las variantes se escriben una por una o se combinan: todos los colores
-por todas las tallas, todas las concentraciones por todos los envases.
+Un producto se crea una vez con su núcleo (código, nombre, unidad), su familia,
+su proveedor si se compra, y sus atributos de producto (marca, modelo,
+material…: los que la empresa defina). Luego se le agregan variantes: cada una
+con sus valores de variante (talla, color, sabor, presentación,
+concentración…) y lo propio (código de artículo, código de barras, código del
+proveedor, peso). Las variantes se escriben una por una o se combinan: todos
+los colores por todas las tallas, todas las concentraciones por todos los
+envases.
 
 El código de cada artículo lo define la empresa; si no se escribe, se arma con
-el del producto más un código de la variante (el de su escala de valores, la
-regla usual talla × 10 o el siguiente libre). La ficha técnica y la
-clasificación arancelaria son del producto.
+el del producto más un código de la variante (el de su escala de valores o el
+siguiente libre). La ficha técnica y la clasificación arancelaria son del
+producto.
 """
 import itertools
 import re
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
-    AtributoVariante,
-    EscalaTalla,
-    GrupoArticulo,
+    ArticuloCodigo,
+    Atributo,
+    EscalaValores,
     GrupoFamilia,
     Marca,
     Pais,
     Producto,
+    ProductoAtributo,
     Proveedor,
     Usuario,
 )
@@ -36,44 +39,35 @@ from app.modulos.acceso.permisos import exigir
 from app.modulos.comun import tabla
 from app.modulos.comun.historial import registrar
 from app.modulos.comun.texto import filtro_texto
-from app.modulos.maestros import catalogos as cat_svc
-from app.modulos.maestros import gobierno, variantes
-from app.modulos.maestros import tallas as tallas_svc
+from app.modulos.maestros import atributos as atr_svc
+from app.modulos.maestros import escalas, gobierno, variantes
 from app.modulos.maestros.unidades import de_articulo, normalizar
 from app.modulos.productos import perfil
 from app.modulos.productos.productos import (
     MSG_CODIGO,
-    asegurar_producto,
     codigo_valido,
     descripcion_comercial_simple,
     producto_por_generico,
 )
 
 
-def _articulos(db: Session, gen: str):
-    return select(Articulo).where(Articulo.generico == gen)
-
-
 def _sufijos(db: Session, gen: str) -> set[str]:
-    """Códigos de talla ya usados: lo que sigue al genérico en el código de artículo."""
+    """Códigos de variante ya usados: lo que sigue al código del producto en el código de artículo."""
     return {s[len(gen):] for (s,) in db.execute(select(Articulo.sku).where(Articulo.sku.startswith(gen)))}
 
 
-def sufijo_convencional(talla: str | None) -> str | None:
-    """Código de talla usual: la talla numérica por 10 (7 → 070, 7.5 → 075,
-    10.5 → 105, 13 → 130). Tallas de letra o prepacks no tienen uno fijo."""
-    t = (talla or "").strip().replace(",", ".")
-    if not re.fullmatch(r"\d{1,2}(\.\d)?", t):
-        return None
-    n = round(float(t) * 10)
-    return f"{n:03d}" if 0 < n < 1000 and abs(float(t) * 10 - n) < 1e-9 else None
-
-
-def siguiente_sufijo(db: Session, gen: str, usados: set[str] | None = None, talla: str | None = None, escala=None) -> str:
-    """Código de talla para una talla nueva: el de su escala de tallas (o, sin
-    escala, la regla usual talla × 10); si está usado, el siguiente libre."""
+def siguiente_sufijo(db: Session, gen: str, usados: set[str] | None = None, valor: str | None = None, escala=None) -> str:
+    """Código de una variante nueva: el de su valor en la escala (o, sin escala, la regla
+    usual valor numérico × 10); si está usado, el siguiente libre."""
     usados = usados if usados is not None else _sufijos(db, gen)
-    return tallas_svc.codigo(escala, talla, usados)
+    return escalas.codigo(escala, valor, usados)
+
+
+def _variante(db: Session, a: Articulo, gen: str) -> dict:
+    return {"id": a.id, "sku": a.sku, "sufijo": a.sku[len(gen):] if a.sku.startswith(gen) else "",
+            "codigo_barras": a.codigo_barras, "codigo_proveedor": a.codigo_proveedor, "codigo_pack": a.codigo_pack,
+            "peso_unitario": a.peso_unitario, "tipo": a.tipo, "activo": a.activo,
+            "valores": variantes.de_articulo(db, a), "variante": variantes.texto(variantes.de_articulo(db, a)) or None}
 
 
 def detalle(db: Session, user: Usuario, gen: str) -> dict:
@@ -81,22 +75,19 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Product {gen} does not exist.", 404, "no_encontrado")
-    arts = db.scalars(_articulos(db, gen).order_by(Articulo.sku)).all()
+    arts = sorted(p.articulos, key=lambda a: a.sku)
     return {
-        "generico": gen, "producto_id": p.id, "estilo": p.estilo, "color": p.color, "marca_id": p.marca_id,
-        "grupo_id": p.grupo_id, "proveedor_id": p.proveedor_id, "unidad": p.unidad, "nombre": p.nombre,
-        "descripcion_comercial": p.descripcion_comercial,
-        "grupo_producto_id": p.grupo_producto_id,
-        "tallas": [{"id": a.id, "sku": a.sku, "sufijo": a.sku[len(gen):] if a.sku.startswith(gen) else "", "talla": a.talla, "upc": a.upc,
-                    "sku_proveedor": a.sku_proveedor, "tipo": a.tipo, "activo": a.activo, "valores": a.variantes}
-                   for a in arts],
+        "generico": gen, "producto_id": p.id, "proveedor_id": p.proveedor_id, "unidad": p.unidad, "nombre": p.nombre,
+        "descripcion_comercial": p.descripcion_comercial, "grupo_producto_id": p.grupo_producto_id,
+        "atributos": variantes.ordenar_producto(db, p.valores),
+        "variantes": [_variante(db, a, gen) for a in arts],
         "siguiente": siguiente_sufijo(db, gen), "usados": sorted(a.sku[len(gen):] for a in arts if a.sku.startswith(gen)),
     }
 
 
-def _maestros(db: Session, user: Usuario, datos, errores: list) -> tuple:
-    """Familia, marca, grupo y proveedor del producto. Son opcionales: los exige la
-    empresa (datos obligatorios de los artículos) o, al guardar las variantes, la familia."""
+def _nucleo(db: Session, user: Usuario, datos, errores: list) -> tuple:
+    """Familia, unidad y proveedor del producto. La familia y el proveedor son opcionales:
+    los exige la empresa (datos obligatorios) o, al guardar las variantes, la familia."""
     familia = db.get(GrupoFamilia, datos.grupo_producto_id) if getattr(datos, "grupo_producto_id", None) else None
     if getattr(datos, "grupo_producto_id", None) and familia is None:
         errores.append({"campo": "grupo_producto_id", "mensaje": "Choose a product family."})
@@ -104,25 +95,22 @@ def _maestros(db: Session, user: Usuario, datos, errores: list) -> tuple:
         errores.append({"campo": "unidad", "mensaje": f"The unit is one of {', '.join(de_articulo())}."})
     # Un proveedor solo crea y cambia sus propios productos
     proveedor_id = user.proveedor_id or datos.proveedor_id
-    elegidos = {"marca_id": (Marca, datos.marca_id), "grupo_id": (GrupoArticulo, datos.grupo_id),
-                "proveedor_id": (Proveedor, proveedor_id)}
-    exigidos = gobierno.obligatorios("articulos")
-    valores = {}
-    for campo, (modelo, ident) in elegidos.items():
-        valores[campo] = db.get(modelo, ident) if ident else None
-        if ident and valores[campo] is None:
-            errores.append({"campo": campo, "mensaje": "Choose a value from the list."})
-        elif not ident and campo in exigidos:
-            errores.append({"campo": campo, "mensaje": "Your company requires this data for every product."})
-    marca, prov = valores["marca_id"], valores["proveedor_id"]
-    if marca and prov and marca.id not in {m.id for m in prov.marcas}:
-        # Solo las marcas autorizadas al proveedor (Datos maestros → Proveedores)
-        errores.append({"campo": "marca_id", "mensaje": f"{marca.codigo} is not a brand of {prov.nombre}."})
-    return familia, marca, valores["grupo_id"], prov
+    prov = db.get(Proveedor, proveedor_id) if proveedor_id else None
+    if proveedor_id and prov is None:
+        errores.append({"campo": "proveedor_id", "mensaje": "Choose a value from the list."})
+    elif not proveedor_id and "proveedor_id" in gobierno.obligatorios("articulos"):
+        errores.append({"campo": "proveedor_id", "mensaje": "Your company requires this data for every product."})
+    return familia, prov
 
 
-def _id(x) -> int | None:
-    return x.id if x is not None else None
+def _atributos(db: Session, p: Producto | None, datos, prov: Proveedor | None, errores: list, nuevo: bool) -> dict:
+    """Los atributos de producto que vienen, validados (con proveedor, la marca debe ser suya)
+    y con los que la empresa exige."""
+    valores, errs = atr_svc.validar(db, "PRODUCTO", getattr(datos, "atributos", None) or {}, prov.id if prov else None)
+    errores += errs
+    finales = {**({} if nuevo or p is None else p.valores), **valores}
+    errores += atr_svc.exigir_empresa(db, "PRODUCTO", finales)
+    return valores
 
 
 def crear(db: Session, user: Usuario, datos) -> dict:
@@ -133,10 +121,10 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     errores = []
     if not codigo_valido(gen):
         errores.append({"campo": "generico", "mensaje": f"Product code: {MSG_CODIGO}"})
-    elif producto_por_generico(db, gen) or db.scalar(_articulos(db, gen).limit(1)):
+    elif producto_por_generico(db, gen):
         errores.append({"campo": "generico", "mensaje": f"Product {gen} already exists: add variants to it instead."})
-    estilo, color = (datos.estilo or "").strip().upper() or None, (datos.color or "").strip() or None
-    familia, marca, grupo, prov = _maestros(db, user, datos, errores)
+    familia, prov = _nucleo(db, user, datos, errores)
+    valores = _atributos(db, None, datos, prov, errores, nuevo=True)
     pais = (getattr(datos, "pais_origen", None) or "").strip().upper() or None
     if pais and not db.scalar(select(Pais.id).where(Pais.codigo == pais)):
         errores.append({"campo": "pais_origen", "mensaje": f"Country {pais} is not in the countries catalog."})
@@ -145,11 +133,11 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     # Sin nombre, el código: un producto siempre se puede nombrar en listas y documentos
     nombre = (datos.nombre or "").strip()[:200] or gen
     descripcion = (getattr(datos, "descripcion_comercial", None) or "").strip()[:300] or None
-    p = Producto(codigo_generico=gen, proveedor_id=_id(prov), estilo=estilo, color=color, marca_id=_id(marca),
-                 grupo_id=_id(grupo), unidad=normalizar(datos.unidad), nombre=nombre, pais_origen=pais,
-                 grupo_producto_id=familia.id if familia else None, ficha={"comManual": True} if descripcion else {},
-                 faltan=[], alertas_ok=[])
+    p = Producto(codigo_generico=gen, proveedor_id=prov.id if prov else None, unidad=normalizar(datos.unidad), nombre=nombre,
+                 pais_origen=pais, grupo_producto_id=familia.id if familia else None,
+                 ficha={"comManual": True} if descripcion else {}, faltan=[], alertas_ok=[])
     db.add(p)
+    atr_svc.poner(db, p, valores)
     try:
         db.flush()
     except IntegrityError:
@@ -157,10 +145,10 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     # Escrita, se conserva; si no, se arma con la ficha
     p.descripcion_comercial = descripcion or descripcion_comercial_simple(p)
     perfil.exigir_producto(db, p)
-    registrar(db, user, "genericos", p.id, "crear", {"generico": gen, "estilo": estilo, "color": color})
+    registrar(db, user, "genericos", p.id, "crear", {"generico": gen, "atributos": {k: v for k, v in valores.items() if v}})
     combinar = getattr(datos, "combinar", None) or {}
-    creadas = (agregar_tallas(db, user, gen, datos.tallas or [], getattr(datos, "escala_id", None), combinar)
-               if datos.tallas or combinar else [])
+    creadas = (agregar_variantes(db, user, gen, datos.variantes or [], getattr(datos, "escala_id", None), combinar)
+               if datos.variantes or combinar else [])
     return {**detalle(db, user, gen), "creadas": len(creadas)}
 
 
@@ -182,105 +170,137 @@ def combinaciones(combinar: dict[str, list[str]]) -> list[dict]:
     return [dict(zip([k for k, _ in ejes], combo, strict=True)) for combo in itertools.product(*[vs for _, vs in ejes])]
 
 
-def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id: int | None = None,
-                   combinar: dict | None = None) -> list[int]:
-    """Variantes nuevas de un producto: heredan sus datos maestros y llevan sus
-    valores de variante (escritos uno por uno o combinados)."""
+def nueva_variante(db: Session, p: Producto, sku: str, valores: dict, codigo_barras: str | None = None,
+                   codigo_proveedor: str | None = None, peso_unitario: float | None = None, unidad: str | None = None) -> Articulo:
+    """Una variante simple del producto, con sus valores y sus códigos (ya validados)."""
+    a = Articulo(sku=sku, producto=p, unidad=unidad or p.unidad or de_articulo()[0], peso_unitario=peso_unitario,
+                 tipo="SOLIDO", activo=True, organizacion_id=p.organizacion_id)
+    db.add(a)
+    a.variantes = valores
+    a.poner_codigo("BARRAS", codigo_barras)
+    a.poner_codigo("PROVEEDOR", codigo_proveedor, p.proveedor_id)
+    return a
+
+
+def validar_codigos(db: Session, codigo_barras: str | None, codigo_proveedor: str | None) -> list[str]:
+    """Largo de los códigos y que el código de barras sea solo dígitos (GTIN/EAN/UPC) o un código propio."""
+    errores = []
+    if codigo_barras and (len(codigo_barras) > 40 or not re.fullmatch(r"[A-Za-z0-9\-.]+", codigo_barras)):
+        errores.append(f"barcode {codigo_barras} is not valid (letters and numbers, up to 40).")
+    if codigo_proveedor and len(codigo_proveedor) > 60:
+        errores.append("the supplier code has 60 characters at most.")
+    return errores
+
+
+def agregar_variantes(db: Session, user: Usuario, gen: str, filas_in: list, escala_id: int | None = None,
+                      combinar: dict | None = None) -> list[int]:
+    """Variantes nuevas de un producto: llevan sus valores de variante (escritos uno por uno o combinados)."""
     exigir(user, "catalogos.crear")
     gobierno.exigir_responsable(db, user, "articulos")
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Product {gen} does not exist.", 404, "no_encontrado")
-    atributos = {a.codigo: a for a in db.scalars(select(AtributoVariante).where(AtributoVariante.activo.is_(True)))}
-    sistema = {a.columna: a.codigo for a in atributos.values() if a.columna}
-    filas = [({str(k).strip().upper(): str(v).strip() for k, v in (t.valores or {}).items() if str(v or "").strip()}
-              | ({sistema.get("talla", "TALLA"): t.talla.strip().upper()} if t.talla and t.talla.strip() else {}), t)
-             for t in tallas]
+    filas = [({str(k).strip().upper(): str(v).strip() for k, v in (t.valores or {}).items() if str(v or "").strip()}, t)
+             for t in filas_in]
     filas += [(valores, None) for valores in combinaciones(combinar or {})]
     if not filas:
         raise ErrorNegocio("Write the variants or the values to combine.", 422, "validacion")
     if len(filas) > MAX_VARIANTES:
         raise ErrorNegocio(f"At most {MAX_VARIANTES} variants at a time.", 422, "validacion")
     usados = _sufijos(db, gen)
-    escala = db.get(EscalaTalla, escala_id) if escala_id else None
-    ya = {frozenset((k, str(v).upper()) for k, v in a.variantes.items())
-          for a in db.scalars(_articulos(db, gen).where(Articulo.tipo == "SOLIDO"))}
-    cat = cat_svc.CATALOGOS["articulos"]
-    ids, errores = [], []
-    for i, (valores, t) in enumerate(filas):
-        # Un producto que fija su color lo da a todas sus variantes
-        if p.color and sistema.get("color") and sistema["color"] not in valores:
-            valores[sistema["color"]] = p.color
+    escala = db.get(EscalaValores, escala_id) if escala_id else None
+    ejes = variantes.ejes_de_grupo(p.grupo_producto) or [a.codigo for a in variantes.atributos(db)]
+    ya = {frozenset((k, str(v).upper()) for k, v in a.variantes.items()) for a in p.articulos if a.tipo == "SOLIDO"}
+    ids, nuevas, errores = [], [], []
+    for i, (crudos, t) in enumerate(filas):
+        valores, errs = atr_svc.validar(db, "VARIANTE", crudos, campo=f"variantes.{i}")
+        valores = {k: v for k, v in valores.items() if v}
         texto = " · ".join(valores.values()) or "—"
-        desconocidos = [k for k in valores if k not in atributos]
-        if desconocidos:
-            errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: {desconocidos[0]} is not a variant attribute."})
+        if errs:
+            errores += [{**e, "mensaje": f"Row {i + 1}: {e['mensaje']}"} for e in errs]
             continue
         clave = frozenset((k, v.upper()) for k, v in valores.items())
         if clave in ya:
-            errores.append({"campo": f"tallas.{i}", "mensaje": f"Variant {texto} already exists in product {gen}."})
+            errores.append({"campo": f"variantes.{i}", "mensaje": f"Variant {texto} already exists in product {gen}."})
             continue
         suf = ((t.sufijo if t else None) or "").strip().upper()
         sku = ((getattr(t, "sku", None) if t else None) or "").strip().upper()
         if sku:
             if not codigo_valido(sku) or db.scalar(select(Articulo.id).where(Articulo.sku == sku)):
-                errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: item code {sku} is taken or not valid."})
+                errores.append({"campo": f"variantes.{i}", "mensaje": f"Row {i + 1}: item code {sku} is taken or not valid."})
                 continue
         else:
             if suf and (not re.fullmatch(r"[A-Z0-9._\-/]{1,20}", suf) or suf in usados):
-                errores.append({"campo": f"tallas.{i}", "mensaje": f"Row {i + 1}: code {suf} is taken or not valid."})
+                errores.append({"campo": f"variantes.{i}", "mensaje": f"Row {i + 1}: code {suf} is taken or not valid."})
                 continue
-            # El código sale del valor del atributo de la escala (o de la talla, con la regla usual)
-            del_codigo = valores.get(escala.atributo or "TALLA") if escala else valores.get(sistema.get("talla", "TALLA"))
-            suf = suf or siguiente_sufijo(db, gen, usados, del_codigo or "", escala if del_codigo else None)
+            # El código sale del valor del atributo de la escala (o del último eje de la familia, con la regla usual)
+            base = valores.get(escala.atributo) if escala else next((valores[e] for e in reversed(ejes) if e in valores), "")
+            suf = suf or siguiente_sufijo(db, gen, usados, base or "", escala if base else None)
             usados.add(suf)
             sku = gen + suf
-        ya.add(clave)
-        datos = {"sku": sku, "generico": gen, "sku_proveedor": ((t.sku_proveedor if t else None) or "").strip() or None,
-                 "upc": ((t.upc if t else None) or "").strip() or None, "estilo": p.estilo,
-                 "color": valores.get(sistema.get("color", "")), "talla": valores.get(sistema.get("talla", "")),
-                 "marca_id": p.marca_id, "grupo_id": p.grupo_id, "proveedor_id": p.proveedor_id, "tipo": "SOLIDO",
-                 "unidad": p.unidad or de_articulo()[0], "peso_unitario": getattr(t, "peso_unitario", None) if t else None,
-                 **{f"atr.{k}": v for k, v in valores.items() if k not in sistema.values()}}
-        try:
-            limpio = cat_svc._limpiar(db, cat, {k: v for k, v in datos.items() if v is not None}, parcial=False)
-        except ErrorNegocio as e:
-            errores += [{"campo": f"tallas.{i}", "mensaje": f"Variant {texto}: {d['mensaje']}"} for d in e.detalle or []]
+        barras = ((t.codigo_barras if t else None) or "").strip() or None
+        prov = ((t.codigo_proveedor if t else None) or "").strip() or None
+        malos = validar_codigos(db, barras, prov)
+        if malos:
+            errores += [{"campo": f"variantes.{i}", "mensaje": f"Variant {texto}: {m}"} for m in malos]
             continue
-        variantes = limpio.pop("variantes", None)
-        a = Articulo(**limpio, activo=True)
-        db.add(a)
-        if variantes:
-            a.variantes = variantes
-        db.flush()
-        asegurar_producto(db, a)
-        ids.append(a.id)
+        ya.add(clave)
+        nuevas.append(nueva_variante(db, p, sku, valores, barras, prov, getattr(t, "peso_unitario", None) if t else None))
     if errores:
         raise ErrorNegocio("Some variants could not be added.", 422, "validacion", errores)
-    perfil.exigir_variantes(db, [db.get(Articulo, i) for i in ids])
-    registrar(db, user, "genericos", p.id, "tallas", {"generico": gen, "variantes": [" · ".join(v.values()) for v, _ in filas]})
+    try:
+        db.flush()
+    except IntegrityError:
+        raise ErrorNegocio("An item code is already taken.", 409, "duplicado") from None
+    ids = [a.id for a in nuevas]
+    errores = [e for a in nuevas for e in _exigidos_empresa(db, a)]
+    if errores:
+        raise ErrorNegocio("Some data your company requires is missing.", 422, "validacion", errores)
+    perfil.exigir_variantes(db, nuevas)
+    registrar(db, user, "genericos", p.id, "variantes", {"generico": gen, "variantes": [" · ".join(v.values()) for v, _ in filas]})
     return ids
 
 
-ORDEN = {"generico": Producto.codigo_generico, "estilo": Producto.estilo, "color": Producto.color,
-         "marca_id": select(Marca.codigo).where(Marca.id == Producto.marca_id).scalar_subquery(),
-         "grupo_id": select(GrupoArticulo.codigo).where(GrupoArticulo.id == Producto.grupo_id).scalar_subquery(),
+def _exigidos_empresa(db: Session, a: Articulo) -> list[dict]:
+    """Lo que la empresa exige a cada variante: sus códigos, su peso y sus atributos de variante."""
+    exigidos = gobierno.obligatorios("articulos")
+    valores = {"codigo_barras": a.codigo_barras, "codigo_proveedor": a.codigo_proveedor, "peso_unitario": a.peso_unitario}
+    errores = [{"campo": c, "mensaje": f"{a.sku}: your company requires this data for every item."}
+               for c in ("codigo_barras", "codigo_proveedor", "peso_unitario") if c in exigidos and valores[c] in (None, "")]
+    if a.tipo == "SOLIDO":
+        errores += [{**e, "mensaje": f"{a.sku}: {e['mensaje']}"} for e in atr_svc.exigir_empresa(db, "VARIANTE", a.variantes)]
+    return errores
+
+
+# Orden y filtro por columna (app/modulos/comun/tabla.py) de la vista por producto. Los atributos
+# del producto («atr.<código>») y los valores de sus variantes se filtran por sus filas.
+ORDEN = {"generico": Producto.codigo_generico, "nombre": Producto.nombre,
          "proveedor_id": select(Proveedor.nombre).where(Proveedor.id == Producto.proveedor_id).scalar_subquery(),
          "unidad": Producto.unidad, "descripcion_comercial": Producto.descripcion_comercial, "codigo": Producto.codigo,
          "estado": Producto.estado}
-# Filtro por columna (app/modulos/comun/tabla.py): marca, grupo y proveedor por
-# su id (la pantalla muestra su nombre); las tallas, por las de sus artículos
-COLUMNAS = {"generico": Producto.codigo_generico, "estilo": Producto.estilo, "color": Producto.color,
-            "marca_id": Producto.marca_id, "grupo_id": Producto.grupo_id, "proveedor_id": Producto.proveedor_id,
+COLUMNAS = {"generico": Producto.codigo_generico, "nombre": Producto.nombre, "proveedor_id": Producto.proveedor_id,
             "unidad": Producto.unidad, "descripcion_comercial": Producto.descripcion_comercial, "codigo": Producto.codigo,
-            "estado": Producto.estado, "tallas": tabla.Relacion(Articulo.talla, Articulo.producto_id, Producto.id)}
+            "estado": Producto.estado}
+
+
+def columnas(db: Session) -> dict:
+    """Las columnas fijas más una por atributo de producto y una por atributo de variante."""
+    from app.modelos import ArticuloAtributo
+
+    res = dict(COLUMNAS)
+    for a in variantes.atributos(db, "PRODUCTO"):
+        res[f"atr.{a.codigo}"] = tabla.Relacion(ProductoAtributo.valor, ProductoAtributo.producto_id, Producto.id,
+                                                donde=ProductoAtributo.atributo_id == a.id)
+    for a in variantes.atributos(db):
+        res[f"var.{a.codigo}"] = tabla.Relacion(
+            ArticuloAtributo.valor, select(Articulo.producto_id).where(Articulo.id == ArticuloAtributo.articulo_id)
+            .scalar_subquery(), Producto.id, donde=ArticuloAtributo.atributo_id == a.id)
+    return res
 
 
 def _consulta(db: Session, user: Usuario, filtros: dict):
-    """Genéricos visibles con la búsqueda y los filtros de la pantalla (sin los
+    """Productos visibles con la búsqueda y los filtros de la pantalla (sin los
     filtros por columna ni el orden)."""
-    from sqlalchemy import or_
-
     from app.modulos.acceso.permisos import proveedor_filtro
 
     exigir(user, "catalogos.ver")
@@ -288,34 +308,40 @@ def _consulta(db: Session, user: Usuario, filtros: dict):
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
     if prov:
         q = q.where(Producto.proveedor_id.in_(prov))
-    for campo in ("marca_id", "grupo_id"):
-        if filtros.get(campo):
-            q = q.where(getattr(Producto, campo).in_([int(x) for x in str(filtros[campo]).split(",") if x.strip().isdigit()]))
+    if filtros.get("marca_id"):
+        ids = [int(x) for x in str(filtros["marca_id"]).split(",") if x.strip().isdigit()]
+        q = q.where(Producto.id.in_(select(ProductoAtributo.producto_id).join(Atributo).where(
+            Atributo.catalogo == "marcas", ProductoAtributo.valor.in_(select(Marca.codigo).where(Marca.id.in_(ids))))))
+    if filtros.get("familia"):
+        from app.modulos.productos.productos import rama_de_grupos
+
+        q = q.where(Producto.grupo_producto_id.in_(rama_de_grupos(db, filtros["familia"])))
     if filtros.get("unidad"):
         q = q.where(Producto.unidad == filtros["unidad"])
     if filtros.get("q"):
         q = q.where(filtro_texto(filtros["q"], lambda t: [
-            Producto.codigo_generico.ilike(t), Producto.estilo.ilike(t), Producto.color.ilike(t),
-            Producto.id.in_(select(Articulo.producto_id).where(or_(Articulo.sku.ilike(t), Articulo.upc.ilike(t), Articulo.sku_proveedor.ilike(t))))]))
+            Producto.codigo_generico.ilike(t), Producto.nombre.ilike(t),
+            Producto.id.in_(select(ProductoAtributo.producto_id).where(ProductoAtributo.valor.ilike(t))),
+            Producto.id.in_(select(Articulo.producto_id).where(Articulo.sku.ilike(t))),
+            Producto.id.in_(select(Articulo.producto_id).join(ArticuloCodigo).where(ArticuloCodigo.valor.ilike(t)))]))
     return q
 
 
 def valores(db: Session, user: Usuario, columna: str, buscar: str | None, filtros_columna: dict, filtros: dict) -> list[dict]:
-    """Valores únicos de una columna de la vista por genérico bajo los demás filtros."""
-    expr = tabla.columna_valida(COLUMNAS, columna)
-    q = tabla.aplicar(_consulta(db, user, filtros), COLUMNAS, filtros_columna, excepto=columna)
+    """Valores únicos de una columna de la vista por producto bajo los demás filtros."""
+    cols = columnas(db)
+    expr = tabla.columna_valida(cols, columna)
+    q = tabla.aplicar(_consulta(db, user, filtros), cols, filtros_columna, excepto=columna)
     return tabla.valores(db, q, expr, buscar, contar=Producto.id)
 
 
 def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: int, size: int,
            filtros_columna: dict | None = None) -> dict:
-    """Vista compacta de artículos: un renglón por genérico con sus datos y
-    sus tallas; se despliega para ver cada artículo."""
-    from sqlalchemy import func
+    """Vista compacta de artículos: un renglón por producto con sus atributos y el
+    resumen de sus variantes; se despliega para ver cada variante."""
+    from app.modulos.productos.productos import ESTADOS, fmt_codigo
 
-    from app.modulos.productos.productos import ESTADOS, fmt_codigo, rango_tallas
-
-    q = tabla.aplicar(_consulta(db, user, filtros), COLUMNAS, filtros_columna or {})
+    q = tabla.aplicar(_consulta(db, user, filtros), columnas(db), filtros_columna or {})
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     col, _, d = (orden or "generico:asc").partition(":")
     c = ORDEN.get(col, Producto.codigo_generico)
@@ -324,18 +350,19 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
     if filas:
         for a in db.scalars(select(Articulo).where(Articulo.producto_id.in_([p.id for p in filas])).order_by(Articulo.sku)):
             arts.setdefault(a.producto_id, []).append(a)
+    marcas = {m.codigo: m.nombre for m in db.scalars(select(Marca))}
     items = []
     for p in filas:
         ls = arts.get(p.id, [])
-        solidos = [a for a in ls if a.tipo == "SOLIDO"]
+        simples = [a for a in ls if a.tipo == "SOLIDO"]
         items.append({
-            "generico": p.codigo_generico, "producto_id": p.id, "estilo": p.estilo, "color": p.color,
-            "marca_id": p.marca_id, "marca": p.marca.codigo if p.marca else None, "marca_nombre": p.marca.nombre if p.marca else None,
-            "grupo_id": p.grupo_id, "grupo": p.grupo.codigo if p.grupo else None,
+            "generico": p.codigo_generico, "producto_id": p.id, "nombre": p.nombre,
+            "atributos": variantes.ordenar_producto(db, p.valores),
+            "marca": p.marca_codigo, "marca_nombre": marcas.get(p.marca_codigo),
             "proveedor_id": p.proveedor_id, "proveedor": p.proveedor.nombre if p.proveedor else None,
-            "unidad": p.unidad, "tallas": [a.talla for a in solidos], "rango_tallas": rango_tallas([a.talla for a in solidos]),
-            "resumen_variantes": variantes.resumen(db, solidos),
-            "n_tallas": len(solidos), "n_prepacks": len(ls) - len(solidos), "activos": sum(1 for a in ls if a.activo),
+            "grupo_producto_id": p.grupo_producto_id, "unidad": p.unidad,
+            "resumen_variantes": variantes.resumen(db, simples),
+            "n_variantes": len(simples), "n_compuestos": len(ls) - len(simples), "activos": sum(1 for a in ls if a.activo),
             "descripcion_comercial": p.descripcion_comercial, "estado": p.estado, "estado_txt": ESTADOS.get(p.estado, p.estado),
             "codigo": fmt_codigo(p.codigo) if p.codigo else None,
         })
@@ -343,41 +370,42 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
 
 
 def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
-    """Cambia los datos maestros del producto y los pasa a todas sus variantes."""
+    """Cambia el núcleo y los atributos del producto (los comparten todas sus variantes)."""
     exigir(user, "catalogos.editar")
     gobierno.exigir_responsable(db, user, "articulos")
     p = producto_por_generico(db, gen)
     if not p:
         raise ErrorNegocio(f"Product {gen} does not exist.", 404, "no_encontrado")
-    arts = db.scalars(_articulos(db, gen)).all()
-    estilo = (datos.estilo or "").strip().upper() or None
-    color = (datos.color or "").strip() or None
     errores = []
-    if (estilo != p.estilo or color != p.color) and any(a.tipo == "PREPACK" for a in arts):
-        errores.append({"campo": "estilo", "mensaje": "The product has packs or kits: its model and fixed values cannot change."})
-    familia, marca, grupo, prov = _maestros(db, user, datos, errores)
+    familia, prov = _nucleo(db, user, datos, errores)
+    if prov is not None and p.proveedor_id and prov.id != p.proveedor_id and _en_ordenes(db, p):
+        errores.append({"campo": "proveedor_id", "mensaje": "The product is on purchase orders: its supplier cannot change."})
+    valores = _atributos(db, p, datos, prov, errores, nuevo=False)
     if errores:
         raise ErrorNegocio("Check the product.", 422, "validacion", errores)
-    antes = {"estilo": p.estilo, "color": p.color, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
-             "proveedor_id": p.proveedor_id, "unidad": p.unidad}
-    unidad = normalizar(datos.unidad)
-    p.estilo, p.color, p.unidad = estilo, color, unidad
-    p.marca_id, p.grupo_id, p.proveedor_id = _id(marca), _id(grupo), _id(prov)
+    antes = {"proveedor_id": p.proveedor_id, "unidad": p.unidad, "grupo_producto_id": p.grupo_producto_id}
+    p.unidad = normalizar(datos.unidad)
+    p.proveedor_id = prov.id if prov else None
     if getattr(datos, "nombre", None) is not None:
         p.nombre = datos.nombre.strip()[:200] or p.codigo_generico
     if familia is not None:
         p.grupo_producto_id = familia.id
-    for a in arts:
-        a.marca_id, a.grupo_id, a.proveedor_id = p.marca_id, p.grupo_id, p.proveedor_id
+    cambios = atr_svc.poner(db, p, valores)
+    for a in p.articulos:
         if a.tipo == "SOLIDO":
-            a.estilo, a.unidad = estilo, unidad
-            if color:  # un color del producto es el de todas sus variantes
-                a.color = color
+            a.unidad = p.unidad
     db.flush()
     if not (p.ficha or {}).get("comManual"):
         db.refresh(p)
         p.descripcion_comercial = descripcion_comercial_simple(p)
     perfil.exigir_producto(db, p)
-    perfil.exigir_variantes(db, [a for a in arts if a.activo])
-    registrar(db, user, "genericos", p.id, "editar", {"generico": gen, "antes": antes})
+    perfil.exigir_variantes(db, [a for a in p.articulos if a.activo])
+    registrar(db, user, "genericos", p.id, "editar", {"generico": gen, "antes": antes, "atributos": cambios})
     return detalle(db, user, gen)
+
+
+def _en_ordenes(db: Session, p: Producto) -> bool:
+    from app.modelos import PosicionOC
+
+    return bool(db.scalar(select(PosicionOC.id).join(Articulo, Articulo.id == PosicionOC.articulo_id)
+                          .where(Articulo.producto_id == p.id).limit(1)))

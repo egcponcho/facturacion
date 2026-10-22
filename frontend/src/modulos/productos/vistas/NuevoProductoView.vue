@@ -13,18 +13,21 @@ import { comercioExterior } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { usePerfil } from '@/modulos/productos/perfil.js'
 import { ejesDeFamilia, opcionesDe, useVariantes } from '@/modulos/productos/variantes.js'
+import CampoAtributo from '@/modulos/productos/componentes/CampoAtributo.vue'
 
 // Nuevo producto, paso a paso (como en el ERP): qué tipo de producto es (su
 // familia dice con qué atributos se distinguen sus variantes y qué datos pide),
 // sus datos generales, sus variantes (escritas o combinadas) y una revisión
 // antes de crearlo. Pide siempre lo mismo a cualquier producto (código, nombre
-// y unidad); lo demás solo si la empresa o la familia lo exigen. El borrador se
-// guarda en el servidor y se retoma al volver.
+// y unidad); lo demás solo si la empresa o la familia lo exigen. Los atributos
+// del producto (marca, modelo, material…) son los que define la empresa. El
+// borrador se guarda en el servidor y se retoma al volver.
 const router = useRouter()
 const BORRADOR = 'producto-nuevo'
-const g = reactive({ generico: '', nombre: '', estilo: '', color: '', marca_id: '', grupo_id: '', proveedor_id: '', grupo_producto_id: '', unidad: '',
-  descripcion_comercial: '', pais_origen: '' })
-const op = reactive({ marcas: [], grupos: [], proveedores: [], paises: [] })
+const VACIO = () => ({ generico: '', nombre: '', proveedor_id: '', grupo_producto_id: '', unidad: '', descripcion_comercial: '', pais_origen: '',
+  atributos: {} })
+const g = reactive(VACIO())
+const op = reactive({ marcas: [], proveedores: [], paises: [] })
 const { atributos, familias, escalaId, valores, filas, pesoTodas, cargar, ejes, escalasDe, usarEscala, nuevaFila, totalCombinaciones, combinar,
   pesoParaTodas, vacia, paraEnviar } = useVariantes(g)
 const actual = ref(0)
@@ -37,14 +40,17 @@ const intentados = reactive(new Set())
 onMounted(async () => {
   try {
     await cargar()
-    const [m, gr, p, pa, b] = await Promise.all([...['marcas', 'grupos', 'proveedores'].map((x) => api.get(`/catalogos/${x}/opciones`)),
+    const [m, p, pa, b] = await Promise.all([...['marcas', 'proveedores'].map((x) => api.get(`/catalogos/${x}/opciones`)),
       api.get('/catalogos/paises/opciones').catch(() => []), api.get('/perfil/borradores', { prefijo: BORRADOR }).catch(() => [])])
-    Object.assign(op, { marcas: m, grupos: gr, proveedores: p, paises: pa })
+    Object.assign(op, { marcas: m, proveedores: p, paises: pa })
     // Sin unidad elegida de antemano: cada producto dice la suya (salvo que la empresa tenga una sola)
     if (unidadesArticulo().length === 1) g.unidad = unidadesArticulo()[0]
     const previo = (b || []).find((x) => x.clave === BORRADOR)
     if (previo?.datos) {
-      Object.assign(g, previo.datos.g || {})
+      // Solo lo que el formulario conoce (un borrador viejo puede traer otros datos)
+      const datos = previo.datos.g || {}
+      for (const k of Object.keys(VACIO())) if (k in datos) g[k] = datos[k]
+      g.atributos = { ...(datos.atributos || {}) }
       Object.assign(valores, previo.datos.valores || {})
       filas.value = previo.datos.filas || []
       actual.value = previo.datos.actual || 0
@@ -69,20 +75,32 @@ const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto, sub: x.sub }))
 // Con proveedor, solo sus marcas autorizadas; sin proveedor, todas
 const marcasProveedor = computed(() => (g.proveedor_id
   ? op.marcas.filter((m) => (m.proveedores || []).map(String).includes(String(g.proveedor_id))) : op.marcas))
-watch(() => g.proveedor_id, () => {
-  if (g.marca_id && !marcasProveedor.value.some((m) => String(m.id) === String(g.marca_id))) g.marca_id = ''
-  if (g.proveedor_id && !g.marca_id && marcasProveedor.value.length === 1) g.marca_id = marcasProveedor.value[0].id
-})
 
 // Lo que pide el producto: el núcleo siempre; lo demás si la empresa o la familia lo exigen
-const { exige, otros } = usePerfil(() => g.grupo_producto_id)
-const EXTRAS = ['proveedor_id', 'marca_id', 'grupo_id', 'estilo', 'descripcion_comercial', 'pais_origen']
+const { exige, exigeAtributo, atributos: atributosProducto, otros } = usePerfil(() => g.grupo_producto_id)
+// Un atributo de catálogo de marcas: al elegir proveedor, la marca que ya no es suya se quita; si tiene una sola, se propone
+watch(() => g.proveedor_id, () => {
+  for (const a of atributosProducto.value.filter((x) => x.catalogo === 'marcas')) {
+    const v = g.atributos[a.codigo]
+    if (v && !marcasProveedor.value.some((m) => m.codigo === v)) g.atributos[a.codigo] = ''
+    if (g.proveedor_id && !g.atributos[a.codigo] && marcasProveedor.value.length === 1) g.atributos[a.codigo] = marcasProveedor.value[0].codigo
+  }
+})
+const EXTRAS = ['proveedor_id', 'descripcion_comercial', 'pais_origen']
 // La descripción comercial y el país de origen se completan en la ficha técnica: aquí solo si se exigen
 const extrasPedidos = computed(() => EXTRAS.filter(exige))
 const extrasOpcionales = computed(() => EXTRAS.filter((k) => !exige(k) && !['descripcion_comercial', 'pais_origen'].includes(k)))
-const NOMBRES = () => ({ proveedor_id: t('Supplier'), marca_id: t('Brand'), grupo_id: t('Item group'), estilo: t('Model'),
-  descripcion_comercial: t('Commercial description'), pais_origen: t('Country of origin') })
-const DE_VARIANTE = () => ({ upc: t('Barcode'), peso: t('Unit weight kg'), sku_proveedor: t('Supplier code') })
+const atributosPedidos = computed(() => atributosProducto.value.filter((a) => exigeAtributo(a.codigo)))
+const atributosOpcionales = computed(() => atributosProducto.value.filter((a) => !exigeAtributo(a.codigo)))
+const NOMBRES = () => ({ proveedor_id: t('Supplier'), descripcion_comercial: t('Commercial description'), pais_origen: t('Country of origin') })
+const DE_VARIANTE = () => ({ peso: t('Unit weight kg'), codigo_barras: t('Barcode'), codigo_proveedor: t('Supplier code') })
+// El texto de un atributo en la revisión: la marca con su nombre
+const textoAtributo = (a) => {
+  const v = g.atributos[a.codigo]
+  if (a.tipo === 'catalogo') return tx(op.marcas.find((m) => m.codigo === v)?.texto || v)
+  if (a.tipo === 'bool') return v === 'true' ? t('Yes') : t('No')
+  return v
+}
 
 // Lo que falta en cada paso (se muestra al intentar avanzar)
 const faltan = computed(() => ({
@@ -92,6 +110,8 @@ const faltan = computed(() => ({
     !g.nombre.trim() && t('Write the product name.'),
     !g.unidad && t('Choose the unit.'),
     ...extrasPedidos.value.filter((k) => !String(g[k] || '').trim()).map((k) => t('{0} is required for this product.', [NOMBRES()[k]])),
+    ...atributosPedidos.value.filter((a) => !String(g.atributos[a.codigo] || '').trim())
+      .map((a) => t('{0} is required for this product.', [tx(a.nombre)])),
   ].filter(Boolean),
   variantes: Object.keys(DE_VARIANTE()).filter((k) => exige(k) && variantes.value.some((f) => !String(f[k] ?? '').trim()))
     .map((k) => t('{0} is required in every variant.', [DE_VARIANTE()[k]])),
@@ -146,14 +166,14 @@ async function crear() {
   ocupado.value = true
   try {
     const r = await api.post('/catalogos/genericos', {
-      ...g, marca_id: Number(g.marca_id) || null, grupo_id: Number(g.grupo_id) || null, proveedor_id: Number(g.proveedor_id) || null,
-      grupo_producto_id: Number(g.grupo_producto_id) || null, estilo: g.estilo || null, color: g.color || null, nombre: g.nombre || null,
+      ...g, proveedor_id: Number(g.proveedor_id) || null, grupo_producto_id: Number(g.grupo_producto_id) || null, nombre: g.nombre || null,
       descripcion_comercial: g.descripcion_comercial || null, pais_origen: g.pais_origen || null,
-      tallas: paraEnviar(), escala_id: Number(escalaId.value) || null,
+      atributos: Object.fromEntries(Object.entries(g.atributos).filter(([, v]) => String(v ?? '').trim())),
+      variantes: paraEnviar(), escala_id: Number(escalaId.value) || null,
     })
     await api.del(`/perfil/borradores/${BORRADOR}`).catch(() => {})
-    avisar(comercioExterior() ? t('Product {0} created with {1} variants. Now complete its technical sheet.', [r.generico, r.tallas.length])
-      : t('Product {0} created with {1} variants.', [r.generico, r.tallas.length]))
+    avisar(comercioExterior() ? t('Product {0} created with {1} variants. Now complete its technical sheet.', [r.generico, r.variantes.length])
+      : t('Product {0} created with {1} variants.', [r.generico, r.variantes.length]))
     router.push(`/productos/${r.producto_id}`)
   } catch (e) {
     errores.value = [e.message, ...(e.detalle || []).map((d) => d.mensaje)]
@@ -166,8 +186,7 @@ async function cerrar() {
 }
 async function descartar() {
   await api.del(`/perfil/borradores/${BORRADOR}`).catch(() => {})
-  Object.assign(g, { generico: '', nombre: '', estilo: '', color: '', marca_id: '', grupo_id: '', proveedor_id: '', grupo_producto_id: '',
-    descripcion_comercial: '', pais_origen: '' })
+  Object.assign(g, { ...VACIO(), unidad: g.unidad })
   filas.value = []
   for (const k of Object.keys(valores)) valores[k] = ''
   actual.value = 0
@@ -215,25 +234,24 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
         <label class="campo"><span class="req">{{ t('Unit of its variants') }}</span><Seleccion v-model="g.unidad" class="entrada"><option value="" disabled>{{ t('Choose…') }}</option><option v-for="u in unidadesArticulo()" :key="u" :value="u">{{ etiquetaUnidad(u) }}</option></Seleccion></label>
         <template v-for="k in extrasPedidos" :key="k">
           <div v-if="k === 'proveedor_id'" class="campo"><span class="req">{{ NOMBRES()[k] }}</span><SelectBusqueda v-model="g.proveedor_id" :opciones="opc(op.proveedores)" :etiqueta="NOMBRES()[k]" /></div>
-          <div v-else-if="k === 'marca_id'" class="campo"><span class="req">{{ NOMBRES()[k] }}</span><SelectBusqueda v-model="g.marca_id" :opciones="opc(marcasProveedor)" :etiqueta="NOMBRES()[k]" /></div>
-          <div v-else-if="k === 'grupo_id'" class="campo"><span class="req">{{ NOMBRES()[k] }}</span><SelectBusqueda v-model="g.grupo_id" :opciones="opc(op.grupos)" :etiqueta="NOMBRES()[k]" /></div>
           <div v-else-if="k === 'pais_origen'" class="campo"><span class="req">{{ NOMBRES()[k] }}</span>
             <SelectBusqueda v-model="g.pais_origen" :opciones="op.paises.map((x) => ({ valor: x.codigo, texto: x.texto }))" :etiqueta="NOMBRES()[k]" /></div>
-          <label v-else class="campo"><span class="req">{{ NOMBRES()[k] }}</span><input v-model="g[k]" class="entrada" :maxlength="k === 'estilo' ? 40 : 300" /></label>
+          <label v-else class="campo"><span class="req">{{ NOMBRES()[k] }}</span><input v-model="g[k]" class="entrada" maxlength="300" /></label>
         </template>
+        <div v-for="a in atributosPedidos" :key="a.codigo" class="campo"><span class="req">{{ tx(a.nombre) }}</span>
+          <CampoAtributo v-model="g.atributos[a.codigo]" :atributo="a" :marcas="marcasProveedor" requerido /></div>
       </div>
       <p v-if="otros.length" class="nota info"><Icono nombre="info" :tam="16" />{{ t('The family also asks for: {0}. Complete them on the product page.', [otros.map((x) => tx(x.etiqueta)).join(', ')]) }}</p>
-      <details class="np-mas" :open="extrasOpcionales.some((k) => g[k])">
+      <details v-if="extrasOpcionales.length || atributosOpcionales.length" class="np-mas"
+               :open="extrasOpcionales.some((k) => g[k]) || atributosOpcionales.some((a) => g.atributos[a.codigo])">
         <summary>{{ t('More data (optional)') }}</summary>
         <div class="rejilla-campos">
           <template v-for="k in extrasOpcionales" :key="k">
             <div v-if="k === 'proveedor_id'" class="campo"><span>{{ NOMBRES()[k] }}</span><SelectBusqueda v-model="g.proveedor_id" :opciones="opc(op.proveedores)" :etiqueta="NOMBRES()[k]" />
               <small class="ayuda">{{ t('Who sells it to you. Empty for your own products.') }}</small></div>
-            <div v-else-if="k === 'marca_id'" class="campo"><span>{{ NOMBRES()[k] }}</span><SelectBusqueda v-model="g.marca_id" :opciones="opc(marcasProveedor)" :etiqueta="NOMBRES()[k]" /></div>
-            <div v-else-if="k === 'grupo_id'" class="campo"><span>{{ NOMBRES()[k] }}</span><SelectBusqueda v-model="g.grupo_id" :opciones="opc(op.grupos)" :etiqueta="NOMBRES()[k]" /></div>
-            <label v-else-if="k === 'estilo'" class="campo"><span>{{ NOMBRES()[k] }}</span><input v-model="g.estilo" class="entrada" maxlength="40" />
-              <small class="ayuda">{{ t('Only if your company names its products by a model or reference.') }}</small></label>
           </template>
+          <div v-for="a in atributosOpcionales" :key="a.codigo" class="campo"><span>{{ tx(a.nombre) }}<small v-if="a.unidad" class="ayuda"> ({{ a.unidad }})</small></span>
+            <CampoAtributo v-model="g.atributos[a.codigo]" :atributo="a" :marcas="marcasProveedor" /></div>
         </div>
       </details>
     </section>
@@ -274,8 +292,8 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
               <td v-for="a in ejes" :key="a.codigo"><input v-model="f.valores[a.codigo]" class="entrada" maxlength="60" :list="a.tipo === 'opcion' ? `np-op-${a.codigo}` : undefined" :aria-label="`${tx(a.nombre)} ${i + 1}`" /></td>
               <td><input v-model="f.sku" class="entrada" maxlength="40" :placeholder="t('Auto')" :aria-label="t('Item code {0}', [i + 1])" /></td>
               <td><input v-model="f.peso" class="entrada ancho-s" type="number" min="0" step="any" :aria-label="t('Unit weight {0}', [i + 1])" /></td>
-              <td><input v-model="f.upc" class="entrada" maxlength="40" :aria-label="t('Barcode {0}', [i + 1])" /></td>
-              <td><input v-model="f.sku_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier code {0}', [i + 1])" /></td>
+              <td><input v-model="f.codigo_barras" class="entrada" maxlength="40" :aria-label="t('Barcode {0}', [i + 1])" /></td>
+              <td><input v-model="f.codigo_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier code {0}', [i + 1])" /></td>
               <td><button type="button" class="btn-icono" :aria-label="t('Remove row {0}', [i + 1])" @click="filas.splice(i, 1)"><Icono nombre="cerrar" :tam="15" /></button></td>
             </tr>
             <tr v-if="!filas.length"><td :colspan="ejes.length + 5" class="ayuda">{{ t('No variants yet. You can also create the product now and add its variants later from its page.') }}</td></tr>
@@ -292,9 +310,9 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
         <div><span>{{ t('Name') }}</span><b>{{ g.nombre || '—' }}</b></div>
         <div><span>{{ t('Product family') }}</span><b>{{ familia ? tx(familia.nombre) : t('Without family') }}</b></div>
         <div v-if="g.proveedor_id"><span>{{ t('Supplier') }}</span><b>{{ nombreDe(op.proveedores, g.proveedor_id) }}</b></div>
-        <div v-if="g.marca_id"><span>{{ t('Brand') }}</span><b>{{ nombreDe(op.marcas, g.marca_id) }}</b></div>
-        <div v-if="g.grupo_id"><span>{{ t('Item group') }}</span><b>{{ nombreDe(op.grupos, g.grupo_id) }}</b></div>
-        <div v-if="g.estilo"><span>{{ t('Model') }}</span><b>{{ g.estilo }}</b></div>
+        <template v-for="a in atributosProducto" :key="a.codigo">
+          <div v-if="g.atributos[a.codigo]"><span>{{ tx(a.nombre) }}</span><b>{{ textoAtributo(a) }}</b></div>
+        </template>
         <div><span>{{ t('Unit') }}</span><b>{{ etiquetaUnidad(g.unidad) }}</b></div>
         <div><span>{{ t('Variants') }}</span><b>{{ variantes.length }}</b></div>
       </div>

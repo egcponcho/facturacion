@@ -358,14 +358,12 @@ def test_uncertain_cases_are_never_approved_automatically(interno, monkeypatch):
 def test_history_preferred_national_line_needs_confirmation(interno):
     """640399 tiene dos líneas oficiales en GT sin condiciones: la que solo el historial
     prefiere es una sugerencia; al aprobar, una persona la confirma."""
-    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
-    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    r = interno.post("/catalogos/genericos", {"generico": "30077702", "estilo": "VNHIST01", "color": "Black", "marca_id": m["VANS"],
-                                              "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather court shoe",
-                                              "tallas": [{"talla": "8"}]})
+    r = interno.post("/catalogos/genericos", {"generico": "30077702", "atributos": {"MARCA": "VANS", "MODELO": "VNHIST01"},
+                                              "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather court shoe",
+                                              "variantes": [{"valores": {"COLOR": "Black", "TALLA": "8"}}]})
     assert r.status_code == 200, r.text
-    p = next(x for x in interno.get("/productos", params={"q": "VNHIST01"}).json()["items"] if x["estilo"] == "VNHIST01")
+    p = next(x for x in interno.get("/productos", params={"q": "VNHIST01"}).json()["items"] if x["codigo_generico"] == "30077702")
     det = interno.get(f"/productos/{p['id']}").json()
     det = interno.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "tipo": "calzado", "pais_origen": "VN", "ficha": {
         "comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis", "altura": "bajo", "genero": "U", "edad": "adulto"}}).json()

@@ -11,6 +11,7 @@ import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import { enfocarUltimo } from '@/nucleo/utils'
 import { usePerfil } from '@/modulos/productos/perfil.js'
 import { opcionesDe, useVariantes } from '@/modulos/productos/variantes.js'
+import CampoAtributo from '@/modulos/productos/componentes/CampoAtributo.vue'
 
 // Producto (de cualquier tipo) y sus variantes. El producto se crea una vez con
 // su código, su nombre y su unidad (lo demás, si la empresa o su familia lo
@@ -21,8 +22,8 @@ import { opcionesDe, useVariantes } from '@/modulos/productos/variantes.js'
 const props = defineProps({ generico: { type: String, default: '' }, editar: Boolean })
 const emit = defineEmits(['cerrar', 'listo'])
 const agregar = computed(() => !!props.generico && !props.editar)
-const g = reactive({ generico: '', nombre: '', estilo: '', color: '', marca_id: '', grupo_id: '', proveedor_id: '', grupo_producto_id: '', unidad: '' })
-const op = reactive({ marcas: [], grupos: [], proveedores: [] })
+const g = reactive({ generico: '', nombre: '', proveedor_id: '', grupo_producto_id: '', unidad: '', atributos: {} })
+const op = reactive({ marcas: [], proveedores: [] })
 const info = ref(null)
 const errores = ref([])
 const ocupado = ref(false)
@@ -34,14 +35,14 @@ onMounted(async () => {
     if (props.generico) info.value = await api.get(`/catalogos/genericos/${props.generico}`)
     await cargar()
     if (!agregar.value) {
-      const [m, gr, p] = await Promise.all(['marcas', 'grupos', 'proveedores'].map((x) => api.get(`/catalogos/${x}/opciones`)))
-      Object.assign(op, { marcas: m, grupos: gr, proveedores: p })
+      const [m, p] = await Promise.all(['marcas', 'proveedores'].map((x) => api.get(`/catalogos/${x}/opciones`)))
+      Object.assign(op, { marcas: m, proveedores: p })
     }
     if (!g.unidad && unidadesArticulo().length === 1) g.unidad = unidadesArticulo()[0]
     if (info.value) {
       const i = info.value
-      Object.assign(g, { generico: i.generico, nombre: i.nombre || '', estilo: i.estilo || '', color: i.color || '', marca_id: i.marca_id, grupo_id: i.grupo_id,
-        proveedor_id: i.proveedor_id, grupo_producto_id: i.grupo_producto_id || '', unidad: i.unidad })
+      Object.assign(g, { generico: i.generico, nombre: i.nombre || '', proveedor_id: i.proveedor_id, grupo_producto_id: i.grupo_producto_id || '',
+        unidad: i.unidad, atributos: { ...(i.atributos || {}) } })
     }
   } catch (e) {
     errorApi(e)
@@ -51,9 +52,12 @@ const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto, sub: x.sub }))
 
 async function guardar() {
   errores.value = []
-  const tallas = paraEnviar()
-  const maestros = { ...g, marca_id: Number(g.marca_id) || null, grupo_id: Number(g.grupo_id) || null, proveedor_id: Number(g.proveedor_id) || null,
-    grupo_producto_id: Number(g.grupo_producto_id) || null, estilo: g.estilo || null, color: g.color || null, nombre: g.nombre || null }
+  const variantes = paraEnviar()
+  // Al editar van todos los atributos (vacío = se quita); al crear, solo los escritos
+  const atributos = Object.fromEntries(Object.entries(g.atributos).map(([k, v]) => [k, String(v ?? '').trim() || null])
+    .filter(([, v]) => props.editar || v))
+  const maestros = { ...g, proveedor_id: Number(g.proveedor_id) || null, grupo_producto_id: Number(g.grupo_producto_id) || null,
+    nombre: g.nombre || null, atributos }
   ocupado.value = true
   try {
     if (props.editar) {
@@ -63,10 +67,10 @@ async function guardar() {
       return
     }
     const r = agregar.value
-      ? await api.post(`/catalogos/genericos/${props.generico}/tallas`, { tallas, escala_id: Number(escalaId.value) || null })
-      : await api.post('/catalogos/genericos', { ...maestros, tallas, escala_id: Number(escalaId.value) || null })
-    avisar(agregar.value ? t('{0} variants added to {1}.', [tallas.length, props.generico])
-      : t('Product {0} created with {1} variants.', [r.generico, r.tallas.length]))
+      ? await api.post(`/catalogos/genericos/${props.generico}/variantes`, { variantes, escala_id: Number(escalaId.value) || null })
+      : await api.post('/catalogos/genericos', { ...maestros, variantes, escala_id: Number(escalaId.value) || null })
+    avisar(agregar.value ? t('{0} variants added to {1}.', [variantes.length, props.generico])
+      : t('Product {0} created with {1} variants.', [r.generico, r.variantes.length]))
     emit('listo', r)
   } catch (e) {
     errores.value = [e.message, ...(e.detalle || []).map((d) => d.mensaje)]
@@ -77,13 +81,16 @@ async function guardar() {
 // Con proveedor, solo sus marcas autorizadas; sin proveedor, todas
 const marcasProveedor = computed(() => (g.proveedor_id
   ? op.marcas.filter((m) => (m.proveedores || []).map(String).includes(String(g.proveedor_id))) : op.marcas))
-watch(() => g.proveedor_id, () => {
-  if (g.marca_id && !marcasProveedor.value.some((m) => String(m.id) === String(g.marca_id))) g.marca_id = ''
-  if (g.proveedor_id && !g.marca_id && marcasProveedor.value.length === 1) g.marca_id = marcasProveedor.value[0].id
-})
 // Lo que la empresa o la familia exigen se marca como obligatorio
-const { exige } = usePerfil(() => g.grupo_producto_id)
-const variantesActuales = computed(() => (info.value?.tallas || []).filter((x) => x.tipo === 'SOLIDO')
+const { exige, exigeAtributo, atributos: atributosProducto } = usePerfil(() => g.grupo_producto_id)
+// Al cambiar de proveedor, la marca que ya no es suya se quita
+watch(() => g.proveedor_id, () => {
+  for (const a of atributosProducto.value.filter((x) => x.catalogo === 'marcas')) {
+    const v = g.atributos[a.codigo]
+    if (v && !marcasProveedor.value.some((m) => m.codigo === v)) g.atributos[a.codigo] = ''
+  }
+})
+const variantesActuales = computed(() => (info.value?.variantes || []).filter((x) => x.tipo === 'SOLIDO')
   .map((x) => Object.values(x.valores || {}).join(' · ') || x.sku).join(', '))
 </script>
 
@@ -102,11 +109,10 @@ const variantesActuales = computed(() => (info.value?.tallas || []).filter((x) =
         <SelectBusqueda v-model="g.grupo_producto_id" :opciones="familias.map((f) => ({ valor: f.id, texto: f.nombre, sub: f.ruta }))" :vacio="t('No family')" :etiqueta="t('Product family')" />
         <small class="ayuda">{{ t('The family says which data its products need and which attributes tell its variants apart.') }}</small></div>
       <div class="campo"><span :class="{ req: exige('proveedor_id') }">{{ t('Supplier') }}</span><SelectBusqueda v-model="g.proveedor_id" :opciones="opc(op.proveedores)" :vacio="t('None')" :etiqueta="t('Supplier')" /></div>
-      <div class="campo"><span :class="{ req: exige('marca_id') }">{{ t('Brand') }}</span><SelectBusqueda v-model="g.marca_id" :opciones="opc(marcasProveedor)" :vacio="t('None')" :etiqueta="t('Brand')" /></div>
-      <div class="campo"><span :class="{ req: exige('grupo_id') }">{{ t('Item group') }}</span><SelectBusqueda v-model="g.grupo_id" :opciones="opc(op.grupos)" :vacio="t('None')" :etiqueta="t('Item group')" /></div>
-      <label class="campo"><span :class="{ req: exige('estilo') }">{{ t('Model') }}</span><input v-model="g.estilo" class="entrada" maxlength="40" :placeholder="t('Optional')" /></label>
-      <!-- Un valor fijo de color solo en productos que ya lo tienen (los nuevos fijan un valor eligiendo uno solo en sus variantes) -->
-      <label v-if="props.editar && g.color" class="campo"><span>{{ t('Fixed color') }}</span><input v-model="g.color" class="entrada" maxlength="60" /></label>
+      <!-- Los atributos del producto que define la empresa (marca, modelo, material…) -->
+      <div v-for="a in atributosProducto" :key="a.codigo" class="campo">
+        <span :class="{ req: exigeAtributo(a.codigo) }">{{ tx(a.nombre) }}<small v-if="a.unidad" class="ayuda"> ({{ a.unidad }})</small></span>
+        <CampoAtributo v-model="g.atributos[a.codigo]" :atributo="a" :marcas="marcasProveedor" :requerido="exigeAtributo(a.codigo)" /></div>
     </div>
     <p v-if="props.editar" class="ayuda mt-chico">{{ t('Changes apply to every variant of the product. Item codes, barcodes and supplier codes are edited per variant.') }}</p>
 
@@ -141,16 +147,16 @@ const variantesActuales = computed(() => (info.value?.tallas || []).filter((x) =
       <div class="tabla-marco tabla-captura">
         <table class="tabla variantes" v-tarjetas>
           <thead><tr><th v-for="a in ejes" :key="a.codigo">{{ tx(a.nombre) }}</th><th>{{ t('Variant code') }}</th><th>{{ t('Item code') }}</th>
-            <th :class="{ req: exige('peso') }">{{ t('Unit weight kg') }}</th><th :class="{ req: exige('upc') }">{{ t('Barcode') }}</th>
-            <th :class="{ req: exige('sku_proveedor') }">{{ t('Supplier code') }}</th><th></th></tr></thead>
+            <th :class="{ req: exige('peso') }">{{ t('Unit weight kg') }}</th><th :class="{ req: exige('codigo_barras') }">{{ t('Barcode') }}</th>
+            <th :class="{ req: exige('codigo_proveedor') }">{{ t('Supplier code') }}</th><th></th></tr></thead>
           <tbody>
             <tr v-for="(f, i) in filas" :key="i">
               <td v-for="a in ejes" :key="a.codigo"><input v-model="f.valores[a.codigo]" class="entrada" maxlength="60" :list="a.tipo === 'opcion' ? `op-${a.codigo}` : undefined" :aria-label="`${tx(a.nombre)} ${i + 1}`" /></td>
               <td><input v-model="f.sufijo" class="entrada" maxlength="20" :placeholder="t('Auto')" :aria-label="t('Variant code {0}', [i + 1])" :disabled="!!f.sku" /></td>
               <td><input v-model="f.sku" class="entrada" maxlength="40" :placeholder="t('Auto')" :aria-label="t('Item code {0}', [i + 1])" /></td>
               <td><input v-model="f.peso" class="entrada ancho-s" type="number" min="0" step="any" :aria-label="t('Unit weight {0}', [i + 1])" /></td>
-              <td><input v-model="f.upc" class="entrada" maxlength="40" :aria-label="t('Barcode {0}', [i + 1])" /></td>
-              <td><input v-model="f.sku_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier code {0}', [i + 1])" /></td>
+              <td><input v-model="f.codigo_barras" class="entrada" maxlength="40" :aria-label="t('Barcode {0}', [i + 1])" /></td>
+              <td><input v-model="f.codigo_proveedor" class="entrada" maxlength="60" :aria-label="t('Supplier code {0}', [i + 1])" /></td>
               <td><button type="button" class="btn-icono" :aria-label="t('Remove row {0}', [i + 1])" @click="filas.splice(i, 1)"><Icono nombre="cerrar" :tam="15" /></button></td>
             </tr>
             <tr v-if="!filas.length"><td :colspan="ejes.length + 6" class="ayuda">{{ t('Write the values above and create the combinations, or add rows one by one.') }}</td></tr>

@@ -104,7 +104,7 @@ await quieto()
   await p.getByRole('button', { name: /^(Next|Siguiente): / }).click()
   await quieto()
   if (sinFamilia) {
-    await p.locator('.af-cuerpo tbody tr', { hasText: sinFamilia.estilo }).first().locator('input[type=checkbox]').check()
+    await p.locator('.af-cuerpo tbody tr', { hasText: sinFamilia.codigo_generico }).first().locator('input[type=checkbox]').check()
     revisar(await p.locator('.barra-seleccion, .bs').first().isVisible().catch(() => false) || await p.locator('.af-elegidos').isVisible(), 'lo elegido se ve arriba y en la barra flotante')
   }
   revisar(!(await a.get('/etiquetas/familias')).some((f) => f.codigo === 'E2EWIZ'), 'mientras se avanza, nada se aplica')

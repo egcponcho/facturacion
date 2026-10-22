@@ -45,9 +45,9 @@ class Organizacion(Base):
 
 
 class DefinicionCampo(DeOrganizacion, Base):
-    """Campo propio que la empresa agrega a una entidad (artículos,
-    proveedores, OCs, facturas…). La clave técnica es estable; la etiqueta se
-    cambia libremente. Los valores van en la columna `extra` (JSON) de cada
+    """Campo propio que la empresa agrega a una entidad (proveedores, OCs,
+    facturas…; los productos y sus variantes tienen atributos: modelos/maestros.py).
+    La clave técnica es estable; la etiqueta se cambia libremente. Los valores van en la columna `extra` (JSON) de cada
     registro con esa clave (core/campos_propios.py). Un campo indexado tiene en
     PostgreSQL un índice sobre su valor para filtrarlo e informarlo rápido."""
 
@@ -55,8 +55,8 @@ class DefinicionCampo(DeOrganizacion, Base):
     __table_args__ = (
         UniqueConstraint("organizacion_id", "entidad", "clave", name="uq_definiciones_campo_org_entidad_clave"),
         CheckConstraint("tipo IN ('texto', 'numero', 'fecha', 'bool', 'opcion')", name="ck_definiciones_campo_tipo"),
-        CheckConstraint("entidad IN ('articulos', 'proveedores', 'sociedades', 'centros', 'marcas', 'transportistas', "
-                        "'ordenes', 'facturas')", name="ck_definiciones_campo_entidad"),
+        CheckConstraint("entidad IN ('proveedores', 'sociedades', 'centros', 'marcas', 'transportistas', 'ordenes', "
+                        "'facturas')", name="ck_definiciones_campo_entidad"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     entidad: Mapped[str] = mapped_column(String(20), index=True)

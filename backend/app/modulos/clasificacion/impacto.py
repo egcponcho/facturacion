@@ -61,7 +61,7 @@ def simular(db, user: Usuario, datos: dict, regla_id: int | None = None) -> dict
         despues = _hs6(db, productos, cat)
     finally:
         punto.rollback()
-    cambian = [{"id": p.id, "estilo": p.estilo, "color": p.color, "estado": p.estado, "aprobado": fmt_codigo(p.codigo) if p.codigo else None,
+    cambian = [{"id": p.id, "nombre": p.nombre, "codigo_generico": p.codigo_generico, "estado": p.estado, "aprobado": fmt_codigo(p.codigo) if p.codigo else None,
                 "antes": fmt_codigo(antes[p.id]) if antes[p.id] else None, "despues": fmt_codigo(despues[p.id]) if despues[p.id] else None}
                for p in productos if antes[p.id] != despues[p.id]]
     return {"en_ambito": total, "evaluados": len(productos), "cambian": cambian,
@@ -89,5 +89,5 @@ def desde_producto(db, user: Usuario, producto_id: int) -> dict:
         condiciones.append({"grupo": 1, "campo": a.codigo, "operador": "EQUAL", "valor": v, "negado": False})
     c = cat.categorias.get(p.tipo)
     return {"tipo_regla": "HARD_CONSTRAINT", "tipo_ambito": "CATEGORY", "codigo_ambito": p.tipo, "prioridad": 600,
-            "efecto": f"{c.nombre if c else p.tipo} → {fmt_codigo(hs6)} ({p.estilo})"[:500],
+            "efecto": f"{c.nombre if c else p.tipo} → {fmt_codigo(hs6)} ({p.nombre or p.codigo_generico})"[:500],
             "accion": {"tipo": "RESTRICT", "codigos": [hs6]}, "condiciones": condiciones[:8]}

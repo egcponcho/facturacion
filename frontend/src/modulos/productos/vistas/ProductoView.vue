@@ -44,7 +44,7 @@ const tocados = reactive(new Set())
 const filas = reactive({}) // filas de composición que se editan, por campo comp.*
 // ?vista=etiquetas abre la pestaña de etiquetas (enlaces desde el etiquetado)
 const comex = comercioExterior()
-const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : comex ? 'ficha' : 'tallas')
+const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : comex ? 'ficha' : 'variantes')
 const editarProducto = ref(false)
 const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
@@ -54,7 +54,7 @@ const codOficial = ref('')
 const otroCodigo = ref('')
 const modal = ref(null)
 const verRazones = ref(false)
-const agregarTallas = ref(false)
+const agregarVariantes = ref(false)
 const cargas = ref(0) // vuelve a montar el formulario tras guardar
 
 const aprobado = computed(() => ['aprobado', 'corregido'].includes(p.value?.estado))
@@ -515,7 +515,7 @@ function aplicarCorreccion(c) {
 
 async function descargarFicha(formato, version) {
   try {
-    await api.descargar(`/productos/${p.value.id}/ficha`, `sheet_${p.value.estilo}${version ? `_v${version}` : ''}.${formato}`, { formato, version })
+    await api.descargar(`/productos/${p.value.id}/ficha`, `sheet_${p.value.codigo_generico || p.value.id}${version ? `_v${version}` : ''}.${formato}`, { formato, version })
   } catch (e) {
     errorApi(e)
   }
@@ -586,11 +586,11 @@ const colCodigosVersion = [
 ]
 // Variantes (artículos) del producto
 const descripcionArticulo = (a) => (p.value.descripcion_comercial
-  ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? `${t('pack')} ${a.talla}` : textoVariante(a)}` : a.descripcion)
+  ? `${p.value.descripcion_comercial}, ${textoVariante(a)}` : a.descripcion)
 const colArticulos = [
   { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
-  { clave: 'sku_proveedor', texto: t('Supplier code'), prioridad: 3 },
-  { clave: 'upc', texto: t('Barcode'), prioridad: 3 },
+  { clave: 'codigo_proveedor', texto: t('Supplier code'), prioridad: 3 },
+  { clave: 'codigo_barras', texto: t('Barcode'), prioridad: 3 },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
   { clave: 'descripcion', texto: t('Description'), prioridad: 3, valor: (a) => descripcionArticulo(a) },
@@ -652,7 +652,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <Icono v-else nombre="caja" :tam="24" />
         </span>
         <div>
-          <span class="doc-numero">{{ tx(p.nombre || p.codigo_generico || [p.estilo, p.color].filter(Boolean).join(' · ')) }}</span>
+          <span class="doc-numero">{{ tx(p.nombre || p.codigo_generico) }}</span>
           <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Product code')">{{ p.codigo_generico }}</span>
             {{ [p.descripcion_comercial, p.marca_nombre || p.marca, p.proveedor !== (p.marca_nombre || p.marca) ? p.proveedor : null].filter(Boolean).map(tx).join(' · ') }}</div>
         </div>
@@ -705,7 +705,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         <div class="pestanas" role="tablist">
           <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
             <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />{{ t('Variants and packs') }}
+          <button class="pestana" role="tab" :aria-selected="pestana === 'variantes'" @click="pestana = 'variantes'"><Icono nombre="caja" :tam="16" />{{ t('Variants and packs') }}
             <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
             <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
@@ -784,12 +784,12 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           </div>
         </div>
 
-        <!-- Tallas y prepacks -->
-        <div v-else-if="pestana === 'tallas'">
+        <!-- Variantes, packs y kits -->
+        <div v-else-if="pestana === 'variantes'">
           <div class="fila-flex mt-chico entre">
             <p class="ayuda">{{ comex ? t('Every variant of product {0} shares its technical sheet and its HS code. Packs and kits are built with these variants and take their code.', [p.codigo_generico || '—'])
               : t('Every variant of product {0} shares its data. Packs and kits are built with these variants.', [p.codigo_generico || '—']) }}</p>
-            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add variants') }}</button>
+            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarVariantes = true"><Icono nombre="mas" :tam="14" />{{ t('Add variants') }}</button>
           </div>
           <div class="mt-chico">
             <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Variants and packs')">
@@ -798,9 +798,9 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
               <template #celda-activo="{ fila: a }"><span v-if="a.activo" class="etiqueta ok ms-0">{{ t('Active') }}</span><span v-else class="etiqueta ms-0">{{ t('Inactive') }}</span></template>
             </TablaDatos>
           </div>
-          <div v-for="x in p.prepacks" :key="x.id" class="panel mt">
-            <div class="panel-cabeza"><div><h2>{{ t('Pack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per pack', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
-            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.variante || c.talla || c.sku) }} × {{ tx(c.cantidad) }}</span></div>
+          <div v-for="x in p.compuestos" :key="x.id" class="panel mt">
+            <div class="panel-cabeza"><div><h2>{{ x.kit ? t('Kit {0}', [x.codigo]) : t('Pack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per pack', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
+            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.variante || c.sku) }} × {{ tx(c.cantidad) }}</span></div>
           </div>
         </div>
 
@@ -967,7 +967,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <div class="panel-cabeza"><div><h2>{{ t('Similar products') }}</h2><p>{{ t('Already classified') }}</p></div></div>
           <ul class="parecidos">
             <li v-for="x in r.parecidos.slice(0, 3)" :key="x.id">
-              <router-link :to="`/productos/${x.id}`"><span v-if="x.generico" class="codigo">{{ tx(x.generico) }}</span> {{ tx(x.estilo) }} {{ tx(x.color) }}</router-link>
+              <router-link :to="`/productos/${x.id}`"><span v-if="x.generico" class="codigo">{{ tx(x.generico) }}</span> {{ tx(x.nombre) }}</router-link>
               <span class="codigo-sac">{{ tx(x.codigo_txt) }}</span>
               <span class="sub">{{ tx(x.descripcion) }}</span>
             </li>
@@ -1009,7 +1009,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
     </div>
 
     <!-- Ventanas -->
-    <GenericoModal v-if="agregarTallas" :generico="p.codigo_generico" @cerrar="agregarTallas = false" @listo="agregarTallas = false; cargar()" />
+    <GenericoModal v-if="agregarVariantes" :generico="p.codigo_generico" @cerrar="agregarVariantes = false" @listo="agregarVariantes = false; cargar()" />
     <GenericoModal v-if="editarProducto" :generico="p.codigo_generico" editar @cerrar="editarProducto = false" @listo="editarProducto = false; cargar()" />
     <Modal v-if="modal?.tipo === 'devolver'" :titulo="t('Return to the supplier')" @cerrar="modal = null">
       <label class="campo"><span class="req">{{ t('What should be corrected') }}</span><textarea v-model="modal.texto" class="entrada" rows="4" maxlength="2000"></textarea></label>

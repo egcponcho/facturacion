@@ -87,12 +87,12 @@ alCambiar(() => cargar(), ['/existencias'])
     <template #barra>
       <label class="buscador">
         <Icono nombre="buscar" :tam="16" />
-        <input v-model="filtros.q" type="search" :placeholder="t('Search item, style, PO or supplier')" :aria-label="t('Search')" @input="buscar" />
+        <input v-model="filtros.q" type="search" :placeholder="t('Search item, product, PO or supplier')" :aria-label="t('Search')" @input="buscar" />
       </label>
       <SelectBusqueda v-model="filtros.centro" :opciones="opcionesBodega" :vacio="t('All warehouses')" :etiqueta="t('Warehouse')" />
     </template>
     <template #celda-centro="{ fila: f }"><b class="codigo">{{ tx(f.centro) }}</b><span class="sub">{{ tx(f.centro_nombre || '') }}</span></template>
-    <template #celda-codigo="{ fila: f }"><span class="codigo">{{ tx(f.codigo) }}</span><template v-if="f.variante || f.talla"> · {{ tx(f.variante || f.talla) }}</template><span class="sub">{{ tx(f.estilo || f.descripcion) }}</span></template>
+    <template #celda-codigo="{ fila: f }"><span class="codigo">{{ tx(f.codigo) }}</span><template v-if="f.variante"> · {{ tx(f.variante) }}</template><span class="sub">{{ tx(f.descripcion) }}</span></template>
     <template #celda-recibido="{ fila: f }">{{ fmtCant(f.recibido) }}</template>
     <template #celda-danado="{ fila: f }"><span :class="{ 'texto-aviso': f.danado > 0 }">{{ fmtCant(f.danado) }}</span></template>
     <template #celda-disponible="{ fila: f }"><b>{{ fmtCant(f.disponible) }}</b></template>

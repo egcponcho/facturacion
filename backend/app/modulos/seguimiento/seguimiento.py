@@ -10,7 +10,7 @@ llevarla a la bodega, darle ingreso y reexportarla (ver leadtimes).
 from datetime import date, timedelta
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core import listas
 from app.core.db import plano
@@ -22,7 +22,7 @@ from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_fa
 from app.modulos.maestros import variantes
 from app.modulos.seguimiento import metricas
 from app.modulos.transporte import leadtimes as lt
-from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
+from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, familia_de, limite_puerto
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -35,7 +35,7 @@ ETAPAS = [
     ("ENTREGADO", "Delivered"),
     ("RECIBIDO", "Received"),
 ]
-ORDEN = {"almacen", "grupo", "documento", "marca", "estilo", "color", "talla", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
+ORDEN = {"almacen", "familia", "documento", "marca", "variante", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
          "holgura", "embarque", "contenedor", "recolectado_en", "proveedor"}
 TODO = 100_000  # «todas las filas» al calcular sobre la lista completa
 
@@ -110,15 +110,26 @@ def valores_columna(filas: list[dict], columnas: dict, columna: str, q: str | No
 
 
 
+def _familia(p: PosicionOC):
+    a = p.articulo
+    g = a.producto.grupo_producto if a is not None and a.producto is not None else None
+    return g.familia if g is not None else None
+
+
 def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) -> dict:
+    db = object_session(p)
+    fam = _familia(p)
     return {
         "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
-        "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_articulo,
+        # La marca es el atributo del producto que apunta al catálogo de marcas (foto de la línea)
+        "marca": variantes.de_catalogo(db, p.atributos, "marcas"), "sku": p.codigo_articulo,
+        "atributos": variantes.de_producto_linea(p, db),
         # Valores de variante por atributo ({"COLOR": "BLACK", "CONC": "30 %"}): los filtros y
         # opciones salen de aquí, sin suponer qué atributos usa la empresa
         "variantes": (vals := variantes.de_linea(p)),
         "variante": variantes.texto(vals) or None,
-        "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen, "grupo": p.grupo,
+        "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen,
+        "familia": fam.nombre if fam else None,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
         "liberacion_comercial": oc.liberacion_comercial, "liberacion_logistica": oc.liberacion_logistica,
         "transportista": None, "puerto_origen": None, "puerto_destino": None,
@@ -156,9 +167,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     posiciones = list(db.scalars(consulta).all())
     ests = Estandares(db)
 
-    def sin_embarque(fila: dict, oc: OrdenCompra, grupo: str | None = None) -> None:
+    def sin_embarque(fila: dict, oc: OrdenCompra, familia: int | None = None) -> None:
         # Aún sin embarque: se estima el arribo con la XF y el tránsito estándar de su origen
-        est = ests.de_oc(oc, grupo)
+        est = ests.de_oc(oc, familia)
         llegada = arribo_estimado(oc.fecha_xf, est, hoy)
         _en_tienda(fila, llegada, est)
         lim = fila["limite_puerto"]
@@ -171,9 +182,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0 and p.oc.estado in metricas.OC_CON_SALDO:
-            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, p.grupo)), "cantidad": saldo,
+            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, familia_de(p))), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
-            sin_embarque(fila, p.oc, p.grupo)
+            sin_embarque(fila, p.oc, familia_de(p))
             filas.append(fila)
 
     cond = [Factura.estado != "CANCELADA", OrdenCompra.estado.in_(metricas.OC_EN_SEGUIMIENTO),
@@ -197,7 +208,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, p.grupo)), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia_de(p))), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -215,31 +226,32 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                 llegada = e.arribo_real or e.eta or (
                     entre(e.salida_real or e.etd, ests.de_oc(oc, modo=e.tipo_transporte), "salida", "arribo")
                     if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de_oc(oc), hoy))
-                _en_tienda(fila, llegada, ests.de_oc(oc, p.grupo, e.tipo_transporte))
+                _en_tienda(fila, llegada, ests.de_oc(oc, familia_de(p), e.tipo_transporte))
                 if fila["limite_puerto"] and llegada:
                     fila["holgura"] = (fila["limite_puerto"] - llegada).days
                 fila["riesgo"] = _riesgo(fila["holgura"])
             else:
-                sin_embarque(fila, oc, p.grupo)
+                sin_embarque(fila, oc, familia_de(p))
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, p.grupo)), "cantidad": resto, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia_de(p))), "cantidad": resto, "factura_id": f.id,
                     "factura": nombre_factura(f), "etapa": "FACTURADO"}
-            sin_embarque(fila, oc, p.grupo)
+            sin_embarque(fila, oc, familia_de(p))
             filas.append(fila)
     return filas
 
 
 # Filtros exactos de la vista (valor igual) y rangos de fechas (desde/hasta)
-FILTROS_EXACTOS = ("oc_id", "marca", "estilo", "color", "talla", "almacen", "grupo", "sku", "contenedor", "documento",
+FILTROS_EXACTOS = ("oc_id", "marca", "almacen", "familia", "sku", "contenedor", "documento",
                    "etapa", "riesgo", "embarque_id", "proveedor", "sociedad", "centro", "liberacion_comercial",
                    "liberacion_logistica")
 RANGOS = ("eta", "fecha_xf", "fecha_tienda")
 
 
-# Filtro por atributo de variante: var_<CÓDIGO>=valor1,valor2 (el código del catálogo)
+# Filtro por atributo de variante (var_<CÓDIGO>=valor1,valor2) o de producto (atr_<CÓDIGO>=…)
 PREFIJO_VARIANTE = "var_"
+PREFIJO_ATRIBUTO = "atr_"
 
 
 def _valores(todas: list[dict], campo: str) -> list:
@@ -254,15 +266,15 @@ def _orden_valor(v: str):
         return (1, 0.0, str(v))
 
 
-def _atributos_opciones(db: Session, todas: list[dict]) -> list[dict]:
-    """Los atributos de variante presentes en las filas, en el orden del
-    catálogo, con sus valores: son los filtros de variante de la pantalla."""
+def _atributos_opciones(db: Session, todas: list[dict], clave: str = "variantes", nivel: str = "VARIANTE") -> list[dict]:
+    """Los atributos de variante (o de producto) presentes en las filas, en el orden del
+    catálogo, con sus valores: son los filtros de la pantalla."""
     nombres = variantes.nombres(db)
     vistos: dict[str, set] = {}
     for f in todas:
-        for k, v in (f.get("variantes") or {}).items():
+        for k, v in (f.get(clave) or {}).items():
             vistos.setdefault(k, set()).add(str(v))
-    orden = [a.codigo for a in variantes.atributos(db)]
+    orden = [a.codigo for a in variantes.atributos(db, nivel)]
     claves = [k for k in orden if k in vistos] + sorted(k for k in vistos if k not in orden)
     return [{"codigo": k, "nombre": nombres.get(k, k), "valores": sorted(vistos[k], key=_orden_valor)} for k in claves]
 
@@ -278,11 +290,11 @@ def _opciones(db: Session, todas: list[dict]) -> dict:
     embarques = sorted({(f["embarque_id"], f["embarque"]) for f in todas if f["embarque_id"]})
     return {
         "marcas": _valores(todas, "marca"),
-        "estilos": _valores(todas, "estilo"),
         "atributos": _atributos_opciones(db, todas),
+        "atributos_producto": _atributos_opciones(db, todas, "atributos", "PRODUCTO"),
         "liberaciones": _liberaciones_opciones(db),
         "almacenes": _valores(todas, "almacen"),
-        "grupos": _valores(todas, "grupo"),
+        "familias": _valores(todas, "familia"),
         "skus": _valores(todas, "sku"),
         "contenedores": _valores(todas, "contenedor"),
         "documentos": _valores(todas, "documento"),
@@ -313,6 +325,9 @@ def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
         if clave.startswith(PREFIJO_VARIANTE):
             codigo = clave[len(PREFIJO_VARIANTE):]
             filas = [f for f in filas if _en((f.get("variantes") or {}).get(codigo, ""), valor)]
+        elif clave.startswith(PREFIJO_ATRIBUTO):
+            codigo = clave[len(PREFIJO_ATRIBUTO):]
+            filas = [f for f in filas if _en((f.get("atributos") or {}).get(codigo, ""), valor)]
     if filtros.get("riesgo"):
         # El riesgo es de lo que aún no llega a bodega: lo recibido ya no está en riesgo
         filas = [f for f in filas if f["etapa"] != "RECIBIDO"]
@@ -325,8 +340,9 @@ def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
     if filtros.get("q"):
         t = filtros["q"].strip().lower()
         filas = [f for f in filas if any(t in str(f[k] or "").lower()
-                                         for k in ("sku", "oc", "factura", "contenedor", "embarque", "estilo", "pl",
-                                                   "documento", "variante"))]
+                                         for k in ("sku", "oc", "factura", "contenedor", "embarque", "pl",
+                                                   "documento", "variante", "marca"))
+                 or any(t in str(v).lower() for v in (f.get("atributos") or {}).values())]
     return filas
 
 
@@ -519,7 +535,7 @@ def explosion_unidad(db: Session, user: Usuario, unidad_id: int, proveedor_id: i
             "oc_id": f["oc_id"], "oc": f["oc"], "proveedor": f["proveedor"], "sociedad": f["sociedad"],
             "centro": f["centro"], "centro_destino": f["centro_destino"], "fecha_tienda": f["fecha_tienda"],
             "fecha_xf": f["fecha_xf"], "lineas": []})
-        o["lineas"].append({k: f[k] for k in ("posicion", "sku", "marca", "grupo", "estilo", "color", "talla", "variante",
+        o["lineas"].append({k: f[k] for k in ("posicion", "sku", "marca", "familia", "atributos", "variante",
                                               "almacen", "cantidad", "unidad", "tipo_empaque", "factura",
                                               "factura_id", "pl", "pl_id", "holgura", "riesgo")})
     res = []

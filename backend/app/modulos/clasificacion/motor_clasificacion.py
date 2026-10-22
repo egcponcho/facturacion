@@ -839,46 +839,48 @@ def _historial_composicion(db: Session, categoria, pid) -> list[dict]:
     """Composiciones de los productos de la misma categoría (para sugerir materiales)."""
     if not categoria:
         return []
-    q = (select(Producto.id, Producto.estilo, Producto.color, Producto.ficha, Producto.marca_id).where(Producto.tipo == categoria)
-         .order_by(Producto.id.desc()).limit(400))
-    marcas = {m.id: m.nombre for m in db.scalars(select(Marca))}
-    return [{"estilo": x.estilo, "color": x.color, "marca": marcas.get(x.marca_id), "comp": (x.ficha or {}).get("comp") or {}}
-            for x in db.execute(q) if x.id != pid]
+    from app.modulos.productos.productos import marca_de
+
+    q = select(Producto).where(Producto.tipo == categoria, Producto.id != (pid or 0)).order_by(Producto.id.desc()).limit(400)
+    res = []
+    for x in db.scalars(q):
+        marca = marca_de(x)
+        res.append({"estilo": x.nombre or x.codigo_generico, "color": None, "marca": marca.nombre if marca else None,
+                    "comp": (x.ficha or {}).get("comp") or {}})
+    return res
 
 
 def _historial(db: Session, entrada: dict, categoria, perfil: str) -> dict:
-    """Clasificaciones aprobadas parecidas: el mismo estilo/genérico y el mismo perfil."""
+    """Clasificaciones aprobadas parecidas: el mismo código de producto y el mismo perfil."""
     from app.modulos.productos.productos import APROBADOS
 
     out = {"tally": {}, "mismo": None, "evidencia": [], "mismo_estilo": [], "parecidos": []}
     if not categoria:
         return out
     pid = entrada.get("producto_id")
-    q = select(Producto.id, Producto.estilo, Producto.color, Producto.codigo_generico, Producto.codigo,
+    q = select(Producto.id, Producto.codigo_generico, Producto.codigo,
                ClasificacionProducto.perfil, Producto.tipo, Producto.nombre, Producto.descripcion_aduana, Producto.sac_codigo) \
         .outerjoin(ClasificacionProducto, ClasificacionProducto.producto_id == Producto.id) \
         .where(Producto.estado.in_(APROBADOS), Producto.codigo.is_not(None))
-    # Mismo perfil, o el mismo estilo o genérico si la entrada los trae
+    # Mismo perfil, o el mismo código de producto si la entrada lo trae
     cond = [ClasificacionProducto.perfil == perfil]
-    if entrada.get("estilo"):
-        cond.append(Producto.estilo == entrada["estilo"])
     if entrada.get("generico"):
         cond.append(Producto.codigo_generico == entrada["generico"])
     for x in db.execute(q.where(or_(*cond))):
         if x.id == pid:
             continue
         cod = x.codigo[:6]
-        mismo_est = (entrada.get("estilo") and x.estilo == entrada.get("estilo")) or (entrada.get("generico") and x.codigo_generico == entrada.get("generico"))
+        mismo_est = bool(entrada.get("generico") and x.codigo_generico == entrada.get("generico"))
         if (x.perfil == perfil and x.tipo == categoria) or mismo_est:
             c = x.sac_codigo or x.codigo
-            out["parecidos"].append({"id": x.id, "estilo": x.estilo, "color": x.color, "generico": x.codigo_generico, "codigo": c,
+            out["parecidos"].append({"id": x.id, "nombre": x.nombre, "generico": x.codigo_generico, "codigo": c,
                                      "codigo_txt": formato(c), "descripcion": x.nombre or x.descripcion_aduana, "mismo_estilo": bool(mismo_est)})
         if x.perfil == perfil and x.tipo == categoria:
             out["tally"][cod] = out["tally"].get(cod, 0) + 1
-        if (entrada.get("estilo") and x.estilo == entrada.get("estilo")) or (entrada.get("generico") and x.codigo_generico == entrada.get("generico")):
-            out["mismo_estilo"].append({"id": x.id, "codigo": x.codigo, "color": x.color, "tipo": x.tipo})
+        if mismo_est:
+            out["mismo_estilo"].append({"id": x.id, "codigo": x.codigo, "tipo": x.tipo})
             if x.tipo == categoria and not out["mismo"]:
-                out["mismo"] = {"id": x.id, "codigo": x.codigo, "estilo": x.estilo}
+                out["mismo"] = {"id": x.id, "codigo": x.codigo, "nombre": x.nombre or x.codigo_generico}
                 out["tally"][cod] = out["tally"].get(cod, 0) + 2
     out["evidencia"] = [{"codigo": k, "productos": n} for k, n in sorted(out["tally"].items(), key=lambda kv: -kv[1])]
     out["parecidos"] = sorted(out["parecidos"], key=lambda x: not x["mismo_estilo"])[:5]
@@ -1091,7 +1093,7 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
         if o and oe:
             add("aviso", f'The style suggests "{o.etiqueta.lower()}" ({a.etiqueta.lower()}), but "{oe.etiqueta.lower()}" was chosen.')
     # Catálogos (marca y proveedor)
-    from app.modelos import Marca, Proveedor
+    from app.modelos import Proveedor
     from app.modulos.clasificacion.composicion import norm as _n
 
     if entrada.get("marca"):
@@ -1102,16 +1104,15 @@ def _alertas_datos(db, cat, s, ficha, detectado, tocados, entrada, cobj, histori
             p = next((x for x in db.scalars(select(Proveedor)) if _n(x.nombre).strip() == _n(entrada["proveedor"]).strip()), None)
             if p and p.marcas and not any(_n(x.nombre).strip() == _n(entrada["marca"]).strip() for x in p.marcas):
                 add("aviso", f"Supplier {p.nombre} does not have the brand {entrada['marca']}.")
-    # El mismo estilo ya clasificado con otro código u otra categoría
+    # El mismo producto ya clasificado con otro código u otra categoría
     for x in historial["mismo_estilo"]:
         if elegido and x["codigo"][:6] != elegido[:6]:
-            color = f" (color {x['color']})" if x.get("color") else ""
-            add("aviso", f"The same style is already classified as {formato(x['codigo'])}{color}. "
-                "Colors of one style usually share the same code; check which is right.", "codigo")
+            add("aviso", f"The same product is already classified as {formato(x['codigo'])}. "
+                "Check which code is right.", "codigo")
             break
     for x in historial["mismo_estilo"]:
         if x["tipo"] and s.get("categoria") and x["tipo"] != s["categoria"]:
-            add("aviso", f'The style is recorded in another product as "{x["tipo"]}".')
+            add("aviso", f'The product is recorded in another sheet as "{x["tipo"]}".')
             break
     return out
 

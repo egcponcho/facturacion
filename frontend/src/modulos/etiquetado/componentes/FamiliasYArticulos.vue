@@ -22,8 +22,8 @@ import { textoDonde, textoSalida } from '@/modulos/etiquetado/etiquetas.js'
 // Familias de etiquetado y qué es de cada una. A la izquierda el árbol (solo
 // nombres y cuántos artículos tienen); a la derecha la ficha de la elegida
 // (sus etiquetas, sus campos y sus acciones juntas) y lo que pertenece a ella:
-// productos (la familia se pone al producto y la heredan sus tallas), artículos
-// con familia propia o grupos de artículos completos. Para agregar no hay que ir
+// sus productos (la familia es del producto y la comparten todas sus variantes);
+// la vista de artículos elige variantes y les pone la familia a sus productos. Para agregar no hay que ir
 // al final: «Agregar a esta familia» está arriba y lo elegido se pone desde la
 // barra flotante. Editar y crear se hace en la misma página, sin ventanas.
 const route = useRoute()
@@ -107,7 +107,7 @@ function celdaGuardada() {
   cargarMatriz()
 }
 
-// ---- Productos, artículos o grupos ------------------------------------------------------------------
+// ---- Productos o artículos ------------------------------------------------------------------------
 // ver: lo que es de la familia elegida · agregar: lo que aún no es de ella (sin familia o de otra)
 const modo = ref('ver')
 const origenAgregar = ref('sin')
@@ -115,13 +115,11 @@ const filtroFamilia = computed(() => (modo.value === 'agregar' ? origenAgregar.v
 const tabla = ref(null)
 const q = ref('')
 const datos = ref({ items: [], total: 0 })
-const grupos = ref([])
 const cargando = ref(false)
 const seleccion = ref([])
 const destino = ref('')
 let ultima = null
 async function consultar(c = ultima) {
-  if (que.value === 'grupos') return cargarGrupos()
   if (!c) return
   ultima = c
   cargando.value = true
@@ -137,20 +135,8 @@ async function consultar(c = ultima) {
     cargando.value = false
   }
 }
-async function cargarGrupos() {
-  cargando.value = true
-  try {
-    const r = await api.get('/etiquetas/grupos-articulos', { q: q.value || undefined, familia: filtroFamilia.value })
-    grupos.value = modo.value === 'agregar' ? r.filter((g) => String(g.familia_id || '') !== elegida.value) : r
-  } catch (e) {
-    errorApi(e)
-  } finally {
-    cargando.value = false
-  }
-}
 async function recargar() {
   seleccion.value = []
-  if (que.value === 'grupos') return cargarGrupos()
   await nextTick()
   if (tabla.value && tabla.value.pagina !== 1) tabla.value.pagina = 1
   else consultar()
@@ -161,30 +147,20 @@ watch(q, () => {
   espera = setTimeout(recargar, 300)
 })
 watch([elegida, que, modo, origenAgregar], recargar)
-onMounted(() => que.value === 'grupos' && cargarGrupos())
 
 const columnas = computed(() => (que.value === 'productos' ? [
-  { clave: 'estilo', texto: t('Product'), fija: true, prioridad: 1, ordenable: false, filtro: false },
-  { clave: 'nombre', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
-  { clave: 'grupo', texto: t('Group'), prioridad: 3, ordenable: false, filtro: false },
-  { clave: 'tallas', texto: t('Sizes'), num: true, prioridad: 3, ordenable: false, filtro: false },
+  { clave: 'producto', texto: t('Product'), fija: true, prioridad: 1, ordenable: false, filtro: false },
+  { clave: 'nombre', texto: t('Name'), prioridad: 2, ordenable: false, filtro: false },
+  { clave: 'variantes', texto: t('Variants'), num: true, prioridad: 3, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
   { clave: 'categoria', texto: t('Labeling category'), prioridad: 2, ordenable: false, filtro: false },
-] : que.value === 'articulos' ? [
+] : [
   { clave: 'sku', texto: t('SKU'), fija: true, prioridad: 1, ordenable: false, filtro: false },
   { clave: 'descripcion', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 2, ordenable: false, filtro: false },
-  { clave: 'grupo', texto: t('Group'), prioridad: 3, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
-] : [
-  { clave: 'codigo', texto: t('Group'), fija: true, prioridad: 1 },
-  { clave: 'nombre', texto: t('Name'), prioridad: 1 },
-  { clave: 'categoria', texto: t('Category'), prioridad: 3 },
-  { clave: 'articulos', texto: t('Items'), num: true, prioridad: 2 },
-  { clave: 'familia', texto: t('Labeling family'), prioridad: 1 },
 ]))
-const ORIGEN = () => ({ ARTICULO: t('own'), PRODUCTO: t('by product'), GRUPO: t('by group') })
-const QUE_TXT = () => ({ productos: t('products'), articulos: t('items'), grupos: t('groups') })
+const QUE_TXT = () => ({ productos: t('products'), articulos: t('items') })
 
 // Poner en una familia (o quitarla) lo elegido; con artículos, también todos los del filtro
 async function asignar(familia, todos = false) {
@@ -192,7 +168,6 @@ async function asignar(familia, todos = false) {
   try {
     let r
     if (que.value === 'productos') r = await api.post('/etiquetas/productos/familia', { familia_id, ids: seleccion.value })
-    else if (que.value === 'grupos') r = await api.post('/etiquetas/grupos-articulos/familia', { familia_id, grupo_ids: seleccion.value })
     else {
       r = await api.post('/etiquetas/articulos/familia', todos ? { familia_id, filtro: { q: q.value || undefined, familia: filtroFamilia.value } }
         : { familia_id, ids: seleccion.value })
@@ -308,7 +283,7 @@ async function mover(f, delta) {
               <p v-if="familiaElegida.padre_id" class="fa-ruta">{{ tx(familiaElegida.ruta || '') }}</p>
               <h3>{{ tx(familiaElegida.nombre) }} <span class="etiqueta ms-0">{{ familiaElegida.codigo }}</span>
                 <span v-if="!familiaElegida.activa" class="etiqueta aviso ms-0">{{ t('Inactive') }}</span></h3>
-              <p class="ayuda">{{ t('{0} items · {1} products · {2} groups', [fmtNum(familiaElegida.articulos || 0), fmtNum(familiaElegida.productos || 0), fmtNum(familiaElegida.grupos || 0)]) }}
+              <p class="ayuda">{{ t('{0} items · {1} products', [fmtNum(familiaElegida.articulos || 0), fmtNum(familiaElegida.productos || 0)]) }}
                 <template v-if="subfamilias.length"> · {{ t('{0} subfamilies', [subfamilias.length]) }}</template></p>
             </div>
             <div v-if="editable" class="fa-ficha-acciones">
@@ -350,7 +325,7 @@ async function mover(f, delta) {
         <template v-else>
           <!-- Arriba de la tabla: qué se ve, buscar y agregar (nada de ir hasta el final) -->
           <div class="fa-barra">
-            <Segmentos v-model="que" :opciones="[['productos', t('Products')], ['articulos', t('Items (sizes)')], ['grupos', t('Item groups')]]" :etiqueta="t('Show')" />
+            <Segmentos v-model="que" :opciones="[['productos', t('Products')], ['articulos', t('Items (variants)')]]" :etiqueta="t('Show')" />
             <label class="buscador fa-buscar"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search')" :aria-label="t('Search')" /></label>
             <span class="crece" />
             <template v-if="familiaElegida && editable">
@@ -363,34 +338,26 @@ async function mover(f, delta) {
             <span>{{ t('Choose the {0} to put in «{1}», then use the bar at the bottom.', [QUE_TXT()[que], tituloDerecha]) }}</span>
             <Segmentos v-model="origenAgregar" :opciones="[['sin', t('Without family')], ['', t('All the others')]]" :etiqueta="t('From')" />
           </div>
-          <p v-else class="ayuda">{{ que === 'productos' ? t('The family is set on the product; all its sizes inherit it unless a size has its own.')
-            : que === 'articulos' ? t('A size with its own family keeps it even if its product or group has another one.')
-              : t('Every item of a group belongs to its family, except the products or items that have their own.') }}</p>
+          <p v-else class="ayuda">{{ que === 'productos' ? t('The family is set on the product; all its variants, packs and kits share it.')
+            : t('Choosing items puts the family on their products: all their variants share it.') }}</p>
 
-          <TablaDatos v-if="que !== 'grupos'" :key="`${que}-${modo}`" ref="tabla" :tabla="`etiquetas_${que}`" modo="servidor" :columnas="columnas" :filas="datos.items"
+          <TablaDatos :key="`${que}-${modo}`" ref="tabla" :tabla="`etiquetas_${que}`" modo="servidor" :columnas="columnas" :filas="datos.items"
                       :total="datos.total" :cargando="cargando" :seleccionable="editable" v-model:seleccion="seleccion" :etiqueta="tituloDerecha"
                       :externos="{ q, elegida, modo, origenAgregar }" @consulta="consultar">
-            <template #celda-estilo="{ fila: p }"><router-link :to="`/productos/${p.id}?vista=etiquetas`" class="enlace"><strong>{{ p.estilo }}</strong></router-link><span class="sub">{{ p.color }}</span></template>
-            <template #celda-sku="{ fila: a }"><strong class="codigo">{{ a.sku }}</strong><span class="sub">{{ a.estilo }}</span></template>
+            <template #celda-producto="{ fila: p }"><router-link :to="`/productos/${p.id}?vista=etiquetas`" class="enlace"><strong>{{ p.codigo_generico || p.nombre }}</strong></router-link></template>
+            <template #celda-sku="{ fila: a }"><strong class="codigo">{{ a.sku }}</strong><span class="sub">{{ tx(a.producto || a.generico) }}</span></template>
             <template #celda-familia="{ fila: x }">
               <span v-if="x.familia" class="etiqueta ms-0">{{ tx(x.familia) }}</span>
-              <span v-if="x.familia && x.familia_origen" class="sub">{{ ORIGEN()[x.familia_origen] }}</span>
               <span v-if="!x.familia" class="etiqueta aviso ms-0">{{ t('Without family') }}</span>
             </template>
             <template #celda-categoria="{ fila: x }">
               <template v-if="x.categoria"><span class="etiqueta ms-0">{{ tx(x.categoria) }}</span>
-                <span class="sub">{{ x.categoria_parcial ? t('only some sizes') : x.categoria_origen === 'MANUAL' ? t('set by hand') : t('by its conditions') }}</span></template>
+                <span class="sub">{{ x.categoria_parcial ? t('only some variants') : x.categoria_origen === 'MANUAL' ? t('set by hand') : t('by its conditions') }}</span></template>
               <template v-else-if="x.categorias?.length"><span v-for="c in x.categorias" :key="c" class="etiqueta ms-0">{{ tx(c) }}</span>
-                <span class="sub">{{ t('depends on the size') }}</span></template>
+                <span class="sub">{{ t('depends on the variant') }}</span></template>
               <span v-else class="apagado">—</span>
             </template>
             <template #vacio>{{ modo === 'agregar' ? t('Nothing to add here: everything already has a family.') : t('Nothing here.') }}</template>
-          </TablaDatos>
-          <TablaDatos v-else tabla="etiquetas_grupos" :columnas="columnas" :filas="grupos" :cargando="cargando" :seleccionable="editable"
-                      v-model:seleccion="seleccion" :etiqueta="t('Item groups')">
-            <template #celda-codigo="{ fila: g }"><strong class="codigo">{{ g.codigo }}</strong></template>
-            <template #celda-familia="{ fila: g }"><span v-if="g.familia" class="etiqueta ms-0">{{ tx(g.familia) }}</span><span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span></template>
-            <template #vacio>{{ t('Nothing here.') }}</template>
           </TablaDatos>
           <p v-if="editable && modo === 'agregar' && que === 'articulos' && datos.total > seleccion.length" class="ayuda">
             <button type="button" class="enlace" @click="asignar(elegida, true)">{{ t('Put all {0} of the filter in «{1}»', [fmtNum(datos.total), tituloDerecha]) }}</button></p>

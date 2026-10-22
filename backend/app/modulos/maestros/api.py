@@ -25,14 +25,14 @@ def meta(db: Db, user: User):
 
 @router.post("/genericos")
 def crear_generico(datos: s.GenericoIn, db: Db, user: User, clave: Clave = None):
-    """Genérico (8 dígitos) con sus datos maestros y sus tallas."""
+    """Producto nuevo con su núcleo, sus atributos y, si vienen, sus variantes."""
     return ejecutar(db, user, clave, lambda: genericos.crear(db, user, datos))
 
 
 @router.get("/genericos")
 def genericos_lista(request: Request, db: Db, user: User, orden: str | None = None, page: int = Query(1, ge=1),
                     size: int = Query(25, ge=1, le=200), f: str | None = None):
-    """Artículos agrupados por genérico (un renglón con sus tallas), con filtros, filtros por columna, orden y paginación."""
+    """Artículos agrupados por producto (un renglón con sus variantes), con filtros, filtros por columna, orden y paginación."""
     filtros = {k: v for k, v in _filtros(request).items() if v != ""}
     if request.query_params.get("q"):
         filtros["q"] = request.query_params["q"]
@@ -41,7 +41,7 @@ def genericos_lista(request: Request, db: Db, user: User, orden: str | None = No
 
 @router.get("/genericos/valores")
 def genericos_valores(request: Request, db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None):
-    """Valores únicos de una columna de la vista por genérico (con cuántos genéricos tienen cada uno) bajo los demás filtros."""
+    """Valores únicos de una columna de la vista por producto (con cuántos productos tienen cada uno) bajo los demás filtros."""
     filtros = {k: v for k, v in _filtros(request).items() if v != ""}
     if request.query_params.get("q"):
         filtros["q"] = request.query_params["q"]
@@ -50,43 +50,43 @@ def genericos_valores(request: Request, db: Db, user: User, columna: str, buscar
 
 @router.put("/genericos/{gen}")
 def editar_generico(gen: str, datos: s.GenericoEditIn, db: Db, user: User, clave: Clave = None):
-    """Cambia los datos maestros de un genérico y los pasa a todas sus tallas."""
+    """Cambia el núcleo y los atributos de un producto (los comparten todas sus variantes)."""
     return ejecutar(db, user, clave, lambda: genericos.editar(db, user, gen, datos))
 
 
 @router.get("/genericos/{gen}")
 def generico(gen: str, db: Db, user: User):
-    """Genérico con sus datos maestros, sus tallas y el siguiente sufijo de código libre."""
+    """Producto con sus atributos, sus variantes y el siguiente sufijo de código libre."""
     return genericos.detalle(db, user, gen)
 
 
-@router.post("/genericos/{gen}/tallas")
-def agregar_tallas(gen: str, datos: s.TallasIn, db: Db, user: User, clave: Clave = None):
-    """Agrega variantes a un producto (heredan sus datos maestros), escritas o combinadas, y devuelve el producto."""
+@router.post("/genericos/{gen}/variantes")
+def agregar_variantes(gen: str, datos: s.VariantesIn, db: Db, user: User, clave: Clave = None):
+    """Agrega variantes a un producto, escritas o combinadas, y devuelve el producto."""
     def hacer():
-        genericos.agregar_tallas(db, user, gen, datos.tallas, datos.escala_id, datos.combinar)
+        genericos.agregar_variantes(db, user, gen, datos.variantes, datos.escala_id, datos.combinar)
         return genericos.detalle(db, user, gen)
     return ejecutar(db, user, clave, hacer)
 
 
-@router.get("/escalas/{escala_id}/tallas")
-def tallas_escala(escala_id: int, db: Db, user: User):
-    """Tallas de una escala con el código que tendrá cada una."""
+@router.get("/escalas/{escala_id}/valores")
+def valores_escala(escala_id: int, db: Db, user: User):
+    """Valores de una escala con el código que tendrá cada uno."""
     from app.core.errores import ErrorNegocio
-    from app.modelos import EscalaTalla
+    from app.modelos import EscalaValores
     from app.modulos.acceso.permisos import exigir
-    from app.modulos.maestros import tallas as tallas_svc
+    from app.modulos.maestros import escalas
 
     exigir(user, "catalogos.ver")
-    e = db.get(EscalaTalla, escala_id)
+    e = db.get(EscalaValores, escala_id)
     if not e:
-        raise ErrorNegocio("The size scale does not exist.", 404, "no_encontrado")
-    return {"id": e.id, "codigo": e.codigo, "nombre": e.nombre, "tallas": tallas_svc.con_codigos(e)}
+        raise ErrorNegocio("The value scale does not exist.", 404, "no_encontrado")
+    return {"id": e.id, "codigo": e.codigo, "nombre": e.nombre, "atributo": e.atributo, "valores": escalas.con_codigos(e)}
 
 
 @router.post("/{tipo}/importar")
 async def importar(tipo: str, db: Db, user: User, archivo: UploadFile = File(...)):
-    """Artículos (con su ficha técnica), prepacks o cualquier catálogo desde Excel o CSV."""
+    """Productos y variantes, packs y kits o cualquier catálogo desde Excel o CSV."""
     res = cargas.importar_catalogo(db, user, tipo, archivo.filename or "datos.csv", await leer_subida(archivo))
     db.commit()
     return res
@@ -106,10 +106,16 @@ def exportar(tipo: str, request: Request, db: Db, user: User, q: str | None = No
     return descarga(cargas.exportar_catalogo(db, user, tipo, q, filtros, orden, formato, tabla.leer(f)), f"{tipo}", formato)
 
 
-@router.get("/prepacks/{prepack_id}/componentes")
-def componentes(prepack_id: int, db: Db, user: User):
-    """Componentes de un prepack (artículo, talla y cantidad) con su total."""
-    return svc.componentes(db, user, prepack_id)
+@router.post("/compuestos")
+def crear_compuesto(db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Pack o kit nuevo: su código de artículo y su contenido (variantes y cantidades), que ya no cambia."""
+    return ejecutar(db, user, clave, lambda: svc.crear_compuesto(db, user, datos))
+
+
+@router.get("/compuestos/{articulo_id}/componentes")
+def componentes(articulo_id: int, db: Db, user: User):
+    """Contenido de un pack o un kit (variante y cantidad) con su total."""
+    return svc.componentes(db, user, articulo_id)
 
 
 @router.get("/articulos/{articulo_id}/versiones")
@@ -120,7 +126,7 @@ def versiones_articulo(articulo_id: int, db: Db, user: User):
 
 @router.get("/explosion/{sku}")
 def explosion(sku: str, db: Db, user: User):
-    """Explosión de un artículo prepack en sus componentes, de solo lectura. Requiere el permiso oc.ver."""
+    """Contenido de un pack o un kit, de solo lectura. Requiere el permiso oc.ver."""
     return svc.explosion(db, user, sku)
 
 

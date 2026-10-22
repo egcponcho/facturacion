@@ -26,36 +26,28 @@ from app.modelos.empresa import ConAdjunto
 if TYPE_CHECKING:
     from app.modelos.acceso import Usuario
     from app.modelos.grupos import GrupoProducto
-    from app.modelos.maestros import Articulo, GrupoArticulo, Marca, Proveedor
+    from app.modelos.maestros import Articulo, Atributo, Proveedor
 
 
 class Producto(DeOrganizacion, Base):
-    """Un producto de un proveedor, de cualquier tipo (un químico, un zapato, una
-    materia prima, un electrodoméstico, un alimento…), con su código propio
-    (`codigo_generico`). Lo comparten todas sus variantes (artículos) y sus
-    compuestos; aquí viven su ficha técnica y su clasificación arancelaria: la
-    partida SAC aprobada y el código nacional de cada país destino. Estilo y
-    color son opcionales: los usa quien identifica así sus productos."""
+    """Un producto de cualquier tipo (un químico, una prenda, una materia prima,
+    un electrodoméstico, un alimento…): su código propio (`codigo_generico`), su
+    nombre, la unidad de sus variantes, su familia y, si se compra, su proveedor.
+    Todo lo demás (marca, modelo, material…) son sus atributos de producto
+    (producto_atributos), los que dice su familia. Lo comparten todas sus
+    variantes (artículos) y sus compuestos. Con el complemento de comercio
+    exterior, aquí viven también su ficha técnica y su clasificación arancelaria."""
 
     __tablename__ = "productos"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo_generico", name="uq_productos_org_codigo_generico"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)  # opcional (0091)
-    estilo: Mapped[str | None] = mapped_column(String(40))
-    color: Mapped[str | None] = mapped_column(String(60))
-    marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
-    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
+    # Quién lo vende (opcional): un proveedor solo ve y carga sus propios productos
+    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)
     # Su grupo de producto (modelos/grupos.py): una familia, que heredan sus tallas que no tienen
     # una propia, o una categoría puesta a mano (que dice también su familia). Sin categoría a
     # mano, la categoría se reconoce sola por las condiciones de las categorías.
     grupo_producto_id: Mapped[int | None] = mapped_column(
         ForeignKey("grupos_producto.id", name="fk_productos_grupo_producto_id"), index=True)
-    # Congeladas desde la migración 0081 (apuntan a las tablas anteriores), solo para volver atrás
-    familia_etiquetado_anterior_id: Mapped[int | None] = mapped_column(
-        "familia_etiquetado_id", ForeignKey("familias_etiquetado.id", name="fk_productos_familia_etiquetado_id"), index=True)
-    categoria_etiquetado_anterior_id: Mapped[int | None] = mapped_column(
-        "categoria_etiquetado_id", ForeignKey("categorias_etiquetado.id", name="fk_productos_categoria_etiquetado_id"),
-        index=True)
     # Código del producto (el «genérico»): lo comparten todas sus variantes y compuestos
     codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
     unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus variantes simples (lista «unidad»)
@@ -90,8 +82,8 @@ class Producto(DeOrganizacion, Base):
     version: Mapped[int] = mapped_column(Integer, default=1)  # control de concurrencia
 
     proveedor: Mapped["Proveedor | None"] = relationship()
-    marca: Mapped["Marca | None"] = relationship()
-    grupo: Mapped["GrupoArticulo | None"] = relationship()
+    atributos: Mapped[list["ProductoAtributo"]] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", lazy="selectin", order_by="ProductoAtributo.id")
     clasificacion: Mapped["ClasificacionProducto | None"] = relationship(
         back_populates="producto", cascade="all, delete-orphan", uselist=False, lazy="joined")
     articulos: Mapped[list["Articulo"]] = relationship(back_populates="producto", order_by="Articulo.id")
@@ -166,12 +158,42 @@ class Producto(DeOrganizacion, Base):
         self.grupo_producto_id = grupo_id
 
     @property
+    def valores(self) -> dict:
+        """{código del atributo: valor} de sus atributos de producto."""
+        return {x.atributo.codigo: x.valor for x in self.atributos}
+
+    def valor(self, codigo: str) -> str | None:
+        return next((x.valor for x in self.atributos if x.atributo.codigo == codigo), None)
+
+    def valor_de_catalogo(self, catalogo: str) -> str | None:
+        """El código guardado en su atributo que apunta a ese catálogo (la marca: «marcas»)."""
+        return next((x.valor for x in self.atributos if x.atributo.catalogo == catalogo), None)
+
+    @property
+    def marca_codigo(self) -> str | None:
+        return self.valor_de_catalogo("marcas")
+
+    @property
     def aprobado(self) -> bool:
         return self.estado in ("aprobado", "corregido") and bool(self.codigo)
 
     @property
     def revisado_por(self) -> "Usuario | None":
         return self.clasificacion.revisado_por if self.clasificacion else None
+
+
+class ProductoAtributo(DeOrganizacion, Base):
+    """Valor de un atributo de producto (uno por atributo): la marca, el modelo, el material…"""
+
+    __tablename__ = "producto_atributos"
+    __table_args__ = (UniqueConstraint("producto_id", "atributo_id", name="uq_producto_atributos_producto_atributo"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id", ondelete="CASCADE"), index=True)
+    atributo_id: Mapped[int] = mapped_column(ForeignKey("atributos.id"), index=True)
+    valor: Mapped[str] = mapped_column(String(200))
+
+    producto: Mapped[Producto] = relationship(back_populates="atributos")
+    atributo: Mapped["Atributo"] = relationship(lazy="joined")
 
 
 class ClasificacionProducto(DeOrganizacion, Base):

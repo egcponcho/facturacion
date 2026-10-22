@@ -10,10 +10,10 @@ def _familia(api, codigo, nombre, **kw):
 
 
 def test_crear_modificar_desactivar_y_ordenar(interno):
-    calzado = _familia(interno, "calzado", "Footwear", campos=[{"campo": "articulo.talla", "obligatorio": True},
-                                                               {"campo": "articulo.estilo"}])
+    calzado = _familia(interno, "calzado", "Footwear", campos=[{"campo": "articulo.atributo.TALLA", "obligatorio": True},
+                                                               {"campo": "producto.dato.MODELO"}])
     assert calzado["codigo"] == "CALZADO" and calzado["activa"] and calzado["campos"] == [
-        {"campo": "articulo.talla", "obligatorio": True}, {"campo": "articulo.estilo", "obligatorio": False}]
+        {"campo": "articulo.atributo.TALLA", "obligatorio": True}, {"campo": "producto.dato.MODELO", "obligatorio": False}]
     quim = _familia(interno, "QUIMICOS", "Chemicals", descripcion="Cleaning products")
     # Código único, campos que existan y solo del artículo o producto
     assert interno.post("/etiquetas/familias", {"codigo": "CALZADO", "nombre": "x"}).status_code == 422
@@ -36,47 +36,46 @@ def test_crear_modificar_desactivar_y_ordenar(interno):
     assert {"crear", "editar"} <= acciones
 
 
-def test_asignar_familia_a_articulos_sin_tocar_la_clasificacion(interno):
-    ropa = _familia(interno, "ROPA", "Apparel")
-    sin = interno.get("/etiquetas/articulos", params={"size": 5}).json()
-    assert sin["total"] >= 3
-    elegidos = [a["id"] for a in sin["items"][:3]]
+def test_asignar_familia_por_articulos_la_pone_a_su_producto(interno):
+    """Elegir artículos pone la familia a sus productos (la comparten todas sus
+    variantes); la clasificación arancelaria del producto no cambia."""
     from app.core.db import SessionLocal
     from app.core.organizacion import en_organizacion
     from app.modelos import Articulo
 
+    ropa = _familia(interno, "ROPA", "Apparel")
+    prods = interno.get("/etiquetas/productos", params={"size": 200}).json()["items"]
+    antes = {x["id"]: x["familia_id"] for x in prods}
+    p = next(x for x in prods if x["variantes"] >= 3)
+    arts = interno.get("/etiquetas/articulos", params={"producto_id": p["id"], "size": 200}).json()["items"]
+    elegidos = [a["id"] for a in arts[:2]]
     with SessionLocal() as db, en_organizacion(1):
-        p = db.get(Articulo, elegidos[0]).producto
-        clasif = p.codigo if p else None
+        clasif = db.get(Articulo, elegidos[0]).producto.codigo
     r = interno.post("/etiquetas/articulos/familia", {"familia_id": ropa["id"], "ids": elegidos})
-    assert r.status_code == 200 and r.json()["cambiados"] == 3
-    con = interno.get("/etiquetas/articulos", params={"familia": ropa["id"]}).json()
-    assert {a["id"] for a in con["items"]} == set(elegidos) and all(a["familia"] == "Apparel" for a in con["items"])
-    solo = interno.get("/etiquetas/articulos", params={"ids": ",".join(map(str, elegidos[:2]))}).json()
-    assert {a["id"] for a in solo["items"]} == set(elegidos[:2])
+    assert r.status_code == 200 and r.json()["productos"] == 1 and r.json()["cambiados"] == 1, r.text
+    con = interno.get("/etiquetas/articulos", params={"familia": ropa["id"], "size": 200}).json()
+    assert {a["id"] for a in con["items"]} == {a["id"] for a in arts} and all(a["familia"] == "Apparel" for a in con["items"])
+    solo = interno.get("/etiquetas/articulos", params={"ids": ",".join(map(str, elegidos))}).json()
+    assert {a["id"] for a in solo["items"]} == set(elegidos)
     assert interno.get("/etiquetas/articulos", params={"ids": "1;DROP"}).status_code == 422
-    assert next(f for f in interno.get("/etiquetas/familias").json() if f["id"] == ropa["id"])["articulos"] == 3
+    f = next(f for f in interno.get("/etiquetas/familias").json() if f["id"] == ropa["id"])
+    assert f["articulos"] == len(arts) and f["productos"] == 1
     # En uso no se borra: se desactiva
     assert interno.delete_(f"/etiquetas/familias/{ropa['id']}").status_code == 409
     # Quitarla (familia vacía) y luego sí se puede borrar
-    assert interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": elegidos}).json()["cambiados"] == 3
+    assert interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": elegidos}).json()["cambiados"] == 1
     assert interno.delete_(f"/etiquetas/familias/{ropa['id']}").status_code == 200
-    # Por filtro: todos los de un estilo
+    # Por filtro: los artículos que encuentra la búsqueda (aquí, los del producto por su código)
     acc = _familia(interno, "ACCESORIOS", "Accessories")
-    estilo = sin["items"][0]["estilo"]
-    r = interno.post("/etiquetas/articulos/familia", {"familia_id": acc["id"], "filtro": {"q": estilo}})
+    r = interno.post("/etiquetas/articulos/familia", {"familia_id": acc["id"], "filtro": {"q": p["codigo_generico"]}})
     assert r.status_code == 200 and r.json()["cambiados"] >= 1
-    # La clasificación arancelaria del producto no cambia ni se usa
-    from app.core.db import SessionLocal
-    from app.core.organizacion import en_organizacion
-    from app.modelos import Articulo
-
     with SessionLocal() as db, en_organizacion(1):
         a = db.get(Articulo, elegidos[0])
-        assert a.familia_etiquetado_id == acc["id"] and (a.producto is None or a.producto.codigo == clasif)
-    # Se deja como estaba: los artículos vuelven a la familia de su producto o su grupo
-    todos = interno.get("/etiquetas/articulos", params={"familia": acc["id"], "size": 200}).json()["items"]
-    interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [x["id"] for x in todos]})
+        assert a.producto.familia_etiquetado_id == acc["id"] and a.producto.codigo == clasif
+    # Se deja como estaba
+    for x in interno.get("/etiquetas/productos", params={"familia": acc["id"], "size": 200}).json()["items"]:
+        interno.post("/etiquetas/productos/familia", {"familia_id": antes.get(x["id"]), "ids": [x["id"]]})
+
 
 def test_permisos_y_proveedor(tnf, interno):
     assert tnf.post("/etiquetas/familias", {"codigo": "TNFX", "nombre": "x"}).status_code == 403
@@ -91,7 +90,8 @@ def test_permisos_y_proveedor(tnf, interno):
 def test_campos_con_origen_y_por_sujeto(interno, tnf):
     r = interno.get("/etiquetas/campos").json()
     claves = {c["clave"]: c for c in r["campos"]}
-    assert claves["articulo.talla"]["origen"] == "articulos.talla" and claves["oc.numero"]["origen"] == "ordenes_compra.numero"
+    assert claves["articulo.atributo.TALLA"]["origen"] == "articulo_atributos.valor[TALLA]"
+    assert claves["oc.numero"]["origen"] == "ordenes_compra.numero"
     assert claves["organizacion.logo"]["tipo"] == "imagen" and "linea.precio" in claves
     # Lo que puede llevar cada cosa que se etiqueta: el artículo (con su OC si viene de una), el bulto, el documento
     articulo = {c["clave"] for c in interno.get("/etiquetas/campos", params={"sujeto": "ARTICULO"}).json()["campos"]}
@@ -102,73 +102,28 @@ def test_campos_con_origen_y_por_sujeto(interno, tnf):
     assert "oc.numero" in doc and not any(k.startswith(("articulo.", "bulto.", "linea.")) for k in doc)
     colecciones = {c["clave"] for c in interno.get("/etiquetas/campos", params={"sujeto": "DOCUMENTO"}).json()["colecciones"]}
     assert "oc.lineas" in colecciones and "bulto.lineas" not in colecciones
-    # Los atributos de variante propios (no talla ni color, que son columnas) aparecen como campos
+    # Cada atributo activo de la empresa es un campo: los de variante del artículo, los del producto del producto
     from app.core.db import SessionLocal
     from app.core.organizacion import en_organizacion
-    from app.modelos import AtributoVariante
+    from app.modelos import Atributo
 
     with SessionLocal() as db, en_organizacion(1):
-        propios = [a.codigo for a in db.query(AtributoVariante).filter(AtributoVariante.columna.is_(None), AtributoVariante.activo.is_(True))]
-        sistema = [a.codigo for a in db.query(AtributoVariante).filter(AtributoVariante.columna.is_not(None))]
-    assert all(f"articulo.atributo.{c}" in claves for c in propios)
-    assert not any(f"articulo.atributo.{c}" in claves for c in sistema)
+        atrs = [(a.codigo, a.nivel) for a in db.query(Atributo).filter(Atributo.activo.is_(True))]
+    assert atrs and all((f"articulo.atributo.{c}" if n == "VARIANTE" else f"producto.dato.{c}") in claves for c, n in atrs)
 
 
-def test_familia_por_grupos_de_articulos_y_prioridad_del_articulo(interno, tnf):
-    """Una familia toma grupos de artículos completos (varios a la vez); el
-    artículo con familia propia la conserva."""
-    textil = _familia(interno, "TEXTIL", "Textiles")
-    otra = _familia(interno, "ESPECIAL", "Special")
-    grupos = interno.get("/etiquetas/grupos-articulos").json()
-    antes = {g["id"]: g["familia_id"] for g in grupos}
-    con_articulos = sorted((g for g in grupos if g["articulos"] > 0), key=lambda g: g["con_familia_propia"] - g["articulos"])
-    assert len(con_articulos) >= 2
-    elegidos = con_articulos[:2]
-    ids = [g["id"] for g in elegidos]
-    assert tnf.post("/etiquetas/grupos-articulos/familia", {"familia_id": textil["id"], "grupo_ids": ids}).status_code == 403
-    r = interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": textil["id"], "grupo_ids": ids})
-    assert r.status_code == 200 and r.json()["elegidos"] == 2, r.text
-    assert {g["id"] for g in interno.get("/etiquetas/grupos-articulos", params={"familia": textil["id"]}).json()} == set(ids)
-    # Sus artículos la heredan del grupo
-    del_grupo = interno.get("/etiquetas/articulos", params={"grupo_id": ids[0], "size": 200}).json()["items"]
-    assert del_grupo and all(a["familia_id"] == textil["id"] and a["familia_origen"] == "GRUPO" for a in del_grupo
-                             if not a["familia_propia_id"])
-    total = sum(g["articulos"] - g["con_familia_propia"] for g in elegidos)
-    en_familia = interno.get("/etiquetas/articulos", params={"familia": textil["id"], "size": 1}).json()["total"]
-    assert en_familia == total
-    # Un artículo con familia propia la conserva aunque su grupo tenga otra
-    propio = next(a for a in del_grupo if not a["familia_propia_id"])
-    interno.post("/etiquetas/articulos/familia", {"familia_id": otra["id"], "ids": [propio["id"]]})
-    a = interno.get("/etiquetas/articulos", params={"ids": str(propio["id"])}).json()["items"][0]
-    assert a["familia_id"] == otra["id"] and a["familia_origen"] == "ARTICULO"
-    assert interno.get("/etiquetas/articulos", params={"familia": textil["id"], "size": 1}).json()["total"] == en_familia - 1
-    eleccion = interno.get("/etiquetas/resolver", params={"sujeto": "ARTICULO", "articulo_id": propio["id"]}).json()
-    assert eleccion["elecciones"] and all(e["porque"].get("destino") != "Textiles" for e in eleccion["elecciones"])
-    f = next(x for x in interno.get("/etiquetas/familias").json() if x["id"] == textil["id"])
-    assert f["grupos"] == 2 and f["articulos"] == en_familia - 1
-    # Una familia con grupos está en uso: no se borra
-    assert interno.delete_(f"/etiquetas/familias/{textil['id']}").status_code == 409
-    # Quitar la familia de un grupo
-    r = interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": None, "grupo_ids": [ids[1]]})
-    assert r.json()["cambiados"] == 1
-    assert next(x for x in interno.get("/etiquetas/familias").json() if x["id"] == textil["id"])["grupos"] == 1
-    # Dejar todo como estaba para las demás pruebas
-    for gid in ids:
-        interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": antes[gid], "grupo_ids": [gid]})
-    interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [propio["id"]]})
-
-
-def test_familia_del_producto_la_heredan_sus_tallas(interno, tnf):
-    """La familia se pone al producto (estilo-color): sus tallas la heredan salvo
-    las que tienen la suya; un producto con familia propia no se borra de ella."""
+def test_familia_del_producto_la_comparten_sus_variantes(interno, tnf):
+    """La familia se pone al producto: todas sus variantes, packs y kits la toman;
+    un producto en una familia la deja en uso (no se borra)."""
     fam = _familia(interno, "PRODFAM", "Product family")
     prods = interno.get("/etiquetas/productos", params={"size": 200}).json()["items"]
-    p = next(x for x in prods if x["tallas"] >= 2)
+    p = next(x for x in prods if x["variantes"] >= 2)
     assert tnf.post("/etiquetas/productos/familia", {"familia_id": fam["id"], "ids": [p["id"]]}).status_code == 403
     r = interno.post("/etiquetas/productos/familia", {"familia_id": fam["id"], "ids": [p["id"]]})
     assert r.status_code == 200, r.text
-    tallas = interno.get("/etiquetas/articulos", params={"producto_id": p["id"], "size": 200}).json()["items"]
-    assert tallas and all(a["familia_id"] == fam["id"] and a["familia_origen"] == "PRODUCTO" for a in tallas if not a["familia_propia_id"])
+    variantes = interno.get("/etiquetas/articulos", params={"producto_id": p["id"], "size": 200}).json()["items"]
+    assert len(variantes) == p["variantes"] and all(a["familia_id"] == fam["id"] and a["familia_origen"] == "PRODUCTO"
+                                                     for a in variantes)
     x = next(y for y in interno.get("/etiquetas/productos", params={"familia": fam["id"]}).json()["items"] if y["id"] == p["id"])
     assert x["familia_propia_id"] == fam["id"]
     assert interno.delete_(f"/etiquetas/familias/{fam['id']}").status_code == 409

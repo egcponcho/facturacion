@@ -484,10 +484,10 @@ def validar(db: Session, user: Usuario, trabajo_id: int) -> dict:
     return detalle(db, user, t.id)
 
 
-# Datos del artículo que se pueden completar desde el trabajo (columna del maestro de artículos).
-# Los que identifican al artículo (SKU, estilo, color, talla) no: se corrigen en su ficha.
-COMPLETABLES = {"articulo.upc": "upc", "articulo.sku_proveedor": "sku_proveedor", "articulo.peso_unitario": "peso_unitario",
-                "articulo.unidad": "unidad"}
+# Datos del artículo que se pueden completar desde el trabajo (campo del maestro de artículos).
+# Los que identifican al artículo (SKU, valores de variante) no: se corrigen en su ficha.
+COMPLETABLES = {"articulo.codigo_barras": "codigo_barras", "articulo.codigo_proveedor": "codigo_proveedor",
+                "articulo.peso_unitario": "peso_unitario", "articulo.unidad": "unidad"}
 MAX_COMPLETAR = 200
 
 

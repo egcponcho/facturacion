@@ -27,7 +27,7 @@ from app.modulos.documentos.partes import partes
 from app.modulos.facturacion.cantidades import nombre_factura, totales_pl
 from app.modulos.recepcion import recepcion as rec
 from app.modulos.transporte.alcance import condiciones_alcance, en_alcance  # noqa: F401 (la usan otros módulos)
-from app.modulos.transporte.leadtimes import Estandares, _riesgo, entre, limite_puerto
+from app.modulos.transporte.leadtimes import Estandares, _riesgo, entre, familia_de, limite_puerto
 
 ESTADO_POR_EVENTO = {
     "SALIDA": "EN_TRANSITO",
@@ -96,6 +96,14 @@ def modalidad_embarque(e: Embarque) -> str | None:
     return None if not mods else mods.pop() if len(mods) == 1 else "MIXTO"
 
 
+def _marcas(lineas: list) -> list[str]:
+    """Las marcas de las líneas: su atributo de producto que apunta al catálogo de marcas (foto de la línea)."""
+    from app.modulos.maestros import variantes
+
+    db = object_session(lineas[0]) if lineas else None
+    return sorted({m for x in lineas if (m := variantes.de_catalogo(db, x.atributos, "marcas"))})
+
+
 def resumen_unidad(u: UnidadCarga) -> dict:
     pls = [pl for pl in u.packing_lists if pl.estado != "CANCELADO"]
     cajas = 0
@@ -119,7 +127,7 @@ def resumen_unidad(u: UnidadCarga) -> dict:
     for pl in pls:
         for pl_linea in pl.lineas:
             pos = pl_linea.factura_linea.posicion_oc
-            grupos.setdefault(pos.oc_id, set()).add(pos.grupo)
+            grupos.setdefault(pos.oc_id, set()).add(familia_de(pos))
     tiendas = [o.fecha_tienda for o in ocs if o.fecha_tienda]
     e = u.embarque
     ests = Estandares(object_session(u)) if ocs else None
@@ -142,8 +150,7 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         # En tiempo / en riesgo / atrasado frente a la fecha en tienda (None: faltan fechas)
         "estado_tiempo": _riesgo((limite - llegada).days) if limite and llegada else None,
         "llegada_estimada": llegada,
-        "marcas": sorted({pl_linea.factura_linea.marca for pl in pls for pl_linea in pl.lineas
-                          if pl_linea.factura_linea.marca}),
+        "marcas": _marcas([pl_linea.factura_linea for pl in pls for pl_linea in pl.lineas]),
         "recolectados": sum(1 for pl in pls if pl.recolectado_en),
         "tipo": u.tipo,
         "tipo_nombre": t.nombre if t else u.tipo,
@@ -625,7 +632,7 @@ def _fila_pl(pl: PackingList) -> dict:
         "puede_confirmar": puede_confirmar,
         "motivo_no_confirmable": motivo,
         "recolectado_en": pl.recolectado_en,
-        "marcas": sorted({x.factura_linea.marca for x in pl.lineas if x.factura_linea.marca}),
+        "marcas": _marcas([x.factura_linea for x in pl.lineas]),
         "ocs": sorted({x.factura_linea.oc_numero for x in pl.lineas}),
         "fecha_xf": min((x.factura_linea.posicion_oc.oc.fecha_xf for x in pl.lineas
                          if x.factura_linea.posicion_oc.oc.fecha_xf), default=None),

@@ -18,7 +18,7 @@ import SelectBusqueda from '@/componentes/SelectBusqueda.vue'
 import { agregarPosiciones, carrito, quitarOC, quitarPosicion, vaciarCarrito } from '@/stores/carrito'
 import { camposPropios, nombreProveedor, puede, sesion, valorPropio, ve } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { cantTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, textoArticulo, textoVariante, unidadTxt, useSeleccion } from '@/nucleo/utils'
+import { cantTxt, diasTxt, fmtFecha, fmtMoneda, fmtNum, porUnidadTxt, textoArticulo, textoProducto, textoVariante, unidadTxt, useSeleccion } from '@/nucleo/utils'
 import { pasoCantidad } from '@/nucleo/unidades.js'
 import { estadosOC, estado as leerEstado } from '@/nucleo/estados.js'
 
@@ -52,7 +52,7 @@ const detalles = reactive({})
 const tablaOC = ref(null)
 const seleccionOC = ref([])
 const selPos = useSeleccion()
-const explosion = ref(null) // { sku, cajas } del prepack que se está viendo
+const explosion = ref(null) // { sku, cajas } del pack o kit que se está viendo
 
 const panel = ref(!!route.query.seleccion || !!route.query.factura)
 const destino = ref(route.query.factura ? Number(route.query.factura) : '')
@@ -81,7 +81,7 @@ const columnasOC = computed(() => [
 // Líneas de una OC (al abrirla): filtro por columna en el navegador
 const columnasLineas = computed(() => [
   { clave: 'posicion', texto: t('Line'), fija: true, prioridad: 1 },
-  { clave: 'articulo', texto: t('Item'), prioridad: 1, valor: (p) => [p.marca, p.estilo, p.color].filter(Boolean).join(' · ') },
+  { clave: 'articulo', texto: t('Item'), prioridad: 1, valor: (p) => [p.marca, textoProducto(p)].filter(Boolean).join(' · ') },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'unidad', texto: t('UoM'), prioridad: 3 },
   { clave: 'partida', texto: t('HS code'), prioridad: 3, valor: (p) => p.partida_arancelaria || null },
@@ -528,8 +528,8 @@ alCambiar(() => consultar(), ['/ordenes'])
                       :etiqueta="t('Lines of PO {0}', [oc.numero])" @update:seleccion="(ids) => elegirLineas(oc.id, ids)">
             <template #celda-posicion="{ fila: p }"><span class="codigo">{{ tx(p.posicion) }}</span></template>
             <template #celda-articulo="{ fila: p }">
-              <span v-if="p.marca" class="fuerte">{{ tx(p.marca) }}</span> {{ tx(p.estilo) }} · {{ tx(p.color) }}
-              <span class="sub codigo">{{ tx(p.codigo_articulo) }}<template v-if="p.grupo"> · {{ tx(p.grupo) }}</template></span>
+              <span v-if="p.marca" class="fuerte">{{ tx(p.marca) }}</span> {{ tx(textoProducto(p)) }}
+              <span class="sub codigo">{{ tx(p.codigo_articulo) }}</span>
             </template>
             <template #celda-variante="{ fila: p }"><strong>{{ tx(textoVariante(p)) }}</strong></template>
             <template #celda-unidad="{ fila: p }"><span class="etiqueta ms-0" :title="tx(unidadTxt(p.unidad, 2))">{{ tx(p.unidad) }}</span></template>
@@ -545,8 +545,8 @@ alCambiar(() => consultar(), ['/ordenes'])
             <template #celda-empaque="{ fila: p }">
               <span class="fila-flex empaque-celda">
                 <button v-if="p.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion ms-0"
-                        :title="t('See the prepack breakdown')" @click="explosion = { sku: p.codigo_articulo, cajas: p.cantidad }">
-                  {{ t('Prepack {0} · {1} per carton', [p.prepack, p.unidades_por_caja]) }} <Icono nombre="lupa" :tam="12" />
+                        :title="t('See the contents of the pack')" @click="explosion = { sku: p.codigo_articulo, cajas: p.cantidad }">
+                  {{ t('Pack {0} · {1} per carton', [p.codigo_pack, p.unidades_por_caja]) }} <Icono nombre="lupa" :tam="12" />
                 </button>
                 <template v-else-if="p.receta?.receta_id">
                   <span class="etiqueta info ms-0 chip-receta" :title="tx(p.receta.resumen)">
@@ -631,7 +631,7 @@ alCambiar(() => consultar(), ['/ordenes'])
           </div>
           <div v-for="i in g.items" :key="i.posicion_id" class="item-carrito">
             <div>
-              <span class="codigo">{{ tx(i.posicion) }}</span> {{ tx(i.estilo) }} <b>{{ tx(textoVariante(i)) }}</b>
+              <span class="codigo">{{ tx(i.posicion) }}</span> {{ tx(textoProducto(i)) }} <b>{{ tx(textoVariante(i)) }}</b>
               <div class="ayuda">
                 {{ t('{0} available', [cantTxt(i.disponible, i.unidad)]) }}<template v-if="i.inner_pack">&nbsp;{{ t('· inner packs of {0}', [i.inner_pack]) }}</template><template v-if="i.aviso">. {{ tx(i.aviso) }}</template>
               </div>

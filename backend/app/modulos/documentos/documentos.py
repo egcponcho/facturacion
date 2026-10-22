@@ -92,52 +92,44 @@ from app.modulos.documentos.letras import (
     cantidad_en_letras,
     monto_en_letras,  # noqa: E402
 )
+from app.modulos.maestros import variantes
 from app.modulos.maestros.unidades import texto as unidad_txt
 
 # ---- Datos de cada línea ---------------------------------------------------------
 # Qué datos del artículo lleva cada línea de la factura y de la lista de empaque
 # (Configuración → Empresa → Documentos): la variante (sus valores, en orden), el
-# estilo o modelo, el UPC o un atributo de variante por separado. Sirve para
-# cualquier tipo de producto: «BLACK · 9.5», «30 % · 1 L», «Mild · 250 g».
-COLUMNAS_LINEA_FABRICA = ",".join(("estilo", "variante"))
+# código de barras o un atributo del producto o de la variante por separado
+# (atributo.MODELO, atributo.COLOR…). Sirve para cualquier tipo de producto:
+# «BLACK · 9.5», «30 % · 1 L», «Mild · 250 g».
+COLUMNAS_LINEA_FABRICA = "variante"
 
 
 def columnas_linea(db: Session) -> list[tuple[str, str]]:
-    from app.modulos.maestros import variantes
-
     nombres = variantes.nombres(db)
     res = []
     for k in [x.strip() for x in (_empresa("documentos").get("columnas_linea") or COLUMNAS_LINEA_FABRICA).split(",")]:
-        if k == "estilo":
-            res.append((k, L("Style / model")))
-        elif k == "variante":
+        if k == "variante":
             res.append((k, L("Variant")))
-        elif k == "upc":
-            res.append((k, "UPC"))
+        elif k == "codigo_barras":
+            res.append((k, L("Barcode")))
         elif k.startswith("atributo.") and k[9:] in nombres:
             res.append((k, nombres[k[9:]]))
     return res
 
 
 def variantes_texto(l) -> str | None:
-    from app.modulos.maestros import variantes
-
     return variantes.texto(variantes.de_linea(l)) or None
 
 
 def datos_de_linea(l, columnas: list[tuple[str, str]]) -> dict:
-    """{columna: valor} de una línea de factura con su variante guardada."""
-    from app.modulos.maestros import variantes
-
-    valores = variantes.de_linea(l)
+    """{columna: valor} de una línea de factura con su variante y los atributos de su producto guardados."""
+    valores = {**variantes.de_producto_linea(l), **variantes.de_linea(l)}
     res = {}
     for k, _ in columnas:
         if k == "variante":
-            res[k] = variantes.texto(valores) or None
-        elif k == "estilo":
-            res[k] = l.estilo
-        elif k == "upc":
-            res[k] = l.upc
+            res[k] = variantes.texto(variantes.de_linea(l)) or None
+        elif k == "codigo_barras":
+            res[k] = l.codigo_barras
         else:
             res[k] = valores.get(k[9:])
     return res
@@ -246,11 +238,13 @@ def datos_factura(db: Session, f) -> dict:
         total = dinero.importe(l.cantidad, l.precio_unitario, f.moneda)
         importe += total
         por_unidad[l.unidad] = por_unidad.get(l.unidad, 0) + l.cantidad
+        marca = variantes.de_catalogo(db, l.atributos, "marcas")
         lineas.append({
-            "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_articulo, "upc": l.upc, "marca": l.marca, "estilo": l.estilo,
-            "color": l.color, "talla": l.talla, "descripcion": sin_marca(l.descripcion_comercial or l.descripcion, l.marca),
+            "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_articulo, "codigo_barras": l.codigo_barras, "marca": marca,
+            "descripcion": sin_marca(l.descripcion_comercial or l.descripcion, marca),
             "partida": l.partida_arancelaria, "origen": l.pais_origen, "cantidad": l.cantidad, "unidad": l.unidad,
-            "precio": l.precio_unitario, "total": dinero.numero(total), "motivo_precio": l.motivo_precio, "prepack": l.prepack if l.tipo_empaque == "PREPACK" else None,
+            "precio": l.precio_unitario, "total": dinero.numero(total), "motivo_precio": l.motivo_precio,
+            "pack": l.codigo_pack if l.tipo_empaque == "PREPACK" else None,
             "variante": variantes_texto(l), "datos": datos_de_linea(l, columnas),
         })
     bultos = neto = bruto = cbm = 0
@@ -309,9 +303,10 @@ def datos_pl(db: Session, pl) -> dict:
         items = []
         for pll, n in empaques.contenido(pl, g):
             fl = pll.factura_linea
-            items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_articulo, "upc": fl.upc,
-                          "marca": fl.marca, "descripcion": sin_marca(fl.descripcion_comercial or fl.descripcion, fl.marca),
-                          "estilo": fl.estilo, "color": fl.color, "talla": fl.talla, "unidad": fl.unidad,
+            marca = variantes.de_catalogo(db, fl.atributos, "marcas")
+            items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_articulo, "codigo_barras": fl.codigo_barras,
+                          "marca": marca, "descripcion": sin_marca(fl.descripcion_comercial or fl.descripcion, marca),
+                          "unidad": fl.unidad,
                           "variante": variantes_texto(fl), "datos": datos_de_linea(fl, base["columnas_linea"]),
                           "por_caja": n, "total": n * g.num_cajas,
                           "partida": fl.partida_arancelaria, "inner_pack": inner_de(fl),
@@ -335,7 +330,7 @@ def datos_pl(db: Session, pl) -> dict:
             "largo": g.largo, "ancho": g.ancho, "alto": g.alto,
         })
     sin_caja = [{"oc": pll.factura_linea.oc_numero, "sku": pll.factura_linea.codigo_articulo,
-                 "estilo": pll.factura_linea.estilo, "talla": pll.factura_linea.talla,
+                 "descripcion": pll.factura_linea.descripcion_comercial or pll.factura_linea.descripcion,
                  "variante": variantes_texto(pll.factura_linea),
                  "cantidad": pll.cantidad - cubierto(pll), "unidad": pll.factura_linea.unidad}
                 for pll in pl.lineas if pll.cantidad - cubierto(pll) > 0]
@@ -559,8 +554,8 @@ def pdf_factura(d: dict) -> bytes:
     for l in d["lineas"]:
         extra = texto_datos(l["datos"], d["columnas_linea"])
         desc = f"<b>{_esc(l['descripcion'] or '')}</b>" + (f"<br/><font color='#5b6475'>{_esc(extra)}</font>" if extra else "")
-        if l["prepack"]:
-            desc += f"<br/><font color='{_acento_hex()}'>" + L("Pack {0}", _esc(l['prepack'])) + "</font>"
+        if l["pack"]:
+            desc += f"<br/><font color='{_acento_hex()}'>" + L("Pack {0}", _esc(l['pack'])) + "</font>"
         filas.append([f"{l['oc']}/{l['posicion']}", l["sku"], l["marca"] or "—", Paragraph(desc, e["celda"]), l["partida"], l["origen"],
                       _num(l["cantidad"]), l["unidad"], _precio(l["precio"]), _num(l["total"], 2)])
     t = d["totales"]
@@ -647,9 +642,9 @@ def pdf_pl(d: dict) -> bytes:
                        _num(p["cbm"], 3) if p["cbm"] else "—"] for p in d["pallets"]], ancho * 0.6)]
     if d["sin_caja"]:
         h += [Spacer(1, 6), Paragraph(L("NOT YET PACKED"), e["etiqueta"]),
-              _tabla(e, [(L("PO"), 1, False), (L("Item code"), 1.4, False), (L("Style / model"), 1.2, False),
+              _tabla(e, [(L("PO"), 1, False), (L("Item code"), 1.4, False), (L("Description"), 1.2, False),
                          (L("Variant"), 0.8, False), (L("Quantity"), 0.8, True), (L("UoM"), 0.5, False)],
-                     [[x["oc"], x["sku"], x["estilo"] or "—", x["variante"] or "—", _num(x["cantidad"]), x["unidad"]]
+                     [[x["oc"], x["sku"], x["descripcion"] or "—", x["variante"] or "—", _num(x["cantidad"]), x["unidad"]]
                       for x in d["sin_caja"]],
                      ancho * 0.6)]
     consig = d["consignatario"]
@@ -773,7 +768,7 @@ def secciones_ficha(d: dict) -> dict:
     an = d.get("analisis") or {}
     datos = [(L("Product type"), an.get("tipo_txt") or (et.get("tipos") or {}).get(d.get("tipo"), d.get("tipo")) or "—"),
              (L("Country of origin"), d.get("pais_origen") or "—"),
-             (L("Product code"), d.get("codigo_generico") or "—"), (L("Group"), d.get("grupo") or "—")]
+             (L("Product code"), d.get("codigo_generico") or "—"), (L("Product family"), d.get("familia") or "—")]
     for k, lbl in (("uso", L("Use")), ("tallas", L("Sizes"))):  # campos de la ficha, si la familia los tiene
         if f.get(k):
             datos.append((lbl, str(f[k])))
@@ -786,7 +781,7 @@ def secciones_ficha(d: dict) -> dict:
     comp = f.get("comp") or {}
     partes = et.get("partes") or {}
     composicion = [[partes.get(k) or _legible(k), v] for k, v in comp.items() if v] if isinstance(comp, dict) else []
-    tallas = [[a["sku"], a["upc"] or "—", a.get("variante") or a["talla"] or "—", a["unidad"], a["descripcion"] or "—"]
+    tallas = [[a["sku"], a.get("codigo_barras") or "—", a.get("variante") or "—", a["unidad"], a["descripcion"] or "—"]
               for a in d.get("articulos") or [] if a["tipo"] == "SOLIDO"]
     return {"clasificacion": clasif, "descripcion": d.get("descripcion_aduana") or "",
             "descripcion_comercial": d.get("descripcion_comercial") or "",
@@ -800,7 +795,7 @@ def pdf_ficha_producto(d: dict) -> bytes:
     tam = _papel()
     ancho = tam[0] - 28 * mm
     estado = d.get("estado_txt") or d.get("estado")
-    titulo = " · ".join(x for x in (d.get("estilo"), d.get("color")) if x) or d.get("codigo_generico") or ""
+    titulo = d.get("codigo_generico") or ""
     cab = Table([[[Paragraph(_esc(titulo), e["titulo"]),
                    Paragraph(_esc(d.get("nombre")), e["base"]),
                    Paragraph(f"{_esc(d.get('proveedor'))} · {_esc(d.get('marca_nombre') or d.get('marca'))}", e["chico"])],
@@ -836,7 +831,7 @@ def pdf_ficha_producto(d: dict) -> bytes:
               _tabla(e, [(L("Part"), 1, False), (L("Materials"), 3, False)], x["composicion"], ancho), Spacer(1, 8)]
     if x["tallas"]:
         h += [Paragraph(L("VARIANTS"), e["etiqueta"]), Spacer(1, 2),
-              _tabla(e, [(L("SKU"), 1.4, False), (L("UPC"), 1.4, False), (L("Variant"), 1.1, False), (L("Unit"), 0.6, False),
+              _tabla(e, [(L("SKU"), 1.4, False), (L("Barcode"), 1.4, False), (L("Variant"), 1.1, False), (L("Unit"), 0.6, False),
                          (L("Description"), 2.4, False)], x["tallas"], ancho)]
     return _construir(h, tam, L("Technical sheet {0} · {1}", titulo, d.get('proveedor') or ''),
                       d.get("estado") not in ("aprobado", "corregido"))

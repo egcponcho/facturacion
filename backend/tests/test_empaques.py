@@ -12,10 +12,10 @@ from app.modelos import (
 from app.modulos.empaque import empaques
 
 
-def _linea(peso, talla="8", estilo="X1", oc="OC1"):
-    art = Articulo(sku=f"A{talla}", estilo=estilo, talla=talla, unidad="PAR", tipo="SOLIDO", peso_unitario=peso)
-    fl = FacturaLinea(posicion_oc=PosicionOC(articulo=art), cantidad=0, estilo=estilo, talla=talla, oc_numero=oc,
-                      codigo_articulo=f"A{talla}", unidad="PAR", color="BLK")
+def _linea(peso, talla="8", oc="OC1"):
+    art = Articulo(sku=f"A{talla}", unidad="PAR", tipo="SOLIDO", peso_unitario=peso)
+    fl = FacturaLinea(posicion_oc=PosicionOC(articulo=art), cantidad=0, oc_numero=oc, codigo_articulo=f"A{talla}",
+                      unidad="PAR", variante={"COLOR": "BLK", "TALLA": talla})
     return PLLinea(factura_linea=fl, cantidad=0)
 
 
@@ -103,12 +103,11 @@ def test_sin_peso_del_articulo_el_neto_se_escribe():
     assert c.peso_neto_caja == 10 and abs(p.peso_bruto_caja - 130) < 1e-9
 
 
-def test_prepack_pesa_lo_que_sus_solidos():
-    from app.modelos import Prepack, PrepackComponente
+def test_pack_pesa_lo_que_sus_variantes():
+    from app.modelos import ArticuloComponente
 
     s7 = Articulo(sku="S7", peso_unitario=0.8)
     s8 = Articulo(sku="S8", peso_unitario=0.9)
-    pp = Prepack(codigo="AD09", componentes=[PrepackComponente(articulo=s7, cantidad=6),
-                                              PrepackComponente(articulo=s8, cantidad=2)])
-    art = Articulo(sku="PP", tipo="PREPACK", prepack=pp)
+    art = Articulo(sku="PP", tipo="PREPACK", componentes=[ArticuloComponente(componente=s7, cantidad=6),
+                                                          ArticuloComponente(componente=s8, cantidad=2)])
     assert empaques.peso_articulo(art) == 6.6

@@ -16,7 +16,6 @@ from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
     GeneracionItem,
-    GrupoArticulo,
     GrupoCategoria,
     GrupoFamilia,
     GrupoProducto,
@@ -80,9 +79,7 @@ def usos(db: Session, g: GrupoProducto) -> dict:
     def n(modelo, *cond) -> int:
         return db.scalar(select(func.count()).select_from(modelo).where(*cond)) or 0
 
-    return {"articulos": n(Articulo, Articulo.grupo_producto_id == g.id),
-            "grupos_articulos": n(GrupoArticulo, GrupoArticulo.grupo_producto_id == g.id),
-            "productos": n(Producto, Producto.grupo_producto_id == g.id),
+    return {"productos": n(Producto, Producto.grupo_producto_id == g.id),
             "hijos": n(GrupoProducto, GrupoProducto.padre_id == g.id),
             "reglas_etiqueta": n(UsoDiseno, UsoDiseno.grupo_id == g.id, UsoDiseno.eliminado_en.is_(None)),
             "reglas_etiqueta_bajas": n(UsoDiseno, UsoDiseno.grupo_id == g.id, UsoDiseno.eliminado_en.is_not(None)),
@@ -105,9 +102,8 @@ def _conteos(db: Session) -> dict:
             if gid is not None:
                 res.setdefault(gid, {})[clave] = n
 
-    sumar("articulos", db.execute(select(Articulo.grupo_producto_id, func.count()).group_by(Articulo.grupo_producto_id)))
-    sumar("grupos_articulos", db.execute(select(GrupoArticulo.grupo_producto_id, func.count())
-                                         .group_by(GrupoArticulo.grupo_producto_id)))
+    sumar("articulos", db.execute(select(Producto.grupo_producto_id, func.count()).select_from(Articulo)
+                                  .join(Producto, Producto.id == Articulo.producto_id).group_by(Producto.grupo_producto_id)))
     sumar("productos", db.execute(select(Producto.grupo_producto_id, func.count()).group_by(Producto.grupo_producto_id)))
     sumar("reglas_etiqueta", db.execute(select(UsoDiseno.grupo_id, func.count()).where(UsoDiseno.eliminado_en.is_(None))
                                         .group_by(UsoDiseno.grupo_id)))
@@ -121,9 +117,8 @@ def dict_grupo(g: GrupoProducto, conteos: dict | None = None) -> dict:
     return {"id": g.id, "clase": g.clase, "codigo": g.codigo, "nombre": g.nombre, "descripcion": g.descripcion,
             "padre_id": g.padre_id, "ruta": " / ".join(x.nombre for x in g.ruta()), "profundidad": len(g.ruta()) - 1,
             "condiciones": g.condiciones or [], "ejes_variante": g.ejes_variante or [], "campos": g.campos or [],
-            "orden": g.orden, "activa": g.activa,
-            "articulos": c.get("articulos", 0), "grupos_articulos": c.get("grupos_articulos", 0),
-            "productos": c.get("productos", 0), "reglas_etiqueta": c.get("reglas_etiqueta", 0),
+            "orden": g.orden, "activa": g.activa, "dias_extra": g.dias_extra,
+            "articulos": c.get("articulos", 0), "productos": c.get("productos", 0), "reglas_etiqueta": c.get("reglas_etiqueta", 0),
             "reglas_empaque": c.get("reglas_empaque", 0)}
 
 
@@ -209,10 +204,10 @@ def _validar(db: Session, datos: dict, actual: GrupoProducto | None) -> dict:
         else:
             limpio["condiciones"] = reglas.validar_condiciones(db, datos.get("condiciones") or [])
     if "ejes_variante" in datos:
-        from app.modelos import AtributoVariante
+        from app.modelos import Atributo
 
         ejes = [str(x).strip().upper() for x in (datos.get("ejes_variante") or []) if str(x).strip()]
-        validos = set(db.scalars(select(AtributoVariante.codigo).where(AtributoVariante.activo.is_(True))))
+        validos = set(db.scalars(select(Atributo.codigo).where(Atributo.activo.is_(True), Atributo.nivel == "VARIANTE")))
         malos = [x for x in ejes if x not in validos]
         if clase != "FAMILIA" and ejes:
             errores.append({"campo": "ejes_variante", "mensaje": "The variant attributes are set on a family."})
@@ -229,6 +224,9 @@ def _validar(db: Session, datos: dict, actual: GrupoProducto | None) -> dict:
             limpio["campos"] = _campos(db, datos.get("campos"))
         except ErrorNegocio as e:
             errores += e.detalle or [{"campo": "campos", "mensaje": e.mensaje}]
+    if "dias_extra" in datos:
+        # Días que sus productos necesitan además del transporte; vacío = los de la familia que la contiene
+        limpio["dias_extra"] = datos["dias_extra"] if datos["dias_extra"] is None else max(int(datos["dias_extra"]), 0)
     if "orden" in datos:
         try:
             limpio["orden"] = max(int(datos["orden"]), 0)

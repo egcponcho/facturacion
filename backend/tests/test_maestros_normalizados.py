@@ -85,18 +85,14 @@ def test_alcance_del_usuario_en_tablas(admin):
         assert db.get(Usuario, uid).alcance == {}
 
 
-def test_lineas_de_articulo_con_su_dominio(interno):
-    """Taxonomía única: la línea comercial apunta a su dominio de
-    clasificación (llave foránea); los dominios se eligen, no se editan aquí."""
-    calzado = _id(interno, "categorias", "CALZADO")
-    assert calzado["dominio"] == "FOOTWEAR"
+def test_categorias_de_clasificacion_con_su_dominio(interno):
+    """Taxonomía única: cada categoría de clasificación apunta a su dominio
+    (llave foránea); los dominios se eligen, no se editan aquí."""
     opciones = {o["codigo"] for o in interno.get("/catalogos/dominios/opciones").json()}
     assert {"FOOTWEAR", "APPAREL"} <= opciones
-    r = interno.patch(f"/catalogos/categorias/{calzado['id']}", {"dominio": "NO_EXISTE"})
-    assert r.status_code == 422
     assert interno.post("/catalogos/dominios", {"codigo": "X", "nombre": "X"}).status_code in (403, 409)
     with SessionLocal() as db, pytest.raises(IntegrityError):
-        db.execute(text("UPDATE categorias_articulo SET dominio = 'NO_EXISTE' WHERE codigo = 'CALZADO'"))
+        db.execute(text("UPDATE categorias_producto SET dominio = 'NO_EXISTE' WHERE id = (SELECT min(id) FROM categorias_producto)"))
         db.flush()
 
 

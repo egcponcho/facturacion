@@ -30,7 +30,8 @@ def buscar(db: Db, user: User, q: str = ""):
 
 
 # Los tres tableros de mercancía comparten los mismos filtros
-FILTROS_Q = ("q", "oc_id", "modo", "marca", "estilo", "color", "talla", "almacen", "grupo", "sku", "contenedor", "documento",
+# (más var_<ATRIBUTO> para los valores de variante y atr_<ATRIBUTO> para los atributos del producto)
+FILTROS_Q = ("q", "oc_id", "modo", "marca", "familia", "almacen", "sku", "contenedor", "documento",
              "etapa", "riesgo", "embarque_id", "estado", "liberacion_comercial", "liberacion_logistica",
              "sociedad", "centro", "proveedor", "xf_vencida", "eta_desde", "eta_hasta", "fecha_xf_desde",
              "fecha_xf_hasta", "fecha_tienda_desde", "fecha_tienda_hasta")
@@ -38,7 +39,7 @@ FILTROS_Q = ("q", "oc_id", "modo", "marca", "estilo", "color", "talla", "almacen
 
 def _filtros_de(request: Request) -> dict:
     f = {k: v for k, v in request.query_params.items()
-         if (k in FILTROS_Q or k.startswith(seg.PREFIJO_VARIANTE)) and v != ""}
+         if (k in FILTROS_Q or k.startswith((seg.PREFIJO_VARIANTE, seg.PREFIJO_ATRIBUTO))) and v != ""}
     for k in list(f):
         if k.endswith("_desde") or k.endswith("_hasta"):
             f[k] = date.fromisoformat(f[k])

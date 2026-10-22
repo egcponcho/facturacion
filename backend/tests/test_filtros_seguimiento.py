@@ -128,7 +128,7 @@ def test_filtros_por_atributo_de_variante_y_liberaciones_del_catalogo(interno):
     d = interno.get("/seguimiento", params={"size": 200}).json()
     atributos = d["opciones"]["atributos"]
     assert atributos and all({"codigo", "nombre", "valores"} <= set(a) for a in atributos)
-    catalogo = {a["codigo"] for a in interno.get("/catalogos/atributos_variante", params={"size": 200}).json()["items"]}
+    catalogo = {a["codigo"] for a in interno.get("/catalogos/atributos", params={"size": 200}).json()["items"]}
     assert {a["codigo"] for a in atributos} <= catalogo
     lib = d["opciones"]["liberaciones"]
     estados = interno.get("/catalogos/liberaciones", params={"size": 200}).json()["items"]

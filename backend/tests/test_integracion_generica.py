@@ -4,11 +4,9 @@ líneas nacionales (los documentos usan la subpartida de 6 dígitos)."""
 
 
 def test_items_accept_units_of_any_family(interno):
-    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
-    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    base = {"estilo": "CHEMKG01", "color": "Clear", "marca_id": m["VANS"], "grupo_id": next(iter(g.values())), "proveedor_id": pv["VANS"],
-            "nombre": "Citric acid 25 kg bag", "tallas": [{"talla": "25"}]}
+    base = {"atributos": {"MARCA": "VANS", "MODELO": "CHEMKG01"}, "proveedor_id": pv["VANS"],
+            "nombre": "Citric acid 25 kg bag", "variantes": [{"valores": {"COLOR": "Clear", "TALLA": "25"}}]}
     r = interno.post("/catalogos/genericos", {**base, "generico": "30077801", "unidad": "XX"})
     assert r.status_code == 422 and "unit" in r.text.lower()
     r = interno.post("/catalogos/genericos", {**base, "generico": "30077801", "unidad": "KG"})

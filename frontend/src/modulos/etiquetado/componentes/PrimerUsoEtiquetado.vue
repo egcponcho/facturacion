@@ -17,8 +17,7 @@ const paso = ref(0)
 const ocupado = ref(false)
 const cat = ref(null)
 const tipos = ref([])
-const familias = ref('grupos')
-const gruposSin = ref(0)
+const familias = ref('mano')
 const disenos = reactive({ crear: puede('etiquetas.disenar'), tamano: {} })
 
 onMounted(async () => {
@@ -28,9 +27,6 @@ onMounted(async () => {
     for (const s of cat.value.sugeridos) disenos.tamano[s.codigo] = s.sujeto === 'BULTO' ? 1 : s.sujeto === 'DOCUMENTO' ? 0 : 3
   } catch (e) {
     errorApi(e)
-  }
-  if (puede('etiquetas.familias')) {
-    api.get('/etiquetas/grupos-articulos', { familia: 'sin' }).then((r) => (gruposSin.value = r.length)).catch(() => {})
   }
 })
 function otro() {
@@ -51,7 +47,6 @@ async function terminar() {
       creados.push(await api.post('/etiquetas/tipos', { codigo: x.codigo, nombre: x.nombre.trim(), sujeto: x.sujeto, cantidad: x.cantidad,
         obligatoria: x.obligatoria }))
     }
-    if (familias.value === 'grupos' && gruposSin.value) await api.post('/etiquetas/familias/desde-grupos', {})
     if (disenos.crear) {
       for (const tipo of creados) {
         const original = elegidos.value.find((x) => x.codigo === tipo.codigo)
@@ -106,9 +101,6 @@ async function terminar() {
     <!-- 2. Familias -->
     <div v-else-if="paso === 1" class="pu-lista">
       <template v-if="puede('etiquetas.familias')">
-        <label class="pu-opcion"><input v-model="familias" type="radio" value="grupos" :disabled="!gruposSin" />
-          <span><strong>{{ t('Use my item groups as families') }}</strong>
-            <small class="ayuda">{{ gruposSin ? t('{0} groups → {0} families; you can join or rename them later.', [fmtNum(gruposSin)]) : t('All the item groups already have a family.') }}</small></span></label>
         <label class="pu-opcion"><input v-model="familias" type="radio" value="mano" />
           <span><strong>{{ t('Create the families by hand') }}</strong><small class="ayuda">{{ t('In Setup → Families and items, after this assistant.') }}</small></span></label>
       </template>

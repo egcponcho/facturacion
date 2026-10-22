@@ -18,6 +18,7 @@ from etiquetado_util import (
     oc_con_articulos,
     pdf,
     problemas,
+    producto_de,
     tipo,
     trabajo,
     uso,
@@ -33,7 +34,7 @@ COMBINADA = [
     {"id": "oc", "tipo": "campo", "campo": "oc.numero", "prefijo": "PO ", "x": 3, "y": 3, "w": 50, "h": 7, "estilo": {"tam": 10, "negrita": True}},
     {"id": "prov", "tipo": "campo", "campo": "oc.proveedor", "x": 55, "y": 3, "w": 42, "h": 7, "estilo": {"tam": 8, "alin": "der"}},
     {"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 3, "y": 12, "w": 60, "h": 7, "estilo": {"tam": 11}},
-    {"id": "talla", "tipo": "texto", "contenido": "Size {{articulo.talla}}", "x": 65, "y": 12, "w": 32, "h": 7},
+    {"id": "talla", "tipo": "texto", "contenido": "Size {{articulo.atributo.TALLA}}", "x": 65, "y": 12, "w": 32, "h": 7},
     {"id": "n", "tipo": "texto", "contenido": "{{etiqueta.numero}}/{{etiqueta.total}}", "x": 75, "y": 40, "w": 22, "h": 6,
      "estilo": {"tam": 8, "alin": "der"}},
     {"id": "bc", "tipo": "codigo", "simbologia": "code128", "valor": "{{articulo.sku}}", "x": 3, "y": 21, "w": 70, "h": 18,
@@ -158,7 +159,8 @@ def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, ti
                                     "posiciones": [linea["id"], oc["lineas"][1]["id"]]})
         r0, r1 = t["registros"]
         assert r0["plantilla"] == "Generation family label" and r0["motivo"] == "Labeling family Generation family."
-        assert r1["plantilla"] == "Combined PO and item label linea" or articulo_de(oc["lineas"][1]["id"]) == articulo_id
+        # La familia es del producto: la otra línea la toma si es del mismo producto
+        assert r1["plantilla"] == "Combined PO and item label linea" or producto_de(oc["lineas"][1]["id"]) == producto_de(linea["id"])
         if not valor:
             assert "dato_familia" in problemas(r0)
     finally:
@@ -246,7 +248,8 @@ def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admi
         from app.modelos import Articulo
 
         a = db.get(Articulo, articulo_id)
-        talla_antes, a.talla = a.talla, "ZZ"
+        talla_antes = a.variantes.get("TALLA")
+        a.variantes = {**a.variantes, "TALLA": "ZZ"}
         db.commit()
     try:
         r = interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo")
@@ -254,7 +257,7 @@ def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admi
         texto = pdf(r.content)[0][2]
         assert f"PO {oc['oc']['numero']}" in texto and "ORDER" not in texto and "ZZ" not in texto
         detalle = interno.get(f"/etiquetas/generaciones/{gen['id']}").json()
-        assert detalle["versiones"][0]["version"] == 1 and detalle["items"][0]["valores"]["articulo.talla"] == talla_antes
+        assert detalle["versiones"][0]["version"] == 1 and detalle["items"][0]["valores"]["articulo.atributo.TALLA"] == talla_antes
         # Un trabajo nuevo usa la versión 2 y los datos actuales
         nueva = generado(interno, trabajo(interno, "OC", pedido))["ejecuciones"][0]
         assert interno.get(f"/etiquetas/generaciones/{nueva['id']}").json()["versiones"][0]["version"] == 2
@@ -262,7 +265,8 @@ def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admi
         assert "ORDER" in texto and "Size ZZ" in texto
     finally:
         with SessionLocal() as db, en_organizacion(1):
-            db.get(Articulo, articulo_id).talla = talla_antes
+            a = db.get(Articulo, articulo_id)
+            a.variantes = {**a.variantes, "TALLA": talla_antes}
             db.commit()
     # Historial con filtros
     h = interno.get("/etiquetas/generaciones", params={"oc_id": oc["oc"]["id"], "version_id": disenio["vigente"]["id"]}).json()

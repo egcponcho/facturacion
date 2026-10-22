@@ -305,7 +305,7 @@ alCambiar(() => consultar(), ['/productos'])
           <Icono v-else nombre="caja" :tam="18" />
         </span>
         <span>
-          <router-link :to="`/productos/${p.id}`" class="enlace-doc" @click.stop><strong><span v-if="p.codigo_generico" class="codigo">{{ tx(p.codigo_generico) }}</span> {{ tx(p.nombre || [p.estilo, p.color].filter(Boolean).join(' · ') || '—') }}</strong></router-link>
+          <router-link :to="`/productos/${p.id}`" class="enlace-doc" @click.stop><strong><span v-if="p.codigo_generico" class="codigo">{{ tx(p.codigo_generico) }}</span> {{ tx(p.nombre || '—') }}</strong></router-link>
           <span class="sub">{{ [p.descripcion_comercial, p.resumen_variantes || t('no variants')].filter(Boolean).map(tx).join(' · ') }}</span>
         </span>
       </div>

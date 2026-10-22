@@ -1,5 +1,4 @@
 """Recorre el flujo completo OC -> factura -> PL -> cajas -> unidad de carga -> salida."""
-import os
 from datetime import date, datetime, timedelta
 
 HOY = date.today().isoformat()
@@ -14,8 +13,18 @@ def _oc(api, numero):
     return api.get(f"/ordenes/{oc['id']}/posiciones").json()
 
 
+def _talla(linea):
+    """La talla de una línea (su valor del atributo de variante TALLA)."""
+    return (linea.get("valores") or {}).get("TALLA")
+
+
+def _estilo(linea):
+    """El estilo de una línea (su atributo de producto MODELO)."""
+    return (linea.get("atributos") or {}).get("MODELO")
+
+
 def _pos(det, talla, estilo=None):
-    return next(p for p in det["posiciones"] if p["talla"] == talla and (estilo is None or p["estilo"] == estilo))
+    return next(p for p in det["posiciones"] if _talla(p) == talla and (estilo is None or _estilo(p) == estilo))
 
 
 estado = {}
@@ -123,7 +132,7 @@ def test_plantilla_con_sobrante(tnf):
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
     plantillas = tnf.get("/plantillas").json()
     chaqueta = next(t for t in plantillas if t["nombre"] == "Jacket carton 10 units")
-    xl = next(l for l in pl["lineas"] if l["talla"] == "XL")
+    xl = next(l for l in pl["lineas"] if _talla(l) == "XL")
     assert xl["cantidad"] == 27
     previa = tnf.post(f"/packing-lists/{pl_id}/empaque/previa",
                       {"filas": [{"pl_linea_id": xl["id"], "plantilla_id": chaqueta["id"]}]}).json()
@@ -147,7 +156,7 @@ def test_plantilla_con_sobrante(tnf):
 def test_reducir_factura_con_pl(tnf):
     fid = estado["fid"]
     f = tnf.get(f"/facturas/{fid}").json()
-    m = next(l for l in f["lineas"] if l["talla"] == "M")
+    m = next(l for l in f["lineas"] if _talla(l) == "M")
     r = tnf.patch(f"/facturas/{fid}/lineas", {"version": f["version"], "cambios": [{"linea_id": m["id"], "cantidad": 50}]})
     assert r.status_code == 409 and r.json()["codigo"] == "requiere_ajuste_pl"
     assert r.json()["detalle"][0]["hay_que_liberar"] == 10
@@ -155,7 +164,7 @@ def test_reducir_factura_con_pl(tnf):
                   "cambios": [{"linea_id": m["id"], "cantidad": 50}]})
     assert r.status_code == 200, r.text
     # Lo empacado no se libera automáticamente
-    xl = next(l for l in f["lineas"] if l["talla"] == "XL")
+    xl = next(l for l in f["lineas"] if _talla(l) == "XL")
     f = tnf.get(f"/facturas/{fid}").json()
     r = tnf.patch(f"/facturas/{fid}/lineas", {"version": f["version"], "ajuste_pl": "automatico",
                   "cambios": [{"linea_id": xl["id"], "cantidad": 20}]})
@@ -258,7 +267,7 @@ def test_eliminar_linea_con_cascada(vans):
     t = next(t for t in vans.get("/plantillas").json() if t["nombre"] == "Master 12 pairs")
     _empacar(vans, pl_id, pl["version"], [(l["id"], t["id"]) for l in pl["lineas"]], "sin_caja")
     f = vans.get(f"/facturas/{fid}").json()
-    linea7 = next(l for l in f["lineas"] if l["talla"] == "7")
+    linea7 = next(l for l in f["lineas"] if _talla(l) == "7")
     r = vans.post(f"/facturas/{fid}/lineas/eliminar", {"version": f["version"], "linea_ids": [linea7["id"]]})
     assert r.status_code == 409 and r.json()["codigo"] == "requiere_confirmacion"
     r = vans.post(f"/facturas/{fid}/lineas/eliminar", {"version": f["version"], "linea_ids": [linea7["id"]],
@@ -505,47 +514,44 @@ def test_catalogos(interno, tnf):
     tnf_marca = next(m for m in interno.get("/catalogos/marcas", params={"q": "TNF"}).json()["items"])
     r = interno.delete_(f"/catalogos/marcas/{tnf_marca['id']}")
     assert r.status_code == 409 and r.json()["codigo"] == "en_uso"
-    # El número de artículo es numérico (p. ej. 30095120001)
-    grupos = interno.get("/catalogos/grupos").json()["items"]
+    # Un producto de TNF solo lleva marcas de TNF: su atributo de marca apunta al catálogo de marcas
     provs = {p["codigo"]: p for p in interno.get("/catalogos/proveedores").json()["items"]}
-    base = {"estilo": "E1", "color": "Rojo", "marca_id": tnf_marca["id"], "grupo_id": grupos[0]["id"],
-            "proveedor_id": provs["TNF"]["id"]}
-    # El proveedor maneja sus marcas: un artículo de TNF no puede ser de otra marca
+    base = {"generico": "30099990", "nombre": "E1 Rojo", "unidad": "PAR", "proveedor_id": provs["TNF"]["id"]}
+    r = interno.post("/catalogos/genericos", {**base, "atributos": {"MARCA": "VANS"}})
+    assert r.status_code == 422 and any(d["campo"] == "atributos.MARCA" for d in r.json()["detalle"])
+    # Y no puede dejar de manejar una marca de la que tiene productos
     vans_marca = next(m for m in interno.get("/catalogos/marcas").json()["items"] if m["codigo"] == "VANS")
-    r = interno.post("/catalogos/articulos", {**base, "marca_id": vans_marca["id"], "sku": "30099990009", "talla": "9",
-                                              "tipo": "SOLIDO", "unidad": "PAR"})
-    assert r.status_code == 422 and any(d["campo"] == "marca_id" for d in r.json()["detalle"])
-    # Y no puede dejar de manejar una marca de la que tiene artículos
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": [vans_marca["id"]]})
-    assert r.status_code == 422 and "has items" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "has products" in r.json()["detalle"][0]["mensaje"]
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": []})
-    assert r.status_code == 422 and "has items" in r.json()["detalle"][0]["mensaje"]
+    assert r.status_code == 422 and "has products" in r.json()["detalle"][0]["mensaje"]
     assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
-    r = interno.post("/catalogos/articulos", {**base, "sku": "X 1!", "talla": "9", "tipo": "SOLIDO", "unidad": "PAR"})
+    r = interno.post("/catalogos/genericos", {**base, "atributos": {"MARCA": "TNF", "MODELO": "E1"},
+                                              "variantes": [{"valores": {"COLOR": "Rojo", "TALLA": "9"}, "sku": "30099990002"}]})
+    assert r.status_code == 200, r.text
+    # El código de artículo es de la empresa (letras, números y . - _ /)
+    r = interno.post("/catalogos/articulos", {"sku": "X 1!", "generico": "30099990", "tipo": "SOLIDO", "unidad": "PAR"})
     assert r.status_code == 422 and r.json()["detalle"][0]["campo"] == "sku"
-    # Un prepack no se crea como artículo suelto: se crea con su código y su explosión
-    r = interno.post("/catalogos/articulos", {**base, "sku": "30099990001", "talla": "AB12", "tipo": "PREPACK",
-                                              "unidad": "CJ"})
+    # Un pack no se crea como artículo suelto: se crea con su código y su contenido
+    r = interno.post("/catalogos/articulos", {"sku": "30099990001", "generico": "30099990", "tipo": "PREPACK", "unidad": "CJ"})
     assert r.status_code == 422 and any(d["campo"] == "tipo" for d in r.json()["detalle"])
-    sol = interno.post("/catalogos/articulos", {**base, "sku": "30099990002", "talla": "9", "tipo": "SOLIDO",
-                                                "unidad": "PAR", "casepack": 6}).json()
-    otro = interno.get("/catalogos/articulos", params={"q": "VN000EE3"}).json()["items"][0]
-    datos_pp = {"sku": "30099990001", "codigo": "ab12", "estilo": "E1", "color": "Rojo"}
-    r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [
+    sol = interno.get("/catalogos/articulos", params={"q": "30099990002"}).json()["items"][0]
+    otro = interno.get("/catalogos/articulos", params={"q": "30095125"}).json()["items"][0]
+    datos_pp = {"sku": "30099990001", "codigo": "ab12"}
+    r = interno.post("/catalogos/compuestos", {**datos_pp, "componentes": [
         {"articulo_id": sol["id"], "cantidad": 6}, {"articulo_id": otro["id"], "cantidad": 1}]})
     assert r.status_code == 422 and any("is another product" in d["mensaje"] for d in r.json()["detalle"])
-    r = interno.post("/catalogos/prepacks", {**datos_pp, "componentes": [{"articulo_id": sol["id"], "cantidad": 6}]})
+    r = interno.post("/catalogos/compuestos", {**datos_pp, "componentes": [{"articulo_id": sol["id"], "cantidad": 6}]})
     assert r.status_code == 200, r.text
     pp = r.json()
-    assert pp["codigo"] == "AB12" and pp["sku"] == "30099990001" and pp["total"] == 6
+    assert pp["codigo"] == "AB12" and pp["sku"] == "30099990001" and pp["total"] == 6 and pp["generico"] == "30099990"
     art = interno.get("/catalogos/articulos", params={"q": "30099990001"}).json()["items"][0]
-    assert art["tipo"] == "PREPACK" and art["talla"] == "AB12" and art["unidad"] == "CJ"
-    # La explosión se ve (también el proveedor) pero no se modifica
+    assert art["tipo"] == "PREPACK" and art["unidad"] == "CJ"
+    # El contenido se ve (también el proveedor) pero no se modifica
     assert tnf.get("/catalogos/explosion/30099990001").json()["componentes"][0]["cantidad"] == 6
-    assert interno.patch(f"/catalogos/prepacks/{pp['id']}", {"codigo": "ZZ99"}).status_code == 422
-    assert interno.patch(f"/catalogos/articulos/{art['id']}", {"talla": "ZZ99"}).status_code == 422
-    assert interno.patch(f"/catalogos/articulos/{sol['id']}", {"color": "Azul"}).status_code == 422
-    assert interno.patch(f"/catalogos/prepacks/{pp['id']}", {"descripcion": "Curva roja"}).status_code == 200
+    assert interno.patch(f"/catalogos/articulos/{art['id']}", {"tipo": "SOLIDO"}).status_code == 422
+    assert interno.patch(f"/catalogos/articulos/{sol['id']}", {"atr.COLOR": "Azul"}).status_code == 422
+    assert interno.patch(f"/catalogos/articulos/{art['id']}", {"descripcion": "Curva roja"}).status_code == 200
     # Contactos: correos válidos y ligados a una sociedad o centro
     r = interno.post("/catalogos/contactos", {"nombre": "X", "rol": "NOTIFY", "correos": "a@b.com, malo"})
     assert r.status_code == 422
@@ -575,12 +581,16 @@ def test_seguimiento(tnf, interno, admin):
     assert {f["oc"] for f in pendientes["items"]} >= {"4400003851"}
     ordenadas = interno.get("/seguimiento", params={"orden": "cantidad:desc", "size": 5}).json()["items"]
     assert [f["cantidad"] for f in ordenadas] == sorted([f["cantidad"] for f in ordenadas], reverse=True)
-    # Por documento de transporte, grupo de artículos y rango de ETA
+    # Por documento de transporte, familia del producto, atributo y rango de ETA
     bl = interno.get("/seguimiento", params={"documento": "COSU 640018225"}).json()
     assert bl["total"] and all(f["contenedor"] == "TGHU 772104-3" for f in bl["items"])
-    assert "CALZ-CAS" in bl["opciones"]["grupos"]
-    grupo = interno.get("/seguimiento", params={"grupo": "CHAQ"}).json()
-    assert grupo["total"] and all(f["grupo"] == "CHAQ" for f in grupo["items"])
+    assert "Footwear" in bl["opciones"]["familias"]
+    familia = interno.get("/seguimiento", params={"familia": "Apparel"}).json()
+    assert familia["total"] and all(f["familia"] == "Apparel" for f in familia["items"])
+    estilo = interno.get("/seguimiento", params={"atr_MODELO": "NF0A5GLL"}).json()
+    assert estilo["total"] and all(f["atributos"]["MODELO"] == "NF0A5GLL" for f in estilo["items"])
+    talla = interno.get("/seguimiento", params={"var_TALLA": "M"}).json()
+    assert talla["total"] and all(f["variantes"]["TALLA"] == "M" for f in talla["items"])
     hoy = date.today()
     eta = interno.get("/seguimiento", params={"eta_desde": hoy.isoformat()}).json()
     assert eta["total"] and all(f["eta"] >= hoy.isoformat() for f in eta["items"])
@@ -687,8 +697,8 @@ def test_inner_pack_y_casepack_de_la_oc(tnf, vans, interno):
                        {"casepack": 10, "inner_pack": 5}).status_code == 409
     pl_id = tnf.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
-    lf = next(l for l in pl["lineas"] if l["talla"] == "S")
-    lm = next(l for l in pl["lineas"] if l["talla"] == "OS")
+    lf = next(l for l in pl["lineas"] if _talla(l) == "S")
+    lm = next(l for l in pl["lineas"] if _talla(l) == "OS")
     assert (lf["regla"], lf["inner_pack"]) == ("LIBRE", 5) and lm["regla"] == "CASEPACK"
     # Sin casepack: la caja lleva inner packs enteros
     r = tnf.post(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "num_cajas": 1, "items": [
@@ -735,12 +745,9 @@ def test_sugerencia_de_unidades(interno):
 
 
 def test_plantillas_de_carga_en_ingles(interno):
-    """Las plantillas CSV descargables (columnas en inglés) se aceptan tal cual."""
-    base = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public")
-
-    def subir(ruta, archivo):
-        with open(os.path.join(base, archivo), "rb") as f:
-            return interno.c.post("/api" + ruta, headers=interno.h, files={"archivo": (archivo, f.read(), "text/csv")})
+    """Los archivos con las columnas de las plantillas descargables (en inglés) se aceptan tal cual."""
+    def subir(ruta, archivo, texto):
+        return interno.c.post("/api" + ruta, headers=interno.h, files={"archivo": (archivo, texto.encode(), "text/csv")})
 
     # La plantilla de OC se genera con las fechas en el formato del usuario y se lee tal cual
     plantilla = interno.c.get("/api/ordenes/plantilla", headers=interno.h).content
@@ -749,9 +756,24 @@ def test_plantillas_de_carga_en_ingles(interno):
     assert r.status_code == 200, r.text
     filas = r.json()["filas"]
     assert filas and not any("column" in m or "date" in m for f in filas for m in f["mensajes"])
-    r = subir("/catalogos/articulos/importar", "plantilla_articulos.csv")
-    assert r.status_code == 200 and not r.json()["errores"] and r.json()["creados"] == 3, r.text
-    r = subir("/catalogos/prepacks/importar", "plantilla_prepacks.csv")
+    # Productos y variantes en una sola hoja: una columna por atributo (marca, estilo, color, talla)
+    r = subir("/catalogos/articulos/importar", "productos.csv", "\n".join([
+        "Product code,Name,Unit,Supplier,Brand,Style,Color,Size,Item code,Barcode",
+        "30095129,Hiking footwear,PAR,TNF,TNF,NF0A7W4X,KX7 Black,13,30095129130,0196000200010",
+        "30095129,Hiking footwear,PAR,TNF,TNF,NF0A7W4X,KX7 Black,14,30095129140,0196000200011",
+        "30095129,Hiking footwear,PAR,TNF,TNF,NF0A7W4X,KX7 Black,15,30095129150,0196000200012"]))
+    assert r.status_code == 200 and not r.json()["errores"], r.text
+    arts = interno.get("/catalogos/articulos", params={"q": "30095129"}).json()["items"]
+    assert sorted(a["sku"] for a in arts) == ["30095129130", "30095129140", "30095129150"]
+    assert {a["codigo_barras"] for a in arts} == {"0196000200010", "0196000200011", "0196000200012"}
+    det = interno.get("/catalogos/genericos/30095129").json()
+    assert det["atributos"] == {"MARCA": "TNF", "MODELO": "NF0A7W4X"}
+    assert {v["valores"]["TALLA"] for v in det["variantes"]} == {"13", "14", "15"}
+    # Packs y kits: una fila por artículo del contenido
+    r = subir("/catalogos/compuestos/importar", "packs.csv", "\n".join([
+        "Pack item code,Pack ID,Kind,Description,Item code,Quantity",
+        "30095129001,AB06,PACK,KX7 black pack AB06 (6 pairs),30095129130,3",
+        "30095129001,AB06,PACK,KX7 black pack AB06 (6 pairs),30095129140,3"]))
     assert r.status_code == 200 and not r.json()["errores"] and r.json()["creados"] == 1, r.text
 
 
@@ -959,15 +981,18 @@ def test_estado_del_embarque_frente_a_tienda(interno):
     assert con and all(e["estado_tiempo"] in ("A_TIEMPO", "JUSTO", "ATRASO") for e in con)
     det = interno.get(f"/embarques/{con[0]['id']}").json()
     assert det["estado_tiempo"] == con[0]["estado_tiempo"]
-    # Días extra del tipo de producto: la estimación en tienda se corre
+    # Días extra de la familia del producto: la estimación en tienda se corre
+    def familia_de(oc_id):
+        sku = interno.get(f"/ordenes/{oc_id}/posiciones").json()["posiciones"][0]["codigo_articulo"]
+        gen = interno.get("/catalogos/articulos", params={"q": sku}).json()["items"][0]["generico"]
+        return interno.get(f"/catalogos/genericos/{gen}").json()["grupo_producto_id"]
+
     ocs = interno.get("/ordenes", params={"size": 50}).json()["items"]
-    o = next(o for o in ocs if o.get("tienda_estimada"))
-    grupo = interno.get(f"/ordenes/{o['id']}/posiciones").json()["posiciones"][0]["grupo"]
-    g = next(x for x in interno.get("/catalogos/grupos").json()["items"] if x["codigo"] == grupo)
-    assert interno.patch(f"/catalogos/grupos/{g['id']}", {"dias_extra": 10}).status_code == 200
+    o, fam = next((o, f) for o in ocs if o.get("tienda_estimada") for f in [familia_de(o["id"])] if f)
+    assert interno.patch(f"/grupos-producto/{fam}", {"dias_extra": 10}).status_code == 200
     o2 = next(x for x in interno.get("/ordenes", params={"size": 50}).json()["items"] if x["id"] == o["id"])
     assert (date.fromisoformat(o2["tienda_estimada"]) - date.fromisoformat(o["tienda_estimada"])).days == 10
-    interno.patch(f"/catalogos/grupos/{g['id']}", {"dias_extra": None})
+    interno.patch(f"/grupos-producto/{fam}", {"dias_extra": None})
 
 
 def test_consistencia_de_maestros(interno):

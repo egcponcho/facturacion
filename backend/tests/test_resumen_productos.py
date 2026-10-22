@@ -1,18 +1,16 @@
 """Resumen del módulo de productos y filtro del catálogo por familia (con sus
 subfamilias): las cifras del resumen abren el catálogo con ese filtro."""
-from test_alta_producto import _borrar, _cat
+from test_alta_producto import _borrar
 
 
 def test_resumen_y_filtro_por_familia(interno, admin, vans):
-    base = _cat(interno, "articulos", tipo="SOLIDO")[0]
     fam = admin.post("/grupos-producto", {"codigo": "RES-FAM", "nombre": "Summary family"}).json()
     sub = admin.post("/grupos-producto", {"codigo": "RES-SUB", "nombre": "Summary sub", "padre_id": fam["id"]}).json()
     antes = interno.get("/productos/resumen").json()
     try:
         r = interno.post("/catalogos/genericos", {
-            "generico": "RESUM01", "nombre": "Summary product", "marca_id": base["marca_id"], "grupo_id": base["grupo_id"],
-            "proveedor_id": base["proveedor_id"], "unidad": "UN", "grupo_producto_id": sub["id"],
-            "tallas": [{"valores": {"TALLA": "7"}}, {"valores": {"TALLA": "8"}, "upc": "012345678905"}]})
+            "generico": "RESUM01", "nombre": "Summary product", "unidad": "UN", "grupo_producto_id": sub["id"],
+            "variantes": [{"valores": {"TALLA": "7"}}, {"valores": {"TALLA": "8"}, "codigo_barras": "012345678905"}]})
         assert r.status_code == 200, r.text
         res = interno.get("/productos/resumen").json()
         assert res["total"] == antes["total"] + 1 and res["variantes"] == antes["variantes"] + 2

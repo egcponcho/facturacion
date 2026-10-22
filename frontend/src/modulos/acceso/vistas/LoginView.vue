@@ -120,7 +120,7 @@ onBeforeUnmount(() => clearInterval(reloj))
       </div>
       <ul class="login-pasos">
         <li><span><Icono nombre="factura" /></span>{{ t('Invoice full POs or in parts') }}</li>
-        <li><span><Icono nombre="caja" /></span>{{ t('Pack by casepack, inner pack or prepack in one step') }}</li>
+        <li><span><Icono nombre="caja" /></span>{{ t('Pack by casepack, inner pack, pack or kit in one step') }}</li>
         <li><span><Icono nombre="barco" /></span>{{ t('Load containers and track transit') }}</li>
       </ul>
     </section>

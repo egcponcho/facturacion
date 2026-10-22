@@ -105,9 +105,11 @@ def exigir_aprobacion(db: Session, user: Usuario, p, lote: bool = False) -> None
     if lote and not v["aprobacion_lote"]:
         raise ErrorNegocio("Bulk approval is turned off: approve each sheet on its own page.", 422, "lote_apagado")
     if v["revision_obligatoria"] and p.estado != "revision":
-        raise ErrorNegocio(f"{p.estilo}: send the sheet to review before approving it.", 422, "requiere_envio")
+        raise ErrorNegocio(f"{p.nombre or p.codigo_generico}: send the sheet to review before approving it.", 422,
+                          "requiere_envio")
     if v["cuatro_ojos"] and quien_envio(db, p.id) == user.id:
-        raise ErrorNegocio(f"{p.estilo}: you sent this sheet to review; another person has to approve it.", 422, "cuatro_ojos")
+        raise ErrorNegocio(f"{p.nombre or p.codigo_generico}: you sent this sheet to review; another person has to approve it.",
+                          422, "cuatro_ojos")
 
 
 def quien_envio(db: Session, producto_id: int) -> int | None:

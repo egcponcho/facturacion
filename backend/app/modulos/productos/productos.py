@@ -1,8 +1,8 @@
 """Productos: ficha técnica y clasificación arancelaria.
 
-Un producto es el estilo-color de un proveedor. Sus tallas (artículos) y sus
-prepacks comparten la ficha técnica, la partida SAC aprobada y el código
-nacional de cada país destino; de aquí los toman la OC y la factura.
+Un producto de cualquier rubro: sus variantes (artículos) y sus packs comparten
+la ficha técnica, la partida SAC aprobada y el código nacional de cada país
+destino; de aquí los toman la OC y la factura.
 
 La clasificación la hace el motor único del servidor (motor_clasificacion):
 la ficha, el guardado, la clasificación masiva y la aprobación pasan por él;
@@ -23,9 +23,10 @@ from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
+    ArticuloCodigo,
+    Atributo,
     ClasificacionProducto,
     ControlCapitulo,
-    GrupoArticulo,
     Historial,
     IncisoNacional,
     Marca,
@@ -33,8 +34,8 @@ from app.modelos import (
     PaisArancel,
     PalabraClave,
     PartidaPais,
-    Prepack,
     Producto,
+    ProductoAtributo,
     ProductoDocumento,
     ProductoFoto,
     ProductoVersion,
@@ -98,15 +99,9 @@ def fmt_codigo(c) -> str:
 
 # ---- Producto de cada artículo ------------------------------------------------
 def producto_de(a: Articulo | None) -> Producto | None:
-    """Producto que da la clasificación a un artículo. Un prepack no se
-    clasifica: se arma con sólidos y toma la ficha de ellos."""
-    if not a:
-        return None
-    if a.tipo == "PREPACK" and a.prepack:
-        for c in a.prepack.componentes:
-            if c.articulo and c.articulo.producto:
-                return c.articulo.producto
-    return a.producto
+    """Producto que da la clasificación a un artículo: el suyo (un pack es del
+    producto de sus variantes; un kit es su propio producto)."""
+    return a.producto if a is not None else None
 
 
 def ids_bloquean_facturas(db: Session, prov: frozenset | None = None) -> set[int]:
@@ -155,69 +150,53 @@ def codigo_valido(valor: str | None) -> bool:
     return bool(RE_CODIGO.match(str(valor or "").strip()))
 
 
-def generico_auto(estilo: str | None, color: str | None) -> str | None:
-    """Genérico cuando la empresa no usa uno propio: estilo-color."""
-    base = "-".join(x for x in (str(estilo or "").strip(), str(color or "").strip()) if x).upper()
-    base = re.sub(r"[^A-Z0-9._\-/]+", "-", base).strip("-")
-    return base[:40] or None
-
-
 def generico_de(a) -> str | None:
     """Código del producto de un artículo o de una fila de datos: el que trae; si no,
-    estilo-color para quien identifica así sus productos; si no, el propio código del
-    artículo (un producto sin variantes, como un químico o una materia prima)."""
+    el propio código del artículo (un producto sin variantes, como un químico o una
+    materia prima)."""
     if a is None:
         return None
     if isinstance(a, dict):
-        return (str(a.get("generico") or "").strip().upper() or generico_auto(a.get("estilo"), a.get("color"))
-                or (str(a.get("sku") or "").strip().upper() or None))
-    return (a.generico or (a.producto.codigo_generico if a.producto else None) or generico_auto(a.estilo, a.color)
-            or (a.sku or None))
+        return str(a.get("generico") or "").strip().upper() or (str(a.get("sku") or "").strip().upper() or None)
+    return a.generico or (a.sku or None)
 
 
 def producto_por_generico(db: Session, gen: str | None) -> Producto | None:
     return db.scalar(select(Producto).where(Producto.codigo_generico == gen)) if gen else None
 
 
-def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
-    """Liga el artículo con el producto de su código (genérico); lo crea si no
-    existe. Las variantes y los compuestos del mismo producto comparten la
-    ficha técnica y la clasificación: el compuesto no se clasifica aparte."""
-    explicito = a.generico
-    gen = generico_de(a)
-    p = producto_por_generico(db, gen)
-    if not p and a.tipo == "PREPACK":
-        p = producto_de(a) if a.prepack else None
-    if not p and a.proveedor_id and a.estilo:
-        # Datos anteriores sin genérico: por proveedor, estilo y color
-        p = db.scalar(select(Producto).where(Producto.proveedor_id == a.proveedor_id, Producto.estilo == a.estilo,
-                                             Producto.color.is_(None) if a.color is None else Producto.color == a.color,
-                                             *([or_(Producto.codigo_generico.is_(None), Producto.codigo_generico == gen)]
-                                               if explicito else [])))
-    if not p:
-        if not gen:
-            return None
-        # Un producto con estilo es estilo-color (fija el color); sin estilo, el color es un valor
-        # de variante más
-        fija_color = bool(a.estilo)
-        p = Producto(proveedor_id=a.proveedor_id, estilo=a.estilo, color=a.color if fija_color else None,
-                     marca_id=a.marca_id,
-                     grupo_id=a.grupo_id, unidad=a.unidad if a.tipo == "SOLIDO" else None, ficha={}, faltan=[],
-                     alertas_ok=[], codigo_generico=gen, nombre=(None if a.estilo else a.descripcion) or gen)
+def asegurar_producto(db: Session, a: Articulo, generico: str | None = None,
+                      proveedor_id: int | None = None) -> Producto:
+    """Liga el artículo con el producto de su código (genérico; sin código, el del
+    propio artículo) y lo crea si no existe. Las variantes y los packs del mismo
+    producto comparten la ficha técnica y la clasificación."""
+    gen = (generico or "").strip().upper() or (a.producto.codigo_generico if a.producto is not None else None) \
+        or (a.sku or "").strip().upper()
+    p = a.producto if a.producto is not None and a.producto.codigo_generico == gen else producto_por_generico(db, gen)
+    if p is None:
+        p = Producto(proveedor_id=proveedor_id, unidad=a.unidad if a.tipo == "SOLIDO" else None, ficha={}, faltan=[],
+                     alertas_ok=[], codigo_generico=gen, nombre=a.descripcion or gen)
         db.add(p)
-    if gen and not p.codigo_generico:
-        p.codigo_generico = gen
-    p.marca_id = p.marca_id or a.marca_id
-    p.grupo_id = p.grupo_id or a.grupo_id
+    if proveedor_id and not p.proveedor_id:
+        p.proveedor_id = proveedor_id
     if a.tipo == "SOLIDO" and not p.unidad:
         p.unidad = a.unidad
-    db.flush()
     a.producto = p
-    if not a.generico:
-        a.generico = p.codigo_generico
     if not p.descripcion_comercial and not (p.ficha or {}).get("comManual"):
         p.descripcion_comercial = descripcion_comercial_simple(p)
     return p
+
+
+def marca_de(p: Producto | None):
+    """La marca del producto (el registro del catálogo de marcas que dice su atributo de marca)."""
+    codigo = p.marca_codigo if p is not None else None
+    db = object_session(p) if p is not None else None
+    return db.scalar(select(Marca).where(Marca.codigo == codigo)) if codigo and db is not None else None
+
+
+def nombre_producto(p: Producto) -> str:
+    """Cómo se nombra el producto en mensajes: su nombre o su código."""
+    return p.nombre or p.codigo_generico or str(p.id)
 
 
 def descripcion_comercial_simple(p: Producto) -> str | None:
@@ -237,7 +216,8 @@ def descripcion_comercial_simple(p: Producto) -> str | None:
         return None
     s = cat.hechos_base(dict(p.ficha or {}), p.tipo, c.dominio)
     cat.normalizar(s)
-    return descripcion_comercial(cat, s, c, p.marca.nombre if p.marca else None)[:300] or None
+    marca = marca_de(p)
+    return descripcion_comercial(cat, s, c, marca.nombre if marca else None)[:300] or None
 
 
 def partida_para(p: Producto | None) -> str | None:
@@ -308,64 +288,60 @@ def _paises_completos(p: Producto, ds: list[dict]) -> tuple[int, int]:
     return ok, len(ds)
 
 
-def _resumen(p: Producto, tallas: dict, ds: list[dict]) -> dict:
+def _resumen(p: Producto, variantes: dict, ds: list[dict], marcas: dict | None = None) -> dict:
     ok, total = _paises_completos(p, ds)
     foto = p.fotos[0].id if p.fotos else None
-    t = tallas.get(p.id, {})
+    t = variantes.get(p.id, {})
+    marca = p.marca_codigo
     return {
-        "id": p.id, "estilo": p.estilo, "color": p.color, "nombre": p.nombre, "codigo_generico": p.codigo_generico,
+        "id": p.id, "nombre": p.nombre, "codigo_generico": p.codigo_generico,
         "proveedor_id": p.proveedor_id, "proveedor": p.proveedor.nombre if p.proveedor else None,
-        "marca": p.marca.codigo if p.marca else None, "marca_nombre": p.marca.nombre if p.marca else None,
-        "grupo": p.grupo.codigo if p.grupo else None, "tipo": p.tipo, "estado": p.estado,
+        # Atributos del producto (marca, modelo, material…): {código: valor}
+        "atributos": var_svc.ordenar_producto(object_session(p), p.valores),
+        "marca": marca, "marca_nombre": (marcas or {}).get(marca) if marcas is not None else (
+            m.nombre if (m := marca_de(p)) else None),
+        "familia_id": p.grupo_producto_id, "tipo": p.tipo, "estado": p.estado,
         "estado_txt": ESTADOS.get(p.estado, p.estado),
         "codigo": fmt_codigo(p.codigo) if p.codigo else None, "sugerido": fmt_codigo(p.sugerido) if p.sugerido else None,
         "sac_codigo": fmt_codigo(p.sac_codigo) if p.sac_codigo else None, "sac_sugerido": fmt_codigo(p.sac_sugerido) if p.sac_sugerido else None,
         "propuesta": fmt_codigo(p.propuesta) if p.propuesta else None,
         "confianza": p.confianza, "ficha_completa": p.ficha_completa, "faltan": p.faltan or [],
         "paises_ok": ok, "paises_total": total, "foto_id": foto, "pais_origen": p.pais_origen,
-        "tallas": t.get("tallas", []), "rango_tallas": rango_tallas(t.get("tallas", [])), "skus": t.get("skus", 0),
+        "skus": t.get("skus", 0),
         # Las variantes por atributo de la familia («Size 7–12 · Color BLACK, WHITE»), para cualquier producto
         "resumen_variantes": var_svc.resumen(object_session(p), t.get("articulos", [])),
-        "n_prepacks": t.get("prepacks", 0),
+        "n_compuestos": t.get("compuestos", 0),
         "unidad": t.get("unidad"), "descripcion_comercial": p.descripcion_comercial,
         "actualizado_en": p.actualizado_en, "version": p.version, "version_ficha": p.version_ficha,
     }
 
 
-# El texto corto de un rango de valores es genérico: vive con las variantes
-rango_tallas = var_svc.rango
-
-
-def _tallas(db: Session, ids: list[int]) -> dict:
+def _variantes(db: Session, ids: list[int]) -> dict:
     out: dict[int, dict] = {}
     if not ids:
         return out
     for a in db.scalars(select(Articulo).where(Articulo.producto_id.in_(ids)).order_by(Articulo.id)):
-        d = out.setdefault(a.producto_id, {"tallas": [], "skus": 0, "prepacks": 0, "unidad": None, "articulos": []})
+        d = out.setdefault(a.producto_id, {"skus": 0, "compuestos": 0, "unidad": None, "articulos": []})
         d["articulos"].append(a)
         if a.tipo == "PREPACK":
-            d["prepacks"] += 1
+            d["compuestos"] += 1
             continue
         d["skus"] += 1
-        if a.tipo == "SOLIDO" and a.talla:
-            d["tallas"].append(a.talla)
-        d["unidad"] = d["unidad"] or (a.unidad if a.tipo == "SOLIDO" else None)
+        d["unidad"] = d["unidad"] or a.unidad
     return out
 
 
-ORDEN = {"estilo": Producto.estilo, "estado": Producto.estado, "actualizado": Producto.actualizado_en,
+ORDEN = {"estado": Producto.estado, "actualizado": Producto.actualizado_en,
          "codigo": Producto.codigo, "tipo": Producto.tipo,
          # Columnas de la tabla de productos (TablaDatos)
          # El producto se reconoce por su nombre (o su código, si no tiene)
          "producto": func.coalesce(Producto.nombre, Producto.codigo_generico), "proveedor": Proveedor.nombre,
-         "generico": Producto.codigo_generico,
-         "color": Producto.color, "origen": Producto.pais_origen}
+         "generico": Producto.codigo_generico, "origen": Producto.pais_origen}
 
 # Columnas de la tabla de productos que se filtran por sus valores (app/modulos/comun/tabla.py).
 # El código es el aprobado o, mientras no lo hay, el sugerido (como se ve en la lista).
 COLUMNAS_PRODUCTOS = {
     "producto": func.coalesce(Producto.nombre, Producto.codigo_generico), "generico": Producto.codigo_generico,
-    "color": Producto.color,
     "proveedor": Proveedor.nombre, "tipo": Producto.tipo, "codigo": func.coalesce(Producto.codigo, Producto.sugerido),
     "estado": Producto.estado, "origen": Producto.pais_origen,
 }
@@ -407,18 +383,19 @@ def _consulta_productos(db: Session, user: Usuario, filtros: dict):
         base = base.where(Producto.proveedor_id.in_(prov))
     if filtros.get("marca_id"):
         ids = [int(x) for x in str(filtros["marca_id"]).split(",") if x.strip().isdigit()]
-        base = base.where(Producto.marca_id.in_(ids))
-    if filtros.get("grupo_id"):
-        base = base.where(Producto.grupo_id == filtros["grupo_id"])
+        codigos = select(Marca.codigo).where(Marca.id.in_(ids))
+        base = base.where(Producto.id.in_(select(ProductoAtributo.producto_id).join(Atributo).where(
+            Atributo.catalogo == "marcas", ProductoAtributo.valor.in_(codigos))))
     if filtros.get("tipo"):
         base = base.where(Producto.tipo.in_(str(filtros["tipo"]).split(",")))
     if filtros.get("familia"):
         base = base.where(Producto.grupo_producto_id.in_(rama_de_grupos(db, filtros["familia"])))
     if filtros.get("q"):
         base = base.where(filtro_texto(filtros["q"], lambda p: [
-            Producto.estilo.ilike(p), Producto.color.ilike(p), Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p),
-            Producto.codigo.ilike(p.replace(".", "")),
-            Producto.id.in_(select(Articulo.producto_id).where(or_(Articulo.sku.ilike(p), Articulo.upc.ilike(p))))]))
+            Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p), Producto.codigo.ilike(p.replace(".", "")),
+            Producto.id.in_(select(ProductoAtributo.producto_id).where(ProductoAtributo.valor.ilike(p))),
+            Producto.id.in_(select(Articulo.producto_id).where(Articulo.sku.ilike(p))),
+            Producto.id.in_(select(Articulo.producto_id).join(ArticuloCodigo).where(ArticuloCodigo.valor.ilike(p)))]))
     return base, prov
 
 
@@ -470,12 +447,12 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     col, _, direccion = (orden or "actualizado:desc").partition(":")
     campo = ORDEN.get(col, Producto.actualizado_en)
     base = base.order_by(campo.desc() if direccion == "desc" else campo.asc(), Producto.id)
-    # Proveedor, marca y grupo de toda la página en una consulta cada uno (no uno por producto)
+    # Proveedor y atributos de toda la página en una consulta cada uno (no uno por producto)
     filas = db.scalars(base.options(selectinload(Producto.partidas), selectinload(Producto.fotos),
-                                    selectinload(Producto.proveedor), selectinload(Producto.marca),
-                                    selectinload(Producto.grupo))
+                                    selectinload(Producto.proveedor), selectinload(Producto.atributos))
                        .offset((page - 1) * size).limit(size)).all()
-    tallas = _tallas(db, [p.id for p in filas])
+    variantes = _variantes(db, [p.id for p in filas])
+    marcas = {m.codigo: m.nombre for m in db.scalars(select(Marca))}
     kpis = {
         "total": sum(conteo.values()),
         "pendientes": sum(conteo.get(e, 0) for e in PENDIENTES),
@@ -486,7 +463,7 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
         "bloquean": len(bloquean),
     }
     ds = destinos(db)
-    items = [_resumen(p, tallas, ds) for p in filas]
+    items = [_resumen(p, variantes, ds, marcas) for p in filas]
     # Para mostrar: el texto del código (árbol oficial o su override) y el nombre corto de la categoría
     from app.modulos.clasificacion.aranceles import textos_sac
     from app.modulos.productos.ficha import catalogo
@@ -513,14 +490,13 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
     db.flush()  # la sesión no hace autoflush: que se vea lo recién guardado
     p = _producto(db, user, producto_id)
     arts = db.scalars(select(Articulo).where(Articulo.producto_id == p.id).order_by(Articulo.tipo.desc(), Articulo.id)).all()
-    pps = db.scalars(select(Prepack).where(Prepack.estilo == p.estilo, Prepack.color == p.color)).all()
-    sku_pp = {a.prepack_id: a for a in arts if a.prepack_id}
     ds = destinos(db)
     dig = {d["iso"]: d["digitos"] for d in ds}
-    r = _resumen(p, _tallas(db, [p.id]), ds)
+    r = _resumen(p, _variantes(db, [p.id]), ds)
     r.update({
         "ficha": p.ficha or {}, "descripcion_aduana": p.descripcion_aduana, "pais_procedencia": p.pais_procedencia,
-        "marca_id": p.marca_id, "grupo_id": p.grupo_id,
+        "grupo_producto_id": p.grupo_producto_id,
+        "familia": p.grupo_producto.nombre if p.grupo_producto is not None else None,
         "analisis": p.analisis or {}, "alertas_ok": p.alertas_ok or [], "observaciones": p.observaciones,
         "resolucion": p.resolucion, "notas": p.notas, "opinion_ia": p.opinion_ia,
         "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
@@ -536,15 +512,18 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
                        "codigo": fmt_codigo(v.datos.get("codigo")) if v.datos.get("codigo") else None,
                        "estado": v.datos.get("estado"), "tipo": v.datos.get("tipo"), "cerrado_en": v.cerrado_en}
                       for v in reversed(p.versiones)],
-        "articulos": [{"id": a.id, "sku": a.sku, "sku_proveedor": a.sku_proveedor, "upc": a.upc, "talla": a.talla, "unidad": a.unidad, "tipo": a.tipo,
-                       "descripcion": a.descripcion, "activo": a.activo, "prepack_id": a.prepack_id,
+        "articulos": [{"id": a.id, "sku": a.sku, "codigo_proveedor": a.codigo_proveedor, "codigo_barras": a.codigo_barras,
+                       "codigos": [{"tipo": c.tipo, "valor": c.valor, "proveedor_id": c.proveedor_id} for c in a.codigos],
+                       "codigo_pack": a.codigo_pack, "unidad": a.unidad, "tipo": a.tipo, "peso_unitario": a.peso_unitario,
+                       "descripcion": a.descripcion, "activo": a.activo,
                        "valores": var_svc.de_articulo(db, a), "variante": var_svc.texto(var_svc.de_articulo(db, a)) or None}
                       for a in arts],
-        "prepacks": [{"id": x.id, "codigo": x.codigo, "descripcion": x.descripcion, "total": x.total,
-                      "sku": sku_pp[x.id].sku if x.id in sku_pp else None,
-                      "componentes": [{"talla": c.articulo.talla, "sku": c.articulo.sku, "cantidad": c.cantidad,
-                                       "variante": var_svc.texto(var_svc.de_articulo(db, c.articulo)) or None}
-                                      for c in x.componentes]} for x in pps],
+        # Packs y kits: su contenido (variantes y cantidades)
+        "compuestos": [{"id": a.id, "sku": a.sku, "codigo": a.codigo_pack, "descripcion": a.descripcion,
+                        "total": a.total_componentes, "kit": a.es_kit,
+                        "componentes": [{"sku": c.componente.sku, "cantidad": c.cantidad,
+                                         "variante": var_svc.texto(var_svc.de_articulo(db, c.componente)) or None}
+                                        for c in a.componentes]} for a in arts if a.tipo == "PREPACK"],
         "historial": _historial(db, p),
         "puede_aprobar": tiene(user, "producto.clasificar"),
         "enviado_por_mi": flujo.quien_envio(db, p.id) == user.id,
@@ -580,8 +559,9 @@ def entrada_producto(p: Producto, extra: dict | None = None) -> dict:
     """La ficha natural del producto para el motor único (la misma para la
     pantalla, el guardado, la aprobación y el lote)."""
     f = dict(p.ficha or {})
-    return {"categoria": p.tipo, "ficha": f, "estilo": p.estilo, "nombre": p.nombre, "uso": f.get("uso"), "tallas": f.get("tallas"),
-            "marca": p.marca.nombre if p.marca else None, "proveedor": p.proveedor.nombre if p.proveedor else None,
+    marca = marca_de(p)
+    return {"categoria": p.tipo, "ficha": f, "nombre": p.nombre, "uso": f.get("uso"), "tallas": f.get("tallas"),
+            "marca": marca.nombre if marca else None, "proveedor": p.proveedor.nombre if p.proveedor else None,
             "origen": p.pais_origen, "generico": p.codigo_generico, "producto_id": p.id, "alertas_ok": p.alertas_ok or [],
             "partidas": {x.pais: {"codigo": x.codigo, "manual": True} for x in p.partidas if x.manual}, "detectar": False, **(extra or {})}
 
@@ -698,7 +678,7 @@ def clasificar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
     for pid in ids:
         p = _producto(db, user, pid)
         if p.estado in APROBADOS:
-            omitidos.append({"id": p.id, "mensaje": f"{p.estilo} is already approved."})
+            omitidos.append({"id": p.id, "mensaje": f"{nombre_producto(p)} is already approved."})
             continue
         antes = p.estado
         clasificar_y_guardar(db, p, {"detectar": True}, catalogo=cat)
@@ -717,7 +697,7 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
 
     oficial = digitos(codigo or p.propuesta or p.sac_sugerido or p.sugerido)
     if len(oficial) < 6:
-        raise ErrorNegocio(f"{p.estilo}: there is no HS code to approve.", 422, "sin_partida")
+        raise ErrorNegocio(f"{nombre_producto(p)}: there is no HS code to approve.", 422, "sin_partida")
     if len(oficial) > 14:
         raise ErrorNegocio("The HS code is too long.", 422, "validacion")
     # Cada línea nacional que indica quien aprueba es una elección: el motor la valida
@@ -728,19 +708,19 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
                                                      "partidas": {iso: {"codigo": digitos(x["codigo"])} for iso, x in elegidas.items()}}))
     errores = [a["msg"] for a in r["alertas"] if a["nivel"] == "error" and a.get("origen") in ("codigo", "capitulo")]
     if any(a.get("origen") == "capitulo" and a["nivel"] == "error" for a in r["alertas"]):
-        raise ErrorNegocio(f"{p.estilo}: " + " ".join(errores), 422, "capitulo_no_habilitado")
+        raise ErrorNegocio(f"{nombre_producto(p)}: " + " ".join(errores), 422, "capitulo_no_habilitado")
     if len(oficial) > 6 and r["sac"] != oficial:
         raise ErrorNegocio(f"{fmt_codigo(oficial)} is not an official SAC line of the tariff in force. "
                            "The product keeps its HS6 and each country chooses its own national line.", 422, "no_es_linea_sac")
     if errores:
-        raise ErrorNegocio(f"{p.estilo}: " + " ".join(errores), 422, "codigo_invalido")
+        raise ErrorNegocio(f"{nombre_producto(p)}: " + " ".join(errores), 422, "codigo_invalido")
     paises = r["clasificacion"]["paises"]
     invalidos = [x for x in paises if x["estado"] == "invalido"]
     if invalidos:
         raise ErrorNegocio("; ".join(f"{x['pais']}: {x['error']}" for x in invalidos), 422, "codigo_nacional_invalido")
     # Con incertidumbre el caso queda pendiente: nunca se aprueba solo. En lote no se aprueba lo que pide revisión
     if lote and (r["requiere_revision"] or r["confianza"] == "low"):
-        raise ErrorNegocio(f"{p.estilo}: needs a specialist review (" + "; ".join(r["revision_por"][:2] or ["low legal confidence"]) + ").",
+        raise ErrorNegocio(f"{nombre_producto(p)}: needs a specialist review (" + "; ".join(r["revision_por"][:2] or ["low legal confidence"]) + ").",
                            422, "requiere_revision")
     # Las líneas nacionales son referencia (la OC y la factura llevan la subpartida de 6 dígitos):
     # aprobar no las exige. Una que solo el historial prefiere o que falta elegir queda pendiente
@@ -881,7 +861,7 @@ def aprobar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
         if p.estado in APROBADOS:
             continue
         if p.estado not in ("sugerida", "revision") or not p.ficha_completa:
-            errores.append({"id": p.id, "mensaje": f"{p.estilo} {p.color or ''}: the sheet is not complete.".replace(" :", ":")})
+            errores.append({"id": p.id, "mensaje": f"{nombre_producto(p)}: the sheet is not complete."})
             continue
         try:
             with db.begin_nested():
@@ -920,7 +900,7 @@ def enviar_revision(db: Session, user: Usuario, ids: list[int]) -> dict:
     ok, errores = 0, []
     for pid in ids:
         p = _producto(db, user, pid)
-        nombre = f"{p.estilo} {p.color or ''}".strip()
+        nombre = nombre_producto(p)
         if p.estado not in BORRADORES:
             errores.append({"id": p.id, "mensaje": f"{nombre} is {ESTADOS.get(p.estado, p.estado).lower()}."})
             continue
@@ -1164,7 +1144,6 @@ def opciones(db: Session, user: Usuario) -> dict:
     return {
         "proveedores": [{"id": x.id, "nombre": x.nombre} for x in provs if not prov or x.id in prov],
         "marcas": [{"id": m.id, "codigo": m.codigo, "nombre": m.nombre} for m in db.scalars(select(Marca).order_by(Marca.codigo))],
-        "grupos": [{"id": g.id, "codigo": g.codigo, "nombre": g.nombre} for g in db.scalars(select(GrupoArticulo).order_by(GrupoArticulo.codigo))],
         "estados": ESTADOS,
         "paises": [{"codigo": x.codigo, "nombre": x.nombre} for x in db.scalars(select(Pais).order_by(Pais.nombre))],
     }
@@ -1222,7 +1201,8 @@ def exportar_ficha(db: Session, user: Usuario, producto_id: int, formato: str = 
     from app.modulos.acceso import visibilidad
     from app.modulos.documentos import documentos, exportar
     d = visibilidad.quitar(ficha_de_version(db, user, producto_id, version))  # sin lo que el rol no ve
-    nombre = f"ficha_{d['estilo']}_{digitos(d['color'])[:6] or d['id']}" + (f"_v{d['version_ficha']}" if version else "")
+    nombre = f"ficha_{re.sub(r'[^A-Za-z0-9._-]+', '_', d['codigo_generico'] or str(d['id']))}" + (
+        f"_v{d['version_ficha']}" if version else "")
     if formato == "xlsx":
         return exportar.exportar_ficha(d, documentos.secciones_ficha(d)), nombre
     return documentos.pdf_ficha_producto(d), nombre
@@ -1252,7 +1232,7 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
         return {x.pais: fmt_codigo(x.codigo) for x in (p.partidas if p else []) if x.codigo}
 
     nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "marca_id": "Brand",
-               "producto": "Style / model", "generico": "Product code", "color": "Color", "proveedor": "Supplier", "codigo": "HS code",
+               "producto": "Product", "generico": "Product code", "proveedor": "Supplier", "codigo": "HS code",
                "origen": "Origin"}
     de_columnas = [(c, ", ".join("—" if x == tabla.VACIO else x for x in v))
                    for c, v in (por_columna or {}).items() if c in COLUMNAS_PRODUCTOS]
@@ -1260,18 +1240,17 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     texto = f"Filters: {texto}" if texto else "No filters"
     titulo, sub = "Products and tariff classification", "Technical sheets, composition, HS codes and national codes by destination"
     if formato == "pdf":
-        columnas = [("Product code", 1, False), ("Style / model", 1, False), ("Color", 1.1, False), ("Supplier", 1, False), ("Type", 0.8, False),
+        columnas = [("Product code", 1, False), ("Name", 2.1, False), ("Supplier", 1, False), ("Type", 0.8, False),
                     ("Status", 0.8, False), ("HS code", 0.8, False), ("Origin", 0.5, False), ("Composition", 2.6, False)] \
             + [(iso, 1, False) for iso in paises]
         filas = []
         for p in r["items"]:
             cods = codigos(prods.get(p["id"]))
-            filas.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", p["proveedor"] or "—", p["tipo"] or "—", p["estado_txt"],
+            filas.append([p["codigo_generico"] or "—", p["nombre"] or "—", p["proveedor"] or "—", p["tipo"] or "—", p["estado_txt"],
                           p["codigo"] or "—", p["pais_origen"] or "—", comp(prods.get(p["id"])) or "—"]
                          + [cods.get(iso, "—") for iso in paises])
         return documentos.pdf_reporte(titulo, sub, texto, indicadores, columnas, [[str(v) for v in f] for f in filas])
-    columnas = [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False), ("Name", 1.8, False), ("Supplier", 1.2, False),
-                ("Brand", 0.7, False), ("Type", 0.9, False), ("Status", 0.9, False), ("Version", 0.6, True), ("HS code", 0.9, False),
+    columnas = [("Product code", 1, False), ("Name", 1.8, False), ("Attributes", 2.4, False), ("Supplier", 1.2, False), ("Type", 0.9, False), ("Status", 0.9, False), ("Version", 0.6, True), ("HS code", 0.9, False),
                 ("Suggested", 0.9, False), ("Origin", 0.6, False), ("Customs description", 4, False),
                 ("Commercial description", 1.8, False), ("Composition", 4, False)] \
         + [(f"Code {iso}", 1.4, False) for iso in paises] + [("SKUs", 0.5, True)]
@@ -1279,24 +1258,24 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     for p in r["items"]:
         pr = prods.get(p["id"])
         cods = codigos(pr)
-        filas.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", p["nombre"] or "—", p["proveedor"] or "—",
-                      p["marca"] or "—", p["tipo"] or "—", p["estado_txt"], pr.version_ficha if pr else 1, p["codigo"] or "—",
+        filas.append([p["codigo_generico"] or "—", p["nombre"] or "—", var_svc.texto(p["atributos"]) or "—", p["proveedor"] or "—",
+                      p["tipo"] or "—", p["estado_txt"], pr.version_ficha if pr else 1, p["codigo"] or "—",
                       p["sugerido"] or "—", p["pais_origen"] or "—", (pr.descripcion_aduana if pr else None) or "—",
                       p.get("descripcion_comercial") or "—", comp(pr) or "—"]
                      + [cods.get(iso, "—") for iso in paises] + [p["skus"]])
         c = ((pr.ficha or {}).get("comp") or {}) if pr else {}
         for parte, materiales in (c.items() if isinstance(c, dict) else []):
             if materiales:
-                partes.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", nombre_parte.get(parte) or documentos._legible(parte),
+                partes.append([p["codigo_generico"] or "—", p["nombre"] or "—", nombre_parte.get(parte) or documentos._legible(parte),
                                str(materiales)])
         for x in (pr.partidas if pr else []):
-            codigos_filas.append([p["codigo_generico"] or "—", p["estilo"] or "—", p["color"] or "—", x.pais, fmt_codigo(x.codigo) or "—",
+            codigos_filas.append([p["codigo_generico"] or "—", p["nombre"] or "—", x.pais, fmt_codigo(x.codigo) or "—",
                                   f"{x.dai}%" if x.dai not in (None, "") else "—", documentos.ESTADO_PARTIDA.get(x.estado, x.estado or "—"),
                                   "By hand" if x.manual else (x.fuente or "—").capitalize()])
     hojas = [
-        {"titulo": "Composition", "columnas": [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False),
+        {"titulo": "Composition", "columnas": [("Product code", 1, False), ("Name", 2.4, False),
                                                ("Part", 1.6, False), ("Materials", 5, False)], "filas": partes},
-        {"titulo": "National codes", "columnas": [("Product code", 1, False), ("Style / model", 1.1, False), ("Color", 1.3, False),
+        {"titulo": "National codes", "columnas": [("Product code", 1, False), ("Name", 2.4, False),
                                                   ("Country", 0.7, False), ("Code", 1.6, False),
                                                   (aduana.titulo_derecho(aduana.nombres(db)), 0.9, False),
                                                   ("Status", 0.9, False), ("Source", 0.9, False)], "filas": codigos_filas},

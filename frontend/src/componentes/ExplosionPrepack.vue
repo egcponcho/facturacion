@@ -8,8 +8,8 @@ import Icono from './Icono.vue'
 import Modal from './Modal.vue'
 import TablaDatos from './TablaDatos.vue'
 
-// Explosión de un artículo prepack: qué sólidos y cuántos trae cada caja.
-// Es de solo lectura: la explosión de un prepack nunca se modifica.
+// Contenido de un pack o un kit: qué artículos simples y cuántos trae cada uno.
+// Es de solo lectura: el contenido de un compuesto nunca se modifica.
 const props = defineProps({ sku: { type: String, required: true }, cajas: { type: Number, default: 0 } })
 defineEmits(['cerrar'])
 const e = ref(null)
@@ -36,7 +36,7 @@ onMounted(async () => {
     <template v-if="e">
       <div class="explosion-cabeza">
         <div><span class="ayuda">{{ t('Item code') }}</span><b class="codigo">{{ tx(e.sku) }}</b></div>
-        <div v-if="e.estilo || e.color"><span class="ayuda">{{ t('Model · fixed color') }}</span><b>{{ [e.estilo, e.color].filter(Boolean).map(tx).join(' · ') }}</b></div>
+        <div v-if="e.generico"><span class="ayuda">{{ t('Product code') }}</span><b class="codigo">{{ tx(e.generico) }}</b></div>
         <div><span class="ayuda">{{ t('Pack ID') }}</span><b>{{ tx(e.codigo) }}</b></div>
         <div><span class="ayuda">{{ t('Unit of measure') }}</span><b>{{ tx(e.unidad) }}</b></div>
       </div>

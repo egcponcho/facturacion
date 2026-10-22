@@ -9,7 +9,7 @@ from app.modulos.acceso.permisos import exigir_alguno, proveedores_de
 
 
 def _plano(d, prefijo: str = "") -> dict:
-    """{«articulo.upc»: valor, «producto.ficha.uso»: valor…} para comparar dos fotos."""
+    """{«articulo.codigo_barras»: valor, «producto.ficha.uso»: valor…} para comparar dos fotos."""
     if isinstance(d, dict):
         res = {}
         for k, v in d.items():

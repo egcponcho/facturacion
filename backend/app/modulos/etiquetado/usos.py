@@ -24,7 +24,6 @@ from app.modelos import (
     CategoriaEtiquetado,
     Centro,
     FamiliaEtiquetado,
-    GrupoArticulo,
     OrdenCompra,
     Pais,
     PlantillaEtiqueta,
@@ -491,10 +490,7 @@ def _cadena(db: Session, nivel: str, destino_id: int | None) -> list[tuple[str, 
 
 
 def familia_producto(db: Session, p: Producto) -> FamiliaEtiquetado | None:
-    if p.familia_etiquetado_id:
-        return db.get(FamiliaEtiquetado, p.familia_etiquetado_id)
-    g = db.get(GrupoArticulo, p.grupo_id) if p.grupo_id else None
-    return g.familia_etiquetado if g else None
+    return db.get(FamiliaEtiquetado, p.familia_etiquetado_id) if p.familia_etiquetado_id else None
 
 
 def _normal(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> UsoDiseno | None:
@@ -515,7 +511,7 @@ def hereda(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> dic
 def _articulos_de(db: Session, nivel: str, destino_id: int | None, limite: int = MAX_SIMULACION) -> list[Articulo]:
     """Los artículos activos que caen en una celda (para simular y contar)."""
     c = select(Articulo).where(Articulo.activo.is_(True)).options(
-        selectinload(Articulo.producto), selectinload(Articulo.grupo), selectinload(Articulo.familia_etiquetado))
+        selectinload(Articulo.producto))
     if nivel == "SKU":
         c = c.where(Articulo.id == destino_id)
     elif nivel == "PRODUCTO":
@@ -729,12 +725,10 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
 
 # ---- Matriz y cobertura ---------------------------------------------------------------------
 def _articulos_por_familia(db: Session) -> dict:
-    """Artículos activos por su familia efectiva (la propia, la del producto o la del grupo)."""
-    f = func.coalesce(Articulo.familia_etiquetado_id, Producto.familia_etiquetado_id, GrupoArticulo.familia_etiquetado_id)
-    filas = db.execute(select(f, func.count()).select_from(Articulo)
-                       .outerjoin(Producto, Producto.id == Articulo.producto_id)
-                       .outerjoin(GrupoArticulo, GrupoArticulo.id == Articulo.grupo_id)
-                       .where(Articulo.activo.is_(True)).group_by(f)).all()
+    """Artículos activos por la familia de su producto."""
+    sub = (select(Producto.familia_etiquetado_id.label("fid")).select_from(Articulo)
+           .join(Producto, Producto.id == Articulo.producto_id).where(Articulo.activo.is_(True)).subquery())
+    filas = db.execute(select(sub.c.fid, func.count()).group_by(sub.c.fid)).all()
     return {k: n for k, n in filas}
 
 
@@ -851,7 +845,7 @@ def _articulos_por_categoria(db: Session) -> dict:
     res: dict = {}
     cache: dict = {}
     for a in db.scalars(select(Articulo).where(Articulo.activo.is_(True)).options(
-            selectinload(Articulo.producto), selectinload(Articulo.grupo), selectinload(Articulo.familia_etiquetado))):
+            selectinload(Articulo.producto))):
         c = reglas.categoria_de(db, a, campos_articulo(a), cache)
         if c is not None:
             res[c.id] = res.get(c.id, 0) + 1
@@ -881,7 +875,7 @@ def _propios_por_familia(db: Session, usos: list[UsoDiseno]) -> dict:
 def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
     """La pestaña Etiquetas del producto: su familia, qué diseño le toca en cada
     tipo de etiqueta de artículo y por qué, las excepciones que pueden cambiarlo
-    y sus tallas con diseño propio."""
+    y sus variantes con diseño propio."""
     exigir_interno(user, "etiquetas.ver", "etiquetas.configurar", "etiquetas.generar")
     from app.modulos.acceso.permisos import proveedor_filtro
 
@@ -896,24 +890,29 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
     for a in arts:
         c = r.categoria(Sujeto("ARTICULO", articulo=a))
         if c is not None:
-            cats.setdefault(c.id, {"id": c.id, "nombre": c.nombre, "manual": c.id == p.categoria_etiquetado_id, "tallas": 0})["tallas"] += 1
-    res = {"producto": {"id": p.id, "estilo": p.estilo, "color": p.color, "nombre": p.nombre},
+            cats.setdefault(c.id, {"id": c.id, "nombre": c.nombre, "manual": c.id == p.categoria_etiquetado_id,
+                                   "variantes": 0})["variantes"] += 1
+    from app.modulos.maestros import variantes as var_svc
+
+    def variante(a: Articulo) -> str | None:
+        return var_svc.texto(var_svc.de_articulo(db, a)) or (f"pack {a.codigo_pack}" if a.codigo_pack else None)
+
+    res = {"producto": {"id": p.id, "codigo": p.codigo_generico, "nombre": p.nombre,
+                        "atributos": var_svc.ordenar_producto(db, p.valores)},
            "categorias": list(cats.values()),
-           "familia": {"id": familia.id, "nombre": familia.nombre,
-                       "origen": "PRODUCTO" if p.familia_etiquetado_id else "GRUPO"} if familia else None,
-           "articulos": [{"id": a.id, "sku": a.sku, "talla": a.talla, "familia_propia": a.familia_etiquetado_id is not None}
-                         for a in arts], "tipos": []}
+           "familia": {"id": familia.id, "nombre": familia.nombre} if familia else None,
+           "articulos": [{"id": a.id, "sku": a.sku, "variante": variante(a)} for a in arts], "tipos": []}
     for t in r.tipos_de("ARTICULO"):
-        tallas, resto = [], []
+        propias, resto = [], []
         for a in arts:
             e = r.elegir(Sujeto("ARTICULO", articulo=a), t)
             if e.porque.get("nivel") == "SKU":
-                tallas.append({"articulo_id": a.id, "sku": a.sku, "talla": a.talla, "uso_id": e.uso.id,
+                propias.append({"articulo_id": a.id, "sku": a.sku, "variante": variante(a), "uso_id": e.uso.id,
                                "plantilla_id": e.plantilla.id if e.plantilla else None,
                                "plantilla": e.plantilla.nombre if e.plantilla else None, "no_lleva": e.no_lleva})
             else:
                 resto.append((a, e))
-        # Lo del producto es lo que le toca a la mayoría de sus tallas; las que salen distinto
+        # Lo del producto es lo que le toca a la mayoría de sus variantes; las que salen distinto
         # (por una categoría, por ejemplo) se listan aparte con su porqué
         clave = lambda e: (e.uso.id if e.uso else None, e.plantilla.id if e.plantilla else None)  # noqa: E731
         cuenta: dict = {}
@@ -923,7 +922,8 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
         base = next((e for _, e in resto if clave(e) == mayor), None)
         if base is None and arts:
             base = r.elegir(Sujeto("ARTICULO", articulo=arts[0]), t)
-        distintas = [{"articulo_id": a.id, "sku": a.sku, "talla": a.talla, "eleccion": e.dict()} for a, e in resto if clave(e) != mayor]
+        distintas = [{"articulo_id": a.id, "sku": a.sku, "variante": variante(a), "eleccion": e.dict()}
+                     for a, e in resto if clave(e) != mayor]
         escalones = r.escalones(Sujeto("ARTICULO", articulo=arts[0])) if arts else [("PRODUCTO", p.id), ("GENERAL", None)]
         excepciones = []
         for nivel, sid in escalones:
@@ -934,7 +934,7 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
             UsoDiseno.celda == celda_de(t.id, "PRODUCTO", p.id), UsoDiseno.eliminado_en.is_(None),
             UsoDiseno.contexto_tipo == "NINGUNO"))), None)
         res["tipos"].append({"tipo": tipos.dict_tipo(db, t), "eleccion": base.dict() if base else None,
-                             "propio": dict_uso(db, propio) if propio else None, "excepciones": excepciones, "tallas": tallas,
+                             "propio": dict_uso(db, propio) if propio else None, "excepciones": excepciones, "variantes": propias,
                              "distintas": distintas})
     return res
 

@@ -1,5 +1,6 @@
 """Campos propios (Configuración → Empresa → Campos propios): datos que la
-empresa agrega a artículos y demás datos maestros, OCs y facturas."""
+empresa agrega a sus datos maestros, OCs y facturas. Los productos y sus
+variantes no llevan campos propios: llevan atributos."""
 import io
 
 import pytest
@@ -14,7 +15,7 @@ def _textos(contenido: bytes) -> str:
 @pytest.fixture
 def campos(admin):
     r = admin.put("/organizacion", {"campos_propios": {
-        "articulos": [{"etiqueta": "Season", "tipo": "opcion", "opciones": ["SS26", "FW26"]}],
+        "proveedores": [{"etiqueta": "Season", "tipo": "opcion", "opciones": ["SS26", "FW26"]}],
         "ordenes": [{"etiqueta": "Buyer", "tipo": "texto"}, {"etiqueta": "Budget", "tipo": "numero"}],
         "facturas": [{"etiqueta": "Letter of credit", "tipo": "texto", "obligatorio": True}],
     }})
@@ -26,22 +27,23 @@ def campos(admin):
 def test_definiciones_validas(admin):
     malo = lambda d: admin.put("/organizacion", {"campos_propios": d}).status_code  # noqa: E731
     assert malo({"pedidos": []}) == 422
-    assert malo({"articulos": [{"etiqueta": "X", "tipo": "color"}]}) == 422
-    assert malo({"articulos": [{"etiqueta": "X", "tipo": "opcion"}]}) == 422
-    assert malo({"articulos": [{"etiqueta": "Season"}, {"etiqueta": "season"}]}) == 422
+    assert malo({"articulos": []}) == 422  # las variantes llevan atributos, no campos propios
+    assert malo({"proveedores": [{"etiqueta": "X", "tipo": "color"}]}) == 422
+    assert malo({"proveedores": [{"etiqueta": "X", "tipo": "opcion"}]}) == 422
+    assert malo({"proveedores": [{"etiqueta": "Season"}, {"etiqueta": "season"}]}) == 422
 
 
-def test_campo_propio_en_articulos(interno, campos):
-    assert campos["articulos"][0]["clave"] == "season"
+def test_campo_propio_en_un_catalogo(interno, campos):
+    assert campos["proveedores"][0]["clave"] == "season"
     meta = {c["tipo"]: c for c in interno.get("/catalogos").json()}
-    campo = next(c for c in meta["articulos"]["campos"] if c["nombre"] == "extra.season")
+    campo = next(c for c in meta["proveedores"]["campos"] if c["nombre"] == "extra.season")
     assert campo["tipo"] == "opcion" and ["FW26", "FW26"] in campo["opciones"]
-    art = interno.get("/catalogos/articulos", params={"size": 1}).json()["items"][0]
-    r = interno.patch(f"/catalogos/articulos/{art['id']}", {"extra.season": "verano"})
+    prov = interno.get("/catalogos/proveedores", params={"size": 1}).json()["items"][0]
+    r = interno.patch(f"/catalogos/proveedores/{prov['id']}", {"extra.season": "verano"})
     assert r.status_code == 422 and "Season" in r.text
-    r = interno.patch(f"/catalogos/articulos/{art['id']}", {"extra.season": "fw26"})
+    r = interno.patch(f"/catalogos/proveedores/{prov['id']}", {"extra.season": "fw26"})
     assert r.status_code == 200 and r.json()["extra.season"] == "FW26"
-    interno.patch(f"/catalogos/articulos/{art['id']}", {"extra.season": ""})
+    interno.patch(f"/catalogos/proveedores/{prov['id']}", {"extra.season": ""})
 
 
 def test_campos_propios_en_oc_y_factura(interno, campos):

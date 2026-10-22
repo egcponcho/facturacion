@@ -91,24 +91,6 @@ CK_DESTINO_USO = " OR ".join([_solo("GENERAL", None), _solo("FAMILIA", "grupo_id
                               _solo("TIPO_EMPAQUE", "tipo_empaque_id")])
 
 
-class FamiliaEtiquetadoAnterior(DeOrganizacion, Base):
-    """Familia de etiquetado antes del árbol compartido. Congelada desde la
-    migración 0081, que copió sus filas a grupos_producto: solo se guarda para
-    volver atrás y nada la lee ni la escribe."""
-
-    __tablename__ = "familias_etiquetado"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_familias_etiquetado_org_codigo"),)
-    id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(20))
-    nombre: Mapped[str] = mapped_column(String(100))
-    descripcion: Mapped[str | None] = mapped_column(String(300))
-    campos: Mapped[list] = mapped_column(JSON, default=list)
-    orden: Mapped[int] = mapped_column(Integer, default=0)
-    activa: Mapped[bool] = mapped_column(Boolean, default=True)
-    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    padre_id: Mapped[int | None] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
-
-
 # Las familias y categorías de etiquetado son nodos del árbol compartido de
 # grupos de producto (modelos/grupos.py); el etiquetado los sigue llamando así
 FamiliaEtiquetado = GrupoFamilia
@@ -147,23 +129,6 @@ class TipoEtiqueta(DeOrganizacion, Base):
     actualizado_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     actualizado_en: Mapped[datetime | None] = mapped_column(DateTime)
     version: Mapped[int] = mapped_column(Integer, default=1)
-
-
-class CategoriaEtiquetadoAnterior(DeOrganizacion, Base):
-    """Categoría de etiquetado antes del árbol compartido (congelada desde la
-    migración 0081, como FamiliaEtiquetadoAnterior)."""
-
-    __tablename__ = "categorias_etiquetado"
-    __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_categorias_etiquetado_org_codigo"),)
-    id: Mapped[int] = mapped_column(primary_key=True)
-    familia_id: Mapped[int] = mapped_column(ForeignKey("familias_etiquetado.id"), index=True)
-    codigo: Mapped[str] = mapped_column(String(20))
-    nombre: Mapped[str] = mapped_column(String(100))
-    descripcion: Mapped[str | None] = mapped_column(String(300))
-    condiciones: Mapped[list] = mapped_column(JSON, default=list)
-    orden: Mapped[int] = mapped_column(Integer, default=0)
-    activa: Mapped[bool] = mapped_column(Boolean, default=True)
-    creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
 class TipoEtiquetaEmpaque(DeOrganizacion, Base):
@@ -279,9 +244,6 @@ class UsoDiseno(DeOrganizacion, Base):
     nivel: Mapped[str] = mapped_column(String(12))
     # Niveles FAMILIA y CATEGORIA: un nodo del árbol de grupos de producto
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_producto.id"), index=True)
-    # Congeladas desde la migración 0081 (apuntan a las tablas anteriores), solo para volver atrás
-    familia_anterior_id: Mapped[int | None] = mapped_column("familia_id", ForeignKey("familias_etiquetado.id"), index=True)
-    categoria_anterior_id: Mapped[int | None] = mapped_column("categoria_id", ForeignKey("categorias_etiquetado.id"), index=True)
     producto_id: Mapped[int | None] = mapped_column(ForeignKey("productos.id"), index=True)
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
     tipo_empaque_id: Mapped[int | None] = mapped_column(ForeignKey("tipos_empaque.id"), index=True)
@@ -473,7 +435,6 @@ class GeneracionItem(DeOrganizacion, Base):
     posicion_id: Mapped[int | None] = mapped_column(ForeignKey("posiciones_oc.id"), index=True)
     # La familia del artículo al generar (nodo del árbol de grupos de producto)
     grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_producto.id"), index=True)
-    familia_anterior_id: Mapped[int | None] = mapped_column("familia_id", ForeignKey("familias_etiquetado.id"), index=True)
     referencia: Mapped[str | None] = mapped_column(String(120))  # lo que se lee en el historial (SKU, línea, bulto)
     cantidad: Mapped[int] = mapped_column(Integer)
     valores: Mapped[dict] = mapped_column(JSON, default=dict)  # instantánea: campo → valor

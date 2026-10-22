@@ -38,7 +38,7 @@ def test_ciclo_de_versiones(interno, admin, tnf):
     assert v1["numero"] == 1 and v1["estado"] == "BORRADOR" and p["vigente"] is None
     # Se guarda y se sigue editando
     d = interno.get(f"/etiquetas/versiones/{v1['id']}").json()
-    d["diseno"]["elementos"].append({"id": "talla", "tipo": "texto", "contenido": "Size {{articulo.talla}}", "x": 4, "y": 20,
+    d["diseno"]["elementos"].append({"id": "talla", "tipo": "texto", "contenido": "Size {{articulo.atributo.TALLA}}", "x": 4, "y": 20,
                                      "w": 40, "h": 8})
     r = interno.put(f"/etiquetas/versiones/{v1['id']}/diseno", {"diseno": d["diseno"], "version": d["version"]})
     assert r.status_code == 200, r.text
@@ -135,16 +135,22 @@ def test_duplicar_es_independiente(interno, admin):
 def mundo(interno, admin):
     """Artículos, una familia y diseños aprobados para ver cuál gana."""
     fam = interno.post("/etiquetas/familias", {"codigo": "PRIO", "nombre": "Priority test"}).json()
-    arts = interno.get("/etiquetas/articulos", params={"size": 6}).json()["items"]
-    x, y, z = arts[0], arts[1], arts[2]
-    interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [x["id"], y["id"]]})
+    arts = interno.get("/etiquetas/articulos", params={"size": 200}).json()["items"]
+    # x e y, variantes de un producto que toma la familia; z, de otro producto
+    # (el primero de un producto con más de una variante: otras pruebas crean productos de una sola)
+    x = next(a for a in arts if sum(1 for o in arts if o["producto_id"] == a["producto_id"]) > 1)
+    y = next(a for a in arts if a["producto_id"] == x["producto_id"] and a["id"] != x["id"])
+    z = next(a for a in arts if a["producto_id"] != x["producto_id"])
+    antes = next(p for p in interno.get("/etiquetas/productos", params={"size": 200}).json()["items"]
+                 if p["id"] == x["producto_id"])["familia_id"]
+    interno.post("/etiquetas/productos/familia", {"familia_id": fam["id"], "ids": [x["producto_id"]]})
     p = {k: _aprobada(interno, admin, f"Priority {k}") for k in ("general", "familia", "articulo", "oc_especial")}
     oc = interno.get("/ordenes", params={"solo_disponible": False, "size": 1}).json()["items"][0]
     doc = {"id": "n", "tipo": "campo", "campo": "oc.numero", "x": 4, "y": 4, "w": 60, "h": 10}
     p["oc"] = _aprobada(interno, admin, "Priority PO", sujeto="DOCUMENTO", elementos=[doc])
     p["oc_general"] = _aprobada(interno, admin, "Priority PO general", sujeto="DOCUMENTO", elementos=[doc])
     yield {"familia": fam, "x": x, "y": y, "z": z, "p": p, "oc": oc}
-    interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [x["id"], y["id"]]})
+    interno.post("/etiquetas/productos/familia", {"familia_id": antes, "ids": [x["producto_id"]]})
 
 
 def test_cual_diseno_gana(interno, admin, mundo):
@@ -220,7 +226,7 @@ def test_vista_previa_ejemplo_y_reales(interno, mundo):
     assert real["datos"] == "reales" and real["valores"]["articulo.sku"] == mundo["x"]["sku"]
     # Un diseño sin guardar (editor) con su tipo de etiqueta
     sin_guardar = interno.post("/etiquetas/vista-previa", {"tipo_etiqueta_id": _tipo(interno)["id"], "diseno": {"ancho": 50, "alto": 30, "elementos": [
-        {"id": "t", "tipo": "texto", "contenido": "{{articulo.marca}}", "x": 2, "y": 2, "w": 40, "h": 8}]}}).json()
+        {"id": "t", "tipo": "texto", "contenido": "{{producto.marca}}", "x": 2, "y": 2, "w": 40, "h": 8}]}}).json()
     assert 'width="50mm"' in sin_guardar["svg"]
     assert interno.get(f"/etiquetas/versiones/{p['vigente']['id']}/miniatura.svg").headers["content-type"].startswith("image/svg")
 

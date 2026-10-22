@@ -13,14 +13,12 @@ def flujo(admin):
 
 def _sugerido(interno, generico: str, estilo: str) -> dict:
     """Un artículo propio de Vans con la ficha completa (estado «sugerida»)."""
-    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
-    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    r = interno.post("/catalogos/genericos", {"generico": generico, "estilo": estilo, "color": "Black", "marca_id": m["VANS"],
-                                              "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR",
-                                              "nombre": "Leather skate shoe", "tallas": [{"talla": "8"}]})
+    r = interno.post("/catalogos/genericos", {"generico": generico, "atributos": {"MARCA": "VANS", "MODELO": estilo},
+                                              "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather skate shoe",
+                                              "variantes": [{"valores": {"COLOR": "Black", "TALLA": "8"}}]})
     assert r.status_code == 200, r.text
-    p = next(x for x in interno.get("/productos", params={"q": estilo}).json()["items"] if x["estilo"] == estilo)
+    p = next(x for x in interno.get("/productos", params={"q": estilo}).json()["items"] if x["codigo_generico"] == generico)
     ficha = {"comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis", "altura": "bajo", "genero": "U",
              "edad": "adulto", "uso_deportivo": "no"}
     p = interno.put(f"/productos/{p['id']}/ficha", {"version": p["version"], "tipo": "calzado", "ficha": ficha, "pais_origen": "VN",

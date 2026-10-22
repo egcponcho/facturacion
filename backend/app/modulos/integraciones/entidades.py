@@ -56,7 +56,7 @@ def aplicar_ordenes(db: Session, user: Usuario, importacion_oc_id: int) -> dict:
 CAMPOS_FACTURAS = [
     ("factura", "Invoice number"), ("fecha", "Invoice date"), ("proveedor", "Supplier code"), ("sociedad", "Company"),
     ("centro", "Plant"), ("moneda", "Currency"), ("incoterm", "Incoterm"), ("oc", "PO number"), ("posicion", "PO line"),
-    ("codigo_articulo", "Item code"), ("upc", "UPC"), ("descripcion", "Description"), ("variante", "Variant"),
+    ("codigo_articulo", "Item code"), ("codigo_barras", "Barcode"), ("descripcion", "Description"), ("variante", "Variant"),
     ("cantidad", "Quantity"), ("unidad", "Unit"), ("precio", "Unit price"), ("importe", "Amount"),
     ("partida", "HS code"), ("pais_origen", "Country of origin"),
 ]
@@ -83,7 +83,7 @@ def filas_facturas(db: Session, excluir_ids: set[int], desde=None) -> tuple[list
                 "factura": f.numero, "fecha": f.fecha.isoformat() if f.fecha else None,
                 "proveedor": f.proveedor.codigo if f.proveedor else None, "sociedad": f.sociedad, "centro": f.centro,
                 "moneda": f.moneda, "incoterm": f.incoterm, "oc": li.oc_numero, "posicion": li.posicion,
-                "codigo_articulo": li.codigo_articulo, "upc": li.upc, "descripcion": li.descripcion,
+                "codigo_articulo": li.codigo_articulo, "codigo_barras": li.codigo_barras, "descripcion": li.descripcion,
                 "variante": variantes.texto(variantes.de_linea(li, db)) or None,
                 "cantidad": li.cantidad, "unidad": li.unidad, "precio": li.precio_unitario,
                 "importe": round(float(li.cantidad) * float(li.precio_unitario), 2),

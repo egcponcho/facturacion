@@ -373,7 +373,7 @@ def nombre_destino(db: Session, nivel: str, destino_id: int | None) -> str | Non
         return c.nombre if c else None
     if nivel == "PRODUCTO":
         p = db.get(Producto, destino_id)
-        return " · ".join(x for x in (p.nombre or p.estilo, p.color) if x) if p else None
+        return (p.nombre or p.codigo_generico) if p else None
     if nivel == "SKU":
         a = db.get(Articulo, destino_id)
         return a.sku if a else None

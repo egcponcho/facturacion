@@ -213,7 +213,7 @@ async function cargarNombres() {
   const faltan = p.articulos.map((a) => a.articulo_id).filter((id) => !nombres.articulo[id])
   if (faltan.length) {
     api.get('/etiquetas/articulos', { ids: faltan.slice(0, 200).join(','), size: 200 })
-      .then((r) => r.items.forEach((a) => (nombres.articulo[a.id] = `${a.sku}${a.talla ? ` · ${a.talla}` : ''}`))).catch(() => {})
+      .then((r) => r.items.forEach((a) => (nombres.articulo[a.id] = `${a.sku}${a.variante ? ` · ${a.variante}` : ''}`))).catch(() => {})
   }
 }
 const nuevaOc = ref('')

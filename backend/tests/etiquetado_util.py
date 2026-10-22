@@ -99,3 +99,10 @@ def articulo_de(posicion_id):
 
     with SessionLocal() as db, en_organizacion(1):
         return db.get(PosicionOC, posicion_id).articulo_id
+
+
+def producto_de(posicion_id):
+    from app.modelos import PosicionOC
+
+    with SessionLocal() as db, en_organizacion(1):
+        return db.get(PosicionOC, posicion_id).articulo.producto_id

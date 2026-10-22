@@ -9,14 +9,15 @@ from app.core.seguridad import hash_password
 from app.modelos import (
     Almacen,
     Articulo,
+    ArticuloComponente,
+    Atributo,
     Centro,
     Contacto,
     Embarque,
-    EscalaTalla,
+    EscalaValores,
     EventoEmbarque,
     Factura,
     FacturaLinea,
-    GrupoArticulo,
     GrupoCajas,
     GrupoCajasItem,
     Marca,
@@ -28,8 +29,7 @@ from app.modelos import (
     PlantillaCaja,
     PLLinea,
     PosicionOC,
-    Prepack,
-    PrepackComponente,
+    Producto,
     Proveedor,
     Puerto,
     RecepcionLinea,
@@ -49,10 +49,10 @@ from app.modelos import (
 from app.modulos.acceso.roles import crear_roles_fabrica, crear_roles_sugeridos
 from app.modulos.comun.historial import registrar
 from app.modulos.empaque import empaques
-from app.modulos.maestros.genericos import sufijo_convencional
+from app.modulos.maestros import atributos as atr_svc
+from app.modulos.maestros import escalas
 from app.modulos.productos.productos import (
     _aprobar,
-    asegurar_producto,
     clasificar_y_guardar,
     descripcion_comercial_simple,
     partida_para,
@@ -147,25 +147,30 @@ CUENTAS_DEMO = [["tnf@demo.com", "Supplier", "The North Face"], ["vans@demo.com"
                 ["interno@demo.com", "Imports", "Internal team"], ["admin@demo.com", "Administrator", "Full access"]]
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
           ("HPU", "Hush Puppies"), ("CASA", "House brand")]
-GRUPOS = [("CALZ-OUT", "Outdoor footwear", "CALZADO"), ("CALZ-CAS", "Casual footwear", "CALZADO"),
-          ("CHAQ", "Jackets", "ROPA"), ("FLEE", "Fleece and sweatshirts", "ROPA"), ("MOCH", "Backpacks", "ACCESORIO")]
-# estilo, color, marca, grupo, proveedor, unidad, precio, origen, partida, descripción, empaque de la OC, tallas
-# El empaque (casepack, inner pack) es de la posición de la OC, no del artículo:
+# Atributos de esta empresa de ejemplo (cada empresa define los suyos en Datos maestros → Atributos):
+# código, nombre, nivel, tipo, catálogo, orden. La marca es la que apunta al catálogo de marcas.
+ATRIBUTOS = [
+    ("MARCA", "Brand", "PRODUCTO", "catalogo", "marcas", 1), ("MODELO", "Style", "PRODUCTO", "texto", None, 2),
+    ("COLOR", "Color", "VARIANTE", "texto", None, 1), ("TALLA", "Size", "VARIANTE", "texto", None, 2),
+]
+# Cada fila es un producto (un estilo en un color, como lo maneja esta empresa) y sus tallas son sus variantes:
+# estilo, color, marca, peso neto por unidad (kg), proveedor, unidad, precio, origen, partida, descripción,
+# empaque de la OC, tallas. El empaque (casepack, inner pack) es de la posición de la OC, no del artículo:
 # aquí solo es el que usan las OCs de ejemplo.
 ESTILOS = [
-    ("NF0A5GLL", "JK3 TNF Black", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
+    ("NF0A5GLL", "JK3 TNF Black", "TNF", 0.9, "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
      None, ["S", "M", "L", "XL", "XXL"]),
-    ("NF0A5GLL", "Summit blue", "TNF", "CHAQ", "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
+    ("NF0A5GLL", "Summit blue", "TNF", 0.9, "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
      None, ["M", "L"]),
-    ("NF0A7W4G", "KX7 Black", "TNF", "CALZ-OUT", "TNF", "PAR", 62.00, "CN", "6404.11", "Trail running footwear",
+    ("NF0A7W4G", "KX7 Black", "TNF", 0.9, "TNF", "PAR", 62.00, "CN", "6404.11", "Trail running footwear",
      (12, None), ["8", "9", "10", "11", "12"]),
-    ("NF0A3VY2", "JK3 TNF Black", "TNF", "MOCH", "TNF", "UN", 31.20, "ID", "4202.92", "Backpack 28 L", (20, 5),
+    ("NF0A3VY2", "JK3 TNF Black", "TNF", 0.8, "TNF", "UN", 31.20, "ID", "4202.92", "Backpack 28 L", (20, 5),
      ["OS"]),
-    ("NF0A5IHO", "Heather grey", "TNF", "FLEE", "TNF", "UN", 22.75, "KH", "6110.30", "Half-zip fleece",
+    ("NF0A5IHO", "Heather grey", "TNF", 0.5, "TNF", "UN", 22.75, "KH", "6110.30", "Half-zip fleece",
      (None, 5), ["S", "M", "L"]),
-    ("VN000EE3", "BLK Black", "VANS", "CALZ-CAS", "VANS", "PAR", 25.50, "VN", "6404.19", "Classic canvas footwear",
+    ("VN000EE3", "BLK Black", "VANS", 0.8, "VANS", "PAR", 25.50, "VN", "6404.19", "Classic canvas footwear",
      (12, None), ["7", "8", "9", "10", "11", "12"]),
-    ("VN0A4BV4", "White", "VANS", "CALZ-CAS", "VANS", "PAR", 21.00, "CN", "6404.19", "Basic canvas footwear",
+    ("VN0A4BV4", "White", "VANS", 0.8, "VANS", "PAR", 21.00, "CN", "6404.19", "Basic canvas footwear",
      (12, None), ["7", "8", "9", "10"]),
 ]
 # Ficha técnica y clasificación de cada estilo-color (producto). La partida
@@ -215,7 +220,7 @@ FICHAS = {
         desc="TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO, SIN CUBRIR EL TOBILLO, UNISEX"),
 }
 
-# Prepacks: estilo, color, prepack ID (es la "talla" del artículo prepack), curva
+# Packs (surtidos de tallas del mismo producto): estilo, color, código del pack, contenido por talla
 PREPACKS = [
     ("VN000EE3", "BLK Black", "AB12", {"7": 1, "8": 2, "9": 3, "10": 3, "11": 2, "12": 1}),  # 12 pares
     ("VN0A4BV4", "White", "CD08", {"7": 2, "8": 2, "9": 2, "10": 2}),  # 8 pares
@@ -314,25 +319,28 @@ def _catalogos(db: Session) -> dict:
     db.add_all([Transportista(codigo=c, nombre=n, tipo=t, codigo_internacional=ci, pais=pais, correos=correos,
                               sociedades=[socs[x] for x in lista]) for c, n, t, ci, pais, correos, lista in TRANSPORTISTAS])
     marcas = {c: Marca(codigo=c, nombre=n) for c, n in MARCAS}
-    grupos = {c: GrupoArticulo(codigo=c, nombre=n, categoria=cat) for c, n, cat in GRUPOS}
+    # Una base instalada ya puede traer TALLA y COLOR (migraciones anteriores): se completan, no se repiten
+    existentes = {x.codigo: x for x in db.scalars(select(Atributo))}
+    for c, n, nv, t, cat, o in ATRIBUTOS:
+        x = existentes.get(c) or Atributo(codigo=c)
+        x.nombre, x.nivel, x.tipo, x.catalogo, x.orden, x.activo = n, nv, t, cat, o, True
+        db.add(x)
     # Escalas de tallas reutilizables (ejemplos; cada empresa crea las suyas)
     db.add_all([
-        EscalaTalla(codigo="US-CALZ", nombre="US footwear (half sizes)", categoria="CALZADO", regla="MULTIPLICAR", factor=10,
-                    longitud=3, tallas="5-12.5, 13"),
-        EscalaTalla(codigo="US-CALZ-ENT", nombre="US footwear (whole sizes)", categoria="CALZADO", regla="MULTIPLICAR", factor=10,
-                    longitud=3, tallas="6-13"),
-        EscalaTalla(codigo="LETRAS", nombre="Apparel letters", categoria="ROPA", regla="CONSECUTIVO", longitud=3,
-                    tallas="XXS, XS, S, M, L, XL, XXL, XXXL"),
-        EscalaTalla(codigo="CINTURA", nombre="Waist (inches)", categoria="ROPA", regla="TALLA", tallas="28, 29, 30, 31, 32, 33, 34, 36, 38, 40"),
-        EscalaTalla(codigo="UNICA", nombre="One size", categoria="ACCESORIO", regla="CONSECUTIVO", longitud=3, tallas="OS=000"),
+        EscalaValores(codigo="US-CALZ", nombre="US footwear (half sizes)", atributo="TALLA", regla="MULTIPLICAR", factor=10,
+                      longitud=3, valores="5-12.5, 13"),
+        EscalaValores(codigo="US-CALZ-ENT", nombre="US footwear (whole sizes)", atributo="TALLA", regla="MULTIPLICAR",
+                      factor=10, longitud=3, valores="6-13"),
+        EscalaValores(codigo="LETRAS", nombre="Apparel letters", atributo="TALLA", regla="CONSECUTIVO", longitud=3,
+                      valores="XXS, XS, S, M, L, XL, XXL, XXXL"),
+        EscalaValores(codigo="CINTURA", nombre="Waist (inches)", atributo="TALLA", regla="VALOR",
+                      valores="28, 29, 30, 31, 32, 33, 34, 36, 38, 40"),
+        EscalaValores(codigo="UNICA", nombre="One size", atributo="TALLA", regla="CONSECUTIVO", longitud=3, valores="OS=000"),
     ])
-    db.add_all([*marcas.values(), *grupos.values()])
+    db.add_all(marcas.values())
     db.flush()
-    return {"marcas": marcas, "grupos": grupos, "sociedades": socs}
+    return {"marcas": marcas, "sociedades": socs}
 
-
-# Peso neto de una unidad por grupo (kg); el empaque suma su propia tara
-PESO_GRUPO = {"CALZ-OUT": 0.9, "CALZ-CAS": 0.8, "CHAQ": 0.9, "FLEE": 0.5, "MOCH": 0.8}
 # Tipos de empaque de ejemplo: cada empresa define los suyos
 TIPOS_EMPAQUE = [
     # código, nombre, nivel, prefijo, cuenta como, medidas, tara, peso máx., lleva producto
@@ -357,58 +365,56 @@ def _tipos_empaque(db: Session) -> dict:
 
 
 def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
-    """Maestro de artículos: sólidos (con casepack en calzado, sin casepack en
-    ropa) con un número de artículo por estilo-color-talla, y prepacks cuya
-    talla es su prepack ID."""
+    """Productos y variantes: cada estilo-color es un producto con su marca y su
+    estilo (atributos de producto) y cada talla, una variante simple con su color
+    y su talla (atributos de variante), su código de barras y el del proveedor.
+    Los packs son variantes compuestas del mismo producto con su contenido."""
     arts = {}
-    # Datos de ejemplo: el código de artículo de esta empresa demo es el genérico
-    # (estilo-color) más un código de talla; cada empresa usa su propio formato
-    genericos = {}
-    for n, (estilo, color, marca, grupo, prov, unidad, precio, origen, partida, desc, empaque, tallas) in enumerate(ESTILOS):
+    # Datos de ejemplo: el código de artículo de esta empresa demo es el del
+    # producto más un código de talla; cada empresa usa su propio formato
+    productos, usados = {}, {}
+    for n, (estilo, color, marca, peso, prov, unidad, precio, origen, partida, desc, empaque, tallas) in enumerate(ESTILOS):
         gen = str(30095120 + n)
-        genericos[(estilo, color)] = [gen, set()]
+        p = Producto(codigo_generico=gen, proveedor_id=proveedores[prov].id, unidad=unidad, nombre=desc, ficha={},
+                     faltan=[], alertas_ok=[])
+        db.add(p)
+        atr_svc.poner(db, p, {"MARCA": cat["marcas"][marca].codigo, "MODELO": estilo})
+        productos[(estilo, color)], usados[(estilo, color)] = p, set()
         for talla in tallas:
             # Calzado: la talla por 10 (7 → 070, 10 → 100); letras: 001, 002…
-            suf = sufijo_convencional(talla) or next(f"{i:03d}" for i in range(1, 1000)
-                                                     if f"{i:03d}" not in genericos[(estilo, color)][1])
-            genericos[(estilo, color)][1].add(suf)
+            suf = escalas.codigo(None, talla, usados[(estilo, color)])
+            usados[(estilo, color)].add(suf)
             sku = f"{gen}{suf}"
-            a = Articulo(sku=sku, generico=gen, sku_proveedor=_sku_proveedor(estilo, color, talla), upc=f"0196{int(sku) % 10**8:08d}",
-                         estilo=estilo, color=color, talla=talla,
-                         descripcion=desc, marca_id=cat["marcas"][marca].id, grupo_id=cat["grupos"][grupo].id,
-                         proveedor_id=proveedores[prov].id, unidad=unidad, tipo="SOLIDO",
-                         peso_unitario=PESO_GRUPO.get(grupo))
+            a = Articulo(sku=sku, producto=p, descripcion=desc, unidad=unidad, tipo="SOLIDO", peso_unitario=peso)
+            db.add(a)
+            a.variantes = {"COLOR": color, "TALLA": talla}
+            a.poner_codigo("BARRAS", f"0196{int(sku) % 10**8:08d}")
+            a.poner_codigo("PROVEEDOR", _sku_proveedor(estilo, color, talla), p.proveedor_id)
             a.precio_demo = precio
             a.origen_demo = origen
             a.partida_demo = partida
             a.empaque_demo = empaque or (None, None)
             arts[(estilo, color, talla)] = a
-    db.add_all(arts.values())
     db.flush()
     for estilo, color, codigo, curva in PREPACKS:
-        base = arts[(estilo, color, next(iter(curva)))]
-        pp = Prepack(codigo=codigo, estilo=estilo, color=color,
-                     descripcion=f"Assortment {estilo} {color} sizes {'-'.join(curva)} ({sum(curva.values())} pairs)")
+        p, base = productos[(estilo, color)], arts[(estilo, color, next(iter(curva)))]
+        suf = escalas.codigo(None, codigo, usados[(estilo, color)])
+        usados[(estilo, color)].add(suf)
+        a = Articulo(sku=f"{p.codigo_generico}{suf}", producto=p, descripcion=f"{base.descripcion}, pack {codigo}",
+                     unidad="CJ", tipo="PREPACK",
+                     peso_unitario=round(sum((arts[(estilo, color, t)].peso_unitario or 0) * c for t, c in curva.items()), 3))
+        db.add(a)
+        a.poner_codigo("PACK", codigo)
+        a.poner_codigo("PROVEEDOR", _sku_proveedor(estilo, color, codigo), p.proveedor_id)
         for talla, cant in curva.items():
-            pp.componentes.append(PrepackComponente(articulo_id=arts[(estilo, color, talla)].id, cantidad=cant))
-        db.add(pp)
-        db.flush()
-        gen = genericos[(estilo, color)]
-        suf = next(f"{i:03d}" for i in range(1, 1000) if f"{i:03d}" not in gen[1])
-        gen[1].add(suf)
-        a = Articulo(sku=f"{gen[0]}{suf}", generico=gen[0], sku_proveedor=_sku_proveedor(estilo, color, codigo), estilo=estilo,
-                     color=color, talla=codigo,
-                     descripcion=f"{base.descripcion}, prepack {codigo}", marca_id=base.marca_id,
-                     grupo_id=base.grupo_id, proveedor_id=base.proveedor_id, unidad="CJ", tipo="PREPACK",
-                     prepack_id=pp.id)
+            a.componentes.append(ArticuloComponente(componente=arts[(estilo, color, talla)], cantidad=cant))
         a.origen_demo = base.origen_demo
         a.partida_demo = base.partida_demo
         a.precio_demo = base.precio_demo * sum(curva.values())
         a.empaque_demo = (None, None)
-        db.add(a)
-        db.flush()
         arts[(estilo, color, codigo)] = a
-    _productos(db, arts)
+    db.flush()
+    _productos(db, productos, arts)
     return arts
 
 
@@ -419,17 +425,14 @@ def _sku_proveedor(estilo: str, color: str, talla: str) -> str:
     return f"{estilo}{cod}-{talla}".replace(" ", "")
 
 
-def _productos(db, arts) -> None:
-    """Cada estilo-color es un producto con su ficha técnica y su clasificación."""
+def _productos(db, productos, arts) -> None:
+    """La ficha técnica y la clasificación de cada producto."""
     from app.modelos import Usuario as U
 
     interno = db.scalar(select(U).where(U.email == "interno@demo.com"))
-    for a in arts.values():
-        asegurar_producto(db, a)
-    db.flush()
     for (estilo, color), x in FICHAS.items():
         a = next(v for k, v in arts.items() if k[0] == estilo and k[1] == color)
-        p = a.producto
+        p = productos[(estilo, color)]
         p.nombre, p.tipo, p.ficha = x["nombre"], x["tipo"], x["ficha"]
         p.pais_origen = p.pais_procedencia = a.origen_demo
         p.descripcion_aduana = x.get("desc")
@@ -470,16 +473,20 @@ def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", a
         for talla, cantidad in tallas:
             a = arts[(estilo, color, talla)]
             oc.posiciones.append(PosicionOC(
-                posicion=str(pos), almacen=alm[0] if alm else almacen, articulo_id=a.id, codigo_articulo=a.sku, upc=a.upc, estilo=a.estilo, color=a.color,
-                talla=a.talla, descripcion=a.descripcion, marca=a.marca.codigo, grupo=a.grupo.codigo,
-                categoria=a.grupo.categoria, tipo_empaque=a.tipo, casepack=a.empaque_demo[0], inner_pack=a.empaque_demo[1],
-                prepack=a.prepack.codigo if a.prepack else None,
-                unidades_por_caja=a.prepack.total if a.prepack else None, cantidad=cantidad, unidad=a.unidad,
+                posicion=str(pos), almacen=alm[0] if alm else almacen, articulo=a, codigo_articulo=a.sku,
+                codigo_barras=a.codigo_barras, descripcion=a.descripcion, tipo_empaque=a.tipo,
+                casepack=a.empaque_demo[0], inner_pack=a.empaque_demo[1], codigo_pack=a.codigo_pack,
+                unidades_por_caja=a.total_componentes if a.tipo == "PREPACK" else None, cantidad=cantidad, unidad=a.unidad,
                 precio=a.precio_demo, fecha_entrega=xf, pais_origen=a.origen_demo,
             ))
             pos += 10
     db.flush()
     return oc
+
+
+def _estilo(posicion) -> str:
+    """El estilo (atributo de producto MODELO) de la posición, como lo guardó su foto."""
+    return (posicion.atributos or {}).get("MODELO") or posicion.articulo.producto.valor("MODELO")
 
 
 def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, recolectado=None, pallet=False):
@@ -495,16 +502,17 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
     f.packing_lists.append(pl)
     for p in oc.posiciones:
         linea = FacturaLinea(posicion_oc=p, cantidad=p.cantidad, precio_unitario=p.precio, precio_oc=p.precio,
-                             oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_articulo=p.codigo_articulo, upc=p.upc,
-                             estilo=p.estilo, color=p.color, talla=p.talla, descripcion=p.descripcion,
-                             unidad=p.unidad, marca=p.marca, categoria=p.categoria, tipo_empaque=p.tipo_empaque,
+                             oc_numero=oc.numero, almacen=p.almacen, posicion=p.posicion, codigo_articulo=p.codigo_articulo,
+                             codigo_barras=p.codigo_barras, descripcion=p.descripcion, unidad=p.unidad,
+                             atributos=p.atributos, variante=p.variante, tipo_empaque=p.tipo_empaque, codigo_pack=p.codigo_pack,
+                             unidades_por_caja=p.unidades_por_caja,
                              casepack=p.casepack, inner_pack=p.inner_pack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,
                              partida_arancelaria=partida_para(p.articulo.producto) or _seis(p.articulo.partida_demo),
                              descripcion_comercial=p.articulo.producto.descripcion_aduana or p.descripcion)
         f.lineas.append(linea)
         pll = PLLinea(factura_linea=linea, cantidad=p.cantidad)
         pl.lineas.append(pll)
-        t = plantillas[p.estilo]
+        t = plantillas[_estilo(p)]
         g = GrupoCajas(num_cajas=p.cantidad // t.cantidad_por_caja, largo=t.largo, ancho=t.ancho, alto=t.alto,
                        tara=t.tara, tipo_empaque=t.tipo_empaque, plantilla_id=t.id, plantilla_nombre=t.nombre)
         pl.grupos.append(g)
@@ -529,7 +537,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
     empaques.recalcular(pl)
     registrar(db, usuario, "factura", f.id, "crear", {"lineas": len(f.lineas), "ocs": [oc.numero]}, factura_id=f.id)
     registrar(db, usuario, "packing_list", pl.id, "aplicar_plantilla", {"plantillas": sorted(
-        {plantillas[p.estilo].nombre for p in oc.posiciones})}, factura_id=f.id)
+        {plantillas[_estilo(p)].nombre for p in oc.posiciones})}, factura_id=f.id)
     registrar(db, usuario, "factura", f.id, "finalizar", {"con_pl": [pl.numero]}, factura_id=f.id)
     return f
 

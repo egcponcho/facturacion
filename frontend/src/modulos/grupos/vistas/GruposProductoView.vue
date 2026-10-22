@@ -40,7 +40,8 @@ const atributos = ref([])
 onMounted(() => {
   cargar()
   api.get('/grupos-producto/campos').then((c) => (catalogo.value = c)).catch(() => {})
-  api.get('/catalogos/atributos_variante', { size: 200 }).then((r) => (atributos.value = (r.items || []).filter((a) => a.activo !== false)))
+  api.get('/catalogos/atributos', { size: 200 })
+    .then((r) => (atributos.value = (r.items || []).filter((a) => a.activo !== false && a.nivel === 'VARIANTE')))
     .catch(() => {})
 })
 alCambiar(cargar, ['/grupos-producto'])
@@ -81,10 +82,12 @@ const edicion = ref(null)
 const guardando = ref(false)
 function nuevo(clase = 'FAMILIA', padre = null) {
   edicion.value = reactive({ id: null, clase, codigo: '', nombre: '', descripcion: '', padre_id: padre?.id ?? '',
-    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], ejes_variante: [], campos: [], activa: true })
+    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], ejes_variante: [], campos: [], dias_extra: '',
+    activa: true })
 }
 function editar(g) {
   edicion.value = reactive({ ...g, descripcion: g.descripcion || '', padre_id: g.padre_id ?? '', ejes_variante: [...(g.ejes_variante || [])],
+    dias_extra: g.dias_extra ?? '',
     campos: (g.campos || []).map((c) => ({ ...c })),
     condiciones: (g.condiciones || []).map((c) => ({ ...c, valor: Array.isArray(c.valor) ? c.valor.join(', ') : c.valor })) })
 }
@@ -93,8 +96,8 @@ function editar(g) {
 const buscarCampo = ref('')
 const requeridos = computed(() => new Set((edicion.value?.campos || []).filter((c) => c.obligatorio).map((c) => c.campo)))
 // Sin búsqueda se ofrecen los datos habituales de un producto; con búsqueda, cualquiera del catálogo
-const HABITUALES = ['articulo.upc', 'articulo.peso_unitario', 'articulo.sku_proveedor', 'articulo.marca', 'articulo.grupo',
-  'articulo.estilo', 'producto.descripcion_comercial', 'producto.pais_origen']
+const HABITUALES = ['articulo.codigo_barras', 'articulo.peso_unitario', 'articulo.codigo_proveedor', 'producto.marca',
+  'producto.descripcion_comercial', 'producto.pais_origen']
 const camposVisibles = computed(() => {
   const q = buscarCampo.value.trim().toLowerCase()
   return catalogo.value.campos.filter((c) => requeridos.value.has(c.clave)
@@ -123,7 +126,8 @@ async function guardar() {
   const e = edicion.value
   const cuerpo = { codigo: e.codigo, nombre: e.nombre, descripcion: e.descripcion || null,
     padre_id: e.padre_id === '' ? null : Number(e.padre_id), activa: e.activa, campos: e.campos,
-    ...(e.clase === 'CATEGORIA' ? { condiciones: condicionesLimpias(e.condiciones) } : { ejes_variante: e.ejes_variante }) }
+    ...(e.clase === 'CATEGORIA' ? { condiciones: condicionesLimpias(e.condiciones) }
+      : { ejes_variante: e.ejes_variante, dias_extra: e.dias_extra === '' || e.dias_extra === null ? null : Number(e.dias_extra) }) }
   guardando.value = true
   try {
     if (e.id) await api.patch(`/grupos-producto/${e.id}`, cuerpo)
@@ -223,6 +227,9 @@ async function quitar(g) {
           <label v-for="a in atributos" :key="a.codigo" class="check"><input v-model="edicion.ejes_variante" type="checkbox" :value="a.codigo" /> {{ tx(a.nombre) }}</label>
         </div>
         <small class="ayuda">{{ t('What tells the variants of its products apart (for example a measure and a color, or a concentration and a container). Empty: the ones of the parent family, or all.') }}</small></div>
+      <label v-if="edicion.clase === 'FAMILIA'" class="campo"><span>{{ t('Extra days to the store') }}</span>
+        <input v-model="edicion.dias_extra" type="number" min="0" max="365" class="ancho-s" />
+        <small class="ayuda">{{ t('Days its products add after the port (inspection, labeling…) when estimating the date in store. Empty: the ones of the parent family, or none.') }}</small></label>
       <div class="campo"><span>{{ t('Data its products require') }}</span>
         <input v-model="buscarCampo" type="search" :placeholder="t('Search a field to require it (barcode, weight, brand…)')" :aria-label="t('Search a field')" />
         <div class="fila-flex gap-2 envolver">

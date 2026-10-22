@@ -3,7 +3,7 @@
 Una receta dice cómo se empaca un artículo en N niveles armados con los tipos
 del catálogo (inner pack ⊂ master ⊂ pallet…): cada nivel lleva N unidades del
 nivel de abajo y el primero N unidades del artículo (pares, piezas o, en un
-prepack, curvas: la curva es el artículo, no el empaque).
+packs y kits: el contenido es el artículo, no el empaque).
 
 Quién decide la receta de una posición de OC, de mayor a menor:
 1. la elegida a mano en la posición (MANUAL);
@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.core.errores import ErrorNegocio
 from app.modelos import (
@@ -56,19 +56,29 @@ ABIERTAS = ("BORRADOR", "EN_APROBACION", "RECHAZADA", "APROBADA")
 DESTINOS = ("EMPRESA", "GRUPO", "PRODUCTO", "ARTICULO")
 PESO_DESTINO = {"EMPRESA": 1, "GRUPO": 2, "PRODUCTO": 3, "ARTICULO": 4}
 
-# Datos de la posición, su OC y su artículo que las condiciones de una regla pueden usar
+# Datos de la posición, su OC y su artículo que las condiciones de una regla pueden usar. Además,
+# un dato por atributo de producto y de variante de la empresa: «linea.atributo.<código>» (la foto
+# de la línea), sin suponer qué atributos usa
 CAMPOS = [
     ("oc.proveedor", "Supplier", "texto"), ("oc.sociedad", "Company", "texto"), ("oc.centro", "Center", "texto"),
     ("oc.centro_destino", "Destination center", "texto"), ("oc.pais_destino", "Destination country", "texto"),
     ("oc.pais_origen", "Country of origin", "texto"), ("oc.incoterm", "Incoterm", "texto"),
-    ("oc.puerto_despacho", "Port of shipment", "texto"), ("linea.marca", "Brand", "texto"),
-    ("linea.grupo", "Item group", "texto"), ("linea.categoria", "Category", "texto"), ("linea.estilo", "Style", "texto"),
-    ("linea.color", "Color", "texto"), ("linea.talla", "Size", "texto"), ("linea.unidad", "Unit", "texto"),
-    ("linea.cantidad", "Quantity", "numero"), ("linea.almacen", "Warehouse", "texto"),
-    ("linea.tipo", "Solid or prepack", "texto"), ("articulo.sku", "SKU", "texto"),
+    ("oc.puerto_despacho", "Port of shipment", "texto"), ("linea.familia", "Product family (code)", "texto"),
+    ("linea.unidad", "Unit", "texto"), ("linea.cantidad", "Quantity", "numero"), ("linea.almacen", "Warehouse", "texto"),
+    ("linea.tipo", "Simple, pack or kit", "texto"), ("articulo.sku", "SKU", "texto"),
 ]
-CLAVES = {c for c, _, _ in CAMPOS}
-NOMBRES = {c: e for c, e, _ in CAMPOS}
+
+
+def campos(db: Session) -> list[tuple]:
+    """Los datos fijos y uno por atributo de producto y de variante activo."""
+    from app.modulos.maestros import variantes
+
+    return CAMPOS + [(f"linea.atributo.{a.codigo}", a.nombre, "numero" if a.tipo == "numero" else "texto")
+                     for a in (*variantes.atributos(db, "PRODUCTO"), *variantes.atributos(db))]
+
+
+def nombres_campos(db: Session) -> dict[str, str]:
+    return {c: e for c, e, _ in campos(db)}
 
 
 # ---- Receta: foto, totales y forma ----------------------------------------------------------
@@ -402,9 +412,9 @@ def nombre_destino(r: ReglaEmpaque) -> str:
     return "Whole company"
 
 
-def texto_condiciones(condiciones: list[dict] | None) -> str:
+def texto_condiciones(condiciones: list[dict] | None, db: Session | None = None) -> str:
     """«Supplier = VANS · Brand ∈ TNF, VANS» para el historial (la pantalla arma la suya, traducida)."""
-    nombres = NOMBRES
+    nombres = nombres_campos(db) if db is not None else {c: e for c, e, _ in CAMPOS}
     ops = {"igual": "=", "distinto": "≠", "en": "∈", "no_en": "∉", "mayor": ">", "mayor_igual": "≥", "menor": "<", "menor_igual": "≤"}
     partes = []
     for c in condiciones or []:
@@ -419,7 +429,7 @@ def dict_regla(r: ReglaEmpaque) -> dict:
             "receta_resumen": resumen(foto(r.receta)) if r.receta else None, "destino": r.destino,
             "grupo_id": r.grupo_id, "producto_id": r.producto_id, "articulo_id": r.articulo_id,
             "destino_nombre": nombre_destino(r), "condiciones": r.condiciones or [],
-            "condiciones_texto": texto_condiciones(r.condiciones), "orden": r.orden,
+            "condiciones_texto": texto_condiciones(r.condiciones, object_session(r)), "orden": r.orden,
             "vigente_desde": r.vigente_desde.isoformat() if r.vigente_desde else None,
             "vigente_hasta": r.vigente_hasta.isoformat() if r.vigente_hasta else None, "motivo": r.motivo,
             "activa": r.activa, "version": r.version}
@@ -441,7 +451,7 @@ def catalogo_campos(db: Session, user: Usuario) -> dict:
     exigir(user, "catalogos.ver")
     grupos = list(db.scalars(select(GrupoProducto).where(GrupoProducto.activa.is_(True))
                              .options(selectinload(GrupoProducto.padre))))
-    return {"campos": [{"clave": c, "etiqueta": e, "tipo": t} for c, e, t in CAMPOS],
+    return {"campos": [{"clave": c, "etiqueta": e, "tipo": t} for c, e, t in campos(db)],
             "operadores": list(cond.OPERADORES_SIMPLES), "destinos": list(DESTINOS),
             "grupos": sorted(({"id": g.id, "clase": g.clase, "nombre": " › ".join(x.nombre for x in g.ruta())} for g in grupos),
                              key=lambda x: x["nombre"].lower())}
@@ -491,7 +501,7 @@ def _limpiar_regla(db: Session, datos: dict, r: ReglaEmpaque | None = None) -> d
     motivo = (str(v("motivo") or "").strip() or None)
     if motivo and len(motivo) > 300:
         raise ErrorNegocio("The reason can have up to 300 characters.", 422, "validacion")
-    return {"destino": destino, **ids, "receta_id": receta.id, "condiciones": cond.limpiar(v("condiciones"), CLAVES),
+    return {"destino": destino, **ids, "receta_id": receta.id, "condiciones": cond.limpiar(v("condiciones"), {c for c, _, _ in campos(db)}),
             "vigente_desde": desde, "vigente_hasta": hasta, "motivo": motivo, "activa": bool(v("activa", True))}
 
 
@@ -504,7 +514,7 @@ def crear_regla(db: Session, user: Usuario, datos: dict) -> dict:
     db.flush()
     db.refresh(r)
     registrar(db, user, "regla_empaque", r.id, "crear", {"destino": nombre_destino(r), "receta": r.receta.nombre,
-                                                         "condiciones": texto_condiciones(r.condiciones)})
+                                                         "condiciones": texto_condiciones(r.condiciones, db)})
     res = dict_regla(r)
     if datos.get("aplicar"):
         res["aplicadas"] = reaplicar(db, user)
@@ -588,6 +598,12 @@ class Motor:
         self._paises: dict | None = None
         self._rutas: dict = {}
         self._cache: dict = {}
+        self.nombres = nombres_campos(db)
+
+    def familia(self, a: Articulo | None) -> str | None:
+        """El código de la familia del producto del artículo."""
+        g = a.producto.grupo_producto if a is not None and a.producto is not None else None
+        return g.familia.codigo if g is not None and g.familia is not None else None
 
     def ruta(self, a: Articulo) -> list[int]:
         """Los grupos del artículo, de lo más específico (su categoría) a lo más general (motor común: grupos/arbol.py)."""
@@ -613,8 +629,8 @@ class Motor:
         return {"oc.proveedor": prov.codigo if prov else None, "oc.sociedad": oc.sociedad,
                 "oc.centro": oc.centro, "oc.centro_destino": oc.centro_destino, "oc.pais_destino": self.pais(oc.centro_destino),
                 "oc.pais_origen": p.pais_origen or oc.pais_origen, "oc.incoterm": oc.incoterm,
-                "oc.puerto_despacho": oc.puerto_despacho, "linea.marca": p.marca, "linea.grupo": p.grupo,
-                "linea.categoria": p.categoria, "linea.estilo": p.estilo, "linea.color": p.color, "linea.talla": p.talla,
+                "oc.puerto_despacho": oc.puerto_despacho, "linea.familia": self.familia(a),
+                **{f"linea.atributo.{k}": v for k, v in {**(p.atributos or {}), **(p.variante or {})}.items()},
                 "linea.unidad": p.unidad, "linea.cantidad": p.cantidad, "linea.almacen": p.almacen,
                 "linea.tipo": p.tipo_empaque, "articulo.sku": a.sku if a else p.codigo_articulo}
 
@@ -640,7 +656,7 @@ class Motor:
             if peso is None:
                 continue
             vigente = (not r.vigente_desde or self.hoy >= r.vigente_desde) and (not r.vigente_hasta or self.hoy <= r.vigente_hasta)
-            detalle = [{**d, "etiqueta": NOMBRES.get(d["campo"], d["campo"])} for d in cond.detalle(r.condiciones, valores)]
+            detalle = [{**d, "etiqueta": self.nombres.get(d["campo"], d["campo"])} for d in cond.detalle(r.condiciones, valores)]
             cumple = vigente and all(d["cumple"] for d in detalle)
             res.explicacion.append({"regla_id": r.id, "destino": nombre_destino(r), "receta": r.receta.nombre,
                                     "condiciones": detalle, "vigente": vigente, "cumple": cumple, "orden": r.orden})

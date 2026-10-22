@@ -67,7 +67,8 @@ def _recibido(ln: PLLinea) -> tuple[float, float]:
 
 def ref_linea(ln: PLLinea) -> str:
     fl = ln.factura_linea
-    return f"{ln.pl.numero} · {fl.codigo_articulo}{' · ' + fl.talla if fl.talla else ''}"
+    variante = texto_variante(fl.variante)
+    return f"{ln.pl.numero} · {fl.codigo_articulo}{' · ' + variante if variante else ''}"
 
 
 def cargar_unidad(db: Session, user: Usuario, unidad_id: int, *permisos: str, bloquear: bool = False) -> UnidadCarga:
@@ -376,7 +377,7 @@ def detalle(db: Session, user: Usuario, unidad_id: int) -> dict:
         filas.append({
             "pl_linea_id": ln.id, "pl_id": ln.pl_id, "pl": ln.pl.numero, "factura_id": ln.pl.factura_id,
             "factura": nombre_factura(ln.pl.factura), "proveedor": ln.pl.factura.proveedor.nombre,
-            "oc": fl.oc_numero, "codigo": fl.codigo_articulo, "talla": fl.talla, "variante": texto_variante(fl.variante),
+            "oc": fl.oc_numero, "codigo": fl.codigo_articulo, "variante": texto_variante(fl.variante),
             "descripcion": fl.descripcion_comercial or fl.descripcion, "unidad": fl.unidad,
             "enviado": cant(ln.cantidad), "recibido": cant(r), "danado": cant(d),
             "pendiente": cant(max(float(ln.cantidad) - r, 0)), "diferencia": cant(r - float(ln.cantidad)),

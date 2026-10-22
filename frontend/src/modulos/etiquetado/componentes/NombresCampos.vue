@@ -9,7 +9,7 @@ import { avisar, errorApi } from '@/stores/ui'
 
 // Los campos de las etiquetas con el nombre que les da la empresa (el que se
 // ve al diseñar) y los que no se ofrecen. Los diseños que ya usan un campo
-// oculto lo siguen imprimiendo; la clave técnica ({{articulo.upc}}) no cambia.
+// oculto lo siguen imprimiendo; la clave técnica ({{articulo.codigo_barras}}) no cambia.
 const campos = ref([])
 const grupos = ref({})
 const cambios = ref({}) // clave → { nombre, oculto }

@@ -16,7 +16,7 @@ import CabezaEtiquetado from '@/modulos/etiquetado/componentes/CabezaEtiquetado.
 import FormFamilia from '@/modulos/etiquetado/componentes/FormFamilia.vue'
 
 // Asistente de una familia de etiquetado, en orden: 1 sus datos → 2 qué entra
-// (productos, grupos o artículos sueltos) → 3 su diseño por tipo de etiqueta →
+// (productos, o artículos que llevan a su producto) → 3 su diseño por tipo de etiqueta →
 // 4 revisar. Nada cambia mientras se avanza: se termina de una vez (una sola
 // operación en el servidor, todo o nada) o se deja como borrador personal para
 // seguir después. /etiquetas/configuracion/familia/:id (id de la familia, o
@@ -35,8 +35,8 @@ const clave = ref(`etiquetas.familia.${props.id}`)
 const e = reactive({
   paso: 0,
   familia: { codigo: '', nombre: '', descripcion: '', activa: true, campos: [], padre_id: route.query.padre ? Number(route.query.padre) : null },
-  productos: [], grupos: [], articulos: [],
-  nombres: { productos: {}, grupos: {}, articulos: {} }, // para mostrar lo elegido sin volver a consultarlo
+  productos: [], articulos: [],
+  nombres: { productos: {}, articulos: {} }, // para mostrar lo elegido sin volver a consultarlo
   disenos: {}, // tipo_id -> plantilla_id (null: hereda)
 })
 const original = ref('')
@@ -86,11 +86,9 @@ const origen = ref('sin') // sin familia · '' todas las demás
 const q = ref('')
 const tabla = ref(null)
 const datos = ref({ items: [], total: 0 })
-const grupos = ref([])
 const cargando = ref(false)
 let ultima = null
 async function consultar(c = ultima) {
-  if (que.value === 'grupos') return cargarGrupos()
   if (!c) return
   ultima = c
   cargando.value = true
@@ -104,19 +102,7 @@ async function consultar(c = ultima) {
     cargando.value = false
   }
 }
-async function cargarGrupos() {
-  cargando.value = true
-  try {
-    const r = await api.get('/etiquetas/grupos-articulos', { q: q.value || undefined, familia: origen.value || undefined })
-    grupos.value = r.filter((g) => !e.familia.id || g.familia_id !== e.familia.id)
-  } catch (err) {
-    errorApi(err)
-  } finally {
-    cargando.value = false
-  }
-}
 async function recargar() {
-  if (que.value === 'grupos') return cargarGrupos()
   await nextTick()
   if (tabla.value && tabla.value.pagina !== 1) tabla.value.pagina = 1
   else consultar()
@@ -127,35 +113,27 @@ watch(q, () => {
   espera = setTimeout(recargar, 300)
 })
 watch([que, origen], recargar)
-watch(() => e.paso, (p) => p === 1 && que.value === 'grupos' && cargarGrupos())
-// Lo elegido se guarda por clase (productos, grupos, artículos) y no se pierde al buscar o cambiar de página
+// Lo elegido se guarda por clase (productos, artículos) y no se pierde al buscar o cambiar de página
 const seleccion = computed({
   get: () => e[que.value],
   set: (ids) => {
-    const filas = que.value === 'grupos' ? grupos.value : datos.value.items
-    for (const x of filas) if (ids.includes(x.id)) e.nombres[que.value][x.id] = nombreDe(x)
+    for (const x of datos.value.items) if (ids.includes(x.id)) e.nombres[que.value][x.id] = nombreDe(x)
     e[que.value] = ids
   },
 })
-const nombreDe = (x) => (que.value === 'productos' ? `${x.estilo} ${x.color || ''}`.trim() : que.value === 'grupos' ? `${x.codigo} · ${x.nombre}` : x.sku)
+const nombreDe = (x) => (que.value === 'productos' ? x.codigo_generico || x.nombre : x.sku)
 const columnas = computed(() => (que.value === 'productos' ? [
-  { clave: 'estilo', texto: t('Product'), fija: true, prioridad: 1, ordenable: false, filtro: false },
-  { clave: 'nombre', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
-  { clave: 'grupo', texto: t('Group'), prioridad: 3, ordenable: false, filtro: false },
-  { clave: 'tallas', texto: t('Sizes'), num: true, prioridad: 3, ordenable: false, filtro: false },
+  { clave: 'producto', texto: t('Product'), fija: true, prioridad: 1, ordenable: false, filtro: false },
+  { clave: 'nombre', texto: t('Name'), prioridad: 2, ordenable: false, filtro: false },
+  { clave: 'variantes', texto: t('Variants'), num: true, prioridad: 3, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
-] : que.value === 'articulos' ? [
+] : [
   { clave: 'sku', texto: t('SKU'), fija: true, prioridad: 1, ordenable: false, filtro: false },
   { clave: 'descripcion', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 2, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
-] : [
-  { clave: 'codigo', texto: t('Group'), fija: true, prioridad: 1 },
-  { clave: 'nombre', texto: t('Name'), prioridad: 1 },
-  { clave: 'articulos', texto: t('Items'), num: true, prioridad: 2 },
-  { clave: 'familia', texto: t('Labeling family'), prioridad: 1 },
 ]))
-const elegidos = computed(() => e.productos.length + e.grupos.length + e.articulos.length)
+const elegidos = computed(() => e.productos.length + e.articulos.length)
 function quitar(clase, id) {
   e[clase] = e[clase].filter((x) => x !== id)
 }
@@ -229,7 +207,7 @@ async function terminar() {
   try {
     const r = await api.post('/etiquetas/familias/configurar', {
       familia: { id: f.id, codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion, activa: f.activa, campos: f.campos, padre_id: f.padre_id || null },
-      productos: e.productos, grupos: e.grupos, articulos: e.articulos,
+      productos: e.productos, articulos: e.articulos,
       disenos: configurar.value ? tipos.value.map((tp) => ({ tipo_etiqueta_id: tp.id, plantilla_id: e.disenos[tp.id] || null })) : [],
     })
     if (borrador.value) await api.del(`/perfil/borradores/${clave.value}`).catch(() => {})
@@ -283,32 +261,26 @@ onBeforeRouteLeave(async (to) => {
       <!-- 2. Qué entra -->
       <template v-else-if="e.paso === 1">
         <div class="af-barra">
-          <Segmentos v-model="que" :opciones="[['productos', t('Products')], ['grupos', t('Item groups')], ['articulos', t('Items (sizes)')]]" :etiqueta="t('Show')" />
+          <Segmentos v-model="que" :opciones="[['productos', t('Products')], ['articulos', t('Items (variants)')]]" :etiqueta="t('Show')" />
           <label class="buscador af-buscar"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search')" :aria-label="t('Search')" /></label>
           <Segmentos v-model="origen" :opciones="[['sin', t('Without family')], ['', t('All the others')]]" :etiqueta="t('From')" />
         </div>
         <div v-if="elegidos" class="af-elegidos">
           <strong>{{ t('Chosen so far') }}</strong>
-          <template v-for="clase in ['productos', 'grupos', 'articulos']" :key="clase">
+          <template v-for="clase in ['productos', 'articulos']" :key="clase">
             <span v-for="id in e[clase].slice(0, 12)" :key="`${clase}-${id}`" class="af-chip">{{ e.nombres[clase][id] || `#${id}` }}
               <button type="button" :aria-label="t('Remove')" @click="quitar(clase, id)"><Icono nombre="cerrar" :tam="12" /></button></span>
             <span v-if="e[clase].length > 12" class="ayuda">{{ t('and {0} more', [e[clase].length - 12]) }}</span>
           </template>
         </div>
-        <TablaDatos v-if="que !== 'grupos'" :key="que" ref="tabla" :tabla="`etiquetas_asistente_${que}`" modo="servidor" :columnas="columnas" :filas="datos.items"
+        <TablaDatos :key="que" ref="tabla" :tabla="`etiquetas_asistente_${que}`" modo="servidor" :columnas="columnas" :filas="datos.items"
                     :total="datos.total" :cargando="cargando" seleccionable v-model:seleccion="seleccion" :etiqueta="PASOS()[1].titulo"
                     :externos="{ q, origen }" @consulta="consultar">
-          <template #celda-estilo="{ fila: p }"><strong>{{ p.estilo }}</strong><span class="sub">{{ p.color }}</span></template>
-          <template #celda-sku="{ fila: a }"><strong class="codigo">{{ a.sku }}</strong><span class="sub">{{ a.estilo }}</span></template>
+          <template #celda-producto="{ fila: p }"><strong>{{ tx(p.codigo_generico || p.nombre) }}</strong></template>
+          <template #celda-sku="{ fila: a }"><strong class="codigo">{{ a.sku }}</strong><span class="sub">{{ tx(a.producto || a.generico) }}</span></template>
           <template #celda-familia="{ fila: x }">
             <span v-if="x.familia" class="etiqueta ms-0">{{ tx(x.familia) }}</span><span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span></template>
           <template #vacio>{{ t('Nothing to add here: everything already has a family.') }}</template>
-        </TablaDatos>
-        <TablaDatos v-else tabla="etiquetas_asistente_grupos" :columnas="columnas" :filas="grupos" :cargando="cargando" seleccionable v-model:seleccion="seleccion"
-                    :etiqueta="t('Item groups')">
-          <template #celda-codigo="{ fila: g }"><strong class="codigo">{{ g.codigo }}</strong></template>
-          <template #celda-familia="{ fila: g }"><span v-if="g.familia" class="etiqueta ms-0">{{ tx(g.familia) }}</span><span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span></template>
-          <template #vacio>{{ t('Nothing here.') }}</template>
         </TablaDatos>
       </template>
 
@@ -344,7 +316,7 @@ onBeforeRouteLeave(async (to) => {
           <dt>{{ t('Fields') }}</dt>
           <dd>{{ e.familia.campos.length ? t('{0} usual, {1} required', [e.familia.campos.length, e.familia.campos.filter((c) => c.obligatorio).length]) : t('None') }}</dd>
           <dt>{{ t('What goes in it') }}</dt>
-          <dd>{{ elegidos ? t('{0} products, {1} groups and {2} single items will be added', [e.productos.length, e.grupos.length, e.articulos.length]) : t('Nothing new') }}
+          <dd>{{ elegidos ? t('{0} products and the products of {1} items will be added', [e.productos.length, e.articulos.length]) : t('Nothing new') }}
             <button type="button" class="enlace af-cambiar" @click="ir(1)">{{ t('Change') }}</button></dd>
           <dt>{{ t('Designs') }}</dt>
           <dd>
@@ -372,7 +344,7 @@ onBeforeRouteLeave(async (to) => {
 
   <!-- Paso 2: lo elegido en esta página, en la barra flotante -->
   <BarraSeleccion v-if="listo && e.paso === 1" :cantidad="elegidos" :singular="t('record chosen')" :plural="t('records chosen')"
-                  @limpiar="e.productos = []; e.grupos = []; e.articulos = []">
+                  @limpiar="e.productos = []; e.articulos = []">
     <button type="button" class="btn btn-primario" @click="ir(2)">{{ t('Next: {0}', [PASOS()[2].titulo]) }}<Icono nombre="derecha" :tam="15" /></button>
   </BarraSeleccion>
 </template>

@@ -46,7 +46,7 @@ class GrupoProducto(DeOrganizacion, Base):
     # [{"campo": "articulo.descripcion", "op": "contiene", "valor": "sandal"}]: todas deben cumplirse.
     # Una categoría con condiciones se reconoce sola; sin condiciones, solo se pone a mano.
     condiciones: Mapped[list] = mapped_column(JSON, default=list)
-    # Los campos habituales del grupo y cuáles son obligatorios ([{"campo": "articulo.talla", "obligatorio": true}])
+    # Los campos habituales del grupo y cuáles son obligatorios ([{"campo": "articulo.atributo.TALLA", "obligatorio": true}])
     campos: Mapped[list] = mapped_column(JSON, default=list)
     # Con qué atributos de variante se distinguen las variantes de sus productos, en orden
     # (["COLOR", "TALLA"], ["CONCENTRACION", "ENVASE"]…). Vacío: los del grupo padre.
@@ -54,13 +54,21 @@ class GrupoProducto(DeOrganizacion, Base):
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    # De qué familia o categoría de etiquetado se copió (migración 0081); vacío en los nodos nuevos
-    legado_familia_id: Mapped[int | None] = mapped_column(Integer)
-    legado_categoria_id: Mapped[int | None] = mapped_column(Integer)
+    # Días que sus productos necesitan además de los del transporte (inspección, etiquetado,
+    # permisos): se suman a la fecha estimada en tienda. Vacío: los de la familia que la contiene.
+    dias_extra: Mapped[int | None] = mapped_column(Integer)
 
     padre: Mapped["GrupoProducto | None"] = relationship(remote_side=lambda: GrupoProducto.id)
 
     __mapper_args__ = {"polymorphic_on": "clase", "polymorphic_abstract": True}
+
+    @property
+    def dias_extra_efectivos(self) -> int:
+        """Los días extra del nodo o, si no tiene, los de la familia más cercana que los tenga."""
+        for g in reversed(self.ruta()):
+            if g.dias_extra is not None:
+                return g.dias_extra
+        return 0
 
     def ruta(self) -> list["GrupoProducto"]:
         """El nodo y sus antecesores, de la raíz a él (sin repetir si hubiera un ciclo)."""
@@ -77,7 +85,7 @@ class GrupoProducto(DeOrganizacion, Base):
 
 
 class GrupoFamilia(GrupoProducto):
-    """Familia (o subfamilia): se asigna a mano a grupos de artículos, productos o artículos."""
+    """Familia (o subfamilia): se asigna a mano a cada producto."""
 
     __mapper_args__ = {"polymorphic_identity": "FAMILIA"}
 

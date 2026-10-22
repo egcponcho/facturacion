@@ -42,7 +42,7 @@ def cargar(db: Session, categoria_id: int) -> CategoriaEtiquetado:
 def _articulos(db: Session, familia_id: int | None = None) -> list[Articulo]:
     """Artículos activos (de una familia y sus subfamilias, si se indica)."""
     arts = list(db.scalars(select(Articulo).where(Articulo.activo.is_(True)).options(
-        selectinload(Articulo.producto), selectinload(Articulo.grupo), selectinload(Articulo.familia_etiquetado))
+        selectinload(Articulo.producto))
         .order_by(Articulo.id).limit(MAX_PRUEBA)))
     if familia_id is not None:
         arts = [a for a in arts if a.familia_efectiva is not None and familia_id in {f.id for f in a.familia_efectiva.ruta()}]
@@ -192,5 +192,5 @@ def asignar_productos(db: Session, user: Usuario, categoria_id: int | None, ids:
     db.flush()
     if cambiados:
         registrar(db, user, "categoria_etiquetado", cat.id if cat else 0, "asignar_productos",
-                  {"categoria_id": cat.id if cat else None, "productos": [p.estilo for p in cambiados[:50]]})
+                  {"categoria_id": cat.id if cat else None, "productos": [p.codigo_generico or p.nombre for p in cambiados[:50]]})
     return {"cambiados": len(cambiados), "elegidos": len(elegidos)}

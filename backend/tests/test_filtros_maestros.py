@@ -80,12 +80,15 @@ def test_catalogo_referencia_varios_y_numeros(interno):
     assert r["total"] == con[0]["n"]
 
 
-def test_catalogo_prepacks_por_codigo_de_articulo(interno):
-    skus = interno.get("/catalogos/prepacks/valores", params={"columna": "sku"}).json()
-    if not skus:
-        return
-    r = interno.get("/catalogos/prepacks", params=_f(sku=[skus[0]["valor"]])).json()
-    assert r["total"] == skus[0]["n"] and all(x["sku"] == skus[0]["valor"] for x in r["items"])
+def test_catalogo_articulos_por_tipo_y_codigo(interno):
+    """Los packs y kits son artículos de tipo compuesto: se filtran por tipo y por su código."""
+    tipos = {v["valor"]: v["n"] for v in interno.get("/catalogos/articulos/valores", params={"columna": "tipo"}).json()}
+    assert tipos.get("PREPACK") and tipos.get("SOLIDO")
+    r = interno.get("/catalogos/articulos", params={"size": 200, **_f(tipo=["PREPACK"])}).json()
+    assert r["total"] == tipos["PREPACK"] and {x["tipo"] for x in r["items"]} == {"PREPACK"}
+    sku = r["items"][0]["sku"]
+    r = interno.get("/catalogos/articulos", params=_f(sku=[sku])).json()
+    assert r["total"] == 1 and r["items"][0]["sku"] == sku
 
 
 def test_catalogo_columnas_y_filtros_invalidos(interno):
@@ -118,11 +121,16 @@ def test_genericos_filtran_por_columna_y_dan_sus_valores(interno):
     uno = provs[0]
     r = interno.get("/catalogos/genericos", params={"size": 200, **_f(proveedor_id=[uno["valor"]])}).json()
     assert r["total"] == uno["n"] and {x["proveedor_id"] for x in r["items"]} == {uno["valor"]}
-    # Tallas: el genérico pasa si alguno de sus artículos tiene la talla elegida
-    tallas = interno.get("/catalogos/genericos/valores", params={"columna": "tallas"}).json()
+    # Un valor de variante: el producto pasa si alguna de sus variantes lo tiene
+    tallas = interno.get("/catalogos/genericos/valores", params={"columna": "var.TALLA"}).json()
     t = next(v for v in tallas if v["valor"])
-    r = interno.get("/catalogos/genericos", params={"size": 200, **_f(tallas=[t["valor"]])}).json()
+    r = interno.get("/catalogos/genericos", params={"size": 200, **_f(**{"var.TALLA": [t["valor"]]})}).json()
     assert r["total"] == t["n"]
+    # Un atributo del producto
+    modelos = interno.get("/catalogos/genericos/valores", params={"columna": "atr.MODELO"}).json()
+    m = next(v for v in modelos if v["valor"])
+    r = interno.get("/catalogos/genericos", params={"size": 200, **_f(**{"atr.MODELO": [m["valor"]]})}).json()
+    assert r["total"] == m["n"] and all(x["atributos"].get("MODELO") == m["valor"] for x in r["items"])
     # Orden por el nombre del proveedor
     r = interno.get("/catalogos/genericos", params={"size": 200, "orden": "proveedor_id:desc"}).json()["items"]
     nombres = [x["proveedor"] or "" for x in r]

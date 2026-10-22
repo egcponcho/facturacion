@@ -1,5 +1,6 @@
 """Producto genérico: unidades que convierten entre sí, atributos de variante con
-tipo, atributos de la ficha en las etiquetas y la versión del artículo que usa
+tipo, atributos de la ficha en las etiquetas, códigos y valores de variante,
+packs y kits, y la versión del artículo (y la foto de sus atributos) que usa
 cada línea de OC y de factura."""
 from sqlalchemy import select
 
@@ -34,19 +35,20 @@ def test_unidades_que_convierten(interno):
 
 
 def test_atributos_de_variante_con_tipo(interno):
-    assert interno.post("/catalogos/atributos_variante", {"codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion"}
+    assert interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion"}
                         ).status_code == 422  # sin opciones
-    assert interno.post("/catalogos/atributos_variante", {"codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "texto",
+    assert interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "texto",
                                                           "unidad": "UN"}).status_code == 422  # unidad solo en números
-    volt = interno.post("/catalogos/atributos_variante", {"codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion",
+    volt = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion",
                                                           "opciones": "110 V, 220 V"}).json()
-    cap = interno.post("/catalogos/atributos_variante", {"codigo": "CAPACIDAD", "nombre": "Capacity", "tipo": "numero",
+    cap = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "CAPACIDAD", "nombre": "Capacity", "tipo": "numero",
                                                          "unidad": "ML"}).json()
     try:
         meta = {c["tipo"]: c for c in interno.get("/catalogos").json()}
         campo = next(c for c in meta["articulos"]["campos"] if c["nombre"] == "atr.VOLTAJE")
         assert campo["tipo"] == "opcion" and [o[0] for o in campo["opciones"]] == ["110 V", "220 V"]
         art = _cat(interno, "articulos", tipo="SOLIDO")[0]
+        guardados = {k: v for k, v in art.items() if k.startswith("atr.")}
         url = f"/catalogos/articulos/{art['id']}"
         assert interno.patch(url, {"atr.VOLTAJE": "380 V"}).status_code == 422
         assert interno.patch(url, {"atr.CAPACIDAD": "mucho"}).status_code == 422
@@ -54,18 +56,18 @@ def test_atributos_de_variante_con_tipo(interno):
         assert r.status_code == 200, r.text
         assert r.json()["atr.VOLTAJE"] == "220 V" and r.json()["atr.CAPACIDAD"] == "500"
         # Con valores guardados, el tipo solo cambia si siguen valiendo
-        assert interno.patch(f"/catalogos/atributos_variante/{volt['id']}", {"opciones": "110 V"}).status_code == 422
-        assert interno.patch(f"/catalogos/atributos_variante/{cap['id']}", {"tipo": "texto", "unidad": None}).status_code == 200
+        assert interno.patch(f"/catalogos/atributos/{volt['id']}", {"opciones": "110 V"}).status_code == 422
+        assert interno.patch(f"/catalogos/atributos/{cap['id']}", {"tipo": "texto", "unidad": None}).status_code == 200
         # En las etiquetas, el número es número
         campos = {c["clave"]: c for c in interno.get("/etiquetas/campos").json()["campos"]}
         assert campos["articulo.atributo.VOLTAJE"]["tipo"] == "texto"
-        interno.patch(f"/catalogos/atributos_variante/{cap['id']}", {"tipo": "numero", "unidad": "ML"})
+        interno.patch(f"/catalogos/atributos/{cap['id']}", {"tipo": "numero", "unidad": "ML"})
         campos = {c["clave"]: c for c in interno.get("/etiquetas/campos").json()["campos"]}
         assert campos["articulo.atributo.CAPACIDAD"]["tipo"] == "numero"
-        interno.patch(url, {"atr.VOLTAJE": "", "atr.CAPACIDAD": ""})
+        interno.patch(url, {"atr.VOLTAJE": "", "atr.CAPACIDAD": "", **guardados})
     finally:
-        interno.delete_(f"/catalogos/atributos_variante/{volt['id']}")
-        interno.delete_(f"/catalogos/atributos_variante/{cap['id']}")
+        interno.delete_(f"/catalogos/atributos/{volt['id']}")
+        interno.delete_(f"/catalogos/atributos/{cap['id']}")
 
 
 def test_atributos_de_la_ficha_en_las_etiquetas(interno):
@@ -145,61 +147,74 @@ def test_un_proveedor_no_ve_las_versiones_de_otro(tnf, vans):
     assert vans.get(f"/catalogos/articulos/{propio}/versiones").status_code == 404
 
 
-def test_producto_sin_estilo_ni_talla(interno):
-    """Un químico o una materia prima: sin estilo, color ni talla. Sus variantes se
+def test_producto_sin_atributos_de_moda(interno):
+    """Un químico o una materia prima: sin marca, modelo, color ni talla. Sus variantes se
     distinguen por los atributos que la empresa define."""
-    base = _cat(interno, "articulos", tipo="SOLIDO")[0]
-    conc = interno.post("/catalogos/atributos_variante", {"codigo": "CONC", "nombre": "Concentration", "tipo": "numero",
-                                                          "unidad": "UN"}).json()
-    comunes = {"generico": "QUIM-001", "marca_id": base["marca_id"], "grupo_id": base["grupo_id"],
-               "proveedor_id": base["proveedor_id"], "tipo": "SOLIDO", "unidad": "L"}
-    creados = []
+    from app.modelos import Producto
+
+    conc = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "CONC", "nombre": "Concentration",
+                                                 "tipo": "numero", "unidad": "UN"}).json()
     try:
-        r = interno.post("/catalogos/articulos", {**comunes, "sku": "QUIM-001-30", "atr.CONC": "30"})
+        r = interno.post("/catalogos/genericos", {"generico": "QUIM-001", "nombre": "Solvent", "unidad": "L",
+                                                  "variantes": [{"valores": {"CONC": "30"}}, {"valores": {"CONC": "50,0"}}]})
         assert r.status_code == 200, r.text
-        creados.append(r.json()["id"])
-        assert r.json()["estilo"] is None and r.json()["talla"] is None
-        r = interno.post("/catalogos/articulos", {**comunes, "sku": "QUIM-001-50", "atr.CONC": "50"})
-        assert r.status_code == 200, r.text
-        creados.append(r.json()["id"])
+        assert r.json()["atributos"] == {} and r.json()["creadas"] == 2
+        assert sorted(v["valores"]["CONC"] for v in r.json()["variantes"]) == ["30", "50"]
         # Dos variantes del mismo producto no repiten sus valores
-        r = interno.post("/catalogos/articulos", {**comunes, "sku": "QUIM-001-XX", "atr.CONC": "50"})
-        assert r.status_code == 422 and "QUIM-001-50" in r.text
+        r = interno.post("/catalogos/genericos/QUIM-001/variantes", {"variantes": [{"valores": {"CONC": "50"}}]})
+        assert r.status_code == 422 and "already exists" in r.text
+        # Un atributo de variante que no existe, o un valor que no vale para su tipo
+        r = interno.post("/catalogos/genericos/QUIM-001/variantes", {"variantes": [{"valores": {"NOEXISTE": "1"}}]})
+        assert r.status_code == 422
+        r = interno.post("/catalogos/genericos/QUIM-001/variantes", {"variantes": [{"valores": {"CONC": "mucho"}}]})
+        assert r.status_code == 422
         with SessionLocal() as db:
-            arts = [db.get(Articulo, i) for i in creados]
-            assert {a.producto_id for a in arts} == {arts[0].producto_id} and arts[0].producto_id is not None
-            assert arts[0].producto.codigo_generico == "QUIM-001" and arts[0].producto.estilo is None
+            p = db.scalar(select(Producto).where(Producto.codigo_generico == "QUIM-001"))
+            assert p.atributos == [] and p.marca_codigo is None and len(p.articulos) == 2
+            assert all(a.generico == "QUIM-001" and a.unidad == "L" for a in p.articulos)
         # Un producto sin variantes: su código es el del artículo
-        r = interno.post("/catalogos/articulos", {**comunes, "generico": None, "sku": "RESINA-9"})
+        r = interno.post("/catalogos/articulos", {"sku": "RESINA-9", "tipo": "SOLIDO", "unidad": "KG"})
         assert r.status_code == 200, r.text
-        creados.append(r.json()["id"])
         with SessionLocal() as db:
-            assert db.get(Articulo, creados[-1]).producto.codigo_generico == "RESINA-9"
+            assert db.scalar(select(Articulo).where(Articulo.sku == "RESINA-9")).producto.codigo_generico == "RESINA-9"
     finally:
         with SessionLocal() as db:
-            for i in creados:
-                a = db.get(Articulo, i)
-                p = a.producto
-                db.delete(a)
-                db.flush()
-                if p is not None and not p.articulos:
+            for gen in ("QUIM-001", "RESINA-9"):
+                p = db.scalar(select(Producto).where(Producto.codigo_generico == gen))
+                if p is not None:
+                    for a in list(p.articulos):
+                        db.delete(a)
+                    db.flush()
                     db.delete(p)
             db.commit()
-        interno.delete_(f"/catalogos/atributos_variante/{conc['id']}")
+        interno.delete_(f"/catalogos/atributos/{conc['id']}")
 
 
-def test_talla_y_color_son_valores_de_variante():
+def test_codigos_y_valores_de_variante():
+    """Los valores de variante viven en articulo_atributos y los códigos en articulo_codigos
+    (barras, proveedor, pack); el artículo no tiene columnas de talla, color ni códigos."""
+    from app.modelos import ArticuloCodigo
+
     with SessionLocal() as db:
-        a = db.scalars(select(Articulo).where(Articulo.tipo == "SOLIDO", Articulo.talla.is_not(None))).first()
-        assert a.variantes.get("TALLA") == a.talla and a.variantes.get("COLOR") == a.color
-        talla = a.talla
-        # Cambiar la columna pasa a su valor; cambiar el valor pasa a la columna
-        a.talla = "ZZ"
+        a = db.scalars(select(Articulo).where(Articulo.tipo == "SOLIDO")).first()
+        assert set(a.variantes) == {"COLOR", "TALLA"}
+        for col in ("talla", "color", "estilo", "upc", "sku_proveedor", "marca_id", "grupo_id"):
+            assert col not in Articulo.__table__.c, col
+        barras = a.codigo_barras
+        assert barras and a.codigo("BARRAS") == barras
+        # Cambiar un valor de variante y un código
+        a.variantes = {**a.variantes, "TALLA": "ZZ"}
+        a.poner_codigo("BARRAS", "7790000000001")
         db.flush()
-        assert a.variantes["TALLA"] == "ZZ"
-        a.variantes = {**a.variantes, "TALLA": talla}
+        db.expire(a)
+        assert a.variantes["TALLA"] == "ZZ" and a.codigo_barras == "7790000000001"
+        assert db.scalar(select(ArticuloCodigo.valor).where(ArticuloCodigo.articulo_id == a.id,
+                                                            ArticuloCodigo.tipo == "BARRAS")) == "7790000000001"
+        # Sin valor, el código se quita
+        a.poner_codigo("BARRAS", None)
         db.flush()
-        assert a.talla == talla
+        db.expire(a)
+        assert a.codigo_barras is None
         db.rollback()
 
 
@@ -224,56 +239,71 @@ def test_ejes_de_variante_por_familia(interno):
 
 
 def test_las_lineas_guardan_su_variante():
+    """Cada línea guarda la foto de los atributos del producto y de su variante al crearse."""
     with SessionLocal() as db:
-        p = db.scalars(select(PosicionOC).where(PosicionOC.articulo_id.is_not(None), PosicionOC.talla.is_not(None))).first()
-        assert p.variante and p.variante.get("TALLA") == p.talla
+        p = db.scalars(select(PosicionOC).where(PosicionOC.articulo_id.is_not(None))
+                       .join(Articulo, Articulo.id == PosicionOC.articulo_id).where(Articulo.tipo == "SOLIDO")).first()
+        assert p.variante and p.variante == p.articulo.variantes
+        assert p.atributos and p.atributos.get("MODELO") == p.articulo.producto.valores.get("MODELO")
+        assert p.codigo_barras == p.articulo.codigo_barras
         f = db.scalars(select(FacturaLinea).where(FacturaLinea.posicion_oc_id == p.id)).first() \
             or db.scalars(select(FacturaLinea)).first()
-        assert f.variante == f.posicion_oc.variante
+        assert f.variante == f.posicion_oc.variante and f.atributos == f.posicion_oc.atributos
 
 
 def test_packs_y_kits_genericos(interno):
-    """Un pack junta variantes de un mismo producto (no hace falta estilo ni color);
-    la unidad del compuesto es la que la empresa marca para packs y kits."""
+    """Un pack junta variantes de un mismo producto (no hace falta modelo ni color);
+    un kit junta artículos de cualquier producto y es su propio producto."""
+    from app.modelos import Producto
     from app.modulos.maestros import unidades as u
 
     base = _cat(interno, "articulos", tipo="SOLIDO")[0]
-    comunes = {"generico": "SALSA-01", "marca_id": base["marca_id"], "grupo_id": base["grupo_id"],
-               "proveedor_id": base["proveedor_id"], "tipo": "SOLIDO", "unidad": "UN"}
-    ids = []
+    sabor = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "SABOR", "nombre": "Flavor"}).json()
     try:
-        for sku, desc in (("SALSA-01-PIC", "Hot"), ("SALSA-01-SUA", "Mild")):
-            r = interno.post("/catalogos/articulos", {**comunes, "sku": sku, "descripcion": desc, "color": desc})
-            assert r.status_code == 200, r.text
-            ids.append(r.json()["id"])
-        # Un artículo simple no usa la unidad de los compuestos
-        assert interno.patch(f"/catalogos/articulos/{ids[0]}", {"unidad": "CJ"}).status_code == 422
-        r = interno.post("/catalogos/prepacks", {"tipo": "CURVA", "sku": "SALSA-01-MIX", "codigo": "MX6",
-                                                        "componentes": [{"articulo_id": ids[0], "cantidad": 3},
-                                                                        {"articulo_id": ids[1], "cantidad": 3}]})
+        r = interno.post("/catalogos/genericos", {"generico": "SALSA-01", "nombre": "Sauce", "unidad": "UN",
+                                                  "combinar": {"SABOR": ["Hot", "Mild"]}})
         assert r.status_code == 200, r.text
-        assert r.json()["total"] == 6 and r.json()["unidad"] == u.PREPACK
+        ids = [v["id"] for v in r.json()["variantes"]]
+        r = interno.post("/catalogos/compuestos", {"tipo": "PACK", "sku": "SALSA-01-MIX", "codigo": "MX6",
+                                                   "codigo_barras": "7790000000099",
+                                                   "componentes": [{"articulo_id": ids[0], "cantidad": 3},
+                                                                   {"articulo_id": ids[1], "cantidad": 3}]})
+        assert r.status_code == 200, r.text
+        assert r.json()["total"] == 6 and r.json()["unidad"] == u.de_compuesto() and r.json()["codigo"] == "MX6"
+        assert r.json()["generico"] == "SALSA-01" and not r.json()["kit"]
         with SessionLocal() as db:
             pack = db.scalar(select(Articulo).where(Articulo.sku == "SALSA-01-MIX"))
-            ids.append(pack.id)
-            assert pack.generico == "SALSA-01" and pack.producto_id == db.get(Articulo, ids[0]).producto_id
+            assert pack.producto_id == db.get(Articulo, ids[0]).producto_id
+            assert pack.codigo_pack == "MX6" and pack.codigo_barras == "7790000000099"
+        # El mismo identificador no se repite en el producto
+        r = interno.post("/catalogos/compuestos", {"tipo": "PACK", "sku": "SALSA-01-MIX2", "codigo": "MX6",
+                                                   "componentes": [{"articulo_id": ids[0], "cantidad": 1}]})
+        assert r.status_code == 422 and "MX6" in r.text
         # Otro producto no entra en el pack: va en un kit
-        r = interno.post("/catalogos/prepacks", {"tipo": "CURVA", "sku": "SALSA-01-MAL", "codigo": "MX7",
-                                                        "componentes": [{"articulo_id": ids[0], "cantidad": 1},
-                                                                        {"articulo_id": base["id"], "cantidad": 1}]})
+        mixto = [{"articulo_id": ids[0], "cantidad": 1}, {"articulo_id": base["id"], "cantidad": 1}]
+        r = interno.post("/catalogos/compuestos", {"tipo": "PACK", "sku": "SALSA-01-MAL", "codigo": "MX7",
+                                                   "componentes": mixto})
         assert r.status_code == 422 and "kit" in r.text.lower()
+        r = interno.post("/catalogos/compuestos", {"tipo": "KIT", "sku": "KIT-SALSA", "codigo": "KS1", "componentes": mixto})
+        assert r.status_code == 200, r.text
+        assert r.json()["kit"] and r.json()["generico"] == "KIT-SALSA"
+        # Un pack no lleva otro pack
+        with SessionLocal() as db:
+            pid = db.scalar(select(Articulo.id).where(Articulo.sku == "SALSA-01-MIX"))
+        r = interno.post("/catalogos/compuestos", {"tipo": "KIT", "sku": "KIT-MAL", "codigo": "KM1",
+                                                   "componentes": [{"articulo_id": pid, "cantidad": 1}]})
+        assert r.status_code == 422
     finally:
         with SessionLocal() as db:
-            for i in reversed(ids):
-                a = db.get(Articulo, i)
-                if a is None:
+            for gen in ("KIT-SALSA", "SALSA-01"):
+                p = db.scalar(select(Producto).where(Producto.codigo_generico == gen))
+                if p is None:
                     continue
-                pp, prod = a.prepack, a.producto
-                db.delete(a)
-                db.flush()
-                if pp is not None:
-                    db.delete(pp)
+                # Primero los compuestos (su contenido apunta a las variantes)
+                for a in sorted(p.articulos, key=lambda x: x.tipo != "PREPACK"):
+                    db.delete(a)
                     db.flush()
-                if prod is not None and not prod.articulos:
-                    db.delete(prod)
+                db.delete(p)
+                db.flush()
             db.commit()
+        interno.delete_(f"/catalogos/atributos/{sabor['id']}")

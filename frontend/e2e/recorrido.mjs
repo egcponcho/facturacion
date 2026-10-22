@@ -24,8 +24,8 @@ const PANTALLAS = [
   '/', '/compras/resumen', '/facturacion/resumen', '/logistica/resumen', '/integraciones', '/configuracion', '/ordenes', '/facturas', '/productos', '/productos/catalogo', '/productos/nuevo', '/productos/configuracion', '/transporte', '/reportes', '/tableros/compras', '/tableros/facturacion',
   '/seguimiento', '/seguimiento?vista=embarques', '/seguimiento?vista=documentos', '/seguimiento?vista=leadtimes',
   '/mantenimiento', '/mantenimiento?catalogo=listas', '/mantenimiento?catalogo=tipos_unidad', '/mantenimiento?catalogo=liberaciones',
-  '/mantenimiento?catalogo=atributos_variante', '/mantenimiento?catalogo=prepacks', '/mantenimiento?catalogo=acuerdos',
-  '/mantenimiento?catalogo=escalas', '/mantenimiento?catalogo=categorias',
+  '/mantenimiento?catalogo=atributos', '/mantenimiento?catalogo=articulos', '/mantenimiento?catalogo=acuerdos',
+  '/mantenimiento?catalogo=escalas',
   
   '/etiquetas', '/etiquetas/disenos', '/etiquetas/configuracion', '/etiquetas/configuracion?vista=tipos',
   '/etiquetas/configuracion?vista=familias', '/etiquetas/configuracion?vista=campos', '/etiquetas/configuracion?vista=historial',
