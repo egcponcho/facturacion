@@ -575,6 +575,7 @@ def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
     grupos de cada parte para generarlos sin volver a calcular."""
     anteriores = {r.clave: r for r in t.registros}
     generales, nuevos, vistas, grupos_por_parte, variables = [], {}, set(), {}, {}
+    bultos_vistos: set = set()  # (tipo, bulto) ya en otra parte del trabajo
     partes = _partes(db, t)
     if not partes:
         generales.append({"nivel": "error", "codigo": "sin_registros", "categoria": "configuracion",
@@ -588,7 +589,19 @@ def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
                               "mensaje": f"{f'PO {oc.numero}: ' if oc else ''}{e.mensaje}"})
             continue
         generales += [{**x, "parte": prefijo} for x in r["problemas"]]
-        grupos = r["_grupos"]
+        # Una caja con líneas de varias OCs del trabajo aparece en la parte de cada OC: es una
+        # sola caja física y lleva una sola etiqueta (la primera parte la genera)
+        grupos = []
+        for g in r["_grupos"]:
+            if g.bulto is not None:
+                identidad = (g.tipo.id, g.bulto.clave)
+                if identidad in bultos_vistos:
+                    generales.append({"nivel": "info", "codigo": "bulto_compartido", "categoria": "empaque", "parte": prefijo,
+                                      "mensaje": f"{g.referencia}: the package also holds lines of another PO of this job; "
+                                                 "it gets one label."})
+                    continue
+                bultos_vistos.add(identidad)
+            grupos.append(g)
         _muestras(db, grupos, vistas)
         grupos_por_parte[prefijo] = grupos
         for g in grupos:

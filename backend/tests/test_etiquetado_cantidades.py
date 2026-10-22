@@ -72,3 +72,65 @@ def test_el_codigo_de_caja_de_la_etiqueta_es_el_del_packing_list():
     assert etiquetas == documento
     # Las cajas del pallet dicen en qué pallet van
     assert {u.valores["bulto.contenedor"] for u in campos.unidades_pl(pl, 2) if u.grupo_id == 12} == {"P1"}
+
+
+def _dos_ocs_en_las_mismas_cajas():
+    """Dos OCs del mismo proveedor cuyas líneas van juntas en un grupo de 2 cajas de una lista de empaque."""
+    from sqlalchemy import select
+
+    from app.core.db import SessionLocal
+    from app.core.organizacion import en_organizacion
+    from app.modelos import Articulo, FacturaLinea, GrupoCajasItem, OrdenCompra, PLLinea, PosicionOC
+
+    with SessionLocal() as db, en_organizacion(1):
+        art = db.scalar(select(Articulo).where(Articulo.tipo == "SOLIDO", Articulo.proveedor_id.is_not(None)).limit(1))
+        base = db.scalar(select(OrdenCompra).where(OrdenCompra.proveedor_id == art.proveedor_id).limit(1))
+        ocs, lineas = [], []
+        for numero in ("CAJA-COMP-A", "CAJA-COMP-B"):
+            oc = OrdenCompra(proveedor_id=art.proveedor_id, numero=numero, sociedad=base.sociedad, centro=base.centro,
+                             centro_destino=base.centro_destino, moneda=base.moneda, estado="APROBADA",
+                             liberacion_comercial=base.liberacion_comercial, liberacion_logistica=base.liberacion_logistica)
+            db.add(oc)
+            db.flush()
+            p = PosicionOC(oc_id=oc.id, posicion="10", articulo_id=art.id, codigo_articulo=art.sku, cantidad=12, unidad="PAR")
+            db.add(p)
+            db.flush()
+            ocs.append(oc.id)
+            lineas.append((oc, p))
+        f = Factura(proveedor_id=art.proveedor_id, moneda=base.moneda or "USD", sociedad=base.sociedad or "1000", estado="BORRADOR")
+        db.add(f)
+        db.flush()
+        pl = PackingList(factura_id=f.id, numero="PL-COMP", estado="BORRADOR")
+        db.add(pl)
+        db.flush()
+        g = GrupoCajas(pl_id=pl.id, num_cajas=2, tipo_empaque_id=db.scalar(select(TipoEmpaque.id).where(
+            TipoEmpaque.cuenta_como == "BULTO", TipoEmpaque.activo.is_(True)).limit(1)))
+        db.add(g)
+        db.flush()
+        for oc, p in lineas:
+            fl = FacturaLinea(factura_id=f.id, posicion_oc_id=p.id, cantidad=12, precio_unitario=1, precio_oc=1,
+                              oc_numero=oc.numero, posicion=p.posicion, codigo_articulo=p.codigo_articulo, unidad=p.unidad)
+            db.add(fl)
+            db.flush()
+            pll = PLLinea(pl_id=pl.id, factura_linea_id=fl.id, cantidad=12)
+            db.add(pll)
+            db.flush()
+            db.add(GrupoCajasItem(grupo_id=g.id, pl_linea_id=pll.id, cantidad_por_caja=6))
+        db.commit()
+        return ocs
+
+
+def test_una_caja_compartida_por_dos_ocs_lleva_una_sola_etiqueta(interno, admin):
+    ocs = _dos_ocs_en_las_mismas_cajas()
+    t_ = tipo(interno, "CAJA_COMP", sujeto="BULTO", cantidad="POR_BULTO")
+    u = uso(interno, t_["id"], aprobada(interno, admin, "Shared box", t_["id"],
+                                        [{"id": "p", "tipo": "campo", "campo": "bulto.codigo", "x": 2, "y": 2, "w": 50, "h": 8}])["id"])
+    try:
+        tr = trabajo(interno, "OC", {"oc_ids": ocs, "tipos": [t_["id"]], "prueba": True})
+        cajas = [r for r in tr["registros"] if r["tipo_etiqueta_id"] == t_["id"]]
+        # Dos cajas físicas: dos etiquetas, aunque cada una lleve líneas de las dos OCs
+        assert len(cajas) == 2 and sum(r["cantidad"] for r in cajas) == 2, [r["clave"] for r in cajas]
+        avisos = tr["resumen"].get("problemas", []) + tr["resumen"].get("avisos", [])
+        assert sum(1 for p in avisos if p.get("codigo") == "bulto_compartido") == 2
+    finally:
+        _baja(interno, t_, u)

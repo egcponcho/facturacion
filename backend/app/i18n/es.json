@@ -2691,6 +2691,7 @@
 "{0}: the map is an object (material → option).":"{0}: el mapa es un objeto (material → opción).",
 "{0}: the option chosen does not belong to the selected {1}.":"{0}: la opción elegida no corresponde al {1} seleccionado.",
 "{0}: the order is a whole number.":"{0}: el orden es un número entero.",
+"{0}: the package also holds lines of another PO of this job; it gets one label.":"{0}: el bulto también lleva líneas de otra OC de este trabajo; lleva una sola etiqueta.",
 "{0}: the pattern is empty.":"{0}: el patrón está vacío.",
 "{0}: the pattern {1} is not valid ({2}).":"{0}: el patrón {1} no es válido ({2}).",
 "{0}: the patterns must be a list.":"{0}: los patrones deben ser una lista.",

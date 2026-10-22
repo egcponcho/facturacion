@@ -2692,6 +2692,7 @@
  "{0}: the map is an object (material → option).",
  "{0}: the option chosen does not belong to the selected {1}.",
  "{0}: the order is a whole number.",
+ "{0}: the package also holds lines of another PO of this job; it gets one label.",
  "{0}: the pattern is empty.",
  "{0}: the pattern {1} is not valid ({2}).",
  "{0}: the patterns must be a list.",

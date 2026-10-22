@@ -697,7 +697,7 @@ CATEGORIAS = {
     "total_incompleto": "dato_opcional",
     "fuentes_distintas": "conflicto",
     "sin_plantilla": "configuracion", "familia": "configuracion", "sin_serie": "configuracion", "elegida_ignorada": "configuracion",
-    "contenido_mixto": "empaque", "sin_oc": "dato_opcional", "dato_familia": "dato_opcional",
+    "contenido_mixto": "empaque", "bulto_compartido": "empaque", "sin_oc": "dato_opcional", "dato_familia": "dato_opcional",
     "tipo_no_aplica": "configuracion", "pl_sin_finalizar": "empaque", "sin_contenido": "empaque", "casepack_distinto": "inconsistencia",
     "inner_incompleto": "inconsistencia", "prepack_sin_componentes": "inconsistencia", "unidad_no_contable": "empaque",
     "bulto_parcial": "empaque",
