@@ -184,14 +184,28 @@ Se revisó en el navegador (1400 px, administrador) con un archivo al que le fal
 | `pytest tests/test_integraciones.py tests/test_perfiles_importacion.py` | 15 pasan |
 | Pruebas nuevas **sin** la corrección | Fallan las 4 de etiquetado (H-02 a H-05). Las de integraciones dependen de rutas y funciones nuevas. |
 | `ruff check app tests`, `eslint src`, `vite build`, extracción de idiomas y `test_i18n` | Sin errores (verificación estricta antes de cada commit) |
-| Suite completa del servidor | _Se completa en la sección 10.1._ |
-| Recorridos del navegador | _Se completa en la sección 10.1._ |
+| Suite completa del servidor | Ver la sección 10.1 |
+| Recorridos del navegador | Ver la sección 10.1 |
 
 **Limitación.** No hay pruebas sobre PostgreSQL en este entorno.
 
 ### 10.1 Validación final
 
-_Se agrega al terminar la corrida final._
+Con todos los cambios de esta auditoría (último commit de código: `9fa64ec`):
+
+| Prueba | Comando | Resultado |
+|---|---|---|
+| Suite completa del servidor (SQLite; aplica las 90 migraciones al arrancar) | `pytest -q` | **738 pasan, 0 fallan, 4 omitidas** (11 min 38 s) |
+| Etiquetado en el navegador | `node e2e/etiquetado.mjs` | **43 de 43** verificaciones, sin fallas |
+| Recorrido general en el navegador: 4 usuarios (administrador, interno y dos proveedores) × 2 anchos (1440 y 390 px), 59 a 63 pantallas cada uno | `node e2e/recorrido.mjs` | **8 de 8** combinaciones sin problemas: ningún error de JavaScript, ninguna respuesta 4xx o 5xx inesperada |
+| Compilación de la interfaz | `vite build` | Correcta |
+| Lint del servidor y de la interfaz | `ruff check app tests`, `eslint src` | Sin errores |
+| Idiomas | extracción de textos y `test_i18n` | Sin textos sin traducir |
+
+**Sin verificar en este entorno:**
+
+- **PostgreSQL**, incluidas las políticas RLS de la migración 0090: no hay un servidor disponible. Para comprobarlo, corra la suite con `DATABASE_URL` apuntando a un PostgreSQL vacío.
+- **Datos de producción reales:** no se aplicó ninguna migración ni operación destructiva sobre datos reales. Esta etapa no agrega migraciones.
 
 ## 11. Código eliminado o consolidado
 
