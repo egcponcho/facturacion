@@ -18,6 +18,7 @@ import hashlib
 from datetime import date
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
@@ -189,7 +190,7 @@ def traducir_entrada(filas: list[dict], mapeo: IntegracionMapeo | None, campos: 
             elif c.get("requerido"):
                 faltan.append(m_campos.get(nombre) or nombre)
         if faltan:
-            errores.append({"fila": fila.get("_fila"), "mensajes": [f"Missing required values: {', '.join(faltan)}."]})
+            errores.append({"fila": fila.get("_fila"), "mensajes": [f"Missing required values: {', '.join(f'«{x}»' for x in faltan)}."]})
         else:
             validas.append(interna)
     return validas, errores
@@ -219,25 +220,76 @@ def _huella(contenido: bytes) -> str:
     return hashlib.sha256(contenido).hexdigest()
 
 
-def _referenciar(db: Session, x: Integracion, entidad: str, pares: list[tuple[int, str]], ejecucion_id: int) -> int:
-    """Guarda o actualiza la referencia externa de cada registro tocado."""
-    n = 0
+def _referencia(db: Session, x: Integracion, entidad: str, **filtro) -> ReferenciaExterna | None:
+    q = select(ReferenciaExterna).where(ReferenciaExterna.integracion_id == x.id, ReferenciaExterna.entidad == entidad)
+    for campo, valor in filtro.items():
+        q = q.where(getattr(ReferenciaExterna, campo) == valor)
+    return db.scalar(q)
+
+
+def _referenciar(db: Session, x: Integracion, entidad: str, pares: list[tuple[int, str]],
+                 ejecucion_id: int) -> tuple[int, list[dict]]:
+    """Vincula cada registro tocado con su código externo. Nunca reasigna en silencio: si el
+    código ya apunta a otro registro, o el registro ya tiene otro código, es un conflicto que
+    queda en la ejecución y se resuelve desvinculando la referencia (con motivo). La unicidad
+    la garantizan las llaves únicas de la base: si otra ejecución vinculó lo mismo al mismo
+    tiempo, el alta falla y también queda como conflicto."""
+    hechas, conflictos = 0, []
     for interno_id, codigo in pares:
         codigo = str(codigo)[:120]
-        ref = db.scalar(select(ReferenciaExterna).where(
-            ReferenciaExterna.integracion_id == x.id, ReferenciaExterna.entidad == entidad,
-            ReferenciaExterna.interno_id == interno_id))
-        if ref is None:
-            ref = db.scalar(select(ReferenciaExterna).where(
-                ReferenciaExterna.integracion_id == x.id, ReferenciaExterna.entidad == entidad,
-                ReferenciaExterna.codigo_externo == codigo))
-        if ref is None:
-            ref = ReferenciaExterna(integracion_id=x.id, entidad=entidad, interno_id=interno_id, codigo_externo=codigo)
-            db.add(ref)
-        ref.interno_id, ref.codigo_externo, ref.ejecucion_id = interno_id, codigo, ejecucion_id
-        n += 1
+        por_interno = _referencia(db, x, entidad, interno_id=interno_id)
+        por_codigo = _referencia(db, x, entidad, codigo_externo=codigo)
+        if por_interno is not None and por_interno is por_codigo:
+            por_interno.ejecucion_id = ejecucion_id
+            hechas += 1
+            continue
+        if por_codigo is not None:
+            conflictos.append({"motivo": "codigo_ocupado", "codigo_externo": codigo, "interno_id": interno_id,
+                               "vinculado_a": por_codigo.interno_id, "referencia_id": por_codigo.id})
+            continue
+        if por_interno is not None:
+            conflictos.append({"motivo": "otro_codigo", "codigo_externo": codigo, "interno_id": interno_id,
+                               "codigo_actual": por_interno.codigo_externo, "referencia_id": por_interno.id})
+            continue
+        try:
+            with db.begin_nested():
+                db.add(ReferenciaExterna(integracion_id=x.id, entidad=entidad, interno_id=interno_id,
+                                         codigo_externo=codigo, ejecucion_id=ejecucion_id))
+                db.flush()
+        except IntegrityError:
+            conflictos.append({"motivo": "simultaneo", "codigo_externo": codigo, "interno_id": interno_id})
+            continue
+        hechas += 1
     db.flush()
-    return n
+    return hechas, conflictos
+
+
+def _errores_de_conflictos(conflictos: list[dict]) -> list[dict]:
+    """Los conflictos de referencias como errores de la ejecución, con lo que hay que hacer."""
+    res = []
+    for c in conflictos:
+        if c["motivo"] == "codigo_ocupado":
+            m = (f"The external code {c['codigo_externo']} is already linked to another record (id {c['vinculado_a']}): "
+                 "it was not reassigned. If the link is wrong, unlink it and run again.")
+        elif c["motivo"] == "otro_codigo":
+            m = (f"The record (id {c['interno_id']}) already has the external code {c['codigo_actual']}: "
+                 f"{c['codigo_externo']} was not linked. If the code changed, unlink the current one and run again.")
+        else:
+            m = f"The external code {c['codigo_externo']} was linked by another run at the same time: it was not linked."
+        res.append({"fila": None, "referencia": c["codigo_externo"], "mensajes": [m], "conflicto": c})
+    return res
+
+
+def _aplicada(db: Session, integracion_id: int, entidad: str, huella: str, mapeo_id: int | None,
+              distinta_de: int | None = None) -> int | None:
+    """La ejecución que ya aplicó este contenido con esta versión del mapeo, si la hay."""
+    q = select(EjecucionIntegracion.id).where(
+        EjecucionIntegracion.integracion_id == integracion_id, EjecucionIntegracion.entidad == entidad,
+        EjecucionIntegracion.huella == huella, EjecucionIntegracion.estado.in_(("APLICADA", "CON_ERRORES")),
+        EjecucionIntegracion.mapeo_id.is_(None) if mapeo_id is None else EjecucionIntegracion.mapeo_id == mapeo_id)
+    if distinta_de is not None:
+        q = q.where(EjecucionIntegracion.id != distinta_de)
+    return db.scalar(q.limit(1))
 
 
 def _activa(db: Session, integracion_id: int) -> Integracion:
@@ -254,27 +306,96 @@ def entrada_previa(db: Session, user: Usuario, integracion_id: int, entidad: str
     exigir(user, e["permiso"])
     x = _activa(db, integracion_id)
     huella = _huella(contenido)
-    previa = db.scalar(select(EjecucionIntegracion).where(
-        EjecucionIntegracion.integracion_id == x.id, EjecucionIntegracion.entidad == entidad,
-        EjecucionIntegracion.huella == huella, EjecucionIntegracion.estado.in_(("APLICADA", "CON_ERRORES"))))
+    mapeo = mapeo_vigente(db, x, entidad, "ENTRADA")
+    # El mismo contenido con la misma versión del mapeo no se aplica dos veces; con otro mapeo
+    # (se corrigió cómo se lee) sí se puede volver a cargar: el núcleo no repite lo que ya está
+    previa = _aplicada(db, x.id, entidad, huella, mapeo.id if mapeo else None)
     if previa is not None:
         raise ErrorNegocio("This same content was already applied by this integration.", 409, "ya_aplicada",
-                           {"ejecucion_id": previa.id})
-    mapeo = mapeo_vigente(db, x, entidad, "ENTRADA")
+                           {"ejecucion_id": previa})
     externas = adaptadores.de(x.adaptador).leer(contenido, archivo, x.parametros or {})
     if not externas:
         raise ErrorNegocio("The content has no rows with data.", 422, "archivo_vacio")
-    validas, errores = traducir_entrada(externas, mapeo, e["campos"]())
+    campos = e["campos"]()
+    validas, errores = traducir_entrada(externas, mapeo, campos)
     ejec = EjecucionIntegracion(integracion_id=x.id, mapeo_id=mapeo.id if mapeo else None, entidad=entidad,
                                 direccion="ENTRADA", estado="PREVIA", archivo=archivo[:300], huella=huella,
-                                usuario_id=user.id, filas=validas, errores=errores[:MAX_ERRORES])
+                                usuario_id=user.id, filas=validas)
     db.add(ejec)
     db.flush()
     previa_nucleo = entidades.previa_ordenes(db, user, validas, archivo) if validas else {"resumen": {}, "filas": []}
+    # Lo que el núcleo no aplicará (error o conflicto) también es un rechazo de la ejecución
+    errores += [{"fila": f.get("fila"), "mensajes": f.get("mensajes") or []}
+                for f in previa_nucleo["filas"] if f.get("estado") in ("error", "conflicto")]
+    ejec.errores = _con_fila_original(errores, externas)
     ejec.importacion_oc_id = previa_nucleo.get("importacion_oc_id")
-    ejec.resumen = {**previa_nucleo["resumen"], "leidas": len(externas), "rechazadas": len(errores)}
+    rechazadas_nucleo = len([f for f in previa_nucleo["filas"] if f.get("estado") in ("error", "conflicto")])
+    ejec.resumen = {**previa_nucleo["resumen"], "leidas": len(externas), "rechazadas": len(errores) - rechazadas_nucleo,
+                    "aplicables": len(validas) - rechazadas_nucleo}
     db.flush()
-    return {**_ejecucion(ejec), "filas": previa_nucleo["filas"]}
+    return {**_ejecucion(ejec), "filas": previa_nucleo["filas"], "estructura": estructura(externas, mapeo, campos)}
+
+
+def _con_fila_original(errores: list[dict], externas: list[dict]) -> list[dict]:
+    """Los errores (como mucho MAX_ERRORES) con la fila tal como vino, para descargarlos,
+    corregirlos y volver a subirlos. No se guarda nada más del archivo."""
+    por_fila = {f.get("_fila"): f for f in externas}
+    res = []
+    for err in sorted(errores, key=lambda x: (x.get("fila") is None, x.get("fila") or 0))[:MAX_ERRORES]:
+        original = por_fila.get(err.get("fila"))
+        res.append({**err, "datos": {k: v for k, v in original.items() if k != "_fila"} if original else {}})
+    return res
+
+
+def estructura(externas: list[dict], mapeo: IntegracionMapeo | None, campos: list[dict]) -> dict:
+    """Las columnas que trae el contenido y, por cada campo del sistema, la columna que se busca,
+    si está y si tiene valor por defecto: lo que hay que corregir en el mapeo antes de aplicar."""
+    columnas = []
+    for f in externas:
+        for k in f:
+            if k != "_fila" and k not in columnas:
+                columnas.append(k)
+    presentes = {_clave(c) for c in columnas}
+    m_campos = (mapeo.campos if mapeo else None) or {}
+    m_valores = (mapeo.valores if mapeo else None) or {}
+    res = []
+    for c in campos:
+        columna = m_campos.get(c["campo"]) or c["campo"]
+        res.append({"campo": c["campo"], "etiqueta": c.get("etiqueta"), "requerido": bool(c.get("requerido")),
+                    "columna": columna, "encontrada": _clave(columna) in presentes,
+                    "por_defecto": m_valores.get(c["campo"])})
+    usadas = {_clave(x["columna"]) for x in res}
+    return {"columnas": columnas, "campos": res, "sin_usar": [c for c in columnas if _clave(c) not in usadas],
+            "faltan": [x["campo"] for x in res if x["requerido"] and not x["encontrada"] and not x["por_defecto"]]}
+
+
+def rechazadas(db: Session, user: Usuario, ejecucion_id: int) -> tuple[bytes, str]:
+    """Las filas rechazadas de una ejecución en CSV, con sus columnas originales y el motivo."""
+    import csv
+    import io
+
+    from app.modulos.documentos.idioma_doc import L, armado
+
+    exigir(user, "integraciones.ver")
+    x = db.get(EjecucionIntegracion, ejecucion_id)
+    if x is None:
+        raise ErrorNegocio("The run does not exist.", 404, "no_encontrado")
+    filas = [err for err in (x.errores or []) if err.get("fila") is not None]
+    if not filas:
+        raise ErrorNegocio("This run has no rejected rows.", 404, "sin_rechazadas")
+    columnas = []
+    for err in filas:
+        for k in err.get("datos") or {}:
+            if k not in columnas:
+                columnas.append(k)
+    salida = io.StringIO()
+    w = csv.writer(salida)
+    w.writerow([L("Row"), *columnas, L("Reason")])
+    for err in filas:
+        datos = err.get("datos") or {}
+        w.writerow([err.get("fila"), *[datos.get(c, "") for c in columnas], " ".join(armado(m) for m in err.get("mensajes") or [])])
+    nombre = (x.archivo or "run").rsplit(".", 1)[0][:80]
+    return salida.getvalue().encode("utf-8-sig"), f"{nombre}_rejected.csv"
 
 
 def entrada_aplicar(db: Session, user: Usuario, ejecucion_id: int) -> dict:
@@ -287,19 +408,21 @@ def entrada_aplicar(db: Session, user: Usuario, ejecucion_id: int) -> dict:
     if ejec.estado in ("APLICADA", "CON_ERRORES"):
         return {**_ejecucion(ejec), "ya_aplicada": True}
     x = _activa(db, ejec.integracion_id)
-    otra = db.scalar(select(EjecucionIntegracion.id).where(
-        EjecucionIntegracion.integracion_id == x.id, EjecucionIntegracion.entidad == ejec.entidad,
-        EjecucionIntegracion.huella == ejec.huella, EjecucionIntegracion.id != ejec.id,
-        EjecucionIntegracion.estado.in_(("APLICADA", "CON_ERRORES"))))
+    if not (ejec.resumen or {}).get("aplicables", len(ejec.filas or [])):
+        raise ErrorNegocio("There are no valid rows to apply: fix the file or the mapping and upload it again.", 422,
+                           "sin_filas_validas")
+    otra = _aplicada(db, x.id, ejec.entidad, ejec.huella, ejec.mapeo_id, distinta_de=ejec.id)
     if otra:
         raise ErrorNegocio("This same content was already applied by this integration.", 409, "ya_aplicada",
                            {"ejecucion_id": otra})
     res = {"resumen": {}, "referencias": []}
     if ejec.importacion_oc_id:
         res = entidades.aplicar_ordenes(db, user, ejec.importacion_oc_id)
-    referenciadas = _referenciar(db, x, ejec.entidad, res.get("referencias", []), ejec.id)
+    referenciadas, conflictos = _referenciar(db, x, ejec.entidad, res.get("referencias", []), ejec.id)
+    if conflictos:
+        ejec.errores = [*(ejec.errores or []), *_errores_de_conflictos(conflictos)][:MAX_ERRORES]
     ejec.resumen = {**(ejec.resumen or {}), **res.get("resumen", {}), "aplicadas": res.get("aplicadas", 0),
-                    "referencias": referenciadas}
+                    "referencias": referenciadas, "conflictos": len(conflictos)}
     ejec.estado = "CON_ERRORES" if ejec.errores or (res.get("resumen") or {}).get("error") else "APLICADA"
     ejec.terminada_en = ahora()
     db.flush()
@@ -331,7 +454,11 @@ def salida(db: Session, user: Usuario, integracion_id: int, entidad: str, solo_n
                                 terminada_en=ahora())
     db.add(ejec)
     db.flush()
-    _referenciar(db, x, entidad, enviadas, ejec.id)
+    _, conflictos = _referenciar(db, x, entidad, enviadas, ejec.id)
+    if conflictos:
+        ejec.errores = _errores_de_conflictos(conflictos)[:MAX_ERRORES]
+        ejec.estado = "CON_ERRORES"
+        ejec.resumen = {**ejec.resumen, "conflictos": len(conflictos)}
     registrar(db, user, "integracion", x.id, "salida", {"ejecucion": ejec.id, "entidad": entidad, **ejec.resumen})
     return contenido, tipo, nombre, _ejecucion(ejec)
 
@@ -359,6 +486,24 @@ def referencias(db: Session, user: Usuario, integracion_id: int, entidad: str | 
     q = select(ReferenciaExterna).where(ReferenciaExterna.integracion_id == integracion_id)
     if entidad:
         q = q.where(ReferenciaExterna.entidad == entidad)
-    return [{"entidad": r.entidad, "interno_id": r.interno_id, "codigo_externo": r.codigo_externo,
+    return [{"id": r.id, "entidad": r.entidad, "interno_id": r.interno_id, "codigo_externo": r.codigo_externo,
              "ejecucion_id": r.ejecucion_id, "actualizado_en": r.actualizado_en}
             for r in db.scalars(q.order_by(ReferenciaExterna.actualizado_en.desc()).limit(500))]
+
+
+def desvincular(db: Session, user: Usuario, integracion_id: int, referencia_id: int, datos: dict) -> dict:
+    """Quita el vínculo de un registro con su código externo (la forma autorizada de resolver un
+    conflicto): pide motivo y queda en el historial; la próxima ejecución vuelve a vincular."""
+    exigir(user, "integraciones.configurar")
+    x = _integracion(db, integracion_id)
+    motivo = str(datos.get("motivo") or "").strip()[:300]
+    if len(motivo) < 3:
+        raise ErrorNegocio("Write why the link is removed.", 422, "validacion", [{"campo": "motivo", "mensaje": "Required."}])
+    r = db.get(ReferenciaExterna, referencia_id)
+    if r is None or r.integracion_id != x.id:
+        raise ErrorNegocio("The external reference does not exist.", 404, "no_encontrado")
+    detalle = {"entidad": r.entidad, "interno_id": r.interno_id, "codigo_externo": r.codigo_externo}
+    db.delete(r)
+    db.flush()
+    registrar(db, user, "integracion", x.id, "desvincular", detalle, motivo)
+    return {"ok": True, **detalle}

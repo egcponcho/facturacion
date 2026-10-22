@@ -134,3 +134,140 @@ def test_salida_de_facturas_finalizadas(admin):
     datos = {k: x[k] for k in ("codigo", "nombre", "sistema", "adaptador", "parametros")}
     assert admin.put(f"/integraciones/{x['id']}", {**datos, "activa": False}).status_code == 200
     assert admin.c.post(f"/api/integraciones/{x['id']}/salida/facturas", headers=admin.h).status_code == 409
+
+
+# ---- Referencias externas: nunca se reasignan en silencio ------------------------------------
+def _con_integracion(fn):
+    """Corre fn(db, integración) dentro de una transacción que se deshace al final."""
+    from app.core.db import SessionLocal
+    from app.core.organizacion import en_organizacion
+    from app.modelos import Integracion
+
+    with SessionLocal() as db, en_organizacion(1):
+        x = Integracion(codigo="REF-UNIT", nombre="Refs", adaptador="json", parametros={}, activa=True)
+        db.add(x)
+        db.flush()
+        try:
+            return fn(db, x)
+        finally:
+            db.rollback()
+
+
+def test_una_referencia_externa_no_se_reasigna_en_silencio():
+    from app.modelos import ReferenciaExterna
+    from app.modulos.integraciones import servicio
+
+    def prueba(db, x):
+        assert servicio._referenciar(db, x, "ordenes_compra", [(1, "A"), (3, "C")], None) == (2, [])
+        # El mismo vínculo otra vez: sin conflicto
+        assert servicio._referenciar(db, x, "ordenes_compra", [(1, "A")], None) == (1, [])
+        # El código A ya es del registro 1: no pasa al 2
+        hechas, conflictos = servicio._referenciar(db, x, "ordenes_compra", [(2, "A")], None)
+        assert hechas == 0 and [(c["motivo"], c["vinculado_a"]) for c in conflictos] == [("codigo_ocupado", 1)]
+        # El registro 1 ya tiene el código A: B no lo reemplaza
+        hechas, conflictos = servicio._referenciar(db, x, "ordenes_compra", [(1, "B")], None)
+        assert hechas == 0 and [(c["motivo"], c["codigo_actual"]) for c in conflictos] == [("otro_codigo", "A")]
+        refs = {(r.interno_id, r.codigo_externo) for r in db.query(ReferenciaExterna).filter_by(integracion_id=x.id)}
+        assert refs == {(1, "A"), (3, "C")}
+        # Cada conflicto se explica como error de la ejecución, con qué hacer
+        (err,) = servicio._errores_de_conflictos(conflictos)
+        assert err["fila"] is None and "unlink" in err["mensajes"][0]
+
+    _con_integracion(prueba)
+
+
+def test_la_unicidad_la_garantiza_la_base(monkeypatch):
+    """Si dos ejecuciones vinculan lo mismo a la vez (la consulta previa no ve la otra), la llave
+    única de la base lo impide y queda como conflicto, no como error del servidor."""
+    from app.modulos.integraciones import servicio
+
+    def prueba(db, x):
+        servicio._referenciar(db, x, "facturas", [(10, "F-1")], None)
+        monkeypatch.setattr(servicio, "_referencia", lambda *a, **k: None)
+        hechas, conflictos = servicio._referenciar(db, x, "facturas", [(11, "F-1")], None)
+        assert hechas == 0 and [c["motivo"] for c in conflictos] == ["simultaneo"]
+
+    _con_integracion(prueba)
+
+
+def test_desvincular_pide_permiso_y_motivo(admin, interno):
+    x = _integracion(admin, "INT-DESV")
+    r = admin.c.post(f"/api/integraciones/{x['id']}/salida/facturas", headers=admin.h)
+    assert r.status_code == 200, r.text
+    ref = admin.get(f"/integraciones/{x['id']}/referencias").json()[0]
+    ruta = f"/integraciones/{x['id']}/referencias/{ref['id']}/desvincular"
+    assert interno.post(ruta, {"motivo": "Wrong link"}).status_code == 403
+    assert admin.post(ruta, {"motivo": " "}).status_code == 422
+    d = admin.post(ruta, {"motivo": "Linked to the wrong invoice"})
+    assert d.status_code == 200, d.text
+    assert all(x_["id"] != ref["id"] for x_ in admin.get(f"/integraciones/{x['id']}/referencias").json())
+    assert admin.post(ruta, {"motivo": "Again"}).status_code == 404
+    # La siguiente salida vuelve a vincular lo que quedó libre
+    r = admin.c.post(f"/api/integraciones/{x['id']}/salida/facturas", headers=admin.h)
+    assert r.headers["X-Registros"] == "1"
+
+
+# ---- Importación: estructura detectada y filas rechazadas descargables ------------------------
+def test_estructura_y_filas_rechazadas(admin, base_oc):
+    x = _integracion(admin, "INT-REJ")
+    contenido = ("proveedor,oc,posicion,sociedad,centro,almacen,centro_destino,moneda,incoterm,codigo_articulo,Quantity,precio\n"
+                 f"VANS,4400009881,10,8000,8020,BF20,2220,USD,FOB,{base_oc['codigo_articulo']},,25.5\n")
+    r = _subir(admin, x["id"], "ordenes_compra", "mal.csv", contenido.encode())
+    assert r.status_code == 200, r.text
+    previa = r.json()
+    # Falta la columna de la cantidad: se ve en la estructura antes de aplicar
+    est = previa["estructura"]
+    assert "cantidad" in est["faltan"] and "Quantity" in est["sin_usar"]
+    assert next(c for c in est["campos"] if c["campo"] == "oc")["encontrada"]
+    # Las filas rechazadas se descargan con sus columnas originales y el motivo
+    d = admin.c.get(f"/api/integraciones/ejecuciones/{previa['id']}/rechazadas", headers=admin.h, params={"idioma": "en"})
+    assert d.status_code == 200, d.text
+    filas = list(csv.DictReader(io.StringIO(d.content.decode("utf-8-sig"))))
+    assert len(filas) == 1 and filas[0]["oc"] == "4400009881" and "cantidad" in filas[0]["Reason"]
+    assert list(filas[0])[0] == "Row" and list(filas[0])[-1] == "Reason"
+    # En español: cabeceras y motivo traducidos; las columnas del archivo, tal cual
+    d = admin.c.get(f"/api/integraciones/ejecuciones/{previa['id']}/rechazadas", headers=admin.h, params={"idioma": "es"})
+    filas = list(csv.DictReader(io.StringIO(d.content.decode("utf-8-sig"))))
+    assert list(filas[0])[0] == "Fila" and filas[0]["Motivo"].startswith("Faltan valores obligatorios") and "oc" in filas[0]
+    # Sin filas aplicables no se aplica nada (ni queda el contenido como «ya aplicado»)
+    assert previa["resumen"]["aplicables"] == 0
+    r = admin.post(f"/integraciones/ejecuciones/{previa['id']}/aplicar")
+    assert r.status_code == 422 and r.json()["codigo"] == "sin_filas_validas"
+    # Corregido el mapeo, el mismo archivo se vuelve a cargar y se aplica
+    assert admin.put(f"/integraciones/{x['id']}/mapeos/ordenes_compra/entrada", {"campos": {"cantidad": "Quantity"}}).status_code == 200
+    contenido = contenido.replace(",,25.5", ",4,25.5")
+    r = _subir(admin, x["id"], "ordenes_compra", "bien.csv", contenido.encode())
+    assert r.status_code == 200 and r.json()["resumen"]["aplicables"] == 1 and not r.json()["estructura"]["faltan"], r.text
+    assert admin.post(f"/integraciones/ejecuciones/{r.json()['id']}/aplicar").json()["estado"] == "APLICADA"
+    # El mismo contenido con el mismo mapeo ya no se aplica otra vez
+    assert _subir(admin, x["id"], "ordenes_compra", "bien.csv", contenido.encode()).status_code == 409
+    # Con otra versión del mapeo el mismo contenido se puede volver a leer (el núcleo no repite lo que ya está)
+    assert admin.put(f"/integraciones/{x['id']}/mapeos/ordenes_compra/entrada",
+                     {"campos": {"cantidad": "Quantity"}, "valores": {"unidad": "PR"}}).json()["version"] == 2
+    r = _subir(admin, x["id"], "ordenes_compra", "bien.csv", contenido.encode())
+    assert r.status_code == 200 and r.json()["resumen"].get("nuevo", 0) == 0, r.text
+
+
+def test_otra_empresa_no_ve_las_integraciones(admin, client):
+    from conftest import Api
+
+    x = _integracion(admin, "INT-AISL")
+    admin.c.post(f"/api/integraciones/{x['id']}/salida/facturas", headers=admin.h)
+    ejec = admin.get(f"/integraciones/{x['id']}/ejecuciones").json()["items"][0]
+    r = admin.post("/plataforma/organizaciones", {"codigo": "INTAIS", "nombre": "Second integrations company", "pais": "gt",
+                                                  "admin_email": "intais@demo.com", "admin_nombre": "Integrations admin 2",
+                                                  "admin_telefono": "+50200000019"})
+    assert r.status_code == 200, r.text
+    org = r.json()
+    otra = Api(client, "intais@demo.com", org["password_temporal"])
+    assert otra.post("/auth/password", {"actual": org["password_temporal"], "nueva": "Integraciones#2026x"}).status_code == 200
+    try:
+        assert all(i["id"] != x["id"] for i in otra.get("/integraciones").json()["integraciones"])
+        assert otra.get(f"/integraciones/{x['id']}/ejecuciones").status_code == 404
+        assert otra.get(f"/integraciones/ejecuciones/{ejec['id']}").status_code == 404
+        assert otra.c.get(f"/api/integraciones/ejecuciones/{ejec['id']}/rechazadas", headers=otra.h).status_code == 404
+        assert otra.get(f"/integraciones/{x['id']}/referencias").json() == []
+        assert otra.put(f"/integraciones/{x['id']}/mapeos/facturas/salida", {"campos": {}}).status_code == 404
+        assert otra.c.post(f"/api/integraciones/{x['id']}/salida/facturas", headers=otra.h).status_code == 404
+    finally:
+        admin.patch(f"/plataforma/organizaciones/{org['id']}", {"activa": False})

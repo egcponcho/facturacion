@@ -78,7 +78,21 @@ def ejecucion(ejecucion_id: int, db: Db, user: User):
     return servicio.ejecucion(db, user, ejecucion_id)
 
 
+@router.get("/integraciones/ejecuciones/{ejecucion_id}/rechazadas")
+def rechazadas(ejecucion_id: int, db: Db, user: User):
+    """Las filas rechazadas de una ejecución (CSV con sus columnas originales y el motivo), para corregirlas."""
+    contenido, nombre = servicio.rechazadas(db, user, ejecucion_id)
+    return Response(contenido, media_type="text/csv",  # text/*: Starlette agrega charset=utf-8
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
 @router.get("/integraciones/{integracion_id}/referencias")
 def referencias(integracion_id: int, db: Db, user: User, entidad: str | None = None):
     """Identificadores externos de los registros intercambiados por la integración."""
     return servicio.referencias(db, user, integracion_id, entidad)
+
+
+@router.post("/integraciones/{integracion_id}/referencias/{referencia_id}/desvincular")
+def desvincular(integracion_id: int, referencia_id: int, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Quita el vínculo de un registro con su código externo, con motivo (resuelve un conflicto de referencias)."""
+    return ejecutar(db, user, clave, lambda: servicio.desvincular(db, user, integracion_id, referencia_id, datos))

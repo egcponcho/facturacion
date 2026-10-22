@@ -9,6 +9,7 @@ import Icono from '@/componentes/Icono.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
 import BotonArchivo from '@/componentes/BotonArchivo.vue'
 import EstadoVacio from '@/componentes/EstadoVacio.vue'
+import ErroresEjecucion from '@/modulos/integraciones/componentes/ErroresEjecucion.vue'
 
 // Integraciones con sistemas externos (ERP u otros). Cada una elige un formato
 // de intercambio (adaptador) y, por entidad, cómo se llaman sus campos y
@@ -20,6 +21,9 @@ const edicion = ref(null) // datos del formulario de la integración (nueva o el
 const mapeoAbierto = ref(null) // { entidad, direccion }
 const formMapeo = reactive({ campos: {}, valores: {}, codigos: {}, formato_fecha: '' })
 const previa = ref(null)
+const resultado = ref(null) // la última ejecución aplicada, con sus errores, hasta cerrarla
+const columnas = reactive({}) // entidad → columnas del último archivo leído (sugerencias del mapeo)
+const abierta = ref(null) // ejecución de la bitácora con sus errores a la vista
 const bitacora = ref([])
 const ocupado = ref(false)
 const configura = computed(() => puede('integraciones.configurar'))
@@ -44,6 +48,7 @@ async function elegir(x) {
   elegida.value = x
   edicion.value = null
   previa.value = null
+  resultado.value = null
   mapeoAbierto.value = null
   bitacora.value = (await api.get(`/integraciones/${x.id}/ejecuciones`, { size: 10 })).items
 }
@@ -106,6 +111,9 @@ async function subir(ent, archivo) {
   ocupado.value = true
   try {
     previa.value = await api.post(`/integraciones/${elegida.value.id}/entrada/${ent}`, datos)
+    resultado.value = null
+    columnas[ent] = previa.value.estructura?.columnas || []
+    bitacora.value = (await api.get(`/integraciones/${elegida.value.id}/ejecuciones`, { size: 10 })).items
   } catch (e) {
     avisar(e.message, 'error')
   } finally {
@@ -116,9 +124,9 @@ async function aplicar() {
   ocupado.value = true
   try {
     const r = await api.post(`/integraciones/ejecuciones/${previa.value.id}/aplicar`)
-    avisar(t('{0} lines applied', [r.resumen.aplicadas || 0]))
-    previa.value = null
+    avisar(t('{0} lines applied', [r.resumen.aplicadas || 0]), r.errores?.length ? 'aviso' : 'ok')
     await elegir(elegida.value)
+    resultado.value = r // queda a la vista con lo que no se aplicó y cómo corregirlo
   } catch (e) {
     avisar(e.message, 'error')
   } finally {
@@ -137,6 +145,8 @@ async function exportar(ent) {
     ocupado.value = false
   }
 }
+const opcionalesFaltan = computed(() => (previa.value?.estructura?.campos || [])
+  .filter((c) => !c.requerido && !c.encontrada && !c.por_defecto).map((c) => tx(c.etiqueta)))
 const resumenTexto = (r) => Object.entries(r || {}).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${tx(k)}: ${v}`).join(' · ')
 </script>
 
@@ -211,13 +221,15 @@ const resumenTexto = (r) => Object.entries(r || {}).filter(([, v]) => typeof v =
                 <!-- Mapeo: nombre externo, valor por defecto y códigos de cada campo interno -->
                 <div v-if="mapeoAbierto?.entidad === e.entidad && mapeoAbierto?.direccion === dir" class="int-mapeo">
                   <p class="ayuda">{{ t('Write how the external system names each field; empty: its system name. Codes translate values, as pairs separated by commas: APPROVED=C, PENDING=P.') }}</p>
+                  <p v-if="columnas[e.entidad]?.length" class="ayuda">{{ t('The columns of the last file read are offered as suggestions.') }}</p>
+                  <datalist v-if="columnas[e.entidad]?.length" :id="`cols-${e.entidad}`"><option v-for="c in columnas[e.entidad]" :key="c" :value="c" /></datalist>
                   <div class="tabla-envoltura">
                     <table class="tabla">
                       <thead><tr><th>{{ t('System field') }}</th><th>{{ t('External field name') }}</th><th v-if="dir === 'ENTRADA'">{{ t('Default value') }}</th><th>{{ t('Codes (EXTERNAL=SYSTEM)') }}</th></tr></thead>
                       <tbody>
                         <tr v-for="c in e.campos" :key="c.campo">
                           <td><span :class="{ req: c.requerido }">{{ tx(c.etiqueta) }}</span><br><code class="apagado">{{ c.campo }}</code></td>
-                          <td><input v-model="formMapeo.campos[c.campo]" class="entrada" :placeholder="c.campo" :aria-label="t('External field name')" /></td>
+                          <td><input v-model="formMapeo.campos[c.campo]" class="entrada" :placeholder="c.campo" :aria-label="t('External field name')" :list="columnas[e.entidad]?.length ? `cols-${e.entidad}` : undefined" /></td>
                           <td v-if="dir === 'ENTRADA'"><input v-model="formMapeo.valores[c.campo]" class="entrada" :aria-label="t('Default value')" /></td>
                           <td><input v-model="formMapeo.codigos[c.campo]" class="entrada" :aria-label="t('Codes (EXTERNAL=SYSTEM)')" /></td>
                         </tr>
@@ -235,10 +247,34 @@ const resumenTexto = (r) => Object.entries(r || {}).filter(([, v]) => typeof v =
                 <!-- Vista previa de una entrada: nada se aplica hasta confirmar -->
                 <div v-if="previa && previa.entidad === e.entidad && dir === 'ENTRADA'" class="int-previa">
                   <p><b>{{ tx(previa.archivo) }}</b> · {{ resumenTexto(previa.resumen) }}</p>
-                  <ul v-if="previa.errores.length" class="lista-errores">
-                    <li v-for="x in previa.errores.slice(0, 20)" :key="x.fila">{{ t('Row {0}', [x.fila]) }}: {{ x.mensajes.map(tx).join(' ') }}</li>
-                  </ul>
-                  <div class="fila-flex gap-2"><button class="btn btn-primario" :disabled="ocupado" @click="aplicar"><Icono nombre="check" :tam="14" />{{ t('Apply') }}</button><button class="btn" @click="previa = null">{{ t('Discard') }}</button></div>
+                  <!-- Lo que se leyó del archivo frente a lo que el sistema espera -->
+                  <details v-if="previa.estructura" class="int-estructura" :open="previa.estructura.faltan.length > 0">
+                    <summary>{{ previa.estructura.faltan.length ? t('{0} required fields not found in the file', [previa.estructura.faltan.length]) : t('All required fields were found ({0} columns read)', [previa.estructura.columnas.length]) }}</summary>
+                    <ul class="int-campos">
+                      <li v-for="c in previa.estructura.campos.filter((x) => x.encontrada || x.por_defecto || x.requerido)" :key="c.campo"
+                          :class="{ falta: c.requerido && !c.encontrada && !c.por_defecto }">
+                        <Icono :nombre="c.encontrada ? 'check' : c.por_defecto ? 'info' : 'alerta'" :tam="13" />
+                        <span :class="{ req: c.requerido }">{{ tx(c.etiqueta) }}</span>
+                        <span class="apagado">← {{ c.encontrada ? c.columna : c.por_defecto ? t('default value {0}', [c.por_defecto]) : t('column «{0}» not found', [c.columna]) }}</span>
+                      </li>
+                    </ul>
+                    <p v-if="opcionalesFaltan.length" class="ayuda">{{ t('Optional fields that the file does not bring: {0}', [opcionalesFaltan.join(', ')]) }}</p>
+                    <p v-if="previa.estructura.sin_usar.length" class="ayuda">{{ t('Columns of the file that are not used: {0}', [previa.estructura.sin_usar.join(', ')]) }}</p>
+                  </details>
+                  <ErroresEjecucion :ejecucion="previa" />
+                  <div class="fila-flex gap-2">
+                    <button v-if="previa.resumen.aplicables !== 0" class="btn btn-primario" :disabled="ocupado" @click="aplicar"><Icono nombre="check" :tam="14" />{{ previa.errores.length ? t('Apply the valid rows') : t('Apply') }}</button>
+                    <p v-else class="ayuda">{{ t('No row can be applied: fix the mapping or the file and upload it again.') }}</p>
+                    <button class="btn" @click="previa = null">{{ t('Discard') }}</button>
+                  </div>
+                </div>
+                <!-- Resultado de la última aplicación -->
+                <div v-if="resultado && resultado.entidad === e.entidad && dir === 'ENTRADA'" class="int-previa">
+                  <div class="fila-flex entre">
+                    <p><b>{{ tx(resultado.archivo) }}</b> · <span class="etiqueta" :class="ESTADO[resultado.estado]?.[1]">{{ ESTADO[resultado.estado]?.[0] }}</span> · {{ resumenTexto(resultado.resumen) }}</p>
+                    <button class="btn-icono" :aria-label="t('Close')" @click="resultado = null"><Icono nombre="cerrar" :tam="14" /></button>
+                  </div>
+                  <ErroresEjecucion :ejecucion="resultado" @desvinculado="elegir(elegida)" />
                 </div>
               </template>
             </div>
@@ -249,15 +285,19 @@ const resumenTexto = (r) => Object.entries(r || {}).filter(([, v]) => typeof v =
               <p v-if="!bitacora.length" class="ayuda">{{ t('No runs yet.') }}</p>
               <div v-else class="tabla-envoltura">
                 <table class="tabla">
-                  <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Data') }}</th><th>{{ t('File') }}</th><th>{{ t('Status') }}</th><th>{{ t('Result') }}</th></tr></thead>
+                  <thead><tr><th>{{ t('Date') }}</th><th>{{ t('Data') }}</th><th>{{ t('File') }}</th><th>{{ t('Status') }}</th><th>{{ t('Result') }}</th><th><span class="oculto-visual">{{ t('Errors') }}</span></th></tr></thead>
                   <tbody>
-                    <tr v-for="b in bitacora" :key="b.id">
-                      <td>{{ fmtFechaHora(b.iniciada_en) }}</td>
-                      <td>{{ tx(entidad(b.entidad)?.nombre || b.entidad) }} · {{ b.direccion === 'ENTRADA' ? t('In') : t('Out') }}</td>
-                      <td>{{ tx(b.archivo || '—') }}</td>
-                      <td><span class="etiqueta" :class="ESTADO[b.estado]?.[1]">{{ ESTADO[b.estado]?.[0] || b.estado }}</span></td>
-                      <td class="apagado">{{ resumenTexto(b.resumen) }}</td>
-                    </tr>
+                    <template v-for="b in bitacora" :key="b.id">
+                      <tr>
+                        <td>{{ fmtFechaHora(b.iniciada_en) }}</td>
+                        <td>{{ tx(entidad(b.entidad)?.nombre || b.entidad) }} · {{ b.direccion === 'ENTRADA' ? t('In') : t('Out') }}</td>
+                        <td>{{ tx(b.archivo || '—') }}</td>
+                        <td><span class="etiqueta" :class="ESTADO[b.estado]?.[1]">{{ ESTADO[b.estado]?.[0] || b.estado }}</span></td>
+                        <td class="apagado int-resumen">{{ resumenTexto(b.resumen) }}</td>
+                        <td><button v-if="b.errores?.length" type="button" class="btn btn-chico" :aria-expanded="abierta === b.id" @click="abierta = abierta === b.id ? null : b.id">{{ t('Errors ({0})', [b.errores.length]) }}</button></td>
+                      </tr>
+                      <tr v-if="abierta === b.id"><td colspan="6"><ErroresEjecucion :ejecucion="b" @desvinculado="elegir(elegida)" /></td></tr>
+                    </template>
                   </tbody>
                 </table>
               </div>
@@ -280,7 +320,12 @@ const resumenTexto = (r) => Object.entries(r || {}).filter(([, v]) => typeof v =
 .int-detalle { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .int-detalle h2, .int-detalle h3 { margin: 0; }
 .int-mapeo, .int-previa { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
-.lista-errores { margin: 0; padding-inline-start: 18px; color: var(--peligro); font-size: var(--t-sm); }
+.int-resumen { white-space: normal; min-width: 220px; }
+.int-estructura summary { cursor: pointer; font-weight: 600; font-size: var(--t-sm); }
+.int-campos { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; font-size: var(--t-sm); }
+.int-campos li { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.int-campos li .apagado { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.int-campos li.falta { color: var(--error); }
 .entre { justify-content: space-between; align-items: flex-start; }
 @media (max-width: 800px) { .int-rejilla { grid-template-columns: minmax(0, 1fr); } }
 </style>

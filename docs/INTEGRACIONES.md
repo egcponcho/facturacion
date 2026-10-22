@@ -34,18 +34,24 @@ La capa de integración está separada del núcleo (`backend/app/modulos/integra
 3. **Entrada (Cargar archivo).**
    1. El contenido se lee con el adaptador.
    2. Se traduce con el mapeo vigente.
-   3. Se muestra una **vista previa** con las filas nuevas, cambiadas, sin cambio, en conflicto y con error, más las filas rechazadas por faltar datos obligatorios.
-   4. Nada se aplica hasta pulsar *Aplicar*.
+   3. Se muestra la **estructura detectada**: qué columna del archivo corresponde a cada campo del sistema, qué campos obligatorios faltan y qué columnas no se usan. Las columnas leídas se ofrecen como sugerencias al mapear.
+   4. Se muestra una **vista previa** con las filas nuevas, cambiadas, sin cambio, en conflicto y con error, más las filas rechazadas por faltar datos obligatorios.
+   5. Las **filas rechazadas** (por el mapeo o por las reglas del núcleo) se descargan en CSV con sus columnas originales y el motivo, para corregirlas y volver a subirlas.
+   6. Nada se aplica hasta pulsar *Aplicar las filas válidas*. Si ninguna fila es aplicable, no se aplica nada.
 4. **Salida (Generar archivo).** Arma el archivo con las facturas finalizadas, con los nombres y códigos externos. Con *Solo lo no enviado*, no repite las que ya salieron por esa integración.
 
 ## Garantías
 
 - **Sin duplicados.**
-  - Se guarda la huella (sha256) de cada contenido: el mismo archivo no se aplica dos veces y la segunda carga responde 409 con la ejecución anterior.
+  - Se guarda la huella (sha256) de cada contenido: el mismo archivo **con la misma versión del mapeo** no se aplica dos veces y la segunda carga responde 409 con la ejecución anterior. Si se corrige el mapeo, el mismo archivo se puede volver a leer: el núcleo clasifica como «sin cambio» lo que ya está.
   - Aplicar dos veces la misma ejecución devuelve el resultado de la primera.
   - Las rutas de escritura aceptan `Idempotency-Key`.
 - **Trazabilidad.** Cada intercambio queda en `integracion_ejecuciones` con quién lo hizo, cuándo, el archivo, la versión del mapeo, el resumen y los errores por fila. También queda en el historial de la integración.
-- **Referencias externas.** `referencias_externas` guarda el identificador de cada registro en el sistema externo: «proveedor/OC» para las OCs y el número para las facturas. Es único en los dos sentidos por integración y entidad.
+- **Referencias externas.** `referencias_externas` guarda el identificador de cada registro en el sistema externo: «proveedor/OC» para las OCs y el número para las facturas.
+  - Es único en los dos sentidos por integración y entidad, con llaves únicas en la base.
+  - **Nunca se reasigna en silencio.** Si el código externo ya apunta a otro registro, o el registro ya tiene otro código, la ejecución termina «con errores» y el conflicto queda en su bitácora con el código y el registro implicados.
+  - Si dos ejecuciones vinculan lo mismo a la vez, la llave única lo impide y también queda como conflicto.
+  - **Resolver un conflicto:** quien tiene `integraciones.configurar` desvincula la referencia equivocada, con motivo (queda en el historial). La siguiente ejecución vincula el registro correcto.
 - **Aislamiento.** Todas las tablas son de la organización, con RLS en PostgreSQL y llaves de coherencia de organización. Ver la migración `0090`.
 
 ## Agregar una entidad o un adaptador
