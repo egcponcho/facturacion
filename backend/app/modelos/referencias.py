@@ -37,6 +37,8 @@ REFERENCIAS: dict[str, list[tuple[str, str]]] = {
     "grupos_articulos": [("categoria", "categorias_articulo")],
     "escalas_talla": [("categoria", "categorias_articulo")],
     "articulos": [("unidad", "unidades_medida")],
+    "unidades_medida": [("base", "unidades_medida")],
+    "atributos_variante": [("unidad", "unidades_medida")],
     "plantillas_caja": [("unidad", "unidades_medida")],
     "tipos_unidad": [("modo", "modos_transporte")],
     "reglas_leadtime": [("region", "regiones_leadtime"), ("pais", "paises"), ("puerto", "puertos")],

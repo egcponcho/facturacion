@@ -152,6 +152,9 @@ def test_la_base_tiene_todas_las_llaves(client):
     "UPDATE posiciones_oc SET marca = 'NOEXISTE' WHERE id = (SELECT min(id) FROM posiciones_oc)",
     "UPDATE embarques SET puerto_destino = 'NOEXISTE' WHERE id = (SELECT min(id) FROM embarques)",
     "UPDATE proveedores SET pais = 'ZZ' WHERE id = (SELECT min(id) FROM proveedores)",
+    # La unidad base de una conversión y la unidad de un atributo numérico (0089)
+    "UPDATE unidades_medida SET base = 'ZZZZ', equivale = 2 WHERE id = (SELECT min(id) FROM unidades_medida)",
+    "UPDATE atributos_variante SET unidad = 'ZZZZ' WHERE id = (SELECT min(id) FROM atributos_variante)",
     # Un código de otra organización tampoco sirve: la llave incluye la organización
     "UPDATE ordenes_compra SET organizacion_id = 999 WHERE id = (SELECT min(id) FROM ordenes_compra)",
 ])
