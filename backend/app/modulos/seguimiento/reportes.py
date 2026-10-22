@@ -49,6 +49,10 @@ def _filtros_txt(filtros: dict, columnas: dict | None = None) -> str:
             v = ETAPAS.get(v) or ETAPAS_DOC.get(v) or v
         elif k.endswith(("_desde", "_hasta")) and hasattr(v, "strftime"):
             v = fecha_txt(v)
+        if k.startswith(seg.PREFIJO_VARIANTE):
+            # Atributo de variante: se nombra con su código del catálogo (TALLA, CONC…)
+            partes.append(f"{k[len(seg.PREFIJO_VARIANTE):]}: {v}")
+            continue
         partes.append(f"{L(NOMBRES_FILTRO.get(k, k))}: {L('yes') if v is True else L(v) if isinstance(v, str) else v}")
     # Los filtros de las columnas de la tabla: los valores elegidos, tal cual
     for k, vals in (columnas or {}).items():

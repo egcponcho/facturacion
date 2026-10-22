@@ -120,3 +120,24 @@ def test_la_exportacion_respeta_los_filtros_de_columna(interno):
     r = interno.get("/seguimiento/documentos/exportar", params={"formato": "xlsx", **_f(estado_factura=[vals[0]["valor"]])})
     assert r.status_code == 200 and r.content[:2] == b"PK"
     assert interno.get("/seguimiento/ordenes/exportar", params={"formato": "pdf", **_f(estado=["RECIBIDA"])}).status_code == 200
+
+
+def test_filtros_por_atributo_de_variante_y_liberaciones_del_catalogo(interno):
+    """Los filtros de variante salen de los atributos del catálogo (var_<CÓDIGO>)
+    y las opciones de liberación son los estados configurados, no códigos fijos."""
+    d = interno.get("/seguimiento", params={"size": 200}).json()
+    atributos = d["opciones"]["atributos"]
+    assert atributos and all({"codigo", "nombre", "valores"} <= set(a) for a in atributos)
+    catalogo = {a["codigo"] for a in interno.get("/catalogos/atributos_variante", params={"size": 200}).json()["items"]}
+    assert {a["codigo"] for a in atributos} <= catalogo
+    lib = d["opciones"]["liberaciones"]
+    estados = interno.get("/catalogos/liberaciones", params={"size": 200}).json()["items"]
+    assert {x["codigo"] for x in lib["comercial"] + lib["logistica"]} <= {e["codigo"] for e in estados}
+    # Un valor de un atributo deja solo las filas con ese valor
+    a = atributos[0]
+    valor = a["valores"][0]
+    r = interno.get("/seguimiento", params={"size": 200, f"var_{a['codigo']}": valor}).json()
+    assert 0 < r["total"] <= d["total"]
+    assert all(f["variantes"].get(a["codigo"]) == valor for f in r["items"])
+    # Un valor que no existe no deja ninguna
+    assert interno.get("/seguimiento", params={f"var_{a['codigo']}": "__no_existe__"}).json()["total"] == 0

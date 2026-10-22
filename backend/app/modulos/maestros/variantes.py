@@ -10,7 +10,7 @@ Las líneas de OC y de factura guardan los valores de variante del artículo
 (`variante`) y su texto se arma en el orden de los atributos («BLACK · 9.5»).
 """
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.modelos import Articulo, AtributoVariante
 
@@ -51,6 +51,22 @@ def ordenar(db: Session, valores: dict | None) -> dict:
 def de_articulo(db: Session, a: Articulo | None) -> dict:
     """Los valores de variante del artículo, en orden."""
     return ordenar(db, a.variantes) if a is not None else {}
+
+
+def de_linea(linea, db: Session | None = None) -> dict:
+    """Los valores de variante guardados en una línea de OC o de factura, en orden.
+
+    Las líneas anteriores al modelo genérico no tienen `variante`: solo las
+    columnas de sistema (`color`, `talla`). Se leen con el atributo que declara
+    esa columna (`atributos_variante.columna`), sin suponer su código.
+    """
+    db = db or object_session(linea)
+    if getattr(linea, "variante", None):
+        return ordenar(db, linea.variante) if db is not None else dict(linea.variante)
+    if db is None:
+        return {}
+    return {a.codigo: getattr(linea, a.columna) for a in atributos(db)
+            if a.columna and getattr(linea, a.columna, None) not in (None, "")}
 
 
 def texto(valores: dict | None) -> str:

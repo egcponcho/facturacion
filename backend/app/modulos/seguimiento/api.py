@@ -37,7 +37,8 @@ FILTROS_Q = ("q", "oc_id", "modo", "marca", "estilo", "color", "talla", "almacen
 
 
 def _filtros_de(request: Request) -> dict:
-    f = {k: v for k, v in request.query_params.items() if k in FILTROS_Q and v != ""}
+    f = {k: v for k, v in request.query_params.items()
+         if (k in FILTROS_Q or k.startswith(seg.PREFIJO_VARIANTE)) and v != ""}
     for k in list(f):
         if k.endswith("_desde") or k.endswith("_hasta"):
             f[k] = date.fromisoformat(f[k])

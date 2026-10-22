@@ -39,23 +39,31 @@ const vista = ref(VISTAS.some(([v]) => v === inicial) ? inicial : 'ordenes')
 const NOMBRES = {
   estado: t('Status'), modo: t('Mode'), etapa: t('Stage'), liberacion_comercial: t('Commercial rel.'), liberacion_logistica: t('Logistics rel.'),
   proveedor: t('Supplier'), sociedad: t('Company'), centro: t('Plant'), xf_vencida: t('XF overdue'),
-  marca: t('Brand'), grupo: t('Group'), estilo: t('Style'), color: t('Color'), talla: t('Size'), sku: 'SKU', almacen: t('Warehouse'),
+  marca: t('Brand'), grupo: t('Group'), estilo: t('Style / model'), sku: 'SKU', almacen: t('Warehouse'),
   contenedor: t('Load unit'), documento: 'B/L / AWB', riesgo: t('In-store arrival'), embarque_id: t('Shipment'),
   eta_desde: t('ETA from'), eta_hasta: t('ETA to'), fecha_xf_desde: t('XF from'), fecha_xf_hasta: t('XF to'),
   fecha_tienda_desde: t('In store from'), fecha_tienda_hasta: t('In store to'),
 }
+// Filtros de variante: uno por atributo del catálogo (var_<CÓDIGO>), sin suponer cuáles usa la empresa
+const VAR = 'var_'
 const FILTROS = ['q', ...Object.keys(NOMBRES)]
 const filtros = reactive(Object.fromEntries(FILTROS.map((k) => [k, ''])))
 for (const k of FILTROS) if (route.query[k]) filtros[k] = String(route.query[k])
+for (const [k, v] of Object.entries(route.query)) if (k.startsWith(VAR) && v) filtros[k] = String(v)
+const claves = () => Object.keys(filtros).filter((k) => FILTROS.includes(k) || k.startsWith(VAR))
 // Filtros secundarios: van plegados en «Más filtros», con cuántos hay activos
-const AVANZADOS = ['grupo', 'estilo', 'color', 'contenedor', 'documento', 'liberacion_comercial', 'liberacion_logistica', 'talla', 'sku',
+const AVANZADOS = ['grupo', 'estilo', 'contenedor', 'documento', 'liberacion_comercial', 'liberacion_logistica', 'sku',
   'almacen', 'embarque_id', 'riesgo', 'xf_vencida', 'eta_desde', 'eta_hasta', 'fecha_xf_desde', 'fecha_xf_hasta', 'fecha_tienda_desde',
   'fecha_tienda_hasta', 'sociedad', 'centro', 'proveedor']
-const masFiltros = ref(AVANZADOS.some((k) => filtros[k]))
-const avanzadosActivos = computed(() => AVANZADOS.filter((k) => filtros[k]).length)
+const esAvanzado = (k) => AVANZADOS.includes(k) || k.startsWith(VAR)
+const masFiltros = ref(claves().some((k) => esAvanzado(k) && filtros[k]))
+const avanzadosActivos = computed(() => claves().filter((k) => esAvanzado(k) && filtros[k]).length)
 const opciones = ref({})
 // Filtros activos que se mandan a los tableros
-const params = computed(() => Object.fromEntries(FILTROS.filter((k) => filtros[k]).map((k) => [k, filtros[k]])))
+const params = computed(() => Object.fromEntries(claves().filter((k) => filtros[k]).map((k) => [k, filtros[k]])))
+const atributos = computed(() => opciones.value.atributos || [])
+const nombreAtributo = (codigo) => tx(atributos.value.find((a) => a.codigo === codigo)?.nombre || codigo)
+const liberaciones = (tipo) => opciones.value.liberaciones?.[tipo] || []
 const paramsExportar = computed(() => ({ ...params.value, proveedor_id: sesion.proveedorId || undefined }))
 const ESTADOS_EMB = estadosEmbarque()
 const ESTADOS_OC = [['SIN_COMERCIAL', t('No commercial release')], ['SIN_LOGISTICA', t('No logistics release')],
@@ -67,7 +75,8 @@ const ETAPAS = [['PEND_LIBERACION', t('Pending release')], ['POR_FACTURAR', t('T
 const MODOS = computed(() => opcionesLista('modo_transporte'))
 const RIESGOS = Object.fromEntries(Object.entries(TIEMPO).map(([k, v]) => [k, v[0]]))
 
-const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).map((k) => {
+const activos = computed(() => claves().filter((k) => k !== 'q' && filtros[k]).map((k) => {
+  if (k.startsWith(VAR)) return { k, texto: `${nombreAtributo(k.slice(VAR.length))}: ${lst(filtros[k]).join(', ')}` }
   let texto = filtros[k]
   const nombres = (lista) => lst(filtros[k]).map((c) => lista.find(([v]) => v === c)?.[1] || c).join(', ')
   if (k === 'etapa') texto = nombres(ETAPAS)
@@ -75,6 +84,10 @@ const activos = computed(() => FILTROS.filter((k) => k !== 'q' && filtros[k]).ma
   if (k === 'riesgo') texto = RIESGOS[filtros[k]] || texto
   if (k === 'estado') texto = nombres([...ESTADOS_EMB, ...ESTADOS_OC])
   if (k === 'xf_vencida') texto = 'yes'
+  if (k === 'liberacion_comercial' || k === 'liberacion_logistica') {
+    const lista = liberaciones(k === 'liberacion_comercial' ? 'comercial' : 'logistica')
+    texto = tx(lista.find((x) => x.codigo === filtros[k])?.nombre || filtros[k])
+  }
   if (k === 'embarque_id') texto = lst(filtros[k]).map((id) => opciones.value.embarques?.find((e) => String(e.id) === id)?.codigo || id).join(', ')
   else if (!k.endsWith('_desde') && !k.endsWith('_hasta')) texto = String(texto).split(',').join(', ')
   if (k.endsWith('_desde') || k.endsWith('_hasta')) texto = fmtFecha(texto)
@@ -100,8 +113,9 @@ async function aplicarVista(q) {
     vista.value = q.vista
     await nextTick()
   }
-  for (const k of FILTROS) filtros[k] = q[k] || ''
-  masFiltros.value = masFiltros.value || Object.keys(q).some((k) => AVANZADOS.includes(k))
+  for (const k of claves()) filtros[k] = ''
+  for (const [k, v] of Object.entries(q)) if (FILTROS.includes(k) || k.startsWith(VAR)) filtros[k] = v || ''
+  masFiltros.value = masFiltros.value || Object.keys(q).some(esAvanzado)
   aplicar()
 }
 function quitar(k) {
@@ -109,7 +123,7 @@ function quitar(k) {
   aplicar()
 }
 function limpiar() {
-  for (const k of FILTROS) filtros[k] = ''
+  for (const k of claves()) filtros[k] = ''
   aplicar()
 }
 let espera
@@ -166,19 +180,22 @@ function buscar() {
   </div>
   <div v-if="masFiltros" class="filtros filtros-avanzados" v-filtros>
     <SelectBusqueda multiple :model-value="lst(filtros.grupo)" @update:model-value="(v) => (filtros.grupo = v.join(','))" :opciones="opciones.grupos || []" :vacio="t('Group: all')" :etiqueta="t('Item group')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.estilo)" @update:model-value="(v) => (filtros.estilo = v.join(','))" :opciones="opciones.estilos || []" :vacio="t('Style: all')" :etiqueta="t('Style')" @change="aplicar" />
-    <SelectBusqueda multiple :model-value="lst(filtros.color)" @update:model-value="(v) => (filtros.color = v.join(','))" :opciones="opciones.colores || []" :vacio="t('Color: all')" :etiqueta="t('Color')" @change="aplicar" />
+    <SelectBusqueda v-if="(opciones.estilos || []).length" multiple :model-value="lst(filtros.estilo)" @update:model-value="(v) => (filtros.estilo = v.join(','))" :opciones="opciones.estilos" :vacio="t('Style / model: all')" :etiqueta="t('Style / model')" @change="aplicar" />
+    <SelectBusqueda v-for="a in atributos" :key="a.codigo" multiple :model-value="lst(filtros[VAR + a.codigo])" @update:model-value="(v) => (filtros[VAR + a.codigo] = v.join(','))"
+                    :opciones="a.valores" :vacio="t('{0}: all', [tx(a.nombre)])" :etiqueta="tx(a.nombre)" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.contenedor)" @update:model-value="(v) => (filtros.contenedor = v.join(','))" :opciones="opciones.contenedores || []" :vacio="t('Load unit: all')" :etiqueta="t('Container, air waybill or truck')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.documento)" @update:model-value="(v) => (filtros.documento = v.join(','))" :opciones="opciones.documentos || []" :vacio="t('B/L / AWB: all')" :etiqueta="t('Transport document')" @change="aplicar" />
     <template v-if="vista === 'ordenes'">
+      <!-- Los estados de liberación son los del catálogo: los códigos que manda el ERP de la empresa -->
       <Seleccion v-model="filtros.liberacion_comercial" :aria-label="t('Commercial release')" @change="aplicar">
-        <option value="">{{ t('Commercial rel.: all') }}</option><option value="C">{{ t('Commercial rel.: Released') }}</option><option value="P">{{ t('Commercial rel.: Pending') }}</option>
+        <option value="">{{ t('Commercial rel.: all') }}</option>
+        <option v-for="x in liberaciones('comercial')" :key="x.codigo" :value="x.codigo">{{ t('Commercial rel.: {0}', [tx(x.nombre)]) }}</option>
       </Seleccion>
       <Seleccion v-model="filtros.liberacion_logistica" :aria-label="t('Logistics release')" @change="aplicar">
-        <option value="">{{ t('Logistics rel.: all') }}</option><option value="300">{{ t('Logistics rel.: Released') }}</option><option value="301">{{ t('Logistics rel.: Released, changed') }}</option><option value="304">{{ t('Logistics rel.: Not released') }}</option>
+        <option value="">{{ t('Logistics rel.: all') }}</option>
+        <option v-for="x in liberaciones('logistica')" :key="x.codigo" :value="x.codigo">{{ t('Logistics rel.: {0}', [tx(x.nombre)]) }}</option>
       </Seleccion>
     </template>
-    <SelectBusqueda multiple :model-value="lst(filtros.talla)" @update:model-value="(v) => (filtros.talla = v.join(','))" :opciones="opciones.tallas || []" :vacio="t('Size: all')" :etiqueta="t('Size')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.sku)" @update:model-value="(v) => (filtros.sku = v.join(','))" :opciones="opciones.skus || []" :vacio="t('SKU: all')" :etiqueta="t('Item code')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.almacen)" @update:model-value="(v) => (filtros.almacen = v.join(','))" :opciones="opciones.almacenes || []" :vacio="t('Warehouse: all')" :etiqueta="t('Warehouse')" @change="aplicar" />
     <SelectBusqueda multiple :model-value="lst(filtros.embarque_id)" @update:model-value="(v) => (filtros.embarque_id = v.join(','))" :opciones="(opciones.embarques || []).map((e) => ({ valor: String(e.id), texto: e.codigo }))"

@@ -19,6 +19,7 @@ from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
 from app.modulos.compras import liberaciones
 from app.modulos.comun import tabla
 from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_factura
+from app.modulos.maestros import variantes
 from app.modulos.seguimiento import metricas
 from app.modulos.transporte import leadtimes as lt
 from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
@@ -113,7 +114,10 @@ def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) ->
     return {
         "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
         "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_articulo,
-        "variante": " · ".join(str(v) for v in (p.variante or {}).values() if v not in (None, "")) or None,
+        # Valores de variante por atributo ({"COLOR": "BLACK", "CONC": "30 %"}): los filtros y
+        # opciones salen de aquí, sin suponer qué atributos usa la empresa
+        "variantes": (vals := variantes.de_linea(p)),
+        "variante": variantes.texto(vals) or None,
         "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen, "grupo": p.grupo,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
         "liberacion_comercial": oc.liberacion_comercial, "liberacion_logistica": oc.liberacion_logistica,
@@ -234,16 +238,49 @@ FILTROS_EXACTOS = ("oc_id", "marca", "estilo", "color", "talla", "almacen", "gru
 RANGOS = ("eta", "fecha_xf", "fecha_tienda")
 
 
+# Filtro por atributo de variante: var_<CÓDIGO>=valor1,valor2 (el código del catálogo)
+PREFIJO_VARIANTE = "var_"
+
+
 def _valores(todas: list[dict], campo: str) -> list:
     return sorted({f[campo] for f in todas if f[campo]}, key=str)
 
 
-def _opciones(todas: list[dict]) -> dict:
+def _orden_valor(v: str):
+    """Números en orden numérico (6.5 antes de 10) y el resto en orden alfabético."""
+    try:
+        return (0, float(str(v).replace(",", ".")), "")
+    except ValueError:
+        return (1, 0.0, str(v))
+
+
+def _atributos_opciones(db: Session, todas: list[dict]) -> list[dict]:
+    """Los atributos de variante presentes en las filas, en el orden del
+    catálogo, con sus valores: son los filtros de variante de la pantalla."""
+    nombres = variantes.nombres(db)
+    vistos: dict[str, set] = {}
+    for f in todas:
+        for k, v in (f.get("variantes") or {}).items():
+            vistos.setdefault(k, set()).add(str(v))
+    orden = [a.codigo for a in variantes.atributos(db)]
+    claves = [k for k in orden if k in vistos] + sorted(k for k in vistos if k not in orden)
+    return [{"codigo": k, "nombre": nombres.get(k, k), "valores": sorted(vistos[k], key=_orden_valor)} for k in claves]
+
+
+def _liberaciones_opciones(db: Session) -> dict:
+    """Los estados de liberación del catálogo (los códigos que manda el ERP de la empresa)."""
+    lib = liberaciones.de(db)
+    return {tipo: [{"codigo": x.codigo, "nombre": x.nombre, "libera": x.libera} for x in est.lista]
+            for tipo, est in (("comercial", lib.comercial), ("logistica", lib.logistica))}
+
+
+def _opciones(db: Session, todas: list[dict]) -> dict:
     embarques = sorted({(f["embarque_id"], f["embarque"]) for f in todas if f["embarque_id"]})
     return {
         "marcas": _valores(todas, "marca"),
         "estilos": _valores(todas, "estilo"),
-        "colores": _valores(todas, "color"),
+        "atributos": _atributos_opciones(db, todas),
+        "liberaciones": _liberaciones_opciones(db),
         "almacenes": _valores(todas, "almacen"),
         "grupos": _valores(todas, "grupo"),
         "skus": _valores(todas, "sku"),
@@ -252,7 +289,6 @@ def _opciones(todas: list[dict]) -> dict:
         "proveedores": _valores(todas, "proveedor"),
         "sociedades": _valores(todas, "sociedad"),
         "centros": _valores(todas, "centro"),
-        "tallas": sorted({f["talla"] for f in todas if f["talla"]}, key=lambda t: (not t.isdigit(), t.zfill(4))),
         "embarques": [{"id": i, "codigo": c} for i, c in embarques],
     }
 
@@ -273,6 +309,10 @@ def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
         if campo in filtros:
             valor = filtros[campo]
             filas = [f for f in filas if _en(f[campo], valor)]
+    for clave, valor in filtros.items():
+        if clave.startswith(PREFIJO_VARIANTE):
+            codigo = clave[len(PREFIJO_VARIANTE):]
+            filas = [f for f in filas if _en((f.get("variantes") or {}).get(codigo, ""), valor)]
     if filtros.get("riesgo"):
         # El riesgo es de lo que aún no llega a bodega: lo recibido ya no está en riesgo
         filas = [f for f in filas if f["etapa"] != "RECIBIDO"]
@@ -286,7 +326,7 @@ def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
         t = filtros["q"].strip().lower()
         filas = [f for f in filas if any(t in str(f[k] or "").lower()
                                          for k in ("sku", "oc", "factura", "contenedor", "embarque", "estilo", "pl",
-                                                   "documento", "color"))]
+                                                   "documento", "variante"))]
     return filas
 
 
@@ -294,7 +334,7 @@ def seguimiento(db: Session, user: Usuario, proveedor_id: int | None = None, fil
                 orden: str | None = None, page: int = 1, size: int = 25) -> dict:
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
     todas = filas_seguimiento(db, user, proveedor_id)
-    opciones = _opciones(todas)
+    opciones = _opciones(db, todas)
     filas = _filtrar(todas, filtros)
 
     # Resumen: cantidades por etapa y por marca, separadas por unidad de medida
@@ -396,7 +436,7 @@ def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     return {
         "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
         "kpis": kpis, "por_estado": [{"clave": k, "nombre": n, "total": por_estado[k]} for k, n in ESTADOS_EMB],
-        "llegadas": semanas, "opciones": _opciones(todas),
+        "llegadas": semanas, "opciones": _opciones(db, todas),
     }
 
 
@@ -561,7 +601,7 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
     return {
         "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
         "kpis": kpis, "estados": [{"clave": k, "nombre": n, "total": resumen[k]} for k, n in ESTADOS_OC],
-        "opciones": _opciones(todas),
+        "opciones": _opciones(db, todas),
     }
 
 

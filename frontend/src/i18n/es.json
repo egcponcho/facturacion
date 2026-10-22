@@ -7689,5 +7689,8 @@
 "{0} variants (items)": "{0} variantes (artículos)",
 "{0}% of the products": "{0}% de los productos",
 "{0}: none": "{0}: ninguno",
-"from its parent": "de su familia superior"
+"from its parent": "de su familia superior",
+"Commercial rel.: {0}": "Lib. comercial: {0}",
+"Logistics rel.: {0}": "Lib. logística: {0}",
+"Style / model: all": "Estilo / modelo: todos"
 }

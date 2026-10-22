@@ -121,14 +121,14 @@ def columnas_linea(db: Session) -> list[tuple[str, str]]:
 def variantes_texto(l) -> str | None:
     from app.modulos.maestros import variantes
 
-    return variantes.texto(l.variante or {k: v for k, v in (("COLOR", l.color), ("TALLA", l.talla)) if v}) or None
+    return variantes.texto(variantes.de_linea(l)) or None
 
 
 def datos_de_linea(l, columnas: list[tuple[str, str]]) -> dict:
     """{columna: valor} de una línea de factura con su variante guardada."""
     from app.modulos.maestros import variantes
 
-    valores = l.variante or {k: v for k, v in (("COLOR", l.color), ("TALLA", l.talla)) if v}
+    valores = variantes.de_linea(l)
     res = {}
     for k, _ in columnas:
         if k == "variante":
