@@ -42,7 +42,7 @@ function clase(f) {
 }
 const usados = computed(() => new Set(props.filas.map((f) => norm(f.m).trim())))
 const sugerencias = computed(() => an.value.sugerencias.filter((x) => !usados.value.has(norm(x.m).trim())))
-const deUsadas = (u) => (u.de?.estilo ? t('style {0}{1}', [u.de.estilo, u.de.color ? `, ${u.de.color}` : '']) : `${u.de?.productos || ''} ${t('products')}${u.de?.marca ? t(' of {0}', [u.de.marca]) : ''}`)
+const deUsadas = (u) => (u.de?.estilo ? t('model {0}{1}', [u.de.estilo, u.de.color ? `, ${u.de.color}` : '']) : `${u.de?.productos || ''} ${t('products')}${u.de?.marca ? t(' of {0}', [u.de.marca]) : ''}`)
 
 function cambio() {
   emit('cambio', props.campo.codigo, texto.value)

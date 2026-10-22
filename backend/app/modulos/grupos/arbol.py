@@ -120,7 +120,8 @@ def dict_grupo(g: GrupoProducto, conteos: dict | None = None) -> dict:
     c = (conteos or {}).get(g.id, {})
     return {"id": g.id, "clase": g.clase, "codigo": g.codigo, "nombre": g.nombre, "descripcion": g.descripcion,
             "padre_id": g.padre_id, "ruta": " / ".join(x.nombre for x in g.ruta()), "profundidad": len(g.ruta()) - 1,
-            "condiciones": g.condiciones or [], "ejes_variante": g.ejes_variante or [], "orden": g.orden, "activa": g.activa,
+            "condiciones": g.condiciones or [], "ejes_variante": g.ejes_variante or [], "campos": g.campos or [],
+            "orden": g.orden, "activa": g.activa,
             "articulos": c.get("articulos", 0), "grupos_articulos": c.get("grupos_articulos", 0),
             "productos": c.get("productos", 0), "reglas_etiqueta": c.get("reglas_etiqueta", 0),
             "reglas_empaque": c.get("reglas_empaque", 0)}
@@ -220,6 +221,14 @@ def _validar(db: Session, datos: dict, actual: GrupoProducto | None) -> dict:
         elif len(set(ejes)) != len(ejes):
             errores.append({"campo": "ejes_variante", "mensaje": "Each variant attribute goes once."})
         limpio["ejes_variante"] = ejes
+    if "campos" in datos:
+        # Los datos que el grupo vuelve obligatorios: los pide el alta del producto y los revisa el etiquetado
+        from app.modulos.etiquetado.familias import _campos
+
+        try:
+            limpio["campos"] = _campos(db, datos.get("campos"))
+        except ErrorNegocio as e:
+            errores += e.detalle or [{"campo": "campos", "mensaje": e.mensaje}]
     if "orden" in datos:
         try:
             limpio["orden"] = max(int(datos["orden"]), 0)

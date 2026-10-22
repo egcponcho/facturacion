@@ -174,7 +174,7 @@ FUENTES: dict[str, Fuente] = {f.clave: f for f in [
     ),
     Fuente(
         "productos", "Products", "One row per product with its technical sheet status.", "producto.ver",
-        lambda q: q.select_from(Producto).join(Proveedor, Proveedor.id == Producto.proveedor_id),
+        lambda q: q.select_from(Producto).outerjoin(Proveedor, Proveedor.id == Producto.proveedor_id),
         lambda db, user: _prod(user),
         [
             Campo("codigo_generico", "Product code", "texto", lambda: Producto.codigo_generico),

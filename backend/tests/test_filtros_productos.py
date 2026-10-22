@@ -57,22 +57,29 @@ def test_varios_valores_y_el_filtro_de_la_columna_no_limita_sus_valores(interno)
     assert solo["kpis"]["total"] == solo["total"]
 
 
+def _nombre(x) -> str:
+    """Lo que muestra la columna Producto: el nombre o, sin nombre, el código."""
+    return x["nombre"] or x["codigo_generico"]
+
+
 def test_la_vista_de_estado_y_la_busqueda_limitan_los_valores(interno):
     revision = _lista(interno, estado="borradores")
     vals = _valores(interno, "estado", estado="borradores")
     assert sum(v["n"] for v in vals) == revision["total"]
     assert {v["valor"] for v in vals} <= {"borrador", "sugerida", "observado"}
-    estilo = _lista(interno, size=1)["items"][0]["estilo"]
-    con_q = _valores(interno, "producto", q=estilo)
-    assert estilo in {v["valor"] for v in con_q}
-    assert sum(v["n"] for v in con_q) == _lista(interno, q=estilo)["total"]
+    # La columna Producto muestra el nombre (o el código, si no tiene)
+    primero = _lista(interno, size=1)["items"][0]
+    nombre = primero["nombre"] or primero["codigo_generico"]
+    con_q = _valores(interno, "producto", q=nombre)
+    assert nombre in {v["valor"] for v in con_q}
+    assert sum(v["n"] for v in con_q) == _lista(interno, q=nombre)["total"]
 
 
 def test_filtrar_por_producto_y_buscar_dentro_de_los_valores(interno):
     todos = _valores(interno, "producto")
     uno = todos[0]
     r = _lista(interno, **_f(producto=[uno["valor"]]))
-    assert r["total"] == uno["n"] and {x["estilo"] for x in r["items"]} == {uno["valor"]}
+    assert r["total"] == uno["n"] and {_nombre(x) for x in r["items"]} == {uno["valor"]}
     parte = uno["valor"][:3].lower()
     algunos = _valores(interno, "producto", buscar=parte)
     assert algunos and all(parte in v["valor"].lower() for v in algunos)
@@ -120,14 +127,14 @@ def test_el_proveedor_solo_ve_sus_productos_y_sus_valores(tnf, interno):
     propios = _lista(tnf)
     estilos = _valores(tnf, "producto")
     assert sum(v["n"] for v in estilos) == propios["total"]
-    assert {v["valor"] for v in estilos} == {x["estilo"] for x in propios["items"]}
+    assert {v["valor"] for v in estilos} == {_nombre(x) for x in propios["items"]}
     # Pedir otro proveedor no amplía el alcance
     otros = {x["proveedor_id"] for x in _lista(interno)["items"]} - {x["proveedor_id"] for x in propios["items"]}
     assert otros
     ajeno = otros.pop()
     assert [v["valor"] for v in _valores(tnf, "proveedor", proveedor_id=ajeno)] == ["The North Face"]
-    # Filtrar por un estilo ajeno no trae nada
-    ajenos = {x["estilo"] for x in _lista(interno, proveedor_id=ajeno)["items"]} - {x["estilo"] for x in propios["items"]}
+    # Filtrar por un producto ajeno no trae nada
+    ajenos = {_nombre(x) for x in _lista(interno, proveedor_id=ajeno)["items"]} - {_nombre(x) for x in propios["items"]}
     assert _lista(tnf, **_f(producto=sorted(ajenos)))["total"] == 0
 
 

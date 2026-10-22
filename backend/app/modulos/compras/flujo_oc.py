@@ -45,7 +45,7 @@ from app.modelos import (
     Usuario,
     ahora,
 )
-from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro, tiene
+from app.modulos.acceso.permisos import asegurar_proveedor, exige_datos_aduana, exigir, proveedor_filtro, tiene
 from app.modulos.compras import liberaciones
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
 
@@ -277,7 +277,7 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
                 requerido(campo, texto)
             existe(campo, modelo, etiqueta)
         # Datos de aduana: se piden aquí (no antes) si la empresa los exige para facturar
-        if regla("REQUERIR_DATOS_ADUANA") and "pais_origen" not in obligatorios and not _texto(cab.get("pais_origen")):
+        if exige_datos_aduana() and "pais_origen" not in obligatorios and not _texto(cab.get("pais_origen")):
             arts = [db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_articulo")))) for ln in lineas]
             if any(a is not None and not (a.producto and a.producto.pais_origen) for a in arts):
                 falta("pais_origen", "The country of origin is required for customs (some items do not have it).")

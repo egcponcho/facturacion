@@ -27,6 +27,7 @@ from app.modelos import (
     GrupoArticulo,
     GrupoFamilia,
     Marca,
+    Pais,
     Producto,
     Proveedor,
     Usuario,
@@ -39,6 +40,7 @@ from app.modulos.maestros import catalogos as cat_svc
 from app.modulos.maestros import gobierno, variantes
 from app.modulos.maestros import tallas as tallas_svc
 from app.modulos.maestros.unidades import de_articulo, normalizar
+from app.modulos.productos import perfil
 from app.modulos.productos.productos import (
     MSG_CODIGO,
     asegurar_producto,
@@ -78,7 +80,7 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
     exigir(user, "catalogos.ver")
     p = producto_por_generico(db, gen)
     if not p:
-        raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
+        raise ErrorNegocio(f"Product {gen} does not exist.", 404, "no_encontrado")
     arts = db.scalars(_articulos(db, gen).order_by(Articulo.sku)).all()
     return {
         "generico": gen, "producto_id": p.id, "estilo": p.estilo, "color": p.color, "marca_id": p.marca_id,
@@ -92,39 +94,69 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
     }
 
 
+def _maestros(db: Session, user: Usuario, datos, errores: list) -> tuple:
+    """Familia, marca, grupo y proveedor del producto. Son opcionales: los exige la
+    empresa (datos obligatorios de los artículos) o, al guardar las variantes, la familia."""
+    familia = db.get(GrupoFamilia, datos.grupo_producto_id) if getattr(datos, "grupo_producto_id", None) else None
+    if getattr(datos, "grupo_producto_id", None) and familia is None:
+        errores.append({"campo": "grupo_producto_id", "mensaje": "Choose a product family."})
+    if normalizar(datos.unidad) not in de_articulo():
+        errores.append({"campo": "unidad", "mensaje": f"The unit is one of {', '.join(de_articulo())}."})
+    # Un proveedor solo crea y cambia sus propios productos
+    proveedor_id = user.proveedor_id or datos.proveedor_id
+    elegidos = {"marca_id": (Marca, datos.marca_id), "grupo_id": (GrupoArticulo, datos.grupo_id),
+                "proveedor_id": (Proveedor, proveedor_id)}
+    exigidos = gobierno.obligatorios("articulos")
+    valores = {}
+    for campo, (modelo, ident) in elegidos.items():
+        valores[campo] = db.get(modelo, ident) if ident else None
+        if ident and valores[campo] is None:
+            errores.append({"campo": campo, "mensaje": "Choose a value from the list."})
+        elif not ident and campo in exigidos:
+            errores.append({"campo": campo, "mensaje": "Your company requires this data for every product."})
+    marca, prov = valores["marca_id"], valores["proveedor_id"]
+    if marca and prov and marca.id not in {m.id for m in prov.marcas}:
+        # Solo las marcas autorizadas al proveedor (Datos maestros → Proveedores)
+        errores.append({"campo": "marca_id", "mensaje": f"{marca.codigo} is not a brand of {prov.nombre}."})
+    return familia, marca, valores["grupo_id"], prov
+
+
+def _id(x) -> int | None:
+    return x.id if x is not None else None
+
+
 def crear(db: Session, user: Usuario, datos) -> dict:
-    """Genérico nuevo con sus datos maestros y, si vienen, sus tallas."""
+    """Producto nuevo con su núcleo (código, nombre, unidad), lo opcional que traiga y, si vienen, sus variantes."""
     exigir(user, "catalogos.crear")
     gobierno.exigir_responsable(db, user, "articulos")
     gen = (datos.generico or "").strip().upper()
     errores = []
     if not codigo_valido(gen):
-        errores.append({"campo": "generico", "mensaje": f"Generic code: {MSG_CODIGO}"})
+        errores.append({"campo": "generico", "mensaje": f"Product code: {MSG_CODIGO}"})
     elif producto_por_generico(db, gen) or db.scalar(_articulos(db, gen).limit(1)):
-        errores.append({"campo": "generico", "mensaje": f"Generic {gen} already exists: add sizes to it instead."})
+        errores.append({"campo": "generico", "mensaje": f"Product {gen} already exists: add variants to it instead."})
     estilo, color = (datos.estilo or "").strip().upper() or None, (datos.color or "").strip() or None
-    familia = db.get(GrupoFamilia, datos.grupo_producto_id) if getattr(datos, "grupo_producto_id", None) else None
-    if getattr(datos, "grupo_producto_id", None) and familia is None:
-        errores.append({"campo": "grupo_producto_id", "mensaje": "Choose a product family."})
-    if normalizar(datos.unidad) not in de_articulo():
-        errores.append({"campo": "unidad", "mensaje": f"The unit of a solid is one of {', '.join(de_articulo())}."})
-    marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
-    if not marca or not grupo or not prov:
-        errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})
-    elif marca.id not in {m.id for m in prov.marcas}:
-        # Solo las marcas autorizadas al proveedor (Datos maestros → Proveedores)
-        errores.append({"campo": "marca_id", "mensaje": f"{marca.codigo} is not a brand of {prov.nombre}."})
+    familia, marca, grupo, prov = _maestros(db, user, datos, errores)
+    pais = (getattr(datos, "pais_origen", None) or "").strip().upper() or None
+    if pais and not db.scalar(select(Pais.id).where(Pais.codigo == pais)):
+        errores.append({"campo": "pais_origen", "mensaje": f"Country {pais} is not in the countries catalog."})
     if errores:
-        raise ErrorNegocio("Check the generic.", 422, "validacion", errores)
-    p = Producto(codigo_generico=gen, proveedor_id=prov.id, estilo=estilo, color=color, marca_id=marca.id,
-                 grupo_id=grupo.id, unidad=datos.unidad, nombre=(datos.nombre or "").strip()[:200] or None,
-                 grupo_producto_id=familia.id if familia else None, ficha={}, faltan=[], alertas_ok=[])
+        raise ErrorNegocio("Check the product.", 422, "validacion", errores)
+    # Sin nombre, el código: un producto siempre se puede nombrar en listas y documentos
+    nombre = (datos.nombre or "").strip()[:200] or gen
+    descripcion = (getattr(datos, "descripcion_comercial", None) or "").strip()[:300] or None
+    p = Producto(codigo_generico=gen, proveedor_id=_id(prov), estilo=estilo, color=color, marca_id=_id(marca),
+                 grupo_id=_id(grupo), unidad=normalizar(datos.unidad), nombre=nombre, pais_origen=pais,
+                 grupo_producto_id=familia.id if familia else None, ficha={"comManual": True} if descripcion else {},
+                 faltan=[], alertas_ok=[])
     db.add(p)
     try:
         db.flush()
     except IntegrityError:
         raise ErrorNegocio(f"Product {gen} already exists.", 409, "duplicado") from None
-    p.descripcion_comercial = descripcion_comercial_simple(p)
+    # Escrita, se conserva; si no, se arma con la ficha
+    p.descripcion_comercial = descripcion or descripcion_comercial_simple(p)
+    perfil.exigir_producto(db, p)
     registrar(db, user, "genericos", p.id, "crear", {"generico": gen, "estilo": estilo, "color": color})
     combinar = getattr(datos, "combinar", None) or {}
     creadas = (agregar_tallas(db, user, gen, datos.tallas or [], getattr(datos, "escala_id", None), combinar)
@@ -158,7 +190,7 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id
     gobierno.exigir_responsable(db, user, "articulos")
     p = producto_por_generico(db, gen)
     if not p:
-        raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
+        raise ErrorNegocio(f"Product {gen} does not exist.", 404, "no_encontrado")
     atributos = {a.codigo: a for a in db.scalars(select(AtributoVariante).where(AtributoVariante.activo.is_(True)))}
     sistema = {a.columna: a.codigo for a in atributos.values() if a.columna}
     filas = [({str(k).strip().upper(): str(v).strip() for k, v in (t.valores or {}).items() if str(v or "").strip()}
@@ -225,6 +257,7 @@ def agregar_tallas(db: Session, user: Usuario, gen: str, tallas: list, escala_id
         ids.append(a.id)
     if errores:
         raise ErrorNegocio("Some variants could not be added.", 422, "validacion", errores)
+    perfil.exigir_variantes(db, [db.get(Articulo, i) for i in ids])
     registrar(db, user, "genericos", p.id, "tallas", {"generico": gen, "variantes": [" · ".join(v.values()) for v, _ in filas]})
     return ids
 
@@ -310,47 +343,41 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
 
 
 def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
-    """Cambia los datos maestros del genérico y los pasa a todas sus tallas."""
+    """Cambia los datos maestros del producto y los pasa a todas sus variantes."""
     exigir(user, "catalogos.editar")
     gobierno.exigir_responsable(db, user, "articulos")
     p = producto_por_generico(db, gen)
     if not p:
-        raise ErrorNegocio(f"Generic {gen} does not exist.", 404, "no_encontrado")
+        raise ErrorNegocio(f"Product {gen} does not exist.", 404, "no_encontrado")
     arts = db.scalars(_articulos(db, gen)).all()
     estilo = (datos.estilo or "").strip().upper() or None
     color = (datos.color or "").strip() or None
     errores = []
     if (estilo != p.estilo or color != p.color) and any(a.tipo == "PREPACK" for a in arts):
-        errores.append({"campo": "estilo", "mensaje": "The product has packs or kits: its style and color cannot change."})
-    familia = db.get(GrupoFamilia, datos.grupo_producto_id) if getattr(datos, "grupo_producto_id", None) else None
-    if getattr(datos, "grupo_producto_id", None) and familia is None:
-        errores.append({"campo": "grupo_producto_id", "mensaje": "Choose a product family."})
-    if normalizar(datos.unidad) not in de_articulo():
-        errores.append({"campo": "unidad", "mensaje": f"The unit is one of {', '.join(de_articulo())}."})
-    marca, grupo, prov = db.get(Marca, datos.marca_id), db.get(GrupoArticulo, datos.grupo_id), db.get(Proveedor, datos.proveedor_id)
-    if not marca or not grupo or not prov:
-        errores.append({"campo": "marca_id", "mensaje": "Choose the brand, the item group and the supplier."})
-    elif marca.id not in {m.id for m in prov.marcas}:
-        # Solo las marcas autorizadas al proveedor (Datos maestros → Proveedores)
-        errores.append({"campo": "marca_id", "mensaje": f"{marca.codigo} is not a brand of {prov.nombre}."})
+        errores.append({"campo": "estilo", "mensaje": "The product has packs or kits: its model and fixed values cannot change."})
+    familia, marca, grupo, prov = _maestros(db, user, datos, errores)
     if errores:
-        raise ErrorNegocio("Check the generic.", 422, "validacion", errores)
+        raise ErrorNegocio("Check the product.", 422, "validacion", errores)
     antes = {"estilo": p.estilo, "color": p.color, "marca_id": p.marca_id, "grupo_id": p.grupo_id,
              "proveedor_id": p.proveedor_id, "unidad": p.unidad}
-    p.estilo, p.color, p.marca_id, p.grupo_id, p.proveedor_id, p.unidad = estilo, color, marca.id, grupo.id, prov.id, datos.unidad
+    unidad = normalizar(datos.unidad)
+    p.estilo, p.color, p.unidad = estilo, color, unidad
+    p.marca_id, p.grupo_id, p.proveedor_id = _id(marca), _id(grupo), _id(prov)
     if getattr(datos, "nombre", None) is not None:
-        p.nombre = datos.nombre.strip()[:200] or None
+        p.nombre = datos.nombre.strip()[:200] or p.codigo_generico
     if familia is not None:
         p.grupo_producto_id = familia.id
     for a in arts:
-        a.marca_id, a.grupo_id, a.proveedor_id = marca.id, grupo.id, prov.id
+        a.marca_id, a.grupo_id, a.proveedor_id = p.marca_id, p.grupo_id, p.proveedor_id
         if a.tipo == "SOLIDO":
-            a.estilo, a.unidad = estilo, datos.unidad
+            a.estilo, a.unidad = estilo, unidad
             if color:  # un color del producto es el de todas sus variantes
                 a.color = color
     db.flush()
     if not (p.ficha or {}).get("comManual"):
         db.refresh(p)
         p.descripcion_comercial = descripcion_comercial_simple(p)
+    perfil.exigir_producto(db, p)
+    perfil.exigir_variantes(db, [a for a in arts if a.activo])
     registrar(db, user, "genericos", p.id, "editar", {"generico": gen, "antes": antes})
     return detalle(db, user, gen)

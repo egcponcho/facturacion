@@ -81,11 +81,30 @@ const edicion = ref(null)
 const guardando = ref(false)
 function nuevo(clase = 'FAMILIA', padre = null) {
   edicion.value = reactive({ id: null, clase, codigo: '', nombre: '', descripcion: '', padre_id: padre?.id ?? '',
-    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], ejes_variante: [], activa: true })
+    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], ejes_variante: [], campos: [], activa: true })
 }
 function editar(g) {
   edicion.value = reactive({ ...g, descripcion: g.descripcion || '', padre_id: g.padre_id ?? '', ejes_variante: [...(g.ejes_variante || [])],
+    campos: (g.campos || []).map((c) => ({ ...c })),
     condiciones: (g.condiciones || []).map((c) => ({ ...c, valor: Array.isArray(c.valor) ? c.valor.join(', ') : c.valor })) })
+}
+// Datos que el grupo exige a sus productos: se piden al crearlos y se revisan antes de etiquetar.
+// Los campos «habituales» (sin obligatorio) que use el etiquetado se conservan tal cual.
+const buscarCampo = ref('')
+const requeridos = computed(() => new Set((edicion.value?.campos || []).filter((c) => c.obligatorio).map((c) => c.campo)))
+// Sin búsqueda se ofrecen los datos habituales de un producto; con búsqueda, cualquiera del catálogo
+const HABITUALES = ['articulo.upc', 'articulo.peso_unitario', 'articulo.sku_proveedor', 'articulo.marca', 'articulo.grupo',
+  'articulo.estilo', 'producto.descripcion_comercial', 'producto.pais_origen']
+const camposVisibles = computed(() => {
+  const q = buscarCampo.value.trim().toLowerCase()
+  return catalogo.value.campos.filter((c) => requeridos.value.has(c.clave)
+    || (q ? `${c.clave} ${tx(c.etiqueta)}`.toLowerCase().includes(q) : HABITUALES.includes(c.clave)))
+})
+function alternarRequerido(clave, si) {
+  const lista = edicion.value.campos
+  const x = lista.find((c) => c.campo === clave)
+  if (x) x.obligatorio = si
+  else if (si) lista.push({ campo: clave, obligatorio: true })
 }
 // Una familia no puede quedar dentro de sí misma ni de una de sus subfamilias
 const padresPosibles = computed(() => {
@@ -103,7 +122,7 @@ function rutaIds(g) {
 async function guardar() {
   const e = edicion.value
   const cuerpo = { codigo: e.codigo, nombre: e.nombre, descripcion: e.descripcion || null,
-    padre_id: e.padre_id === '' ? null : Number(e.padre_id), activa: e.activa,
+    padre_id: e.padre_id === '' ? null : Number(e.padre_id), activa: e.activa, campos: e.campos,
     ...(e.clase === 'CATEGORIA' ? { condiciones: condicionesLimpias(e.condiciones) } : { ejes_variante: e.ejes_variante }) }
   guardando.value = true
   try {
@@ -143,7 +162,7 @@ async function quitar(g) {
   <div class="pagina-cabeza">
     <div>
       <h1>{{ t('Product groups') }}</h1>
-      <p>{{ t('One tree of families and categories for the whole company. Labeling and packing rules use it, from the most specific group to the most general.') }}</p>
+      <p>{{ t('One tree of families and categories for the whole company. Each family says which data its products need and how their variants differ; labeling and packing rules use it, from the most specific group to the most general.') }}</p>
     </div>
     <div v-if="editable" class="acciones-cabeza">
       <button type="button" class="btn btn-primario" @click="nuevo('FAMILIA')"><Icono nombre="mas" />{{ t('New family') }}</button>
@@ -155,7 +174,7 @@ async function quitar(g) {
       <input v-model="filtro" type="search" class="buscar" :placeholder="t('Search by code or name')" :aria-label="t('Search by code or name')" />
       <label class="check"><input v-model="inactivos" type="checkbox" @change="cargar" /> {{ t('Show inactive') }}</label>
     </div>
-    <p v-if="!cargando && !nodos.length" class="nota">{{ t('There are no product groups yet. Create a family (footwear, apparel…) and assign it to item groups, products or items from Labels → Families.') }}</p>
+    <p v-if="!cargando && !nodos.length" class="nota">{{ t('There are no product groups yet. Create a family for each kind of product you handle and assign it to products, item groups or items.') }}</p>
     <ul class="arbol" :aria-label="t('Product groups')">
       <li v-for="g in visibles" :key="g.id" class="nodo" :class="{ apagado: !g.activa, categoria: g.clase === 'CATEGORIA' }"
           :style="{ '--prof': g.profundidad }">
@@ -203,7 +222,15 @@ async function quitar(g) {
         <div class="fila-flex gap-2 envolver">
           <label v-for="a in atributos" :key="a.codigo" class="check"><input v-model="edicion.ejes_variante" type="checkbox" :value="a.codigo" /> {{ tx(a.nombre) }}</label>
         </div>
-        <small class="ayuda">{{ t('What tells the variants of its products apart (e.g. color and size; flavor and presentation; concentration and container). Empty: the ones of the parent family, or all.') }}</small></div>
+        <small class="ayuda">{{ t('What tells the variants of its products apart (for example a measure and a color, or a concentration and a container). Empty: the ones of the parent family, or all.') }}</small></div>
+      <div class="campo"><span>{{ t('Data its products require') }}</span>
+        <input v-model="buscarCampo" type="search" :placeholder="t('Search a field to require it (barcode, weight, brand…)')" :aria-label="t('Search a field')" />
+        <div class="fila-flex gap-2 envolver">
+          <label v-for="c in camposVisibles" :key="c.clave" class="check">
+            <input type="checkbox" :checked="requeridos.has(c.clave)" @change="alternarRequerido(c.clave, $event.target.checked)" /> {{ tx(c.etiqueta) }}</label>
+          <span v-if="!camposVisibles.length" class="ayuda">{{ t('No field matches the search.') }}</span>
+        </div>
+        <small class="ayuda">{{ t('Nothing checked: only the code, name and unit are required.') }} {{ t('Asked when its products and variants are created or changed (also in bulk uploads) and checked before printing labels. Its subfamilies and categories add theirs.') }}</small></div>
       <EditorCondiciones v-if="edicion.clase === 'CATEGORIA'" v-model="edicion.condiciones" :campos="catalogo.campos"
                          :operadores="catalogo.operadores" :titulo="t('Recognized when (all must be met; empty: only by hand)')" />
       <label class="check"><input v-model="edicion.activa" type="checkbox" /> {{ t('Active') }}</label>

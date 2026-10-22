@@ -21,15 +21,17 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '@/modulos/clasificacion/useClasificacion'
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modulos/clasificacion/formato.js'
-import { esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
+import { comercioExterior, esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 import { fmtFecha, fmtFechaHora, textoVariante } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 
-// Ficha técnica del producto (estilo-color) y su clasificación arancelaria.
-// Cada cambio se manda al motor único del servidor (/clasificacion/sesion),
-// que devuelve los campos, la sugerencia, los códigos por país y la evidencia;
-// guardar y aprobar vuelven a pasar por el mismo motor.
+// Página del producto: sus datos, sus variantes, dónde se usa, su empaque y sus
+// etiquetas. Con el complemento de comercio exterior (módulo «clasificacion»)
+// suma la ficha técnica y su clasificación arancelaria: cada cambio se manda al
+// motor único del servidor (/clasificacion/sesion), que devuelve los campos, la
+// sugerencia, los códigos por país y la evidencia; guardar y aprobar vuelven a
+// pasar por el mismo motor.
 const props = defineProps({ id: [String, Number] })
 const router = useRouter()
 
@@ -41,7 +43,9 @@ const r = ref(null) // respuesta del motor
 const tocados = reactive(new Set())
 const filas = reactive({}) // filas de composición que se editan, por campo comp.*
 // ?vista=etiquetas abre la pestaña de etiquetas (enlaces desde el etiquetado)
-const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : 'ficha')
+const comex = comercioExterior()
+const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : comex ? 'ficha' : 'tallas')
+const editarProducto = ref(false)
 const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
 const calculando = ref(false)
@@ -221,7 +225,7 @@ function tomar(det) {
   codOficial.value = ''
   cargas.value++
   base.value = instantanea()
-  evaluar(true)
+  if (comex) evaluar(true) // sin comercio exterior no hay ficha que clasificar
 }
 function instantanea() {
   return JSON.stringify([f.tipo, f.ficha, f.nombre, f.origen, f.alertasOk, f.partidas])
@@ -585,8 +589,8 @@ const descripcionArticulo = (a) => (p.value.descripcion_comercial
   ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? `${t('pack')} ${a.talla}` : textoVariante(a)}` : a.descripcion)
 const colArticulos = [
   { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
-  { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3 },
-  { clave: 'upc', texto: 'UPC', prioridad: 3 },
+  { clave: 'sku_proveedor', texto: t('Supplier code'), prioridad: 3 },
+  { clave: 'upc', texto: t('Barcode'), prioridad: 3 },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
   { clave: 'descripcion', texto: t('Description'), prioridad: 3, valor: (a) => descripcionArticulo(a) },
@@ -648,13 +652,17 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <Icono v-else nombre="caja" :tam="24" />
         </span>
         <div>
-          <span class="doc-numero">{{ tx(p.estilo) }} · {{ tx(p.color) }}</span>
-          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Generic (style-color)')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
+          <span class="doc-numero">{{ tx(p.nombre || p.codigo_generico || [p.estilo, p.color].filter(Boolean).join(' · ')) }}</span>
+          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Product code')">{{ p.codigo_generico }}</span>
+            {{ [p.descripcion_comercial, p.marca_nombre || p.marca, p.proveedor !== (p.marca_nombre || p.marca) ? p.proveedor : null].filter(Boolean).map(tx).join(' · ') }}</div>
         </div>
-        <EstadoBadge :estado="p.estado" tipo="producto" />
-        <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
+        <template v-if="comex">
+          <EstadoBadge :estado="p.estado" tipo="producto" />
+          <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
+        </template>
         <div class="doc-acciones">
-          <MasOpciones>
+          <button v-if="p.codigo_generico && puede('catalogos.editar')" class="btn" @click="editarProducto = true"><Icono nombre="editar" />{{ t('Edit product') }}</button>
+          <MasOpciones v-if="comex">
             <button class="btn btn-fantasma" :title="t('Technical sheet with the classification, as PDF')" @click="descargarFicha('pdf')"><Icono nombre="descargar" />PDF</button>
             <button class="btn btn-fantasma" :title="t('Technical sheet with composition and national codes, as Excel')" @click="descargarFicha('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
             <button v-if="aprobado && puede('producto.ficha')" class="btn" @click="modal = { tipo: 'version', texto: '', desde: '' }"><Icono nombre="editar" />{{ t('New version') }}</button>
@@ -662,21 +670,22 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
                          :title="t('Next time the engine suggests this code by itself')"><Icono nombre="varita" />{{ t('Turn this decision into a rule') }}</router-link>
             <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
           </MasOpciones>
-          <button v-if="puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
-          <button v-if="envioPrevio" class="btn btn-primario" :disabled="ocupado || !completa || (!oculta && codigo6.length < 6)"
+          <button v-if="comex && puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
+          <button v-if="comex && envioPrevio" class="btn btn-primario" :disabled="ocupado || !completa || (!oculta && codigo6.length < 6)"
                   :title="tx(!completa ? t('Complete first: {0}', [faltan.join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
         </div>
       </div>
       <div class="doc-meta">
         <span>{{ t('Variants') }} <b>{{ tx(p.resumen_variantes || '—') }}</b></span>
         <span>{{ t('SKUs') }} <b>{{ tx(p.skus) }}</b></span>
-        <span>{{ t('Origin') }} <b>{{ tx(f.origen || '—') }}</b></span>
+        <span v-if="comex">{{ t('Origin') }} <b>{{ tx(f.origen || '—') }}</b></span>
         <span v-if="p.revisado_por">{{ t('Reviewed by') }} <b>{{ tx(p.revisado_por) }}</b> · {{ fmtFecha(p.revisado_en) }}</span>
       </div>
     </section>
 
-    <Pasos class="pasos-producto" :pasos="pasos" />
+    <Pasos v-if="comex" class="pasos-producto" :pasos="pasos" />
 
+    <template v-if="comex">
     <p v-if="p.estado === 'observado' && p.observaciones" class="nota aviso" role="status">
       <Icono nombre="alerta" /><span><b>{{ t('Returned for correction.') }}</b> {{ tx(p.observaciones) }}</span>
     </p>
@@ -689,18 +698,19 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
     <p v-else-if="aprobado" class="nota ok">
       <Icono nombre="check" /><span>{{ t('This sheet is approved and locked. Purchase orders and invoices use its codes. To change it, open a new version.') }}</span>
     </p>
+    </template>
 
-    <div class="producto-layout">
+    <div class="producto-layout" :class="{ 'sin-lateral': !comex }">
       <div class="producto-principal">
         <div class="pestanas" role="tablist">
-          <button class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
+          <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
             <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />{{ t('Variants and packs') }}
             <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
           <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
             <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
+          <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
+          <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
             <span class="cuenta">{{ tx(p.versiones.length + 1) }}</span></button>
           <!-- Dónde se usa y cómo se empaca: el producto conectado con compras, facturación, logística y empaque -->
           <button class="pestana" role="tab" :aria-selected="pestana === 'uso'" @click="pestana = 'uso'"><Icono nombre="ruta" :tam="16" />{{ t('Usage') }}</button>
@@ -777,18 +787,19 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         <!-- Tallas y prepacks -->
         <div v-else-if="pestana === 'tallas'">
           <div class="fila-flex mt-chico entre">
-            <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(style-color) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
+            <p class="ayuda">{{ comex ? t('Every variant of product {0} shares its technical sheet and its HS code. Packs and kits are built with these variants and take their code.', [p.codigo_generico || '—'])
+              : t('Every variant of product {0} shares its data. Packs and kits are built with these variants.', [p.codigo_generico || '—']) }}</p>
             <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add variants') }}</button>
           </div>
           <div class="mt-chico">
             <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Variants and packs')">
-              <template #celda-sku="{ fila: a }"><span class="fuerte">{{ tx(a.sku) }}</span><span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Prepack') }}</span></template>
+              <template #celda-sku="{ fila: a }"><span class="fuerte">{{ tx(a.sku) }}</span><span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Pack or kit') }}</span></template>
               <template #celda-descripcion="{ fila: a }"><span class="apagado">{{ tx(descripcionArticulo(a)) }}</span></template>
               <template #celda-activo="{ fila: a }"><span v-if="a.activo" class="etiqueta ok ms-0">{{ t('Active') }}</span><span v-else class="etiqueta ms-0">{{ t('Inactive') }}</span></template>
             </TablaDatos>
           </div>
           <div v-for="x in p.prepacks" :key="x.id" class="panel mt">
-            <div class="panel-cabeza"><div><h2>{{ t('Prepack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per carton', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
+            <div class="panel-cabeza"><div><h2>{{ t('Pack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per pack', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
             <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.variante || c.talla || c.sku) }} × {{ tx(c.cantidad) }}</span></div>
           </div>
         </div>
@@ -807,7 +818,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
       </div>
 
       <!-- Panel de clasificación -->
-      <aside class="clasif" :aria-label="t('Classification')">
+      <aside v-if="comex" class="clasif" :aria-label="t('Classification')">
         <section class="panel">
           <div class="eyebrow">{{ t('Tariff classification') }}</div>
           <div class="sello" :class="aprobado ? 'aprobado' : codigo6.length === 6 ? 'sugerido' : 'vacio'">
@@ -999,6 +1010,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
     <!-- Ventanas -->
     <GenericoModal v-if="agregarTallas" :generico="p.codigo_generico" @cerrar="agregarTallas = false" @listo="agregarTallas = false; cargar()" />
+    <GenericoModal v-if="editarProducto" :generico="p.codigo_generico" editar @cerrar="editarProducto = false" @listo="editarProducto = false; cargar()" />
     <Modal v-if="modal?.tipo === 'devolver'" :titulo="t('Return to the supplier')" @cerrar="modal = null">
       <label class="campo"><span class="req">{{ t('What should be corrected') }}</span><textarea v-model="modal.texto" class="entrada" rows="4" maxlength="2000"></textarea></label>
       <template #pie>
@@ -1045,6 +1057,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .rejilla-dl .par span { font-size: var(--t-xs); color: var(--tinta-3); }
 .rejilla-dl .par b { font-weight: 560; font-size: var(--t-base); overflow-wrap: anywhere; }
 .producto-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; margin-top: 4px; }
+.producto-layout.sin-lateral { grid-template-columns: minmax(0, 1fr); }
 .producto-principal .pestanas { margin-top: 4px; }
 .clasif { display: flex; flex-direction: column; gap: 14px; }
 .clasif .panel + .panel { margin-top: 0; }

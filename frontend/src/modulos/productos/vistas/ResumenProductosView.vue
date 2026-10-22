@@ -8,13 +8,15 @@ import Icono from '@/componentes/Icono.vue'
 import Kpi from '@/componentes/Kpi.vue'
 import { fmtFecha, fmtNum } from '@/nucleo/utils'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
-import { puede } from '@/stores/sesion'
+import { comercioExterior, puede } from '@/stores/sesion'
 
 // Resumen del módulo de productos (como el del ERP): la puesta en marcha
 // mientras falte configuración, las cifras, los productos por estado y por
 // familia, lo que falta completar y lo último modificado. Cada cifra abre el
 // catálogo con ese filtro.
 const router = useRouter()
+// Sin comercio exterior no hay fichas que revisar ni códigos que aprobar: solo las cifras del catálogo
+const comex = comercioExterior()
 const r = ref(null)
 const error = ref(false)
 async function cargar() {
@@ -31,11 +33,16 @@ alCambiar(cargar, ['/productos', '/catalogos'])
 const catalogo = (query = {}) => ({ path: '/productos/catalogo', query })
 const kpis = computed(() => [
   { titulo: t('Products'), valor: r.value.total, icono: 'caja', detalle: t('{0} variants (items)', [fmtNum(r.value.variantes)]), a: catalogo({ estado: '' }) },
+  ...(comex ? [
   // La vista «borradores» del catálogo incluye los devueltos
   { titulo: t('In draft'), valor: r.value.por_estado.borradores + r.value.por_estado.observado, icono: 'editar', detalle: t('Technical sheet to complete'),
     a: catalogo({ estado: 'borradores' }), tono: r.value.por_estado.borradores + r.value.por_estado.observado ? 'alerta' : 'normal' },
   { titulo: t('In review'), valor: r.value.por_estado.revision, icono: 'reloj', detalle: t('Waiting for customs review'), a: catalogo({ estado: 'revision' }) },
   { titulo: t('Approved'), valor: r.value.por_estado.aprobados, icono: 'check', detalle: t('Ready for orders and invoices'), a: catalogo({ estado: 'aprobados' }) },
+  ] : [
+    { titulo: t('Without family'), valor: r.value.sin_familia, icono: 'capas', detalle: t('The family says which data they need'), a: catalogo({ estado: '' }) },
+    { titulo: t('Without variants'), valor: r.value.sin_variantes, icono: 'caja', detalle: t('They cannot be ordered yet'), a: catalogo({ estado: '' }) },
+  ]),
 ])
 // Barras por estado de la ficha (un solo color; rótulo y cifra escritos)
 const porEstado = computed(() => [
@@ -48,19 +55,18 @@ const maximo = (lista, k = 'n') => Math.max(1, ...lista.map((x) => x[k]))
 const ancho = (n, lista, k) => `${Math.round((n / maximo(lista, k)) * 100)}%`
 const pct = (n) => (r.value.total ? t('{0}% of the products', [Math.round((n / r.value.total) * 100)]) : '')
 const pendientes = computed(() => [
-  { titulo: t('Without family'), n: r.value.sin_familia, texto: t('The family says their variants, labels and packing.'), a: catalogo({ estado: '' }) },
+  { titulo: t('Without family'), n: r.value.sin_familia, texto: t('The family says which data they need, their variants, labels and packing.'), a: catalogo({ estado: '' }) },
   { titulo: t('Without variants'), n: r.value.sin_variantes, texto: t('A product needs at least one item to be ordered.'), a: catalogo({ estado: '' }) },
-  { titulo: t('Variants without barcode'), n: r.value.sin_codigo_barras, texto: t('Labels and receiving use the UPC/EAN.'), a: '/mantenimiento?catalogo=articulos' },
-  { titulo: t('Blocking invoices'), n: r.value.bloquean, texto: t('Without an approved HS code their invoices cannot be finalized.'), a: catalogo({ estado: 'bloquean' }), tono: 'error' },
+  { titulo: t('Variants without barcode'), n: r.value.sin_codigo_barras, texto: t('Labels and receiving use the barcode (GTIN, EAN or UPC).'), a: '/mantenimiento?catalogo=articulos' },
+  ...(comex ? [{ titulo: t('Blocking invoices'), n: r.value.bloquean, texto: t('Without an approved HS code their invoices cannot be finalized.'), a: catalogo({ estado: 'bloquean' }), tono: 'error' }] : []),
 ])
 // Puesta en marcha: lo que hay que configurar antes de crear productos
 const pasos = computed(() => {
   const c = r.value?.configuracion
   if (!c) return []
   return [
-    { titulo: t('Suppliers and brands'), texto: t('Who makes the products and under which brands.'), hecho: c.proveedores > 0 && c.marcas > 0, a: '/mantenimiento?catalogo=proveedores' },
-    { titulo: t('Variant attributes'), texto: t('Size, color, flavor, concentration… what tells variants apart.'), hecho: c.atributos_variante > 0, a: '/mantenimiento?catalogo=atributos_variante' },
-    { titulo: t('Product families'), texto: t('Each family says its variant attributes; labels and packing use it.'), hecho: c.familias > 0, a: '/grupos-producto' },
+    { titulo: t('Variant attributes'), texto: t('What tells the variants of a product apart.'), hecho: c.atributos_variante > 0, a: '/mantenimiento?catalogo=atributos_variante' },
+    { titulo: t('Product families'), texto: t('Each family says which data its products need and their variant attributes; labels and packing use it.'), hecho: c.familias > 0, a: '/grupos-producto' },
     { titulo: t('First product'), texto: t('Create it step by step with its variants.'), hecho: r.value.total > 0, a: '/productos/nuevo' },
   ]
 })
@@ -110,7 +116,7 @@ const enMarcha = computed(() => pasos.value.length && avance.value < pasos.value
       </section>
 
       <div class="dos-columnas mt">
-        <section class="panel" aria-labelledby="t-estado">
+        <section v-if="comex" class="panel" aria-labelledby="t-estado">
           <div class="panel-cabeza"><div><h2 id="t-estado">{{ t('Products by status') }}</h2><p>{{ t('Where their technical sheet and classification are.') }}</p></div></div>
           <ul class="barras">
             <li v-for="e in porEstado" :key="e.clave">
@@ -168,7 +174,7 @@ const enMarcha = computed(() => pasos.value.length && avance.value < pasos.value
               <router-link :to="`/productos/${p.id}`" class="lista-accion-fila">
                 <span class="lista-accion-texto"><b>{{ tx(p.nombre || p.codigo || '—') }}</b>
                   <small><span class="mono">{{ tx(p.codigo || '') }}</span><template v-if="p.familia"> · {{ tx(p.familia) }}</template> · {{ fmtFecha(p.actualizado_en) }}</small></span>
-                <EstadoBadge :estado="p.estado" tipo="producto" />
+                <EstadoBadge v-if="comex" :estado="p.estado" tipo="producto" />
               </router-link>
             </li>
           </ul>

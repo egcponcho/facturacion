@@ -748,7 +748,7 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
         prov = m.proveedores.get(d["proveedor"])
         if prov and art.proveedor_id and art.proveedor_id != prov.id:
             errores.append(f"SKU {art.sku} belongs to another supplier, not {prov.nombre}.")
-        elif prov and art.marca_id not in {x.id for x in prov.marcas}:
+        elif prov and art.marca_id and art.marca_id not in {x.id for x in prov.marcas}:
             errores.append(f"Brand {art.marca.codigo} of SKU {art.sku} is not a brand of {prov.nombre}.")
         if not art.activo:
             errores.append(f"SKU {art.sku} is inactive in the item master.")
@@ -756,8 +756,9 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
             errores.append(f"Unit {d['unidad']} does not match the item master ({art.unidad}).")
         d.update(
             articulo_id=art.id, upc=art.upc, estilo=art.estilo, color=art.color, talla=art.talla,
-            descripcion=art.descripcion, marca=art.marca.codigo, grupo=art.grupo.codigo,
-            categoria=art.grupo.categoria, tipo_empaque=art.tipo, unidad=art.unidad,
+            descripcion=art.descripcion, marca=art.marca.codigo if art.marca else None,
+            grupo=art.grupo.codigo if art.grupo else None, categoria=art.grupo.categoria if art.grupo else None,
+            tipo_empaque=art.tipo, unidad=art.unidad,
             prepack=art.prepack.codigo if art.prepack else None,
             unidades_por_caja=art.prepack.total if art.prepack else None,
         )

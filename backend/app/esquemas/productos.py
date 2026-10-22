@@ -193,11 +193,15 @@ class GenericoIn(BaseModel):
     generico: str = Field(max_length=40)
     estilo: str | None = Field(None, max_length=40)  # opcional: para productos que se identifican por estilo
     color: str | None = Field(None, max_length=60)  # opcional: solo si el producto fija un color
-    marca_id: int
-    grupo_id: int
-    proveedor_id: int
+    # Opcionales: los exige la empresa o la familia (productos/perfil.py)
+    marca_id: int | None = None
+    grupo_id: int | None = None
+    proveedor_id: int | None = None
     unidad: str = Field(max_length=5)
     nombre: str | None = Field(None, max_length=200)
+    # Opcionales: los piden algunas familias (y el complemento de comercio exterior)
+    descripcion_comercial: str | None = Field(None, max_length=300)
+    pais_origen: str | None = Field(None, max_length=2)
     grupo_producto_id: int | None = None  # su familia (dice con qué atributos se distinguen sus variantes)
     tallas: list[TallaIn] = Field(default_factory=list, max_length=500)
     # Todas las combinaciones de estos valores ({"COLOR": ["BLACK", "WHITE"], "TALLA": ["7", "8"]})
@@ -216,7 +220,7 @@ class GenericoEditIn(BaseModel):
     color: str | None = Field(None, max_length=60)
     nombre: str | None = Field(None, max_length=200)
     grupo_producto_id: int | None = None
-    marca_id: int
-    grupo_id: int
-    proveedor_id: int
+    marca_id: int | None = None
+    grupo_id: int | None = None
+    proveedor_id: int | None = None
     unidad: str = Field(max_length=5)

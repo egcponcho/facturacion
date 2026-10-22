@@ -19,6 +19,12 @@ class Condicion(_Cuerpo):
     valor: str | int | float | list | None = None
 
 
+class CampoGrupo(_Cuerpo):
+    """Un dato del producto o del artículo que el grupo pide (obligatorio: se exige al guardar y al etiquetar)."""
+    campo: str = Field(max_length=80)
+    obligatorio: bool = False
+
+
 class GrupoIn(_Cuerpo):
     clase: str = "FAMILIA"
     codigo: str
@@ -27,6 +33,7 @@ class GrupoIn(_Cuerpo):
     padre_id: int | None = None
     condiciones: list[Condicion] = Field(default_factory=list)
     ejes_variante: list[str] = Field(default_factory=list, max_length=20)
+    campos: list[CampoGrupo] = Field(default_factory=list, max_length=60)
 
 
 class GrupoPatch(_Cuerpo):
@@ -36,6 +43,7 @@ class GrupoPatch(_Cuerpo):
     padre_id: int | None = None
     condiciones: list[Condicion] | None = None
     ejes_variante: list[str] | None = Field(None, max_length=20)
+    campos: list[CampoGrupo] | None = Field(None, max_length=60)
     orden: int | None = None
     activa: bool | None = None
 

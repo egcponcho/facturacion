@@ -144,7 +144,7 @@ function editarDesc() {
 
     <!-- Producto -->
     <section id="blk-producto" class="bloque">
-      <div class="bloque-head"><h3>{{ t('Product') }}</h3><span class="sub">{{ t('What it is and who it is for. Shared by every size and prepack.') }}</span></div>
+      <div class="bloque-head"><h3>{{ t('Product') }}</h3><span class="sub">{{ t('What it is and who it is for. Shared by every variant, pack and kit.') }}</span></div>
       <div class="fila2">
         <div class="campo-f">
           <label for="f_categoria" class="req">{{ t('Category') }}</label>
@@ -153,7 +153,7 @@ function editarDesc() {
           <p v-else-if="r?.categoria?.capitulos?.length" class="hint">{{ t('Chapter {0} · only what changes its code is asked', [r.categoria.capitulos.join(' / ')]) }}</p>
         </div>
         <div class="campo-f">
-          <span class="lbl-f">{{ t('Generic') }}</span>
+          <span class="lbl-f">{{ t('Product code') }}</span>
           <span class="generico-fijo" :title="t('Product code: all its variants share this sheet')">{{ tx(producto.codigo_generico || '—') }}<small>{{ tx(producto.skus) }} {{ tx(producto.skus === 1 ? 'variant' : 'variants') }}<template v-if="producto.resumen_variantes"> ({{ tx(producto.resumen_variantes) }})</template><template v-if="producto.n_prepacks"> · {{ tx(producto.n_prepacks) }} {{ tx(producto.n_prepacks === 1 ? 'pack' : 'packs') }}</template></small></span>
         </div>
       </div>

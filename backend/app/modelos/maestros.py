@@ -485,10 +485,11 @@ class Articulo(DeOrganizacion, Base):
     color: Mapped[str | None] = mapped_column(String(60))
     talla: Mapped[str | None] = mapped_column(String(20))
     descripcion: Mapped[str | None] = mapped_column(String(300))
-    marca_id: Mapped[int] = mapped_column(ForeignKey("marcas.id"), index=True)
-    grupo_id: Mapped[int] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
+    # Marca, grupo y proveedor son opcionales (migración 0091): los exige la empresa o la familia
+    marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
+    grupo_id: Mapped[int | None] = mapped_column(ForeignKey("grupos_articulos.id"), index=True)
     proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)
-    unidad: Mapped[str] = mapped_column(String(5))  # PAR | UN | CJ (prepack)
+    unidad: Mapped[str] = mapped_column(String(5))  # código de la lista de unidades (unidades_medida)
     # Peso neto de una unidad (par, pieza o, en un prepack, la curva completa), en kg.
     # El peso del empaque no va aquí: es la tara de cada nivel de empaque.
     peso_unitario: Mapped[float | None] = mapped_column(Float)
@@ -505,8 +506,8 @@ class Articulo(DeOrganizacion, Base):
         "familia_etiquetado_id", ForeignKey("familias_etiquetado.id", name="fk_articulos_familia_etiquetado_id"), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    marca: Mapped[Marca] = relationship()
-    grupo: Mapped[GrupoArticulo] = relationship()
+    marca: Mapped[Marca | None] = relationship()
+    grupo: Mapped[GrupoArticulo | None] = relationship()
     prepack: Mapped[Prepack | None] = relationship()
     producto: Mapped[Producto | None] = relationship(back_populates="articulos")
     grupo_producto: Mapped["GrupoProducto | None"] = relationship()  # noqa: F821

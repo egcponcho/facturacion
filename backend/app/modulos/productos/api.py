@@ -23,6 +23,14 @@ def listar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = 
     return svc.listar(db, user, filtros, page, size, orden, tabla.leer(f))
 
 
+@router.get("/productos/perfil")
+def perfil_datos(db: Db, user: User, grupo_id: int | None = None):
+    """Qué datos pide un producto de la familia (o sin familia): el núcleo, lo que exige la empresa y lo que exige la familia."""
+    from app.modulos.productos import perfil
+
+    return perfil.perfil(db, user, grupo_id)
+
+
 @router.get("/productos/resumen")
 def resumen_productos(db: Db, user: User):
     """Tablero del módulo de productos: cifras, estados, familias, lo que falta completar, lo reciente y la puesta en marcha."""

@@ -113,7 +113,12 @@ def ids_bloquean_facturas(db: Session, prov: frozenset | None = None) -> set[int
     """Productos sin clasificación aprobada que dejan una factura en curso sin
     partida (no se puede finalizar hasta aprobarlos)."""
     from app.modelos import Factura, FacturaLinea, PosicionOC
+    from app.modulos.acceso.permisos import exige_datos_aduana
     from app.modulos.facturacion.estados import EDITABLE_FACTURA
+
+    # Sin datos de aduana exigidos (o sin comercio exterior), ninguna ficha detiene una factura
+    if not exige_datos_aduana():
+        return set()
 
     consulta = (select(FacturaLinea).join(Factura).where(Factura.estado.in_(EDITABLE_FACTURA),
                                                          or_(FacturaLinea.partida_arancelaria.is_(None),
@@ -190,7 +195,7 @@ def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
                                              *([or_(Producto.codigo_generico.is_(None), Producto.codigo_generico == gen)]
                                                if explicito else [])))
     if not p:
-        if not a.proveedor_id or not gen:
+        if not gen:
             return None
         # Un producto con estilo es estilo-color (fija el color); sin estilo, el color es un valor
         # de variante más
@@ -198,7 +203,7 @@ def asegurar_producto(db: Session, a: Articulo) -> Producto | None:
         p = Producto(proveedor_id=a.proveedor_id, estilo=a.estilo, color=a.color if fija_color else None,
                      marca_id=a.marca_id,
                      grupo_id=a.grupo_id, unidad=a.unidad if a.tipo == "SOLIDO" else None, ficha={}, faltan=[],
-                     alertas_ok=[], codigo_generico=gen, nombre=None if a.estilo else a.descripcion)
+                     alertas_ok=[], codigo_generico=gen, nombre=(None if a.estilo else a.descripcion) or gen)
         db.add(p)
     if gen and not p.codigo_generico:
         p.codigo_generico = gen
@@ -351,13 +356,16 @@ def _tallas(db: Session, ids: list[int]) -> dict:
 ORDEN = {"estilo": Producto.estilo, "estado": Producto.estado, "actualizado": Producto.actualizado_en,
          "codigo": Producto.codigo, "tipo": Producto.tipo,
          # Columnas de la tabla de productos (TablaDatos)
-         "producto": Producto.estilo, "proveedor": Proveedor.nombre, "generico": Producto.codigo_generico,
+         # El producto se reconoce por su nombre (o su código, si no tiene)
+         "producto": func.coalesce(Producto.nombre, Producto.codigo_generico), "proveedor": Proveedor.nombre,
+         "generico": Producto.codigo_generico,
          "color": Producto.color, "origen": Producto.pais_origen}
 
 # Columnas de la tabla de productos que se filtran por sus valores (app/modulos/comun/tabla.py).
 # El código es el aprobado o, mientras no lo hay, el sugerido (como se ve en la lista).
 COLUMNAS_PRODUCTOS = {
-    "producto": Producto.estilo, "generico": Producto.codigo_generico, "color": Producto.color,
+    "producto": func.coalesce(Producto.nombre, Producto.codigo_generico), "generico": Producto.codigo_generico,
+    "color": Producto.color,
     "proveedor": Proveedor.nombre, "tipo": Producto.tipo, "codigo": func.coalesce(Producto.codigo, Producto.sugerido),
     "estado": Producto.estado, "origen": Producto.pais_origen,
 }
@@ -394,7 +402,7 @@ def _consulta_productos(db: Session, user: Usuario, filtros: dict):
     Devuelve la consulta y el alcance de proveedores."""
     exigir(user, "producto.ver")
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
-    base = select(Producto).join(Proveedor, Proveedor.id == Producto.proveedor_id)
+    base = select(Producto).outerjoin(Proveedor, Proveedor.id == Producto.proveedor_id)
     if prov:
         base = base.where(Producto.proveedor_id.in_(prov))
     if filtros.get("marca_id"):

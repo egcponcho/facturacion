@@ -92,7 +92,7 @@ PERMISOS = {k: (et, roles, prov) for _, ps in MODULOS for k, et, roles, prov in 
 MODULOS_ACTIVABLES = {
     "transporte": ("Shipments, warehouse receipts, stock and logistics costs",
                    ["transporte.gestionar", "recepcion.registrar", "inventario.ver", "costos.ver", "costos.editar"]),
-    "clasificacion": ("Tariff classification: tariff schedule and product families",
+    "clasificacion": ("Foreign trade: customs technical sheet, tariff classification, tariff schedule and trade agreements",
                       ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
     "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
     "etiquetado": ("Labels: label designs, versions and label generation",
@@ -127,6 +127,20 @@ def modulos_activos() -> dict[str, bool]:
 
     propios = configuracion_actual().get("modulos") or {}
     return {k: propios.get(k, True) is not False for k in MODULOS_ACTIVABLES}
+
+
+def comercio_exterior() -> bool:
+    """La empresa usa el complemento de comercio exterior (módulo «clasificacion»): ficha
+    aduanera, clasificación arancelaria, acuerdos comerciales. Apagado, un producto es solo
+    sus datos y sus variantes, y nada espera una partida arancelaria."""
+    return modulos_activos()["clasificacion"]
+
+
+def exige_datos_aduana() -> bool:
+    """País de origen y partida por línea para finalizar: la regla de la empresa, si usa comercio exterior."""
+    from app.core.empresa import regla
+
+    return bool(regla("REQUERIR_DATOS_ADUANA")) and comercio_exterior()
 
 
 def _sin_modulos_apagados(permisos: list[str]) -> list[str]:

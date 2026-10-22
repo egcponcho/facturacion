@@ -28,6 +28,7 @@ from app.modelos.base import exacto
 from app.modulos.acceso.permisos import (
     asegurar_proveedor,
     es_interno,
+    exige_datos_aduana,
     exigir,
     permisos_de,
     proveedor_filtro,
@@ -570,14 +571,14 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the reason for the price change is missing."})
         if not (l.descripcion_comercial or "").strip():
             errores.append({"linea_id": l.id, "mensaje": f"{ref}: the commercial description of the goods is missing."})
-        if regla("REQUERIR_DATOS_ADUANA"):
+        if exige_datos_aduana():
             if not l.pais_origen:
                 errores.append({"linea_id": l.id, "mensaje": f"{ref}: the country of origin is missing."})
             if not l.partida_arancelaria:
                 prod = producto_de(l.posicion_oc.articulo)
                 if prod and not prod.aprobado:
                     errores.append({"linea_id": l.id, "codigo": "sin_clasificar", "producto_id": prod.id, "mensaje":
-                                    f"{ref}: the HS code is missing: product {prod.estilo} {prod.color or ''} is not "
+                                    f"{ref}: the HS code is missing: product {prod.codigo_generico or prod.nombre} is not "
                                     "classified yet (Products)."})
                 else:
                     errores.append({"linea_id": l.id, "mensaje": f"{ref}: the HS code is missing."})

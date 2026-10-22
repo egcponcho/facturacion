@@ -33,11 +33,11 @@ async function alCargar(r) {
 </script>
 
 <template>
-  <CargaMasiva :titulo="t('Upload items with their technical sheet')" ruta="/catalogos/articulos/importar" plantilla="/catalogos/articulos/plantilla"
-               :ayuda="t('Sheet Generics: one row per generic (style-color) with its data and technical sheet. Sheet Sizes: one row per size with your item code, or leave it empty to use the generic plus a size code. After the upload the engine completes the sheet and suggests the HS code.')"
+  <CargaMasiva :titulo="t('Upload products and their variants')" ruta="/catalogos/articulos/importar" plantilla="/catalogos/articulos/plantilla"
+               :ayuda="t('Sheet Products: one row per product with its code, name and unit (the rest only if your company or its family requires it) and, if you use them, its technical sheet columns. Sheet Variants: one row per variant with its values and your item code, or leave it empty to use the product code plus a variant code.')"
                @cerrar="emit('cerrar')" @cargado="alCargar">
     <template #resultado="{ resultado }">
-      <template v-if="resultado.productos_total">&nbsp;{{ t('{0} products (style-color).', [resultado.productos_total]) }}</template>
+      <template v-if="resultado.productos_total">&nbsp;{{ t('{0} products.', [resultado.productos_total]) }}</template>
       <template v-if="avance">&nbsp;{{ t('Classifying {0} of {1}…', [avance.n, avance.total]) }}</template>
       <template v-else-if="clasificados !== null">&nbsp;{{ t('{0} classified as drafts; send them to review from', [clasificados]) }} <router-link to="/productos?estado=sugerida">{{ t('Products') }}</router-link>.</template>
     </template>

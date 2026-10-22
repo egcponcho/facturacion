@@ -29,9 +29,9 @@ const modal = ref(null) // { generico, editar }
 
 const ESTADOS = ['borrador', 'sugerida', 'revision', 'observado', 'aprobado'].map((c) => [c, leerEstado(c, 'producto')[0]])
 const columnas = computed(() => [
-  { clave: 'generico', texto: t('Generic'), fija: true, prioridad: 1 },
-  { clave: 'estilo', texto: t('Style'), prioridad: 1 },
-  { clave: 'color', texto: t('Color'), prioridad: 2 },
+  { clave: 'generico', texto: t('Product code'), fija: true, prioridad: 1 },
+  { clave: 'estilo', texto: t('Model'), prioridad: 3, inicial: false },
+  { clave: 'color', texto: t('Fixed color'), prioridad: 3, inicial: false },
   { clave: 'marca_id', texto: t('Brand'), prioridad: 2, textoValor: (v) => props.nombre('marca_id', v) },
   { clave: 'grupo_id', texto: t('Group'), prioridad: 3, textoValor: (v) => props.nombre('grupo_id', v) },
   { clave: 'proveedor_id', texto: t('Supplier'), prioridad: 2, textoValor: (v) => props.nombre('proveedor_id', v) },
@@ -40,13 +40,15 @@ const columnas = computed(() => [
   { clave: 'descripcion_comercial', texto: t('Description · HS code'), prioridad: 3 },
   { clave: 'estado', texto: t('Sheet status'), prioridad: 3, inicial: false, opciones: ESTADOS },
 ])
+// El código de la variante: lo que sigue al código del producto en su código de artículo
+const sufijo = (a) => (a.generico && a.sku.startsWith(a.generico) ? a.sku.slice(a.generico.length) : '')
 const columnasTallas = [
   { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
-  { clave: 'codigo_talla', texto: t('Size code'), prioridad: 3, valor: (a) => a.sku.slice(8) },
-  { clave: 'tipo', texto: t('Type'), prioridad: 2, opciones: [['SOLIDO', t('Solid')], ['PREPACK', t('Prepack')]] },
+  { clave: 'codigo_talla', texto: t('Variant code'), prioridad: 3, valor: (a) => sufijo(a) },
+  { clave: 'tipo', texto: t('Type'), prioridad: 2, opciones: [['SOLIDO', t('Simple')], ['PREPACK', t('Pack or kit')]] },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
-  { clave: 'upc', texto: 'UPC', prioridad: 3, textoValor: (v) => v || '—' },
-  { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3, textoValor: (v) => v || '—' },
+  { clave: 'upc', texto: t('Barcode'), prioridad: 3, textoValor: (v) => v || '—' },
+  { clave: 'sku_proveedor', texto: t('Supplier code'), prioridad: 3, textoValor: (v) => v || '—' },
   { clave: 'activo', texto: t('Active'), prioridad: 2, opciones: [[true, t('Yes')], [false, t('No')]] },
 ]
 
@@ -91,12 +93,12 @@ watch(() => props.recarga, () => {
 
 <template>
   <TablaDatos ref="tabla" tabla="catalogo_genericos" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
-              clave-fila="generico" :valores="valores" :filtros-iniciales="iniciales" expandible :externos="{ q }" :etiqueta="t('Generics')"
+              clave-fila="generico" :valores="valores" :filtros-iniciales="iniciales" expandible :externos="{ q }" :etiqueta="t('Products')"
               @consulta="cargar" @expandir="(g) => !detalles[g.generico] && cargarTallas(g.generico)">
     <template #barra><slot name="barra" /></template>
     <template #filtros><slot name="filtros" /></template>
     <template #celda-generico="{ fila: g }"><strong class="codigo">{{ tx(g.generico) }}</strong><span class="sub">{{ tx(g.unidad) }}</span></template>
-    <template #celda-estilo="{ fila: g }"><span class="fuerte">{{ tx(g.estilo) }}</span></template>
+    <template #celda-estilo="{ fila: g }">{{ tx(g.estilo || '—') }}</template>
     <template #celda-marca_id="{ fila: g }">{{ tx(g.marca || '—') }}</template>
     <template #celda-grupo_id="{ fila: g }"><span class="codigo">{{ tx(g.grupo || '—') }}</span></template>
     <template #celda-proveedor_id="{ fila: g }">{{ tx(g.proveedor || '—') }}</template>
@@ -113,16 +115,16 @@ watch(() => props.recarga, () => {
     <template #celda-estado="{ fila: g }"><EstadoBadge :estado="g.estado" tipo="producto" /></template>
     <template #acciones="{ fila: g }">
       <span class="nowrap">
-        <button v-if="puede('catalogos.crear')" type="button" class="btn btn-chico" :title="t('Add sizes to this generic')" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />{{ t('Sizes') }}</button>
-        <button v-if="puede('catalogos.editar')" type="button" class="btn-icono" :aria-label="t('Edit generic {0}', [g.generico])" :title="t('Edit the generic (applies to all its sizes)')" @click="modal = { generico: g.generico, editar: true }"><Icono nombre="editar" :tam="16" /></button>
+        <button v-if="puede('catalogos.crear')" type="button" class="btn btn-chico" :title="t('Add variants to this product')" @click="modal = { generico: g.generico }"><Icono nombre="mas" :tam="13" />{{ t('Variants') }}</button>
+        <button v-if="puede('catalogos.editar')" type="button" class="btn-icono" :aria-label="t('Edit product {0}', [g.generico])" :title="t('Edit the product (applies to all its variants)')" @click="modal = { generico: g.generico, editar: true }"><Icono nombre="editar" :tam="16" /></button>
       </span>
     </template>
     <template #detalle="{ fila: g }">
       <p v-if="!detalles[g.generico]" class="ayuda">{{ t('Loading…') }}</p>
-      <TablaDatos v-else :tabla="'catalogo_genericos_tallas'" :columnas="columnasTallas" :filas="detalles[g.generico]" :vistas-guardadas="false" :etiqueta="t('Items of generic {0}', [g.generico])">
+      <TablaDatos v-else :tabla="'catalogo_genericos_tallas'" :columnas="columnasTallas" :filas="detalles[g.generico]" :vistas-guardadas="false" :etiqueta="t('Variants of product {0}', [g.generico])">
         <template #celda-sku="{ fila: a }"><span class="codigo fuerte">{{ tx(a.sku) }}</span></template>
-        <template #celda-codigo_talla="{ fila: a }"><span class="codigo">{{ tx(a.sku.slice(8)) }}</span></template>
-        <template #celda-tipo="{ fila: a }"><span class="etiqueta ms-0" :class="{ acento: a.tipo === 'PREPACK' }">{{ tx(a.tipo === 'PREPACK' ? t('Prepack') : t('Solid')) }}</span></template>
+        <template #celda-codigo_talla="{ fila: a }"><span class="codigo">{{ tx(sufijo(a) || '—') }}</span></template>
+        <template #celda-tipo="{ fila: a }"><span class="etiqueta ms-0" :class="{ acento: a.tipo === 'PREPACK' }">{{ tx(a.tipo === 'PREPACK' ? t('Pack or kit') : t('Simple')) }}</span></template>
         <template #celda-activo="{ fila: a }"><span class="etiqueta ms-0" :class="a.activo ? 'ok' : ''">{{ tx(a.activo ? t('Yes') : t('No')) }}</span></template>
         <template #acciones="{ fila: a }">
           <span class="nowrap">
@@ -131,10 +133,10 @@ watch(() => props.recarga, () => {
             <button v-if="puede('catalogos.eliminar')" type="button" class="btn-icono texto-error" :aria-label="t('Delete item {0}', [a.sku])" :title="t('Delete')" @click="emit('eliminar-articulo', a)"><Icono nombre="basura" :tam="15" /></button>
           </span>
         </template>
-        <template #vacio>{{ t('This generic has no sizes yet.') }}</template>
+        <template #vacio>{{ t('This product has no variants yet.') }}</template>
       </TablaDatos>
     </template>
-    <template #vacio>{{ t('No generics match these filters.') }}</template>
+    <template #vacio>{{ t('No products match these filters.') }}</template>
   </TablaDatos>
   <GenericoModal v-if="modal" :generico="modal.generico" :editar="!!modal.editar" @cerrar="modal = null" @listo="listo" />
 </template>

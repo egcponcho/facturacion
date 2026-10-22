@@ -545,34 +545,36 @@ CATALOGOS = {
     },
     "articulos": {
         "modelo": Articulo, "titulo": "Items", "singular": "item",
-        "ayuda": "Master data of each item: the item code (your company's own format) and the supplier SKU are different. "
-                 "The description, the product type and the HS code come from the product's technical sheet (Products), "
-                 "not from this form. Packs and kits are created in their own tab; a pack takes the classification of its variants.",
+        "ayuda": "Each variant of a product (item): its item code (your company's own format) is not the supplier code. "
+                 "Only the item code, the type and the unit are required; your company (required data) or the product family "
+                 "can require more. Packs and kits are created in their own tab and take their data from their variants.",
         "campos": [
             c("sku", "Item code", obligatorio=True, max=40, mayus=True, patron=r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$",
               mensaje_patron="Letters and numbers (also . - _ /), up to 40 characters."),
             c("generico", "Product code", max=40, mayus=True,
-              ayuda="Groups the variants and packs of one product: they share the technical sheet. Empty = style-color "
-                    "if the item has a style, else the item code (a product without variants)."),
-            c("sku_proveedor", "Supplier SKU", max=60, mayus=True,
-              ayuda="The supplier's own code, e.g. VN0A4BV4W00-7."),
-            c("estilo", "Style / model", mayus=True, ayuda="Optional: for products identified by style or model."),
+              ayuda="Groups the variants, packs and kits of one product: they share its data. Empty = the item code "
+                    "(a product without variants)."),
+            c("sku_proveedor", "Supplier code", max=60, mayus=True,
+              ayuda="The supplier's own code for this variant."),
+            c("estilo", "Model", mayus=True, ayuda="Optional: for companies that name their products by a model or reference."),
+            # Copias de los atributos de variante de sistema (se escriben desde los valores de la variante)
             c("color", "Color", ayuda="Empty if the item has no color."),
-            c("talla", "Size / prepack ID", mayus=True,
-              ayuda="Empty if the item has no size. For a prepack it is its prepack ID, e.g. AB12."),
-            c("marca_id", "Brand", "ref", obligatorio=True, catalogo="marcas", filtro=True,
+            c("talla", "Size / pack ID", mayus=True,
+              ayuda="Empty if the item has no size. For a pack it is its pack ID, e.g. AB12."),
+            # Opcionales: la empresa los vuelve obligatorios (gobierno) o los pide la familia del producto
+            c("marca_id", "Brand", "ref", catalogo="marcas", filtro=True,
               depende={"campo": "proveedor_id", "clave": "proveedores"}),
-            c("grupo_id", "Item group", "ref", obligatorio=True, catalogo="grupos", filtro=True,
-              ayuda="Internal grouping and packing rule; the product type is set by the technical sheet."),
-            c("proveedor_id", "Supplier", "ref", obligatorio=True, catalogo="proveedores", filtro=True,
-              ayuda="Each supplier handles its items; the brand must be one of theirs."),
+            c("grupo_id", "Item group", "ref", catalogo="grupos", filtro=True,
+              ayuda="Optional internal grouping (extra days, reports); the family says what kind of product it is."),
+            c("proveedor_id", "Supplier", "ref", catalogo="proveedores", filtro=True,
+              ayuda="Who sells it to you. Empty for your own products. With a supplier, the brand must be one of theirs."),
             c("tipo", "Type", "opcion", obligatorio=True, filtro=True,
               opciones=[["SOLIDO", "Simple"], ["PREPACK", "Pack or kit"]]),
             c("unidad", "Unit", "opcion", obligatorio=True, lista="unidad", filtro=True),
             c("peso_unitario", "Unit weight (kg)", "numero", minimo=0,
               ayuda="Net weight of one unit of the item (for a pack or kit, all of its contents). The packaging "
                     "weight is not included: each packaging level adds its own tare. Empty in a pack = sum of its contents."),
-            c("upc", "UPC"),
+            c("upc", "Barcode", ayuda="GTIN, EAN or UPC."),
             c("activo", "Active", "bool", filtro=True),
         ],
         "buscar": ["sku", "sku_proveedor", "estilo", "color", "upc", "descripcion"],
@@ -587,7 +589,7 @@ CATALOGOS = {
             c("tipo", "Kind", "opcion", filtro=True, opciones=[["CURVA", "Pack of variants"], ["KIT", "Kit"]]),
             c("codigo", "Pack ID", obligatorio=True, max=10, mayus=True, patron=r"^[A-Z0-9]{2,10}$",
               mensaje_patron="Letters and numbers only, e.g. AB12."),
-            c("estilo", "Style / model", mayus=True, filtro=True),
+            c("estilo", "Model", mayus=True, filtro=True),
             c("color", "Color"),
             c("descripcion", "Description"),
             c("activo", "Active", "bool", filtro=True),
@@ -1206,7 +1208,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         if base:
             distintos = [k for k, v in base.items() if v is not None and final.get(k) not in (None, "") and final.get(k) != v]
             if distintos:
-                nombres = {"estilo": "style", "color": "color", "marca_id": "brand", "proveedor_id": "supplier"}
+                nombres = {"estilo": "model", "color": "color", "marca_id": "brand", "proveedor_id": "supplier"}
                 errores.append({"campo": distintos[0], "mensaje":
                                 f"The variants of product {gen} share the {', '.join(nombres[k] for k in distintos)}: "
                                 "use the same ones or another product code."})
@@ -1223,7 +1225,7 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         errores.append({"campo": "proveedor_id", "mensaje": "The item is on purchase orders: its supplier cannot change."})
     if cat["modelo"] is Proveedor and actual and "marcas" in limpio:
         quedan = {m.id for m in limpio["marcas"]}
-        usadas = {m for (m,) in db.execute(select(Articulo.marca_id).where(Articulo.proveedor_id == actual.id).distinct())}
+        usadas = {m for (m,) in db.execute(select(Articulo.marca_id).where(Articulo.proveedor_id == actual.id, Articulo.marca_id.is_not(None)).distinct())}
         if usadas - quedan:
             nombres_m = [m.codigo for m in db.scalars(select(Marca).where(Marca.id.in_(usadas - quedan)))]
             errores.append({"campo": "marcas", "mensaje":
@@ -1456,7 +1458,7 @@ def componentes(db: Session, user: Usuario, prepack_id: int, validar: bool = Tru
     art = db.scalar(select(Articulo).where(Articulo.prepack_id == p.id))
     return {
         "sku": art.sku if art else None, "unidad": art.unidad if art else unidades.de_compuesto(),
-        "marca": art.marca.codigo if art else None,
+        "marca": art.marca.codigo if art and art.marca else None,
         "id": p.id, "codigo": p.codigo, "estilo": p.estilo, "color": p.color, "descripcion": p.descripcion,
         "total": p.total,
         "unidad_componentes": p.componentes[0].articulo.unidad if p.componentes else None,

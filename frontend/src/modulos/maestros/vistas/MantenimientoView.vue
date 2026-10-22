@@ -120,7 +120,7 @@ const columnasTabla = computed(() => [
   ...extras.value.map((ex) => ({ clave: ex.nombre, texto: ex.etiqueta, ordenable: false, filtro: false, prioridad: 3 })),
   ...(tipo.value === 'articulos' ? [{ clave: 'ficha', texto: t('HS code · description'), ordenable: false, filtro: false, prioridad: 3 }] : []),
   ...(tipo.value === 'prepacks' ? [{ clave: 'sku', texto: t('Item code'), prioridad: 1 },
-    { clave: 'total', texto: t('Per carton'), num: true, ordenable: false, filtro: false, prioridad: 2 }] : []),
+    { clave: 'total', texto: t('Per pack'), num: true, ordenable: false, filtro: false, prioridad: 2 }] : []),
 ])
 // Valores únicos de una columna (del servidor, bajo los demás filtros)
 const valoresColumna = (columna, buscar, otros) => api.get(`/catalogos/${tipo.value}/valores`, { columna, buscar, q: filtros.q || undefined, f: JSON.stringify(otros) })
@@ -530,7 +530,7 @@ onMounted(async () => {
         <BotonesExportar v-if="cat" :ruta="`/catalogos/${tipo}/exportar`" :params="paramsExportar" />
         <router-link v-if="tipo === 'leadtimes' || tipo === 'pasos_lt'" class="btn" to="/leadtimes"><Icono nombre="reloj" :tam="15" />{{ t('Effective lead time') }}</router-link>
         <a v-if="tipo === 'prepacks'" class="btn" href="/plantilla_prepacks.csv" download><Icono nombre="descargar" />{{ t('Template') }}</a>
-        <button v-if="cat && acciones.crear" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload items and sheets') : tipo === 'prepacks' ? t('Upload size runs') : t('Upload Excel')) }}</button>
+        <button v-if="cat && acciones.crear" class="btn" @click="abrirCarga"><Icono nombre="importar" />{{ tx(tipo === 'articulos' ? t('Upload products') : tipo === 'prepacks' ? t('Upload packs and kits') : t('Upload Excel')) }}</button>
       </MasOpciones>
       <!-- Los artículos se crean con su producto: «Nuevo producto» en la barra del módulo -->
       <button v-if="cat && tipo !== 'articulos' && acciones.crear" class="btn btn-primario" @click="abrirNuevo"><Icono nombre="mas" />{{ tr('New {0}', [cat.singular]) }}</button>
@@ -572,12 +572,12 @@ onMounted(async () => {
         <template #barra>
           <label class="buscador">
             <Icono nombre="buscar" :tam="16" />
-            <input v-model="filtros.q" type="search" :placeholder="t('Search generic, style, color, item code, UPC or supplier SKU')" :aria-label="t('Search')" @input="buscar" />
+            <input v-model="filtros.q" type="search" :placeholder="t('Search product code, item code, barcode or supplier code')" :aria-label="t('Search')" @input="buscar" />
           </label>
         </template>
         <template #filtros>
           <div class="segmentos" role="group" :aria-label="t('Items view')">
-            <button type="button" class="segmento" aria-pressed="true" :title="t('One row per generic; expand it to see its sizes')">{{ t('Compact') }}</button>
+            <button type="button" class="segmento" aria-pressed="true" :title="t('One row per product; expand it to see its variants')">{{ t('Compact') }}</button>
             <button type="button" class="segmento" aria-pressed="false" :title="t('One row per item code')" @click="cambiarVista('lista')">{{ t('List') }}</button>
           </div>
         </template>
@@ -594,7 +594,7 @@ onMounted(async () => {
         </template>
         <template v-if="tipo === 'articulos'" #filtros>
           <div class="segmentos" role="group" :aria-label="t('Items view')">
-            <button type="button" class="segmento" aria-pressed="false" :title="t('One row per generic; expand it to see its sizes')" @click="cambiarVista('compacta')">{{ t('Compact') }}</button>
+            <button type="button" class="segmento" aria-pressed="false" :title="t('One row per product; expand it to see its variants')" @click="cambiarVista('compacta')">{{ t('Compact') }}</button>
             <button type="button" class="segmento" aria-pressed="true" :title="t('One row per item code')">{{ t('List') }}</button>
           </div>
         </template>
@@ -630,7 +630,7 @@ onMounted(async () => {
           <span v-if="fila.descripcion" class="sub desc-corta" :title="tx(fila.descripcion)">{{ tx(fila.descripcion) }}</span>
         </template>
         <template v-if="tipo === 'prepacks'" #celda-sku="{ fila }"><span class="codigo fuerte">{{ tx(fila.sku || '—') }}</span></template>
-        <template v-if="tipo === 'prepacks'" #celda-total="{ fila }">{{ tx(fila.total) }} <span class="sub">{{ t('{0} sizes', [fila.componentes]) }}</span></template>
+        <template v-if="tipo === 'prepacks'" #celda-total="{ fila }">{{ tx(fila.total) }} <span class="sub">{{ t('{0} variants', [fila.componentes]) }}</span></template>
         <template #acciones="{ fila }">
           <span class="nowrap">
             <button v-if="tipo === 'prepacks' || fila.tipo === 'PREPACK'" type="button" class="btn btn-chico" :title="t('See the breakdown (it never changes)')"
@@ -653,14 +653,14 @@ onMounted(async () => {
             <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'CURVA'" @click="nuevoPP.tipo = 'CURVA'">{{ t('Pack of variants') }}</button>
             <button type="button" class="pildora" role="radio" :aria-checked="nuevoPP.tipo === 'KIT'" @click="nuevoPP.tipo = 'KIT'">{{ t('Kit') }}</button>
           </div>
-          <small class="ayuda">{{ nuevoPP.tipo === 'KIT' ? t('A kit puts together items of any products (a set, a gift box).') : t('Variants of one product (sizes, flavors, presentations…) per unit.') }}</small>
+          <small class="ayuda">{{ nuevoPP.tipo === 'KIT' ? t('A kit puts together items of any products (a set, a gift box).') : t('Variants of one product and how many of each go in one pack.') }}</small>
         </div>
         <label class="campo"><span class="req">{{ t('Item code') }}</span>
           <input v-model="nuevoPP.sku" maxlength="40" :placeholder="t('Your item code for the pack')" required />
           <small v-if="erroresPP.sku" class="nota error relleno-chico">{{ tx(erroresPP.sku) }}</small>
           <small v-else class="ayuda">{{ t('Any code in your format. A pack belongs to the product of its variants; a code is proposed when you choose the product.') }}</small>
         </label>
-        <label v-if="nuevoPP.tipo === 'KIT'" class="campo"><span>{{ t('Kit style / model') }}</span>
+        <label v-if="nuevoPP.tipo === 'KIT'" class="campo"><span>{{ t('Kit model') }}</span>
           <input class="mayus" v-model="nuevoPP.estilo" maxlength="40" :placeholder="t('Optional')" />
         </label>
         <label v-else class="campo"><span class="req">{{ t('Product') }}</span>
@@ -710,7 +710,7 @@ onMounted(async () => {
           <small v-else class="ayuda">{{ t('Only variants of product {0}. Leave at 0 the ones it does not carry. Once created it never changes.', [nuevoPP.generico]) }}</small>
         </div>
         <p class="leyenda-req">{{ t('Required') }}</p>
-        <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ nuevoPP.tipo === 'KIT' ? t('Create kit') : t('Create prepack') }}</button>
+        <button class="btn btn-primario" type="submit" :disabled="ocupado || !totalPP"><Icono nombre="mas" :tam="16" />{{ nuevoPP.tipo === 'KIT' ? t('Create kit') : t('Create pack') }}</button>
       </form>
       <form v-else class="form-catalogo" @submit.prevent="guardar">
         <template v-for="sec in seccionesForm" :key="sec.clave">
@@ -735,7 +735,7 @@ onMounted(async () => {
             <textarea v-else-if="c.tipo === 'correos'" v-model="form[c.nombre]" rows="2" :required="c.obligatorio"
                       :placeholder="t('name@company.com, other@company.com')"></textarea>
             <input v-else v-model="form[c.nombre]" :type="c.tipo === 'entero' || c.tipo === 'numero' ? 'number' : c.tipo === 'fecha' ? 'date' : 'text'"
-                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="tx(bloqueado(c) ? t('Cannot change: it is part of the prepack') : '')" />
+                   :min="c.minimo" :maxlength="c.max" :required="c.obligatorio" :disabled="bloqueado(c)" :title="tx(bloqueado(c) ? t('Cannot change: it is part of the pack') : '')" />
             <small v-if="erroresForm[c.nombre]" class="nota error relleno-chico">{{ tx(erroresForm[c.nombre]) }}</small>
             <small v-else-if="c.ayuda" class="ayuda">{{ tx(c.ayuda) }}</small>
           </template>
@@ -819,8 +819,8 @@ onMounted(async () => {
   <CargaArticulos v-if="modal?.tipo === 'carga' && tipo === 'articulos'" @cerrar="modal = null" @listo="cargarMeta(); cargar()" />
   <CargaMasiva v-else-if="modal?.tipo === 'carga' && tipo !== 'prepacks'" :titulo="t('Upload {0}', [cat.titulo.toLowerCase()])" :ruta="`/catalogos/${tipo}/importar`"
                :plantilla="`/catalogos/${tipo}/plantilla`" :ayuda="tx(cat.ayuda)" @cerrar="modal = null" @cargado="cargarMeta(); cargar()" />
-  <Modal v-else-if="modal?.tipo === 'carga'" :titulo="t('Upload size runs (prepacks)')" ancho="680px" @cerrar="modal = null">
-    <p class="ayuda">{{ t('One row per size of the breakdown: sku_prepack (item code of the prepack), prepack_id (e.g. AB12), description, solid SKU and quantity. Style and color come from the solids, which must share style and color. It creates the prepack and its item; an existing prepack is never changed.') }}</p>
+  <Modal v-else-if="modal?.tipo === 'carga'" :titulo="t('Upload packs and kits')" ancho="680px" @cerrar="modal = null">
+    <p class="ayuda">{{ t('One row per item in the pack: sku_prepack (item code of the pack), prepack_id (e.g. AB12), description, item code of the variant and quantity. The pack takes its product data from its variants, which must be of the same product. It creates the pack and its item; an existing pack is never changed.') }}</p>
     <CargaArchivo v-model="modal.archivo" />
     <template v-if="modal.resultado">
       <div class="nota ok"><Icono nombre="check" />{{ t('{0} created and {1} updated.', [modal.resultado.creados, modal.resultado.actualizados]) }}</div>

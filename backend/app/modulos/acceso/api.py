@@ -26,7 +26,7 @@ from app.modulos.acceso import proveedores as servicio_proveedores
 from app.modulos.acceso import roles as servicio_roles
 from app.modulos.acceso import usuarios as servicio_usuarios
 from app.modulos.acceso.limites import limitar
-from app.modulos.acceso.permisos import catalogo_permisos, modulos_activos, permisos_de
+from app.modulos.acceso.permisos import catalogo_permisos, exige_datos_aduana, modulos_activos, permisos_de
 from app.modulos.empresa import organizacion
 from app.modulos.productos import flujo
 from app.web.dependencias import COOKIE
@@ -58,7 +58,7 @@ def _yo(u: Usuario) -> dict:
         "config": {
             "posicion_en_varias_facturas": regla("POSICION_EN_VARIAS_FACTURAS"),
             "factura_en_una_sola_unidad": regla("FACTURA_EN_UNA_SOLA_UNIDAD"),
-            "requerir_datos_aduana": regla("REQUERIR_DATOS_ADUANA"),
+            "requerir_datos_aduana": exige_datos_aduana(),
             "dias_alerta_borrador": regla("DIAS_ALERTA_BORRADOR"),
             "dias_aviso_tienda": regla("DIAS_AVISO_TIENDA"),
             "meta_liberacion": regla("META_LIBERACION_A_TIEMPO"),

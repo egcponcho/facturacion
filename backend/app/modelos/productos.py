@@ -40,7 +40,7 @@ class Producto(DeOrganizacion, Base):
     __tablename__ = "productos"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo_generico", name="uq_productos_org_codigo_generico"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
+    proveedor_id: Mapped[int | None] = mapped_column(ForeignKey("proveedores.id"), index=True)  # opcional (0091)
     estilo: Mapped[str | None] = mapped_column(String(40))
     color: Mapped[str | None] = mapped_column(String(60))
     marca_id: Mapped[int | None] = mapped_column(ForeignKey("marcas.id"), index=True)
@@ -89,7 +89,7 @@ class Producto(DeOrganizacion, Base):
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)  # control de concurrencia
 
-    proveedor: Mapped["Proveedor"] = relationship()
+    proveedor: Mapped["Proveedor | None"] = relationship()
     marca: Mapped["Marca | None"] = relationship()
     grupo: Mapped["GrupoArticulo | None"] = relationship()
     clasificacion: Mapped["ClasificacionProducto | None"] = relationship(
