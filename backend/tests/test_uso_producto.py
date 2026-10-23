@@ -5,7 +5,7 @@ empaca (reglas candidatas y recetas en uso), con el alcance de cada usuario."""
 def _producto(api, estilo, color):
     """El producto de la demostración de ese estilo (atributo MODELO) cuyas variantes son de ese color."""
     items = api.get("/productos", params={"q": estilo, "size": 50}).json()["items"]
-    return next(p for p in items if p["atributos"].get("MODELO") == estilo and color.upper() in (p["resumen_variantes"] or ""))
+    return next(p for p in items if p["atributos"].get("MODELO") == estilo and color.upper() in (p["resumen_variantes"] or "").upper())
 
 
 def test_uso_del_producto_con_su_alcance(interno, tnf, vans):

@@ -11,7 +11,7 @@ PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08
 def _producto(api, estilo, color):
     """El producto de la demostración de ese estilo (atributo MODELO) cuyas variantes son de ese color."""
     items = api.get("/productos", params={"q": estilo, "size": 50}).json()["items"]
-    return next(p for p in items if p["atributos"].get("MODELO") == estilo and color.upper() in (p["resumen_variantes"] or ""))
+    return next(p for p in items if p["atributos"].get("MODELO") == estilo and color.upper() in (p["resumen_variantes"] or "").upper())
 
 
 def test_lista_contexto_y_separacion(tnf, vans, interno):
