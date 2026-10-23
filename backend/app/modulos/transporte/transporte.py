@@ -27,7 +27,7 @@ from app.modulos.documentos.partes import partes
 from app.modulos.facturacion.cantidades import nombre_factura, totales_pl
 from app.modulos.recepcion import recepcion as rec
 from app.modulos.transporte.alcance import condiciones_alcance, en_alcance  # noqa: F401 (la usan otros módulos)
-from app.modulos.transporte.leadtimes import Estandares, _riesgo, entre, familia_de, limite_puerto
+from app.modulos.transporte.leadtimes import Estandares, _riesgo, entre, familias_de, limite_puerto
 
 ESTADO_POR_EVENTO = {
     "SALIDA": "EN_TRANSITO",
@@ -98,10 +98,10 @@ def modalidad_embarque(e: Embarque) -> str | None:
 
 def _marcas(lineas: list) -> list[str]:
     """Las marcas de las líneas: su atributo de producto que apunta al catálogo de marcas (foto de la línea)."""
-    from app.modulos.maestros import variantes
+    from app.modulos.catalogo import servicio as catalogo
 
     db = object_session(lineas[0]) if lineas else None
-    return sorted({m for x in lineas if (m := variantes.de_catalogo(db, x.atributos, "marcas"))})
+    return sorted({m for x in lineas if (m := catalogo.marca(db, x.atributos))})
 
 
 def resumen_unidad(u: UnidadCarga) -> dict:
@@ -124,10 +124,10 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         alertas.append(f"The weight exceeds the nominal capacity ({pct_kg}%).")
     ocs = {pl_linea.factura_linea.posicion_oc.oc for pl in pls for pl_linea in pl.lineas}
     grupos: dict[int, set] = {}
-    for pl in pls:
-        for pl_linea in pl.lineas:
-            pos = pl_linea.factura_linea.posicion_oc
-            grupos.setdefault(pos.oc_id, set()).add(familia_de(pos))
+    posiciones = [pl_linea.factura_linea.posicion_oc for pl in pls for pl_linea in pl.lineas]
+    familias = familias_de(object_session(u), posiciones)
+    for pos in posiciones:
+        grupos.setdefault(pos.oc_id, set()).add(familias.get(pos.id))
     tiendas = [o.fecha_tienda for o in ocs if o.fecha_tienda]
     e = u.embarque
     ests = Estandares(object_session(u)) if ocs else None

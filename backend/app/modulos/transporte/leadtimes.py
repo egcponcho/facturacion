@@ -24,7 +24,6 @@ from app.modelos import (
     Embarque,
     Factura,
     FacturaLinea,
-    GrupoProducto,
     OrdenCompra,
     PackingList,
     Pais,
@@ -36,6 +35,7 @@ from app.modelos import (
     Usuario,
 )
 from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.transporte import reglas_lt as rlt
 
 # Etapas medidas del lead time, en orden: de un hito al siguiente
@@ -120,7 +120,7 @@ class Estandares:
         self.puerto_pais = {p.codigo: p.pais for p in db.scalars(select(Puerto))}
         self.puerto_modo = {p.codigo: p.tipo for p in db.scalars(select(Puerto))}
         # Días extra de cada familia (o categoría): los suyos o los de la familia que la contiene
-        self.extra_familia = {g.id: g.dias_extra_efectivos for g in db.scalars(select(GrupoProducto))}
+        self.extra_familia = catalogo.dias_extra_familias(db)
         self._cache: dict = {}
         self._cadenas: dict = {}
 
@@ -187,21 +187,19 @@ class Estandares:
         return out
 
 
-def familia_de(p: PosicionOC) -> int | None:
-    """La familia (o categoría) del producto de una posición de OC."""
-    a = p.articulo
-    return a.producto.grupo_producto_id if a is not None and a.producto is not None else None
+def familias_de(db: Session, posiciones) -> dict[int, int | None]:
+    """{posición de OC: familia (o categoría) de su producto}, en una consulta."""
+    grupos = catalogo.grupos(db, {p.articulo_id for p in posiciones})
+    return {p.id: grupos.get(p.articulo_id) for p in posiciones}
 
 
 def familias_por_oc(db: Session, oc_ids) -> dict[int, list]:
     """Las familias de los productos de cada OC, en una consulta (no una por OC)."""
-    from app.modelos import Articulo, Producto
-
     res: dict[int, list] = {i: [] for i in oc_ids}
     if res:
-        for oc_id, fam in db.execute(select(PosicionOC.oc_id, Producto.grupo_producto_id)
-                                     .join(Articulo, Articulo.id == PosicionOC.articulo_id)
-                                     .join(Producto, Producto.id == Articulo.producto_id)
+        sub = catalogo.grupos_de_articulos()
+        for oc_id, fam in db.execute(select(PosicionOC.oc_id, sub.c.grupo_id)
+                                     .join(sub, sub.c.articulo_id == PosicionOC.articulo_id)
                                      .where(PosicionOC.oc_id.in_(list(res)))):
             res[oc_id].append(fam)
     return res
@@ -409,9 +407,10 @@ def leadtimes(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     if filtros.get("proveedor"):
         ocs = [o for o in ocs if o.proveedor.nombre in _lista(filtros["proveedor"])]
     hitos = _hitos_por_oc(db, [o.id for o in ocs])
+    familias = familias_por_oc(db, [o.id for o in ocs])
     items = []
     for o in ocs:
-        est = ests.de_oc(o, [familia_de(x) for x in o.posiciones])
+        est = ests.de_oc(o, familias.get(o.id))
         a = analizar_oc(o, hitos.get(o.id), est, hoy)
         items.append({"oc_id": o.id, "oc": o.numero, "proveedor": o.proveedor.nombre, "origen": o.pais_origen,
                       "origen_nombre": ests.nombres.get(o.pais_origen or "", o.pais_origen),

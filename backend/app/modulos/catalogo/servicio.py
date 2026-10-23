@@ -139,6 +139,34 @@ def familia(db: Session, familia_id: int | None) -> FichaFamilia | None:
     return _ficha_familia(db.get(GrupoProducto, familia_id)) if familia_id else None
 
 
+def familias(db: Session) -> dict[int, FichaFamilia]:
+    """Todos los nodos del árbol (familias y categorías), por id."""
+    return {g.id: _ficha_familia(g) for g in db.scalars(select(GrupoProducto))}
+
+
+def dias_extra_familias(db: Session) -> dict[int, int]:
+    """{nodo: días extra efectivos} (los suyos o los de la familia más cercana que los tenga).
+    Temporal: pasan a la sección de logística de la familia."""
+    return {g.id: g.dias_extra_efectivos for g in db.scalars(select(GrupoProducto))}
+
+
+def grupos_de_articulos():
+    """Subconsulta (articulo_id, producto_id, grupo_id) para unir con tablas de otros módulos:
+    `join(sub, sub.c.articulo_id == Tabla.articulo_id)`. grupo_id es el nodo del árbol de su producto."""
+    return (select(Articulo.id.label("articulo_id"), Articulo.producto_id.label("producto_id"),
+                   Producto.grupo_producto_id.label("grupo_id"))
+            .join(Producto, Producto.id == Articulo.producto_id).subquery())
+
+
+def grupos(db: Session, articulo_ids: Iterable[int | None]) -> dict[int, int | None]:
+    """{artículo: nodo del árbol de su producto} en una consulta."""
+    lista = sorted({i for i in articulo_ids if i})
+    if not lista:
+        return {}
+    sub = grupos_de_articulos()
+    return dict(db.execute(select(sub.c.articulo_id, sub.c.grupo_id).where(sub.c.articulo_id.in_(lista))).all())
+
+
 def ruta_reglas(db: Session, ficha: FichaArticulo | None, cache: dict | None = None) -> list[int]:
     """Los nodos del árbol que recorren las reglas de empaque y de etiquetado para el artículo,
     de lo más específico a lo más general: su categoría (puesta a mano o reconocida por sus

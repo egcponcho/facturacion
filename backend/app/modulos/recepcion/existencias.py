@@ -94,12 +94,9 @@ def existencias(db: Session, user: Usuario, centro: str | None = None, q: str | 
 
 def _variantes(db: Session, codigos: set[str]) -> dict[str, str]:
     """El texto de la variante de cada artículo («BLACK · 9.5», «30 % · 1 L»)."""
-    from app.modelos import Articulo
-    from app.modulos.maestros import variantes
+    from app.modulos.catalogo import servicio as catalogo
 
-    if not codigos:
-        return {}
-    return {a.sku: variantes.texto(variantes.de_articulo(db, a)) for a in db.scalars(select(Articulo).where(Articulo.sku.in_(codigos)))}
+    return {c: catalogo.texto(f.valores) or "" for c, f in catalogo.por_codigos(db, codigos).items()}
 
 
 def movimientos(db: Session, user: Usuario, centro: str, codigo: str, talla: str | None = None,

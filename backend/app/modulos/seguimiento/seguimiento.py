@@ -22,7 +22,7 @@ from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_fa
 from app.modulos.maestros import variantes
 from app.modulos.seguimiento import metricas
 from app.modulos.transporte import leadtimes as lt
-from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, familia_de, limite_puerto
+from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, familias_de, limite_puerto
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -178,13 +178,14 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             fila["riesgo"] = _riesgo(fila["holgura"])
 
     facturado = facturado_por_posicion(db, [p.id for p in posiciones])
+    familia = familias_de(db, posiciones)
     filas = []
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0 and p.oc.estado in metricas.OC_CON_SALDO:
-            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, familia_de(p))), "cantidad": saldo,
+            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, familia.get(p.id))), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
-            sin_embarque(fila, p.oc, familia_de(p))
+            sin_embarque(fila, p.oc, familia.get(p.id))
             filas.append(fila)
 
     cond = [Factura.estado != "CANCELADA", OrdenCompra.estado.in_(metricas.OC_EN_SEGUIMIENTO),
@@ -198,7 +199,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                           .join(Factura).join(PosicionOC, PosicionOC.id == FacturaLinea.posicion_oc_id)
                           .join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id).where(*cond)).all():
         lineas_pl.setdefault(pll.factura_linea_id, []).append(pll)
-    for fl in db.scalars(consulta).all():
+    lineas_factura = list(db.scalars(consulta).all())
+    familia.update(familias_de(db, [fl.posicion_oc for fl in lineas_factura]))
+    for fl in lineas_factura:
         p = fl.posicion_oc
         oc = p.oc
         f = fl.factura
@@ -208,7 +211,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia_de(p))), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id))), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -226,18 +229,18 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                 llegada = e.arribo_real or e.eta or (
                     entre(e.salida_real or e.etd, ests.de_oc(oc, modo=e.tipo_transporte), "salida", "arribo")
                     if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de_oc(oc), hoy))
-                _en_tienda(fila, llegada, ests.de_oc(oc, familia_de(p), e.tipo_transporte))
+                _en_tienda(fila, llegada, ests.de_oc(oc, familia.get(p.id), e.tipo_transporte))
                 if fila["limite_puerto"] and llegada:
                     fila["holgura"] = (fila["limite_puerto"] - llegada).days
                 fila["riesgo"] = _riesgo(fila["holgura"])
             else:
-                sin_embarque(fila, oc, familia_de(p))
+                sin_embarque(fila, oc, familia.get(p.id))
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia_de(p))), "cantidad": resto, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id))), "cantidad": resto, "factura_id": f.id,
                     "factura": nombre_factura(f), "etapa": "FACTURADO"}
-            sin_embarque(fila, oc, familia_de(p))
+            sin_embarque(fila, oc, familia.get(p.id))
             filas.append(fila)
     return filas
 

@@ -23,20 +23,19 @@ DUENOS = ("modelos/", "modulos/catalogo/", "modulos/productos/", "modulos/grupos
           "modulos/maestros/escalas.py", "instalacion/")
 # Archivos que todavía leen el catálogo por dentro: la lista solo puede achicarse
 PENDIENTES = {
-    "modulos/clasificacion/familias.py", "modulos/clasificacion/impacto.py", "modulos/clasificacion/motor_clasificacion.py",
-    "modulos/compras/flujo_oc.py", "modulos/compras/ordenes.py", "modulos/comun/edicion.py",
-    "modulos/documentos/documentos.py", "modulos/empaque/packing.py",
+    "main.py", "modulos/acceso/api.py", "modulos/acceso/permisos.py", "modulos/clasificacion/aranceles.py",
+    "modulos/clasificacion/especialista.py", "modulos/clasificacion/familias.py",
+    "modulos/clasificacion/impacto.py", "modulos/clasificacion/meta.py",
+    "modulos/clasificacion/motor_clasificacion.py", "modulos/compras/flujo_oc.py", "modulos/compras/ordenes.py",
+    "modulos/comun/edicion.py", "modulos/documentos/documentos.py", "modulos/empaque/packing.py",
     "modulos/empaque/recetas.py", "modulos/empresa/organizacion.py", "modulos/etiquetado/buscadores.py",
     "modulos/etiquetado/campos.py", "modulos/etiquetado/categorias.py", "modulos/etiquetado/datos.py",
     "modulos/etiquetado/familias.py", "modulos/etiquetado/generacion.py", "modulos/etiquetado/reglas.py",
     "modulos/etiquetado/trabajos.py", "modulos/etiquetado/usos.py", "modulos/facturacion/facturas.py",
     "modulos/integraciones/entidades.py", "modulos/maestros/api.py", "modulos/maestros/cargas.py",
-    "modulos/maestros/catalogos.py", "modulos/maestros/gobierno.py", "modulos/recepcion/existencias.py",
-    "modulos/recepcion/recepcion.py", "modulos/reportes/fuentes.py", "modulos/seguimiento/buscar.py",
-    "modulos/seguimiento/dashboard.py", "modulos/seguimiento/indicadores.py", "modulos/seguimiento/metricas.py",
-    "modulos/seguimiento/seguimiento.py", "modulos/transporte/leadtimes.py",
-    "modulos/transporte/transporte.py", "modulos/acceso/permisos.py", "modulos/acceso/api.py", "main.py",
-    "modulos/clasificacion/meta.py", "modulos/clasificacion/aranceles.py", "modulos/clasificacion/especialista.py",
+    "modulos/maestros/catalogos.py", "modulos/maestros/gobierno.py", "modulos/reportes/fuentes.py",
+    "modulos/seguimiento/buscar.py", "modulos/seguimiento/dashboard.py", "modulos/seguimiento/indicadores.py",
+    "modulos/seguimiento/metricas.py", "modulos/seguimiento/seguimiento.py",
 }
 
 
