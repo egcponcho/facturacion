@@ -14,44 +14,33 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.modelos import (
-    Articulo,
-    Atributo,
     Embarque,
     Factura,
     FacturaLinea,
-    GrupoProducto,
     OrdenCompra,
     PosicionOC,
-    Producto,
-    ProductoAtributo,
     Proveedor,
     Transportista,
     UnidadCarga,
     Usuario,
 )
-from app.modulos.seguimiento.indicadores import _emb, _fact, _oc, _prod
+from app.modulos.acceso.permisos import proveedor_filtro
+from app.modulos.catalogo import servicio as catalogo
+from app.modulos.comex import servicio as comex
+from app.modulos.seguimiento.indicadores import _emb, _fact, _oc
 
 TIPOS = ("texto", "numero", "moneda", "fecha", "estado")
-
-
-def _marca_de(producto_id):
-    """La marca de un producto: el valor de su atributo que apunta al catálogo de marcas."""
-    return (select(ProductoAtributo.valor).join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
-            .where(ProductoAtributo.producto_id == producto_id, Atributo.catalogo == "marcas").limit(1).scalar_subquery())
-
-
-def _familia_de(grupo_id):
-    """El nombre de la familia (o categoría) de un producto."""
-    return select(GrupoProducto.nombre).where(GrupoProducto.id == grupo_id).scalar_subquery()
+# El producto como tabla base de un reporte (sus columnas las da el catálogo; su ficha, comercio exterior)
+_P = catalogo.columnas_producto()
 
 
 def _producto_de_posicion():
-    return select(Articulo.producto_id).where(Articulo.id == PosicionOC.articulo_id).scalar_subquery()
+    return catalogo.sql_producto_de(PosicionOC.articulo_id)
 
 
-def _grupo_de_posicion():
-    return (select(Producto.grupo_producto_id).join(Articulo, Articulo.producto_id == Producto.id)
-            .where(Articulo.id == PosicionOC.articulo_id).scalar_subquery())
+def _prod(user: Usuario) -> list:
+    prov = proveedor_filtro(user)
+    return [_P["proveedor_id"].in_(prov)] if prov is not None else []
 
 
 @dataclass(frozen=True)
@@ -139,8 +128,8 @@ FUENTES: dict[str, Fuente] = {f.clave: f for f in [
             Campo("codigo_articulo", "Item code", "texto", lambda: PosicionOC.codigo_articulo),
             Campo("descripcion", "Description", "texto", lambda: PosicionOC.descripcion),
             Campo("codigo_barras", "Barcode", "texto", lambda: PosicionOC.codigo_barras),
-            Campo("marca", "Brand", "texto", lambda: _marca_de(_producto_de_posicion())),
-            Campo("familia", "Product family", "texto", lambda: _familia_de(_grupo_de_posicion())),
+            Campo("marca", "Brand", "texto", lambda: catalogo.sql_marca(_producto_de_posicion())),
+            Campo("familia", "Product family", "texto", lambda: catalogo.sql_familia(_producto_de_posicion())),
             Campo("almacen", "Warehouse", "texto", lambda: PosicionOC.almacen, "codigos_internos"),
             Campo("unidad", "UoM", "texto", lambda: PosicionOC.unidad),
             Campo("moneda", "Currency", "texto", lambda: OrdenCompra.moneda),
@@ -197,18 +186,18 @@ FUENTES: dict[str, Fuente] = {f.clave: f for f in [
     ),
     Fuente(
         "productos", "Products", "One row per product with its technical sheet status.", "producto.ver",
-        lambda q: q.select_from(Producto).outerjoin(Proveedor, Proveedor.id == Producto.proveedor_id),
+        lambda q: q.select_from(_P["id"].table).outerjoin(Proveedor, Proveedor.id == _P["proveedor_id"]),
         lambda db, user: _prod(user),
         [
-            Campo("codigo_generico", "Product code", "texto", lambda: Producto.codigo_generico),
-            Campo("nombre", "Name", "texto", lambda: Producto.nombre),
-            Campo("marca", "Brand", "texto", lambda: _marca_de(Producto.id)),
-            Campo("familia", "Product family", "texto", lambda: _familia_de(Producto.grupo_producto_id)),
+            Campo("codigo_generico", "Product code", "texto", lambda: _P["codigo"]),
+            Campo("nombre", "Name", "texto", lambda: _P["nombre"]),
+            Campo("marca", "Brand", "texto", lambda: catalogo.sql_marca(_P["id"])),
+            Campo("familia", "Product family", "texto", lambda: catalogo.sql_familia(_P["id"])),
             Campo("proveedor", "Supplier", "texto", lambda: Proveedor.nombre),
-            Campo("estado", "Sheet status", "estado", lambda: Producto.estado, opciones=ESTADOS_FICHA),
-            Campo("tipo", "Product type", "texto", lambda: Producto.tipo),
-            Campo("pais_origen", "Country of origin", "texto", lambda: Producto.pais_origen),
-            Campo("revisado_en", "Reviewed on", "fecha", lambda: func.date(Producto.revisado_en)),
+            Campo("estado", "Sheet status", "estado", lambda: comex.sql_ficha(_P["id"])["estado"], opciones=ESTADOS_FICHA),
+            Campo("tipo", "Product type", "texto", lambda: comex.sql_ficha(_P["id"])["tipo"]),
+            Campo("pais_origen", "Country of origin", "texto", lambda: comex.sql_ficha(_P["id"])["pais_origen"]),
+            Campo("revisado_en", "Reviewed on", "fecha", lambda: func.date(comex.sql_ficha(_P["id"])["revisado_en"])),
         ],
     ),
 ]}

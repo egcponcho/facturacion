@@ -18,7 +18,7 @@ INTERNOS = ("app.modulos.productos", "app.modulos.grupos", "app.modulos.maestros
             "app.modulos.maestros.genericos", "app.modulos.maestros.versiones", "app.modulos.maestros.atributos",
             "app.modulos.maestros.escalas", "app.modulos.catalogo.valores")
 # Quienes son el catálogo (o lo serán al terminar la reconstrucción)
-DUENOS = ("modelos/", "modulos/catalogo/", "modulos/productos/", "modulos/grupos/", "modulos/maestros/variantes.py",
+DUENOS = ("modelos/", "modulos/catalogo/", "modulos/comex/", "modulos/productos/", "modulos/grupos/", "modulos/maestros/variantes.py",
           "modulos/maestros/genericos.py", "modulos/maestros/versiones.py", "modulos/maestros/atributos.py",
           "modulos/maestros/escalas.py", "instalacion/")
 # Archivos que todavía leen el catálogo por dentro: la lista solo puede achicarse
@@ -33,9 +33,7 @@ PENDIENTES = {
     "modulos/etiquetado/familias.py", "modulos/etiquetado/generacion.py", "modulos/etiquetado/reglas.py",
     "modulos/etiquetado/trabajos.py", "modulos/etiquetado/usos.py", "modulos/facturacion/facturas.py",
     "modulos/integraciones/entidades.py", "modulos/maestros/api.py", "modulos/maestros/cargas.py",
-    "modulos/maestros/catalogos.py", "modulos/maestros/gobierno.py", "modulos/reportes/fuentes.py",
-    "modulos/seguimiento/buscar.py", "modulos/seguimiento/dashboard.py", "modulos/seguimiento/indicadores.py",
-    "modulos/seguimiento/metricas.py", "modulos/seguimiento/seguimiento.py",
+    "modulos/maestros/catalogos.py", "modulos/maestros/gobierno.py",
 }
 
 

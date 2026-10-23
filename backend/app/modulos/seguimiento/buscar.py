@@ -16,21 +16,18 @@ from sqlalchemy.orm import Session
 from app.modelos import (
     Adjunto,
     Archivo,
-    Articulo,
-    ArticuloCodigo,
     Embarque,
     Factura,
     Marca,
     OrdenCompra,
     PackingList,
     PosicionOC,
-    Producto,
-    ProductoAtributo,
-    ProductoDocumento,
     Proveedor,
     UnidadCarga,
 )
 from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro, tiene
+from app.modulos.catalogo import servicio as catalogo
+from app.modulos.comex import servicio as comex
 from app.modulos.comun.texto import filtro_texto, terminos
 from app.modulos.facturacion.cantidades import nombre_factura
 from app.modulos.transporte.transporte import condiciones_alcance
@@ -92,24 +89,18 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
                                  "ruta": f"/packing-lists/{pl.id}"} for (pl,) in _filas(db, cons, limite)])
 
     if tiene(user, "producto.ver"):
-        c = filtro_texto(q, lambda p: [Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p), Producto.codigo.ilike(p),
-                                       Producto.id.in_(select(ProductoAtributo.producto_id).where(ProductoAtributo.valor.ilike(p)))])
-        cons = select(Producto).where(c).order_by(Producto.actualizado_en.desc().nullslast())
-        if prov:
-            cons = cons.where(Producto.proveedor_id.in_(prov))
-        productos = {p.id: p for (p,) in _filas(db, cons, limite)}
-        # Un código de artículo o uno de sus códigos (de barras, del proveedor) lleva a su producto
-        c = filtro_texto(q, lambda p: [Articulo.sku.ilike(p),
-                                       Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(p)))])
-        cons = select(Articulo).where(c)
-        if prov:
-            cons = cons.where(Articulo.producto_id.in_(select(Producto.id).where(Producto.proveedor_id.in_(prov))))
-        for (a,) in _filas(db, cons, limite):
-            if len(productos) < limite:
-                productos.setdefault(a.producto_id, a.producto)
-        grupo("productos", [{"id": p.id, "titulo": p.nombre or p.codigo_generico or f"#{p.id}",
-                             "sub": " · ".join(x for x in (p.codigo_generico, p.codigo) if x), "estado": p.estado,
-                             "ruta": f"/productos/{p.id}"} for p in productos.values()], f"/productos?q={q}&estado=")
+        # Por nombre, código, valores o el código de uno de sus artículos (catálogo) o por su partida (comercio exterior)
+        ids = set(db.scalars(catalogo.ids_productos_texto(q, prov or None))) | \
+            set(db.scalars(comex.ids_productos(codigo=q, proveedores=prov or None)))
+        productos = sorted(catalogo.productos(db, ids).values(), key=lambda p: (p.actualizado_en is None, p.actualizado_en),
+                           reverse=True)[:limite]
+        fichas = comex.fichas(db, [p.id for p in productos])
+        def item(p, f):
+            return {"id": p.id, "titulo": p.nombre or p.codigo or f"#{p.id}",
+                    "sub": " · ".join(x for x in (p.codigo, f.codigo if f else None) if x),
+                    "estado": f.estado if f else None, "ruta": f"/productos/{p.id}"}
+
+        grupo("productos", [item(p, fichas.get(p.id)) for p in productos], f"/productos?q={q}&estado=")
 
     if tiene(user, "transporte.gestionar"):
         c = filtro_texto(q, lambda p: [Embarque.codigo.ilike(p), Embarque.documento_numero.ilike(p)])
@@ -142,11 +133,7 @@ def buscar(db: Session, user, q: str | None, limite: int = POR_GRUPO) -> dict:
         docs += [{"id": f"f{a.id}", "titulo": a.nombre, "sub": a.tipo or "", "ruta": f"/facturas/{a.factura_id}?tab=archivos"}
                  for (a,) in _filas(db, cons, limite)]
     if tiene(user, "producto.ver"):
-        c = filtro_texto(q, lambda p: [Adjunto.nombre.ilike(p), ProductoDocumento.tipo.ilike(p)])
-        cons = select(ProductoDocumento).join(Producto).join(Adjunto, Adjunto.id == ProductoDocumento.adjunto_id).where(c)
-        if prov:
-            cons = cons.where(Producto.proveedor_id.in_(prov))
-        docs += [{"id": f"p{d.id}", "titulo": d.nombre, "sub": d.tipo or "", "ruta": f"/productos/{d.producto_id}"}
-                 for (d,) in _filas(db, cons, limite)]
+        docs += [{"id": f"p{d['id']}", "titulo": d["nombre"], "sub": d["tipo"] or "", "ruta": f"/productos/{d['producto_id']}"}
+                 for d in comex.buscar_documentos(db, q, prov or None, limite)]
     grupo("documentos", docs[:limite])
     return {"q": q, "grupos": grupos, "total": sum(len(g["items"]) for g in grupos)}

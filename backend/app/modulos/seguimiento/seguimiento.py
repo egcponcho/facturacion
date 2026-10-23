@@ -16,10 +16,10 @@ from app.core import listas
 from app.core.db import plano
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.compras import liberaciones
 from app.modulos.comun import tabla
 from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_factura
-from app.modulos.maestros import variantes
 from app.modulos.seguimiento import metricas
 from app.modulos.transporte import leadtimes as lt
 from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, familias_de, limite_puerto
@@ -110,24 +110,17 @@ def valores_columna(filas: list[dict], columnas: dict, columna: str, q: str | No
 
 
 
-def _familia(p: PosicionOC):
-    a = p.articulo
-    g = a.producto.grupo_producto if a is not None and a.producto is not None else None
-    return g.familia if g is not None else None
-
-
-def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) -> dict:
+def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None, fam: catalogo.FichaFamilia | None = None) -> dict:
     db = object_session(p)
-    fam = _familia(p)
     return {
         "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
         # La marca es el atributo del producto que apunta al catálogo de marcas (foto de la línea)
-        "marca": variantes.de_catalogo(db, p.atributos, "marcas"), "sku": p.codigo_articulo,
-        "atributos": variantes.de_producto_linea(p, db),
+        "marca": catalogo.marca(db, p.atributos), "sku": p.codigo_articulo,
+        "atributos": catalogo.ordenar(db, p.atributos, "PRODUCTO"),
         # Valores de variante por atributo ({"COLOR": "BLACK", "CONC": "30 %"}): los filtros y
         # opciones salen de aquí, sin suponer qué atributos usa la empresa
-        "variantes": (vals := variantes.de_linea(p)),
-        "variante": variantes.texto(vals) or None,
+        "variantes": (vals := catalogo.ordenar(db, p.variante)),
+        "variante": catalogo.texto(vals),
         "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen,
         "familia": fam.nombre if fam else None,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
@@ -179,11 +172,12 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
 
     facturado = facturado_por_posicion(db, [p.id for p in posiciones])
     familia = familias_de(db, posiciones)
+    fams = catalogo.familia_de_grupos(db)
     filas = []
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0 and p.oc.estado in metricas.OC_CON_SALDO:
-            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, familia.get(p.id))), "cantidad": saldo,
+            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, familia.get(p.id)), fams.get(familia.get(p.id))), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
             sin_embarque(fila, p.oc, familia.get(p.id))
             filas.append(fila)
@@ -211,7 +205,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id))), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id)), fams.get(familia.get(p.id))), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -238,7 +232,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id))), "cantidad": resto, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id)), fams.get(familia.get(p.id))), "cantidad": resto, "factura_id": f.id,
                     "factura": nombre_factura(f), "etapa": "FACTURADO"}
             sin_embarque(fila, oc, familia.get(p.id))
             filas.append(fila)
@@ -272,12 +266,12 @@ def _orden_valor(v: str):
 def _atributos_opciones(db: Session, todas: list[dict], clave: str = "variantes", nivel: str = "VARIANTE") -> list[dict]:
     """Los atributos de variante (o de producto) presentes en las filas, en el orden del
     catálogo, con sus valores: son los filtros de la pantalla."""
-    nombres = variantes.nombres(db)
+    nombres = catalogo.nombres_atributos(db)
     vistos: dict[str, set] = {}
     for f in todas:
         for k, v in (f.get(clave) or {}).items():
             vistos.setdefault(k, set()).add(str(v))
-    orden = [a.codigo for a in variantes.atributos(db, nivel)]
+    orden = [a["codigo"] for a in catalogo.atributos(db, nivel)]
     claves = [k for k in orden if k in vistos] + sorted(k for k in vistos if k not in orden)
     return [{"codigo": k, "nombre": nombres.get(k, k), "valores": sorted(vistos[k], key=_orden_valor)} for k in claves]
 

@@ -30,13 +30,13 @@ from app.modelos import (
     PackingList,
     PLLinea,
     PosicionOC,
-    Producto,
     Proveedor,
     RecepcionLinea,
     Rol,
     Usuario,
 )
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, sociedad_filtro, tiene
+from app.modulos.comex import servicio as comex
 from app.modulos.comun.historial import registrar
 from app.modulos.seguimiento import metricas
 
@@ -78,11 +78,6 @@ def _emb(db: Session, user: Usuario) -> list:
     from app.modulos.transporte.transporte import condiciones_alcance
 
     return condiciones_alcance(db, user)
-
-
-def _prod(user: Usuario) -> list:
-    prov = proveedor_filtro(user)
-    return [Producto.proveedor_id.in_(prov)] if prov is not None else []
 
 
 def _rango(desde: date, hasta: date) -> tuple[datetime, datetime]:
@@ -289,22 +284,20 @@ def oc_en_riesgo(db, user, desde, hasta):
 
 # ---- Productos y clasificación --------------------------------------------------------------------
 def fichas_en_revision(db, user, desde, hasta):
-    return db.scalar(select(func.count()).select_from(Producto).where(Producto.estado == "revision", *_prod(user)))
+    return comex.contar(db, ["revision"], proveedor_filtro(user))
 
 
 def fichas_devueltas(db, user, desde, hasta):
-    return db.scalar(select(func.count()).select_from(Producto).where(Producto.estado == "observado", *_prod(user)))
+    return comex.contar(db, ["observado"], proveedor_filtro(user))
 
 
 def fichas_aprobadas(db, user, desde, hasta):
     a, b = _rango(desde, hasta)
-    return db.scalar(select(func.count()).select_from(Producto).where(
-        Producto.revisado_en >= a, Producto.revisado_en < b, Producto.estado.in_(("aprobado", "corregido")), *_prod(user)))
+    return comex.contar(db, comex.APROBADOS, proveedor_filtro(user), revisado_desde=a, revisado_hasta=b)
 
 
 def sin_clasificar(db, user, desde, hasta):
-    return db.scalar(select(func.count()).select_from(Producto).where(
-        Producto.estado.in_(("borrador", "sugerida")), *_prod(user)))
+    return comex.contar(db, ["borrador", "sugerida"], proveedor_filtro(user))
 
 
 HOY = "hoy"

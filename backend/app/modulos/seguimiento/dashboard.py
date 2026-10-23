@@ -12,9 +12,10 @@ from sqlalchemy.orm import Session
 
 from app.core import dinero
 from app.core.empresa import regla
-from app.modelos import Alerta, Embarque, Factura, PackingList, Producto, Proveedor, UnidadCarga, Usuario, ahora
+from app.modelos import Alerta, Embarque, Factura, PackingList, Proveedor, UnidadCarga, Usuario, ahora
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import es_interno, proveedor_filtro, sociedad_filtro, tiene
+from app.modulos.comex import servicio as comex
 from app.modulos.empaque.packing import validar_pl
 from app.modulos.facturacion.cantidades import cubierto_por_ids, nombre_factura, totales_pl
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL
@@ -222,10 +223,7 @@ def _tareas(db: Session, user: Usuario, facturas: list[Factura], distribucion: d
 
 def _tareas_productos(db: Session, user: Usuario, prov: frozenset | None) -> list[dict]:
     """Fichas técnicas: el equipo interno aprueba; el proveedor completa y corrige."""
-    q = select(Producto.estado, func.count()).group_by(Producto.estado)
-    if prov:
-        q = q.where(Producto.proveedor_id.in_(prov))
-    n = dict(db.execute(q).all())
+    n = comex.contar_por_estado(db, prov or None)
     out = []
     if es_interno(user):
         if n.get("revision"):
@@ -255,7 +253,7 @@ def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict
     llega pronto. Solo aparece lo que tiene algo pendiente y lo que no está ya
     en la franja de indicadores (`franja`)."""
     from app.modulos.acceso.permisos import tiene
-    from app.modulos.productos.productos import ids_bloquean_facturas
+    from app.modulos.facturacion.bloqueos import productos_que_bloquean
 
     hoy, semana = metricas.semana()
     interno = es_interno(user)
@@ -267,10 +265,9 @@ def _atencion(db: Session, user: Usuario, prov: frozenset | None, seg: list[dict
                         "query": query or {}, "tono": tono})
 
     if tiene(user, "producto.ver"):
-        item("bloquean", "Products blocking invoices", len(ids_bloquean_facturas(db, prov)),
+        item("bloquean", "Products blocking invoices", len(productos_que_bloquean(db, prov)),
              "Without an approved HS code, their invoices cannot be finalized.", "/productos", {"estado": "bloquean"}, "error")
-        estados = dict(db.execute(select(Producto.estado, func.count()).where(*([Producto.proveedor_id.in_(prov)] if prov else []))
-                                  .group_by(Producto.estado)).all())
+        estados = comex.contar_por_estado(db, prov or None)
         if interno:
             item("clasificar", "Products to classify", estados.get("revision", 0), "Sent to review with a suggested HS code.",
                  "/productos", {"estado": "revision"})

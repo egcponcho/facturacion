@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.core import dinero
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PackingList, PosicionOC, UnidadCarga, Usuario
 from app.modulos.acceso.permisos import sociedad_filtro
-from app.modulos.maestros import variantes
+from app.modulos.catalogo import servicio as catalogo
 
 # OC cuyo saldo se puede facturar / OC que siguen en el seguimiento
 OC_CON_SALDO = ("APROBADA",)
@@ -143,7 +143,7 @@ def facturado(db: Session, user: Usuario, prov, desde: date, hasta: date, marcas
     por_factura: dict[int, dict] = {}
     for fid, moneda, fecha, cant, precio, atributos in filas:
         # La marca de la línea: el atributo del producto que apunta al catálogo de marcas (su foto)
-        if marcas and (variantes.de_catalogo(db, atributos, "marcas") or "") not in marcas:
+        if marcas and (catalogo.marca(db, atributos) or "") not in marcas:
             continue
         x = por_factura.setdefault(fid, {"id": fid, "moneda": moneda, "fecha": _como_fecha(fecha), "importe": dinero.CERO})
         x["importe"] += dinero.importe(cant, precio, moneda)
@@ -168,7 +168,7 @@ def marcas_facturadas(db: Session, user: Usuario, prov, desde: date, hasta: date
     if prov:
         cond.append(Factura.proveedor_id.in_(prov))
     return sorted({m for (a,) in db.execute(select(FacturaLinea.atributos).join(Factura).where(*cond)).all()
-                   if (m := variantes.de_catalogo(db, a, "marcas"))})
+                   if (m := catalogo.marca(db, a))})
 
 
 def facturas_terminadas():

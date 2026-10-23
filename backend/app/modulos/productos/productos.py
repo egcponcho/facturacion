@@ -14,7 +14,7 @@ import os
 import re
 from datetime import date, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.core import dinero, listas
@@ -47,6 +47,16 @@ from app.modelos import (
 from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro, tiene
 from app.modulos.clasificacion.categorias import categorias as categorias_config
 from app.modulos.clasificacion.indice_arbol import dominios_ficha
+from app.modulos.comex import servicio as comex
+from app.modulos.comex.servicio import (  # noqa: F401
+    APROBADOS,
+    BORRADORES,
+    ESTADOS,
+    PENDIENTES,
+    digitos,
+    fmt_codigo,
+    sin_marca,
+)
 from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
@@ -68,33 +78,14 @@ def destinos(db: Session) -> list[dict]:
              "base_legal": x.base_legal} for x in filas]
 
 
-# Borrador (incompleto o completo) → enviado a revisión → aprobado o devuelto.
+# Borrador (incompleto o completo) → enviado a revisión → aprobado o devuelto (comex/servicio.py).
 # Mientras es borrador, lo edita cualquiera con permiso; enviado queda
 # cerrado para el proveedor hasta que se apruebe o se devuelva.
-ESTADOS = {"borrador": "Draft", "sugerida": "Draft · complete", "revision": "In review", "aprobado": "Approved",
-           "corregido": "Corrected", "observado": "Returned"}
-APROBADOS = ("aprobado", "corregido")
-BORRADORES = ("borrador", "sugerida", "observado")
-PENDIENTES = BORRADORES + ("revision",)
 TIPOS_FOTO = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 TIPOS_DOC = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
 # Campos que una ficha técnica nunca aporta: el arancel solo sale de fuentes oficiales
 NO_ARANCEL = {"hs", "hs6", "hs_code", "codigo", "code", "tariff", "tariff_code", "dai", "sac", "partida", "inciso", "impuesto", "tax",
               "regulacion", "regulation"}
-
-
-def digitos(s) -> str:
-    return re.sub(r"\D", "", str(s or ""))
-
-
-def fmt_codigo(c) -> str:
-    d = digitos(c)
-    if len(d) <= 4:
-        return d
-    o = d[:4] + "." + d[4:6]
-    for i in range(6, len(d), 2):
-        o += "." + d[i:i + 2]
-    return o
 
 
 # ---- Producto de cada artículo ------------------------------------------------
@@ -105,45 +96,16 @@ def producto_de(a: Articulo | None) -> Producto | None:
 
 
 def ids_bloquean_facturas(db: Session, prov: frozenset | None = None) -> set[int]:
-    """Productos sin clasificación aprobada que dejan una factura en curso sin
-    partida (no se puede finalizar hasta aprobarlos)."""
-    from app.modelos import Factura, FacturaLinea, PosicionOC
-    from app.modulos.acceso.permisos import exige_datos_aduana
-    from app.modulos.facturacion.estados import EDITABLE_FACTURA
+    """Productos sin clasificación aprobada que dejan una factura en curso sin partida."""
+    from app.modulos.facturacion.bloqueos import productos_que_bloquean
 
-    # Sin datos de aduana exigidos (o sin comercio exterior), ninguna ficha detiene una factura
-    if not exige_datos_aduana():
-        return set()
-
-    consulta = (select(FacturaLinea).join(Factura).where(Factura.estado.in_(EDITABLE_FACTURA),
-                                                         or_(FacturaLinea.partida_arancelaria.is_(None),
-                                                             FacturaLinea.partida_arancelaria == ""))
-                .options(selectinload(FacturaLinea.posicion_oc).selectinload(PosicionOC.articulo)))
-    if prov:
-        consulta = consulta.where(Factura.proveedor_id.in_(prov))
-    ids = set()
-    for linea in db.scalars(consulta):
-        prod = producto_de(linea.posicion_oc.articulo if linea.posicion_oc else None)
-        if prod and not prod.aprobado:
-            ids.add(prod.id)
-    return ids
+    return productos_que_bloquean(db, prov)
 
 
 # Códigos de artículo y de genérico: el formato lo define cada empresa
 # (numérico o alfanumérico, con punto, guion, barra o guion bajo)
 RE_CODIGO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-/]{0,39}$")
 MSG_CODIGO = "Letters and numbers (also . - _ /), up to 40 characters."
-
-
-def sin_marca(texto: str | None, marca: str | None = None) -> str | None:
-    """Descripción aduanera sin la marca: la marca va en su propio campo en la
-    factura y el packing list, así no se repite."""
-    if not texto:
-        return texto
-    t = re.sub(r"[,;]?\s*\bMARCA\s+[^,;]+", "", str(texto), flags=re.I)
-    for m in [x for x in {marca or ""} if x.strip()]:
-        t = re.sub(rf"[,;]?\s*\b{re.escape(m.strip())}\b", "", t, flags=re.I)
-    return re.sub(r"\s{2,}", " ", t).strip(" ,;") or None
 
 
 def codigo_valido(valor: str | None) -> bool:
@@ -221,23 +183,13 @@ def descripcion_comercial_simple(p: Producto) -> str | None:
 
 
 def partida_para(p: Producto | None) -> str | None:
-    """Código que va en la OC y la factura: la subpartida de 6 dígitos (SA)
-    aprobada. El país destino de la OC es solo una proyección de a dónde irá
-    la mercancía, no el destino real, así que nunca se usa la línea nacional
-    de un país ni el SAC regional."""
-    if not p or not p.aprobado:
-        return None
-    d = digitos(p.codigo)
-    return fmt_codigo(d[:6]) if len(d) >= 6 else None
+    """Código que va en la OC y la factura: la subpartida de 6 dígitos aprobada (comex/servicio.py)."""
+    return comex._ficha(p).partida if p is not None else None
 
 
 def clasificacion_txt(p: Producto | None) -> dict:
     """Resumen corto para mostrar junto al artículo en la OC o la factura."""
-    if not p:
-        return {"estado": None, "texto": "No product"}
-    return {"estado": p.estado, "texto": ESTADOS.get(p.estado, p.estado), "producto_id": p.id,
-            "codigo": fmt_codigo(p.codigo) if p.aprobado else None,
-            "sugerido": fmt_codigo(p.sugerido) if p.sugerido and not p.aprobado else None}
+    return comex._ficha(p).resumen() if p is not None else dict(comex.SIN_PRODUCTO)
 
 
 # ---- Códigos nacionales en el servidor (base cargada y aprobaciones en lote) ---

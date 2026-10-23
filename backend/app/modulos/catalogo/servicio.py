@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -120,6 +121,7 @@ class FichaProducto:
     familia: FichaFamilia | None
     datos: dict
     marca: str | None
+    actualizado_en: datetime | None = None
 
     @property
     def nombre_o_codigo(self) -> str:
@@ -144,6 +146,11 @@ def familias(db: Session) -> dict[int, FichaFamilia]:
     return {g.id: _ficha_familia(g) for g in db.scalars(select(GrupoProducto))}
 
 
+def familia_de_grupos(db: Session) -> dict[int, FichaFamilia]:
+    """{nodo: la familia que le corresponde} (una categoría da la familia que la contiene)."""
+    return {g.id: f for g in db.scalars(select(GrupoProducto)) if (f := _ficha_familia(g.familia)) is not None}
+
+
 def dias_extra_familias(db: Session) -> dict[int, int]:
     """{nodo: días extra efectivos} (los suyos o los de la familia más cercana que los tenga).
     Temporal: pasan a la sección de logística de la familia."""
@@ -165,6 +172,14 @@ def grupos(db: Session, articulo_ids: Iterable[int | None]) -> dict[int, int | N
         return {}
     sub = grupos_de_articulos()
     return dict(db.execute(select(sub.c.articulo_id, sub.c.grupo_id).where(sub.c.articulo_id.in_(lista))).all())
+
+
+def productos_de(db: Session, articulo_ids: Iterable[int | None]) -> dict[int, int]:
+    """{artículo: su producto} en una consulta."""
+    lista = sorted({i for i in articulo_ids if i})
+    if not lista:
+        return {}
+    return dict(db.execute(select(Articulo.id, Articulo.producto_id).where(Articulo.id.in_(lista))).all())
 
 
 def ruta_reglas(db: Session, ficha: FichaArticulo | None, cache: dict | None = None) -> list[int]:
@@ -327,7 +342,7 @@ def _ficha_producto(db: Session, p: Producto) -> FichaProducto:
     g = p.grupo_producto
     return FichaProducto(id=p.id, codigo=p.codigo_generico, nombre=p.nombre, unidad=p.unidad, proveedor_id=p.proveedor_id,
                          grupo_id=g.id if g is not None else None, familia=_ficha_familia(g.familia if g is not None else None),
-                         datos=datos, marca=val.de_catalogo(db, datos, "marcas"))
+                         datos=datos, marca=val.de_catalogo(db, datos, "marcas"), actualizado_en=p.actualizado_en)
 
 
 def productos(db: Session, ids_: Iterable[int | None]) -> dict[int, FichaProducto]:
@@ -348,9 +363,56 @@ def producto_por_codigo(db: Session, codigo: str | None) -> FichaProducto | None
     return producto(db, pid)
 
 
+def ids_productos_texto(q: str | None, proveedores: Iterable[int] | None = None) -> Select:
+    """`select(id)` de los productos cuyo nombre, código o valores de atributo, o el código de uno de
+    sus artículos (o su código de barras o del proveedor), coinciden con el texto (la regla de
+    búsqueda de las listas: sin acentos ni mayúsculas, términos en cualquier orden)."""
+    from app.modulos.comun.texto import filtro_texto
+
+    def columnas(p):
+        de_articulos = select(Articulo.producto_id).where(or_(
+            Articulo.sku.ilike(p), Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(p)))))
+        return [Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p),
+                Producto.id.in_(select(ProductoAtributo.producto_id).where(ProductoAtributo.valor.ilike(p))),
+                Producto.id.in_(de_articulos)]
+
+    c = select(Producto.id)
+    cond = filtro_texto(q, columnas)
+    if cond is not None:
+        c = c.where(cond)
+    if proveedores is not None:
+        c = c.where(Producto.proveedor_id.in_(list(proveedores)))
+    return c
+
+
 def ids_productos_con_articulos(articulo_ids: Select | Iterable[int]) -> Select:
     """`select(producto_id)` de los productos de esos artículos."""
     return select(Articulo.producto_id).where(Articulo.id.in_(articulo_ids)).distinct()
+
+
+# ---- Expresiones SQL para reportes -------------------------------------------------------------
+def columnas_producto() -> dict:
+    """Las columnas del producto que un reporte puede usar como tabla base: id, codigo, nombre,
+    proveedor_id, grupo_id. La tabla es `columnas_producto()["id"].table`."""
+    return {"id": Producto.id, "codigo": Producto.codigo_generico, "nombre": Producto.nombre,
+            "proveedor_id": Producto.proveedor_id, "grupo_id": Producto.grupo_producto_id}
+
+
+def sql_producto_de(articulo_id):
+    """Expresión: el producto del artículo cuyo id es `articulo_id` (una columna de otra tabla)."""
+    return select(Articulo.producto_id).where(Articulo.id == articulo_id).scalar_subquery()
+
+
+def sql_marca(producto_id):
+    """Expresión: el código de marca del producto (su atributo que apunta al catálogo de marcas)."""
+    return (select(ProductoAtributo.valor).join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
+            .where(ProductoAtributo.producto_id == producto_id, Atributo.catalogo == "marcas").limit(1).scalar_subquery())
+
+
+def sql_familia(producto_id):
+    """Expresión: el nombre del nodo del árbol (familia o categoría) del producto."""
+    return (select(GrupoProducto.nombre).join(Producto, Producto.grupo_producto_id == GrupoProducto.id)
+            .where(Producto.id == producto_id).scalar_subquery())
 
 
 # ---- Atributos y valores ----------------------------------------------------------------------
