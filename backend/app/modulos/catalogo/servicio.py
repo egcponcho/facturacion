@@ -7,7 +7,8 @@ el catálogo puede cambiar por dentro sin que nada se desintegre: lo verifica
 tests/test_arquitectura.py.
 
 Las fichas se piden en lote (`articulos(db, ids)`) cuando se recorren líneas:
-una consulta para todas, no una por línea.
+una consulta para todas, no una por línea. Además, cada sesión recuerda las
+fichas que ya armó y las olvida en cuanto algo del catálogo cambia.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, event, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.modelos import (
@@ -47,6 +48,8 @@ class FichaFamilia:
     ruta_ids: tuple[int, ...]
     ruta_codigos: tuple[str, ...]
     ruta_nombres: tuple[str, ...]
+    activa: bool = True
+    es_categoria: bool = False  # un nodo que se reconoce por condiciones dentro de su familia
 
     @property
     def texto_ruta(self) -> str:
@@ -62,6 +65,8 @@ class Componente:
     cantidad: int
     producto_id: int
     valores: dict
+    unidad: str | None = None
+    peso: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +108,15 @@ class FichaArticulo:
         return any(c.producto_id != self.producto_id for c in self.componentes)
 
     @property
+    def peso_neto(self) -> float | None:
+        """Peso de una unidad: el suyo o, en un pack o kit sin peso propio, la suma de su contenido."""
+        if self.peso:
+            return self.peso
+        if self.es_pack and self.componentes and all(c.peso for c in self.componentes):
+            return round(sum(c.cantidad * c.peso for c in self.componentes), 4)
+        return None
+
+    @property
     def texto_variante(self) -> str | None:
         """«BLACK · 9.5» o, en un pack, «pack AB12»."""
         if self.es_pack:
@@ -134,7 +148,8 @@ def _ficha_familia(g: GrupoProducto | None) -> FichaFamilia | None:
         return None
     ruta = g.ruta()
     return FichaFamilia(id=g.id, codigo=g.codigo, nombre=g.nombre, ruta_ids=tuple(x.id for x in ruta),
-                        ruta_codigos=tuple(x.codigo for x in ruta), ruta_nombres=tuple(x.nombre for x in ruta))
+                        ruta_codigos=tuple(x.codigo for x in ruta), ruta_nombres=tuple(x.nombre for x in ruta),
+                        activa=g.activa, es_categoria=g.clase == "CATEGORIA")
 
 
 def familia(db: Session, familia_id: int | None) -> FichaFamilia | None:
@@ -144,6 +159,11 @@ def familia(db: Session, familia_id: int | None) -> FichaFamilia | None:
 def familias(db: Session) -> dict[int, FichaFamilia]:
     """Todos los nodos del árbol (familias y categorías), por id."""
     return {g.id: _ficha_familia(g) for g in db.scalars(select(GrupoProducto))}
+
+
+def nodo(db: Session, nodo_id: int | None) -> FichaFamilia | None:
+    """Un nodo del árbol (una familia o una categoría), tal cual."""
+    return _ficha_familia(db.get(GrupoProducto, nodo_id)) if nodo_id else None
 
 
 def familia_de_grupos(db: Session) -> dict[int, FichaFamilia]:
@@ -182,16 +202,37 @@ def productos_de(db: Session, articulo_ids: Iterable[int | None]) -> dict[int, i
     return dict(db.execute(select(Articulo.id, Articulo.producto_id).where(Articulo.id.in_(lista))).all())
 
 
+def valores_condiciones(db: Session, ficha: FichaArticulo) -> dict:
+    """Los datos del artículo y de su producto con que se reconoce una categoría (y que las reglas de
+    otros módulos pueden comparar): «articulo.sku», «articulo.atributo.TALLA», «producto.dato.MARCA»…"""
+    from app.modelos import Marca
+
+    marca = db.scalar(select(Marca.nombre).where(Marca.codigo == ficha.marca)) if ficha.marca else None
+    fam = ficha.familia
+    return {
+        "articulo.sku": ficha.codigo, "articulo.codigo_proveedor": ficha.codigo_proveedor,
+        "articulo.codigo_barras": ficha.codigo_barras, "articulo.generico": ficha.producto_codigo,
+        "articulo.variante": val.texto(ficha.valores) or None, "articulo.descripcion": ficha.descripcion,
+        "articulo.unidad": ficha.unidad, "articulo.tipo": ficha.tipo, "articulo.peso_unitario": ficha.peso,
+        "articulo.codigo_pack": ficha.codigo_pack,
+        "articulo.familia_codigo": fam.codigo if fam else None, "articulo.familia": fam.nombre if fam else None,
+        "articulo.familia_ruta": " / ".join(fam.ruta_codigos) if fam else None,
+        "producto.nombre": ficha.producto_nombre, "producto.codigo_generico": ficha.producto_codigo, "producto.marca": marca,
+        **{f"articulo.atributo.{k}": v for k, v in ficha.valores.items()},
+        **{f"producto.dato.{k}": v for k, v in ficha.datos.items()},
+    }
+
+
 def ruta_reglas(db: Session, ficha: FichaArticulo | None, cache: dict | None = None) -> list[int]:
     """Los nodos del árbol que recorren las reglas de empaque y de etiquetado para el artículo,
     de lo más específico a lo más general: su categoría (puesta a mano o reconocida por sus
-    condiciones), su familia y las familias que la contienen."""
+    condiciones sobre `valores_condiciones`), su familia y las familias que la contienen."""
     if ficha is None:
         return []
     from app.modulos.grupos import arbol
 
     a = db.get(Articulo, ficha.id)
-    return [g.id for g in arbol.ruta_efectiva(db, a, {**ficha.datos, **ficha.valores}, cache)]
+    return [g.id for g in arbol.ruta_efectiva(db, a, valores_condiciones(db, ficha), cache)]
 
 
 def en_familia(ficha: FichaArticulo | None, familia_id: int) -> bool:
@@ -233,8 +274,32 @@ def _ficha(db: Session, a: Articulo) -> FichaArticulo:
         valores=val.ordenar(db, a.variantes), datos=datos, marca=val.de_catalogo(db, datos, "marcas"),
         codigo_barras=a.codigo_barras, codigo_proveedor=a.codigo_proveedor, codigo_pack=a.codigo_pack,
         componentes=tuple(Componente(articulo_id=c.componente_id, codigo=c.componente.sku, cantidad=c.cantidad,
-                                     producto_id=c.componente.producto_id, valores=val.ordenar(db, c.componente.variantes))
+                                     producto_id=c.componente.producto_id, valores=val.ordenar(db, c.componente.variantes),
+                                     unidad=c.componente.unidad, peso=c.componente.peso_unitario)
                           for c in a.componentes))
+
+
+# Fichas ya armadas en la sesión: se olvidan cuando cambia cualquier tabla del catálogo
+_CLAVE = "catalogo_fichas"
+_MODELOS = (Articulo, ArticuloAtributo, ArticuloCodigo, ArticuloComponente, Atributo, GrupoProducto, Producto, ProductoAtributo)
+
+
+def _recordadas(db: Session) -> dict:
+    """Las fichas recordadas; si la sesión tiene cambios del catálogo sin guardar, ninguna."""
+    if _CLAVE in db.info and any(isinstance(o, _MODELOS) for o in (*db.new, *db.dirty, *db.deleted)):
+        db.info.pop(_CLAVE, None)
+    return db.info.setdefault(_CLAVE, {})
+
+
+@event.listens_for(Session, "after_flush")
+def _olvidar_si_cambia(db: Session, _contexto) -> None:
+    if _CLAVE in db.info and any(isinstance(o, _MODELOS) for o in (*db.new, *db.dirty, *db.deleted)):
+        db.info.pop(_CLAVE, None)
+
+
+@event.listens_for(Session, "after_rollback")
+def _olvidar_al_deshacer(db: Session) -> None:
+    db.info.pop(_CLAVE, None)
 
 
 def articulos(db: Session, ids: Iterable[int | None]) -> dict[int, FichaArticulo]:
@@ -242,7 +307,12 @@ def articulos(db: Session, ids: Iterable[int | None]) -> dict[int, FichaArticulo
     ids = sorted({i for i in ids if i})
     if not ids:
         return {}
-    return {a.id: _ficha(db, a) for a in db.scalars(select(Articulo).where(Articulo.id.in_(ids)).options(*_opciones()))}
+    memo = _recordadas(db)
+    faltan = [i for i in ids if i not in memo]
+    if faltan:
+        cargados = {a.id: _ficha(db, a) for a in db.scalars(select(Articulo).where(Articulo.id.in_(faltan)).options(*_opciones()))}
+        memo.update({i: cargados.get(i) for i in faltan})
+    return {i: memo[i] for i in ids if memo.get(i) is not None}
 
 
 def articulo(db: Session, articulo_id: int | None) -> FichaArticulo | None:

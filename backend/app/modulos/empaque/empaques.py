@@ -22,32 +22,27 @@ dentro de otro empaque no suma volumen.
 from collections import defaultdict
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.modelos import GrupoCajas, PackingList, TipoEmpaque
+from app.modulos.catalogo import servicio as catalogo
 
 CUENTA = {"BULTO": "Package", "INTERIOR": "Inner unit", "SOPORTE": "Support (pallet)"}
 IDENTIFICADORES = {"SERIAL": "Serial number", "CODIGO_BARRAS": "Barcode", "SSCC": "SSCC (GS1)"}
 
 
 # ---- Peso de los artículos --------------------------------------------------
-def peso_articulo(articulo) -> float | None:
-    """Peso neto de una unidad del artículo. Un pack o kit sin peso propio suma el
-    de su contenido (cantidad × peso de cada variante)."""
-    if not articulo:
-        return None
-    if articulo.peso_unitario:
-        return articulo.peso_unitario
-    if articulo.tipo == "PREPACK" and articulo.componentes:
-        pesos = [(c.cantidad, c.componente.peso_unitario) for c in articulo.componentes]
-        if all(p for _, p in pesos):
-            return round(sum(n * p for n, p in pesos), 4)
-    return None
+def _articulo_de(fl) -> catalogo.FichaArticulo | None:
+    """El artículo de la posición de OC de una línea de factura."""
+    p = fl.posicion_oc
+    return catalogo.articulo(object_session(fl), p.articulo_id) if p is not None and p.articulo_id else None
 
 
 def peso_linea(fl) -> float | None:
-    """Peso unitario de una línea de factura (del artículo de su posición de OC)."""
-    return peso_articulo(fl.posicion_oc.articulo if fl.posicion_oc else None)
+    """Peso neto unitario de una línea de factura: el de su artículo (un pack o kit sin peso propio
+    suma el de su contenido)."""
+    a = _articulo_de(fl)
+    return a.peso_neto if a is not None else None
 
 
 # ---- Árbol ------------------------------------------------------------------
@@ -275,7 +270,7 @@ def validar(pl: PackingList, rangos=None) -> list[dict]:
 def producto_de_linea(fl) -> tuple:
     """El producto de una línea: sus variantes (tallas, sabores, presentaciones…) son del mismo
     producto. Una línea sin artículo es su propio producto."""
-    a = fl.posicion_oc.articulo if fl.posicion_oc is not None else None
+    a = _articulo_de(fl)
     return ("P", a.producto_id) if a is not None else ("A", fl.codigo_articulo)
 
 

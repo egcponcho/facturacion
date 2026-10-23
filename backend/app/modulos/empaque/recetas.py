@@ -29,13 +29,10 @@ from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.core.errores import ErrorNegocio
 from app.modelos import (
-    Articulo,
     Centro,
     FacturaLinea,
-    GrupoProducto,
     OrdenCompra,
     PosicionOC,
-    Producto,
     Proveedor,
     RecetaEmpaque,
     RecetaNivel,
@@ -45,6 +42,7 @@ from app.modelos import (
     ahora,
 )
 from app.modulos.acceso.permisos import asegurar_proveedor, exigir, exigir_alguno
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun import condiciones as cond
 from app.modulos.comun.historial import registrar, verificar_version
 
@@ -71,10 +69,8 @@ CAMPOS = [
 
 def campos(db: Session) -> list[tuple]:
     """Los datos fijos y uno por atributo de producto y de variante activo."""
-    from app.modulos.maestros import variantes
-
-    return CAMPOS + [(f"linea.atributo.{a.codigo}", a.nombre, "numero" if a.tipo == "numero" else "texto")
-                     for a in (*variantes.atributos(db, "PRODUCTO"), *variantes.atributos(db))]
+    return CAMPOS + [(f"linea.atributo.{a['codigo']}", a["nombre"], "numero" if a["tipo"] == "numero" else "texto")
+                     for a in (*catalogo.atributos(db, "PRODUCTO"), *catalogo.atributos(db))]
 
 
 def nombres_campos(db: Session) -> dict[str, str]:
@@ -123,8 +119,8 @@ def calcular(db: Session, niveles: list[dict], articulo_id: int | None = None) -
     artículo con peso, peso neto y bruto por unidad) y avisos de los límites del tipo."""
     tipos = {t.id: t for t in db.scalars(select(TipoEmpaque).where(TipoEmpaque.id.in_(
         [n.get("tipo_empaque_id") for n in niveles if n.get("tipo_empaque_id")])))}
-    art = db.get(Articulo, articulo_id) if articulo_id else None
-    peso = art.peso_unitario if art is not None else None
+    art = catalogo.articulo(db, articulo_id)
+    peso = art.peso if art is not None else None
     res, avisos, unidades, tara_dentro = [], [], 1, 0.0
     for i, n in enumerate(niveles):
         t = tipos.get(n.get("tipo_empaque_id"))
@@ -381,7 +377,7 @@ def convertir_existentes(db: Session) -> int:
     tienen, y la misma en sus líneas de factura con igual empaque. Devuelve cuántas posiciones."""
     n = 0
     for p in db.scalars(select(PosicionOC).where(PosicionOC.receta_id.is_(None), PosicionOC.casepack > 0,
-                                                 PosicionOC.tipo_empaque != "PREPACK")):
+                                                 PosicionOC.tipo_empaque != catalogo.TIPO_PACK)):
         r = receta_para_datos(db, p.casepack, p.inner_pack)
         if r is None:
             continue
@@ -402,13 +398,14 @@ def _cargar_regla(db: Session, regla_id: int) -> ReglaEmpaque:
     return r
 
 
-def nombre_destino(r: ReglaEmpaque) -> str:
-    if r.destino == "GRUPO" and r.grupo is not None:
-        return " › ".join(g.nombre for g in r.grupo.ruta())
-    if r.destino == "PRODUCTO" and r.producto is not None:
-        return r.producto.nombre or r.producto.codigo_generico or str(r.producto_id)
-    if r.destino == "ARTICULO" and r.articulo is not None:
-        return r.articulo.sku
+def nombre_destino(db: Session, r: ReglaEmpaque) -> str:
+    """A quién va la regla: la ruta de su familia, su producto, su artículo o toda la empresa."""
+    if r.destino == "GRUPO" and (g := catalogo.nodo(db, r.grupo_id)) is not None:
+        return " › ".join(g.ruta_nombres)
+    if r.destino == "PRODUCTO" and (p := catalogo.producto(db, r.producto_id)) is not None:
+        return p.nombre or p.codigo or str(r.producto_id)
+    if r.destino == "ARTICULO" and (a := catalogo.articulo(db, r.articulo_id)) is not None:
+        return a.codigo
     return "Whole company"
 
 
@@ -425,10 +422,11 @@ def texto_condiciones(condiciones: list[dict] | None, db: Session | None = None)
 
 
 def dict_regla(r: ReglaEmpaque) -> dict:
+    db = object_session(r)
     return {"id": r.id, "receta_id": r.receta_id, "receta": r.receta.nombre if r.receta else None,
             "receta_resumen": resumen(foto(r.receta)) if r.receta else None, "destino": r.destino,
             "grupo_id": r.grupo_id, "producto_id": r.producto_id, "articulo_id": r.articulo_id,
-            "destino_nombre": nombre_destino(r), "condiciones": r.condiciones or [],
+            "destino_nombre": nombre_destino(db, r), "condiciones": r.condiciones or [],
             "condiciones_texto": texto_condiciones(r.condiciones, object_session(r)), "orden": r.orden,
             "vigente_desde": r.vigente_desde.isoformat() if r.vigente_desde else None,
             "vigente_hasta": r.vigente_hasta.isoformat() if r.vigente_hasta else None, "motivo": r.motivo,
@@ -449,12 +447,11 @@ def catalogo_campos(db: Session, user: Usuario) -> dict:
     destinos y los grupos de producto (familias y categorías, con su ruta) a los
     que puede ir una regla."""
     exigir(user, "catalogos.ver")
-    grupos = list(db.scalars(select(GrupoProducto).where(GrupoProducto.activa.is_(True))
-                             .options(selectinload(GrupoProducto.padre))))
+    grupos = [g for g in catalogo.familias(db).values() if g.activa]
     return {"campos": [{"clave": c, "etiqueta": e, "tipo": t} for c, e, t in campos(db)],
             "operadores": list(cond.OPERADORES_SIMPLES), "destinos": list(DESTINOS),
-            "grupos": sorted(({"id": g.id, "clase": g.clase, "nombre": " › ".join(x.nombre for x in g.ruta())} for g in grupos),
-                             key=lambda x: x["nombre"].lower())}
+            "grupos": sorted(({"id": g.id, "clase": "CATEGORIA" if g.es_categoria else "FAMILIA",
+                               "nombre": " › ".join(g.ruta_nombres)} for g in grupos), key=lambda x: x["nombre"].lower())}
 
 
 def _fecha(v, campo: str) -> date | None:
@@ -475,16 +472,16 @@ def _limpiar_regla(db: Session, datos: dict, r: ReglaEmpaque | None = None) -> d
     if destino not in DESTINOS:
         raise ErrorNegocio("Choose where the rule applies.", 422, "validacion", [{"campo": "destino", "mensaje": "Invalid."}])
     ids = {"grupo_id": None, "producto_id": None, "articulo_id": None}
-    modelo = {"GRUPO": ("grupo_id", GrupoProducto), "PRODUCTO": ("producto_id", Producto),
-              "ARTICULO": ("articulo_id", Articulo)}.get(destino)
+    modelo = {"GRUPO": ("grupo_id", catalogo.nodo), "PRODUCTO": ("producto_id", catalogo.producto),
+              "ARTICULO": ("articulo_id", catalogo.articulo)}.get(destino)
     if modelo:
-        campo, clase = modelo
+        campo, buscar = modelo
         valor = v(campo)
         try:
             valor = int(valor)
         except (TypeError, ValueError):
             valor = None
-        if not valor or db.get(clase, valor) is None:
+        if not valor or buscar(db, valor) is None:
             raise ErrorNegocio("Choose who the rule is for.", 422, "validacion", [{"campo": campo, "mensaje": "Required."}])
         ids[campo] = valor
     try:
@@ -513,7 +510,7 @@ def crear_regla(db: Session, user: Usuario, datos: dict) -> dict:
     db.add(r)
     db.flush()
     db.refresh(r)
-    registrar(db, user, "regla_empaque", r.id, "crear", {"destino": nombre_destino(r), "receta": r.receta.nombre,
+    registrar(db, user, "regla_empaque", r.id, "crear", {"destino": nombre_destino(db, r), "receta": r.receta.nombre,
                                                          "condiciones": texto_condiciones(r.condiciones, db)})
     res = dict_regla(r)
     if datos.get("aplicar"):
@@ -548,7 +545,7 @@ def eliminar_regla(db: Session, user: Usuario, regla_id: int, aplicar: bool = Fa
     r = _cargar_regla(db, regla_id)
     r.eliminada_en, r.eliminada_por, r.activa = ahora(), user.id, False
     r.version += 1
-    registrar(db, user, "regla_empaque", r.id, "eliminar", {"destino": nombre_destino(r), "receta": r.receta.nombre})
+    registrar(db, user, "regla_empaque", r.id, "eliminar", {"destino": nombre_destino(db, r), "receta": r.receta.nombre})
     res = {"ok": True}
     if aplicar:
         db.flush()
@@ -589,8 +586,7 @@ class Motor:
         self.hoy = hoy or hoy_empresa()
         q = (select(ReglaEmpaque).join(RecetaEmpaque).where(ReglaEmpaque.eliminada_en.is_(None), ReglaEmpaque.activa.is_(True),
                                                             RecetaEmpaque.activa.is_(True))
-             .options(selectinload(ReglaEmpaque.receta).selectinload(RecetaEmpaque.niveles).selectinload(RecetaNivel.tipo_empaque),
-                      selectinload(ReglaEmpaque.grupo)))
+             .options(selectinload(ReglaEmpaque.receta).selectinload(RecetaEmpaque.niveles).selectinload(RecetaNivel.tipo_empaque)))
         self.reglas = [r for r in db.scalars(q.order_by(ReglaEmpaque.orden, ReglaEmpaque.id))
                        if r.id != sin and (borrador is None or r.id != borrador.id)]
         if borrador is not None:
@@ -598,43 +594,52 @@ class Motor:
         self._paises: dict | None = None
         self._rutas: dict = {}
         self._cache: dict = {}
+        self._fichas: dict[int, catalogo.FichaArticulo | None] = {}
+        self._destinos: dict[int, str] = {}
         self.nombres = nombres_campos(db)
 
-    def familia(self, a: Articulo | None) -> str | None:
-        """El código de la familia del producto del artículo."""
-        g = a.producto.grupo_producto if a is not None and a.producto is not None else None
-        return g.familia.codigo if g is not None and g.familia is not None else None
+    def precargar(self, posiciones) -> None:
+        """Las fichas de los artículos de muchas posiciones, en una consulta."""
+        faltan = {p.articulo_id for p in posiciones if p.articulo_id and p.articulo_id not in self._fichas}
+        if faltan:
+            fichas = catalogo.articulos(self.db, faltan)
+            self._fichas.update({i: fichas.get(i) for i in faltan})
 
-    def ruta(self, a: Articulo) -> list[int]:
-        """Los grupos del artículo, de lo más específico (su categoría) a lo más general (motor común: grupos/arbol.py)."""
+    def ruta(self, a: catalogo.FichaArticulo) -> list[int]:
+        """Los nodos del árbol del artículo, de lo más específico (su categoría) a lo más general."""
         if a.id not in self._rutas:
-            from app.modulos.etiquetado.campos import valores_articulo
-            from app.modulos.grupos import arbol
-
-            self._rutas[a.id] = [g.id for g in arbol.ruta_efectiva(self.db, a, valores_articulo(a), self._cache)]
+            self._rutas[a.id] = catalogo.ruta_reglas(self.db, a, self._cache)
         return self._rutas[a.id]
+
+    def destino(self, r: ReglaEmpaque) -> str:
+        clave = r.id or 0
+        if clave not in self._destinos or not r.id:
+            self._destinos[clave] = nombre_destino(self.db, r)
+        return self._destinos[clave]
 
     def pais(self, centro: str | None) -> str | None:
         if self._paises is None:
             self._paises = dict(self.db.execute(select(Centro.codigo, Centro.pais)).all())
         return self._paises.get(centro) if centro else None
 
-    def articulo(self, p: PosicionOC) -> Articulo | None:
-        if p.articulo is not None or not p.articulo_id:
-            return p.articulo
-        return self.db.get(Articulo, p.articulo_id)  # posición recién creada: la relación aún no se cargó
+    def articulo(self, p: PosicionOC) -> catalogo.FichaArticulo | None:
+        if not p.articulo_id:
+            return None
+        if p.articulo_id not in self._fichas:
+            self._fichas[p.articulo_id] = catalogo.articulo(self.db, p.articulo_id)
+        return self._fichas[p.articulo_id]
 
-    def valores(self, p: PosicionOC, oc: OrdenCompra, a: Articulo | None) -> dict:
+    def valores(self, p: PosicionOC, oc: OrdenCompra, a: catalogo.FichaArticulo | None) -> dict:
         prov = oc.proveedor if oc.proveedor is not None else (self.db.get(Proveedor, oc.proveedor_id) if oc.proveedor_id else None)
         return {"oc.proveedor": prov.codigo if prov else None, "oc.sociedad": oc.sociedad,
                 "oc.centro": oc.centro, "oc.centro_destino": oc.centro_destino, "oc.pais_destino": self.pais(oc.centro_destino),
                 "oc.pais_origen": p.pais_origen or oc.pais_origen, "oc.incoterm": oc.incoterm,
-                "oc.puerto_despacho": oc.puerto_despacho, "linea.familia": self.familia(a),
+                "oc.puerto_despacho": oc.puerto_despacho, "linea.familia": a.familia.codigo if a and a.familia else None,
                 **{f"linea.atributo.{k}": v for k, v in {**(p.atributos or {}), **(p.variante or {})}.items()},
                 "linea.unidad": p.unidad, "linea.cantidad": p.cantidad, "linea.almacen": p.almacen,
-                "linea.tipo": p.tipo_empaque, "articulo.sku": a.sku if a else p.codigo_articulo}
+                "linea.tipo": p.tipo_empaque, "articulo.sku": a.codigo if a else p.codigo_articulo}
 
-    def _peso(self, r: ReglaEmpaque, a: Articulo | None) -> tuple[int, int] | None:
+    def _peso(self, r: ReglaEmpaque, a: catalogo.FichaArticulo | None) -> tuple[int, int] | None:
         """Qué tan específica es la regla para el artículo (None si no es para él)."""
         if r.destino == "EMPRESA":
             return (1, 0)
@@ -658,7 +663,7 @@ class Motor:
             vigente = (not r.vigente_desde or self.hoy >= r.vigente_desde) and (not r.vigente_hasta or self.hoy <= r.vigente_hasta)
             detalle = [{**d, "etiqueta": self.nombres.get(d["campo"], d["campo"])} for d in cond.detalle(r.condiciones, valores)]
             cumple = vigente and all(d["cumple"] for d in detalle)
-            res.explicacion.append({"regla_id": r.id, "destino": nombre_destino(r), "receta": r.receta.nombre,
+            res.explicacion.append({"regla_id": r.id, "destino": self.destino(r), "receta": r.receta.nombre,
                                     "condiciones": detalle, "vigente": vigente, "cumple": cumple, "orden": r.orden})
             if not cumple:
                 continue
@@ -679,7 +684,7 @@ def poner(p: PosicionOC, receta: RecetaEmpaque | None, origen: str | None, regla
         return
     f = foto(receta)
     p.receta_id, p.receta_origen, p.receta_regla_id, p.receta_foto = receta.id, origen, regla.id if regla else None, f
-    if p.tipo_empaque != "PREPACK":
+    if p.tipo_empaque != catalogo.TIPO_PACK:
         p.casepack, p.inner_pack = derivar(f)
 
 
@@ -690,13 +695,13 @@ def asignar(db: Session, p: PosicionOC, oc: OrdenCompra, motor: Motor | None = N
     if p.receta_origen in ("MANUAL", "DATOS") and p.receta_foto:
         # Sin casepack en lo que llega se conserva la receta (y el casepack sale de ella);
         # si la OC trae otra forma, manda la OC
-        if not trae_empaque or p.tipo_empaque == "PREPACK":
-            if p.tipo_empaque != "PREPACK":
+        if not trae_empaque or p.tipo_empaque == catalogo.TIPO_PACK:
+            if p.tipo_empaque != catalogo.TIPO_PACK:
                 p.casepack, p.inner_pack = derivar(p.receta_foto)
             return
         if derivar(p.receta_foto) == (p.casepack, p.inner_pack):
             return
-    if trae_empaque and p.tipo_empaque != "PREPACK":
+    if trae_empaque and p.tipo_empaque != catalogo.TIPO_PACK:
         r = receta_para_datos(db, p.casepack, p.inner_pack)
         if r is not None:
             if p.receta_id != r.id or p.receta_origen != "DATOS":
@@ -757,7 +762,7 @@ def dict_posicion(p: PosicionOC) -> dict:
     f = p.receta_foto
     if not f:
         return {"posicion_id": p.id, "receta_id": None, "receta": None, "origen": None, "aviso": None}
-    unidades = derivar(f)[0] if p.tipo_empaque != "PREPACK" else None
+    unidades = derivar(f)[0] if p.tipo_empaque != catalogo.TIPO_PACK else None
     aviso = None
     if unidades and p.cantidad and float(p.cantidad) % unidades:
         aviso = f"{float(p.cantidad):g} is not a multiple of {unidades}."
@@ -773,11 +778,13 @@ def reaplicar(db: Session, user: Usuario, oc_id: int | None = None) -> int:
     q = (select(PosicionOC).join(OrdenCompra).where(OrdenCompra.estado.in_(ABIERTAS),
                                                    (PosicionOC.receta_origen.is_(None)) | (PosicionOC.receta_origen == "REGLA"),
                                                    ~select(FacturaLinea.id).where(FacturaLinea.posicion_oc_id == PosicionOC.id).exists())
-         .options(selectinload(PosicionOC.articulo), selectinload(PosicionOC.oc).selectinload(OrdenCompra.proveedor)))
+         .options(selectinload(PosicionOC.oc).selectinload(OrdenCompra.proveedor)))
     if oc_id:
         q = q.where(PosicionOC.oc_id == oc_id)
     cambios = 0
-    for p in db.scalars(q.limit(MAX_PROBAR)):
+    posiciones = list(db.scalars(q.limit(MAX_PROBAR)))
+    motor.precargar(posiciones)
+    for p in posiciones:
         antes = (p.receta_id, p.receta_regla_id)
         asignar(db, p, p.oc, motor)
         if (p.receta_id, p.receta_regla_id) != antes:
@@ -795,6 +802,7 @@ def probar(db: Session, user: Usuario, oc_id: int, borrador: dict | None = None)
     oc = _orden(db, user, oc_id)
     motor = _motor_con(db, borrador)
     filas = []
+    motor.precargar(oc.posiciones)
     for p in sorted(oc.posiciones, key=lambda x: x.posicion.zfill(10)):
         e = motor.elegir(p, oc)
         filas.append({"posicion_id": p.id, "posicion": p.posicion, "articulo": p.codigo_articulo, "cantidad": p.cantidad,
@@ -802,7 +810,7 @@ def probar(db: Session, user: Usuario, oc_id: int, borrador: dict | None = None)
                       "reglas": {"receta": e.regla.receta.nombre if e.regla else None,
                                  "resumen": resumen(foto(e.regla.receta)) if e.regla else None,
                                  "regla_id": e.regla.id if e.regla else None,
-                                 "destino": nombre_destino(e.regla) if e.regla else None},
+                                 "destino": motor.destino(e.regla) if e.regla else None},
                       "explicacion": e.explicacion})
     return {"oc_id": oc.id, "numero": oc.numero, "posiciones": filas}
 
@@ -816,8 +824,6 @@ def _motor_con(db: Session, borrador: dict | None) -> Motor:
     r = ReglaEmpaque(**limpio, orden=original.orden if original else 10**6)
     r.id = original.id if original else None
     r.receta = db.get(RecetaEmpaque, limpio["receta_id"])
-    if r.grupo_id:
-        r.grupo = db.get(GrupoProducto, r.grupo_id)
     if r in db:  # solo se mide: nunca se guarda
         db.expunge(r)
     return Motor(db, borrador=r)
@@ -832,8 +838,10 @@ def impacto(db: Session, user: Usuario, borrador: dict | None = None, quitar: in
     q = (select(PosicionOC).join(OrdenCompra).where(OrdenCompra.estado.in_(ABIERTAS),
                                                    (PosicionOC.receta_origen.is_(None)) | (PosicionOC.receta_origen == "REGLA"),
                                                    ~select(FacturaLinea.id).where(FacturaLinea.posicion_oc_id == PosicionOC.id).exists())
-         .options(selectinload(PosicionOC.articulo), selectinload(PosicionOC.oc).selectinload(OrdenCompra.proveedor)))
+         .options(selectinload(PosicionOC.oc).selectinload(OrdenCompra.proveedor)))
     posiciones = list(db.scalars(q.limit(MAX_PROBAR + 1)))
+    actual.precargar(posiciones[:MAX_PROBAR])
+    nuevo.precargar(posiciones[:MAX_PROBAR])
     cambian, ejemplos = 0, []
     for p in posiciones[:MAX_PROBAR]:
         a, b = actual.elegir(p, p.oc).regla, nuevo.elegir(p, p.oc).regla

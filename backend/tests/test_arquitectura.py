@@ -26,20 +26,18 @@ PENDIENTES = {
     "main.py", "modulos/acceso/api.py", "modulos/acceso/permisos.py", "modulos/clasificacion/aranceles.py",
     "modulos/clasificacion/especialista.py", "modulos/clasificacion/familias.py",
     "modulos/clasificacion/impacto.py", "modulos/clasificacion/meta.py",
-    "modulos/clasificacion/motor_clasificacion.py", "modulos/comun/edicion.py", "modulos/empaque/packing.py",
-    "modulos/empaque/recetas.py", "modulos/empresa/organizacion.py", "modulos/etiquetado/buscadores.py",
-    "modulos/etiquetado/campos.py", "modulos/etiquetado/categorias.py", "modulos/etiquetado/datos.py",
-    "modulos/etiquetado/familias.py", "modulos/etiquetado/generacion.py", "modulos/etiquetado/reglas.py",
-    "modulos/etiquetado/trabajos.py", "modulos/etiquetado/usos.py", "modulos/integraciones/entidades.py",
-    "modulos/maestros/api.py", "modulos/maestros/cargas.py", "modulos/maestros/catalogos.py",
-    "modulos/maestros/gobierno.py",
+    "modulos/clasificacion/motor_clasificacion.py", "modulos/comun/edicion.py", "modulos/empresa/organizacion.py",
+    "modulos/etiquetado/buscadores.py", "modulos/etiquetado/campos.py", "modulos/etiquetado/categorias.py",
+    "modulos/etiquetado/datos.py", "modulos/etiquetado/familias.py", "modulos/etiquetado/generacion.py",
+    "modulos/etiquetado/reglas.py", "modulos/etiquetado/trabajos.py", "modulos/etiquetado/usos.py",
+    "modulos/integraciones/entidades.py", "modulos/maestros/api.py", "modulos/maestros/cargas.py",
+    "modulos/maestros/catalogos.py", "modulos/maestros/gobierno.py",
 }
 
 
 # Relaciones de modelos de otros módulos hacia el catálogo: se navegarían sin pasar por el
 # servicio (`posicion.articulo.producto…`). Guardan el id; la lista solo puede achicarse
-RELACIONES_PENDIENTES = {"FacturaLinea.articulo_version", "PosicionOC.articulo", "PosicionOC.articulo_version",
-                         "ReglaEmpaque.grupo", "ReglaEmpaque.producto", "ReglaEmpaque.articulo"}
+RELACIONES_PENDIENTES = {"FacturaLinea.articulo_version", "PosicionOC.articulo", "PosicionOC.articulo_version"}
 MODELOS_COMEX = {"ClasificacionProducto", "PartidaPais", "ProductoFoto", "ProductoDocumento", "ProductoVersion"}
 
 

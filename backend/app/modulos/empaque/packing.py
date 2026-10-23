@@ -1,13 +1,12 @@
 import re
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core.errores import ErrorNegocio
 from app.core.estados import PL
 from app.core.numeracion import mayor_sufijo
 from app.modelos import (
-    Articulo,
     Factura,
     FacturaLinea,
     GrupoCajas,
@@ -21,6 +20,7 @@ from app.modelos import (
     ahora,
 )
 from app.modulos.acceso.permisos import asegurar_proveedor, es_interno, exigir, exigir_alguno, permisos_de
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
@@ -39,9 +39,7 @@ from app.modulos.facturacion.cantidades import (
 )
 from app.modulos.facturacion.estados import EDITABLE_PL, ESTADO_TXT
 from app.modulos.facturacion.facturas import cargar_factura
-from app.modulos.maestros import variantes
 from app.modulos.maestros.unidades import error_cantidad
-from app.modulos.maestros.variantes import texto_linea as texto_variante
 from app.modulos.recepcion.recepcion import de_pl as recepcion_de_pl
 from app.modulos.transporte.sugerencias import sugerir_unidades
 
@@ -184,7 +182,7 @@ def _linea(pl: PackingList, pl_linea_id: int) -> PLLinea:
 
 def _ref(pll: PLLinea) -> str:
     fl = pll.factura_linea
-    variante = texto_variante(fl.variante)
+    variante = catalogo.texto(fl.variante)
     return f"{fl.codigo_articulo}{' · ' + variante if variante else ''}"
 
 
@@ -195,7 +193,7 @@ def regla_empaque(fl) -> tuple[str, int | None]:
     Con inner pack (sólidos), toda cantidad por caja es de inner packs enteros:
     con casepack, la caja lleva casepack / inner packs; sin casepack, la caja
     lleva los inner packs que se definan."""
-    if fl.tipo_empaque == "PREPACK":
+    if fl.tipo_empaque == catalogo.TIPO_PACK:
         return "PREPACK", 1
     if fl.casepack:
         return "CASEPACK", fl.casepack
@@ -549,10 +547,9 @@ def despaletizar(db: Session, user: Usuario, pl_id: int, datos) -> dict:
 
 def _unidad_componentes(fl) -> str | None:
     """Unidad de las variantes que forman un pack o kit (pares, unidades…)."""
-    art = fl.posicion_oc.articulo if fl.posicion_oc else None
-    if not art or not art.componentes:
-        return None
-    return art.componentes[0].componente.unidad
+    p = fl.posicion_oc
+    art = catalogo.articulo(object_session(fl), p.articulo_id) if p is not None and p.articulo_id else None
+    return art.componentes[0].unidad if art is not None and art.componentes else None
 
 
 def definir_inner(db: Session, user: Usuario, pl_id: int, pl_linea_id: int, datos) -> dict:
@@ -564,7 +561,7 @@ def definir_inner(db: Session, user: Usuario, pl_id: int, pl_linea_id: int, dato
         raise ErrorNegocio("One of the rows is no longer in the packing list. Reload.", 404, "no_encontrado")
     fl = pll.factura_linea
     n = datos.inner_pack or None
-    if fl.tipo_empaque == "PREPACK":
+    if fl.tipo_empaque == catalogo.TIPO_PACK:
         raise ErrorNegocio("A pack or kit carton is defined by its contents; it has no inner pack.", 422, "validacion")
     if fl.posicion_oc and fl.posicion_oc.inner_pack:
         raise ErrorNegocio(f"The PO defines the inner pack ({fl.posicion_oc.inner_pack}); it cannot change here.", 422, "validacion")
@@ -1248,23 +1245,27 @@ def _sugerencias(db: Session, pl: PackingList) -> dict[int, int]:
             for it in g.items:
                 res[it.pl_linea_id] = g.plantilla_id
 
+    de_articulo = catalogo.productos_de(db, [pll.factura_linea.posicion_oc.articulo_id for pll in pl.lineas
+                                             if pll.factura_linea.posicion_oc is not None])
+
     def producto(pll) -> int | None:
         p = pll.factura_linea.posicion_oc
-        return p.articulo.producto_id if p is not None and p.articulo is not None else None
+        return de_articulo.get(p.articulo_id) if p is not None else None
     productos = {producto(pll) for pll in pl.lineas if pll.id not in res} - {None}
     if not productos:
         return res
+    arts = catalogo.grupos_de_articulos()
     por_producto = dict(db.execute(
-        select(Articulo.producto_id, GrupoCajas.plantilla_id)
+        select(arts.c.producto_id, GrupoCajas.plantilla_id)
         .select_from(FacturaLinea)
         .join(PosicionOC, PosicionOC.id == FacturaLinea.posicion_oc_id)
-        .join(Articulo, Articulo.id == PosicionOC.articulo_id)
+        .join(arts, arts.c.articulo_id == PosicionOC.articulo_id)
         .join(PLLinea, PLLinea.factura_linea_id == FacturaLinea.id)
         .join(GrupoCajasItem, GrupoCajasItem.pl_linea_id == PLLinea.id)
         .join(GrupoCajas, GrupoCajas.id == GrupoCajasItem.grupo_id)
         .join(PlantillaCaja, PlantillaCaja.id == GrupoCajas.plantilla_id)
         .join(Factura, Factura.id == FacturaLinea.factura_id)
-        .where(Factura.proveedor_id == pl.factura.proveedor_id, Articulo.producto_id.in_(productos),
+        .where(Factura.proveedor_id == pl.factura.proveedor_id, arts.c.producto_id.in_(productos),
                PlantillaCaja.activa.is_(True), GrupoCajas.es_parcial.is_(False))
         .order_by(GrupoCajas.id)
     ).all())
@@ -1299,18 +1300,18 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
             "posicion": fl.posicion,
             "codigo_articulo": fl.codigo_articulo,
             "codigo_barras": fl.codigo_barras,
-            "variante": texto_variante(fl.variante),
+            "variante": catalogo.texto(fl.variante),
             "valores": dict(fl.variante or {}),
             "atributos": dict(fl.atributos or {}),
             "descripcion": fl.descripcion,
             "unidad": fl.unidad,
             "peso_unitario": empaques.peso_linea(fl),
-            "marca": variantes.de_catalogo(db, fl.atributos, "marcas"),
+            "marca": catalogo.marca(db, fl.atributos),
             "tipo_empaque": fl.tipo_empaque,
             "casepack": fl.casepack,
             "inner_pack": inner_de(fl),
             # El inner pack se define en el PL si la OC no lo trae y aún no hay cajas
-            "inner_editable": fl.tipo_empaque != "PREPACK" and not (fl.posicion_oc and fl.posicion_oc.inner_pack)
+            "inner_editable": fl.tipo_empaque != catalogo.TIPO_PACK and not (fl.posicion_oc and fl.posicion_oc.inner_pack)
             and en_cajas == 0,
             "codigo_pack": fl.codigo_pack,
             "unidades_por_caja": fl.unidades_por_caja,
@@ -1342,7 +1343,7 @@ def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
         def item(pll, n, g=g):
             fl = pll.factura_linea
             return {
-                "pl_linea_id": pll.id, "codigo_articulo": fl.codigo_articulo, "variante": texto_variante(fl.variante),
+                "pl_linea_id": pll.id, "codigo_articulo": fl.codigo_articulo, "variante": catalogo.texto(fl.variante),
                 "atributos": dict(fl.atributos or {}), "unidad": fl.unidad, "cantidad_por_caja": n, "cantidad_total": n * g.num_cajas,
                 "peso_unitario": empaques.peso_linea(fl), "inner_pack": inner_de(fl),
                 "inner_packs_por_caja": (n // inner_de(fl) if inner_de(fl) else None),

@@ -1,6 +1,9 @@
 """Estructura física del PL: pesos acumulados, volumen exterior y validaciones."""
+from dataclasses import replace
+
+import pytest
+
 from app.modelos import (
-    Articulo,
     FacturaLinea,
     GrupoCajas,
     GrupoCajasItem,
@@ -9,12 +12,29 @@ from app.modelos import (
     PosicionOC,
     TipoEmpaque,
 )
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.empaque import empaques
+
+# Los artículos de estas pruebas (sin base): el empaque los pide al catálogo por el id de la posición
+FICHAS: dict[int, catalogo.FichaArticulo] = {}
+
+
+@pytest.fixture(autouse=True)
+def _catalogo_en_memoria(monkeypatch):
+    monkeypatch.setattr(empaques, "_articulo_de", lambda fl: FICHAS.get(fl.posicion_oc.articulo_id) if fl.posicion_oc else None)
+
+
+def _ficha(id_, codigo, peso, tipo=catalogo.TIPO_VARIANTE, componentes=()):
+    return catalogo.FichaArticulo(
+        id=id_, codigo=codigo, tipo=tipo, activo=True, unidad="PAR", peso=peso, descripcion=None, producto_id=1,
+        producto_codigo="P1", producto_nombre=None, proveedor_id=None, grupo_id=None, familia=None, valores={}, datos={},
+        marca=None, codigo_barras=None, codigo_proveedor=None, codigo_pack=None, componentes=componentes)
 
 
 def _linea(peso, talla="8", oc="OC1"):
-    art = Articulo(sku=f"A{talla}", unidad="PAR", tipo="SOLIDO", peso_unitario=peso)
-    fl = FacturaLinea(posicion_oc=PosicionOC(articulo=art), cantidad=0, oc_numero=oc, codigo_articulo=f"A{talla}",
+    id_ = 1000 + len(FICHAS)
+    FICHAS[id_] = _ficha(id_, f"A{talla}", peso)
+    fl = FacturaLinea(posicion_oc=PosicionOC(articulo_id=id_), cantidad=0, oc_numero=oc, codigo_articulo=f"A{talla}",
                       unidad="PAR", variante={"COLOR": "BLK", "TALLA": talla})
     return PLLinea(factura_linea=fl, cantidad=0)
 
@@ -95,7 +115,8 @@ def test_numeracion_por_tipo_y_validaciones():
 
 def test_sin_peso_del_articulo_el_neto_se_escribe():
     pl, pll, (p, c, k1, k2) = _pl()
-    pll.factura_linea.posicion_oc.articulo.peso_unitario = None
+    aid = pll.factura_linea.posicion_oc.articulo_id
+    FICHAS[aid] = replace(FICHAS[aid], peso=None)
     empaques.recalcular(pl)
     assert k1.peso_neto_caja is None and c.peso_bruto_caja is None and empaques.totales(pl)["sin_peso"] == 1
     k1.neto_manual, k2.neto_manual = 4, 2
@@ -104,10 +125,9 @@ def test_sin_peso_del_articulo_el_neto_se_escribe():
 
 
 def test_pack_pesa_lo_que_sus_variantes():
-    from app.modelos import ArticuloComponente
-
-    s7 = Articulo(sku="S7", peso_unitario=0.8)
-    s8 = Articulo(sku="S8", peso_unitario=0.9)
-    art = Articulo(sku="PP", tipo="PREPACK", componentes=[ArticuloComponente(componente=s7, cantidad=6),
-                                                          ArticuloComponente(componente=s8, cantidad=2)])
-    assert empaques.peso_articulo(art) == 6.6
+    contenido = (catalogo.Componente(articulo_id=7, codigo="S7", cantidad=6, producto_id=1, valores={}, peso=0.8),
+                 catalogo.Componente(articulo_id=8, codigo="S8", cantidad=2, producto_id=1, valores={}, peso=0.9))
+    pack = _ficha(9, "PP", None, catalogo.TIPO_PACK, contenido)
+    assert pack.peso_neto == 6.6
+    assert _ficha(9, "PP", 7.0, catalogo.TIPO_PACK, contenido).peso_neto == 7.0  # con peso propio, el suyo
+    assert _ficha(9, "PP", None, catalogo.TIPO_PACK, (replace(contenido[0], peso=None),)).peso_neto is None
