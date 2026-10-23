@@ -35,18 +35,15 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.modelos import (
-    Articulo,
-    CategoriaEtiquetado,
     Centro,
-    FamiliaEtiquetado,
     OrdenCompra,
     PlantillaEtiqueta,
-    Producto,
     TipoEmpaque,
     TipoEtiqueta,
     UsoDiseno,
 )
 from app.modelos.etiquetado import ALCANCES_DE, NIVELES_DE
+from app.modulos.catalogo import servicio as catalogo
 
 # Excepciones de una celda, en el orden en que se revisan (OC va antes, aparte)
 ORDEN_CONTEXTO = ("CENTRO_DESTINO", "PAIS_DESTINO", "SOCIEDAD", "PROVEEDOR", "CONDICION")
@@ -82,7 +79,7 @@ def validar_condiciones(db: Session, condiciones) -> list[dict]:
     from app.modulos.etiquetado import campos
 
     def familia(campo, op, valor):
-        if op == "en_familia" and not db.scalar(select(FamiliaEtiquetado.id).where(FamiliaEtiquetado.codigo == valor.upper())):
+        if op == "en_familia" and ((f := catalogo.nodo_por_codigo(db, valor)) is None or f.es_categoria):
             return f"There is no labeling family {valor}."
         return None
 
@@ -98,7 +95,7 @@ class Sujeto:
     (y con él producto, familia y grupo), su OC (destino, sociedad,
     proveedor), el tipo de empaque de un bulto y sus valores (condiciones)."""
     sujeto: str  # ARTICULO | BULTO | DOCUMENTO
-    articulo: Articulo | None = None
+    articulo: catalogo.FichaArticulo | None = None
     oc: OrdenCompra | None = None
     tipo_empaque_id: int | None = None
     valores: dict = field(default_factory=dict)
@@ -180,12 +177,10 @@ def cantidad_tipo(t: TipoEtiqueta) -> str:
     return {"POR_UNIDAD": "POR_UNIDAD", "MANUAL": "MANUAL"}.get(t.cantidad, "UNA")
 
 
-def categoria_de(db: Session, a: Articulo | None, valores: dict, cache: dict | None = None) -> CategoriaEtiquetado | None:
-    """La categoría de etiquetado de un artículo (grupos/arbol.py: la puesta a
-    mano en su producto o la primera que se reconoce por sus condiciones)."""
-    from app.modulos.grupos import arbol
-
-    return arbol.categoria_de(db, a, valores, cache)
+def categoria_de(db: Session, a: catalogo.FichaArticulo | None, cache: dict | None = None) -> catalogo.FichaFamilia | None:
+    """La categoría de un artículo (la puesta a mano en su producto o la primera de su familia que se
+    reconoce por sus condiciones sobre los datos del catálogo)."""
+    return catalogo.categoria(db, a, cache)
 
 
 def celda_de(tipo_id: int, nivel: str, destino_id: int | None) -> str:
@@ -241,18 +236,12 @@ class Resolvedor:
         self._cache: dict = {}
         self._categorias: dict = {}
 
-    def categoria(self, s: Sujeto) -> CategoriaEtiquetado | None:
+    def categoria(self, s: Sujeto) -> catalogo.FichaFamilia | None:
         a = s.articulo
         if a is None:
             return None
         if a.id not in self._categorias:
-            valores = s.valores
-            if not any(k.startswith("articulo.") for k in valores):
-                # Los datos del artículo, si no vinieron (matriz, ficha del producto)
-                from app.modulos.etiquetado import campos
-
-                valores = {**campos.valores_articulo(a), **valores}
-            self._categorias[a.id] = categoria_de(self.db, a, valores, self._cache)
+            self._categorias[a.id] = categoria_de(self.db, a, self._cache)
         return self._categorias[a.id]
 
     # ---- Datos del registro -----------------------------------------------------------------
@@ -284,8 +273,8 @@ class Resolvedor:
                 cat = self.categoria(s)
                 if cat is not None:
                     res.append(("CATEGORIA", cat.id))
-            elif nivel == "FAMILIA" and a is not None and a.familia_efectiva is not None:
-                res += [("FAMILIA", f.id) for f in reversed(a.familia_efectiva.ruta())]
+            elif nivel == "FAMILIA" and a is not None and a.familia is not None:
+                res += [("FAMILIA", fid) for fid in reversed(a.familia.ruta_ids)]
             elif nivel == "TIPO_EMPAQUE" and s.tipo_empaque_id:
                 res.append(("TIPO_EMPAQUE", s.tipo_empaque_id))
             elif nivel == "GENERAL":
@@ -365,18 +354,15 @@ class Resolvedor:
 def nombre_destino(db: Session, nivel: str, destino_id: int | None) -> str | None:
     if destino_id is None:
         return None
-    if nivel == "FAMILIA":
-        f = db.get(FamiliaEtiquetado, destino_id)
+    if nivel in ("FAMILIA", "CATEGORIA"):
+        f = catalogo.nodo(db, destino_id)
         return f.nombre if f else None
-    if nivel == "CATEGORIA":
-        c = db.get(CategoriaEtiquetado, destino_id)
-        return c.nombre if c else None
     if nivel == "PRODUCTO":
-        p = db.get(Producto, destino_id)
-        return (p.nombre or p.codigo_generico) if p else None
+        p = catalogo.producto(db, destino_id)
+        return p.nombre_o_codigo if p else None
     if nivel == "SKU":
-        a = db.get(Articulo, destino_id)
-        return a.sku if a else None
+        a = catalogo.articulo(db, destino_id)
+        return a.codigo if a else None
     if nivel == "TIPO_EMPAQUE":
         e = db.get(TipoEmpaque, destino_id)
         return e.nombre if e else None

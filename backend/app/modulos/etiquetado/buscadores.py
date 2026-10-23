@@ -5,8 +5,9 @@ from __future__ import annotations
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
-from app.modelos import Articulo, GeneracionEtiquetas, OrdenCompra, PosicionOC, Usuario
+from app.modelos import GeneracionEtiquetas, OrdenCompra, PosicionOC, Usuario
 from app.modulos.acceso.permisos import exigir, proveedor_filtro
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.etiquetado import campos, familias, generacion
 
@@ -20,10 +21,10 @@ def ordenes_familia(db: Session, user: Usuario, familia_id: int | None = None, q
     generaron etiquetas para ellas."""
     exigir(user, "etiquetas.generar")
     lineas = select(PosicionOC.oc_id, func.count(PosicionOC.id).label("lineas"),
-                    func.count(distinct(PosicionOC.articulo_id)).label("articulos")).join(Articulo, Articulo.id == PosicionOC.articulo_id)
+                    func.count(distinct(PosicionOC.articulo_id)).label("articulos")).where(PosicionOC.articulo_id.is_not(None))
     if familia_id:
         familias.cargar(db, familia_id)
-        lineas = lineas.where(familias.familia_sql() == familia_id)
+        lineas = lineas.where(PosicionOC.articulo_id.in_(catalogo.ids(familia_id=familia_id)))
     sub = lineas.group_by(PosicionOC.oc_id).subquery()
     c = select(OrdenCompra, sub.c.lineas, sub.c.articulos).join(sub, sub.c.oc_id == OrdenCompra.id)
     prov = proveedor_filtro(user)

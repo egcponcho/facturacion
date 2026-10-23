@@ -12,13 +12,14 @@ from __future__ import annotations
 import re
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.modelos import Articulo, CategoriaEtiquetado, Producto, Usuario
+from app.modelos import CategoriaEtiquetado, Producto, Usuario
 from app.modulos.acceso.permisos import exigir, exigir_alguno, exigir_interno, proveedor_filtro
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.historial import registrar
-from app.modulos.etiquetado import campos, familias, reglas
+from app.modulos.etiquetado import familias, reglas
 from app.modulos.grupos import arbol
 
 CODIGO = re.compile(r"^[A-Z0-9][A-Z0-9_.-]{0,19}$")
@@ -39,21 +40,16 @@ def cargar(db: Session, categoria_id: int) -> CategoriaEtiquetado:
     return c
 
 
-def _articulos(db: Session, familia_id: int | None = None) -> list[Articulo]:
+def _articulos(db: Session, familia_id: int | None = None) -> list[catalogo.FichaArticulo]:
     """Artículos activos (de una familia y sus subfamilias, si se indica)."""
-    arts = list(db.scalars(select(Articulo).where(Articulo.activo.is_(True)).options(
-        selectinload(Articulo.producto))
-        .order_by(Articulo.id).limit(MAX_PRUEBA)))
-    if familia_id is not None:
-        arts = [a for a in arts if a.familia_efectiva is not None and familia_id in {f.id for f in a.familia_efectiva.ruta()}]
-    return arts
+    return catalogo.articulos_de(db, familia_id=familia_id, limite=MAX_PRUEBA)
 
 
 def conteos(db: Session) -> dict:
     res: dict = {}
     cache: dict = {}
     for a in _articulos(db):
-        c = reglas.categoria_de(db, a, campos.valores_articulo(a), cache)
+        c = reglas.categoria_de(db, a, cache)
         if c is not None:
             res[c.id] = res.get(c.id, 0) + 1
     return res
@@ -159,15 +155,15 @@ def probar(db: Session, user: Usuario, datos: dict) -> dict:
     entran, ejemplos, en_otra = 0, [], 0
     revisados = _articulos(db, fam.id)
     for a in revisados:
-        v = campos.valores_articulo(a)
+        v = catalogo.valores_condiciones(db, a, cache)
         if not condiciones or not all(reglas.cumple_condicion(x, v) for x in condiciones):
             continue
         entran += 1
-        actual = reglas.categoria_de(db, a, v, cache)
+        actual = reglas.categoria_de(db, a, cache)
         if actual is not None and actual.id != propia:
             en_otra += 1
         if len(ejemplos) < EJEMPLOS:
-            ejemplos.append({"articulo_id": a.id, "sku": a.sku, "descripcion": a.descripcion, "categoria_actual": actual.nombre if actual else None})
+            ejemplos.append({"articulo_id": a.id, "sku": a.codigo, "descripcion": a.descripcion, "categoria_actual": actual.nombre if actual else None})
     return {"revisados": len(revisados), "entran": entran, "en_otra": en_otra, "ejemplos": ejemplos}
 
 

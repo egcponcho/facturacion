@@ -174,3 +174,60 @@ def sin_marca(texto: str | None, marca: str | None = None) -> str | None:
     for m in [x for x in {marca or ""} if x.strip()]:
         t = re.sub(rf"[,;]?\s*\b{re.escape(m.strip())}\b", "", t, flags=re.I)
     return re.sub(r"\s{2,}", " ", t).strip(" ,;") or None
+
+
+# ---- Datos de la ficha técnica que se imprimen (etiquetas) --------------------------------------
+def defs_ficha(db: Session) -> dict[str, dict]:
+    """Atributos activos de la ficha técnica: los de cualquier tipo de producto, definidos con datos.
+    Una vez por sesión."""
+    from app.modelos import AtributoDef
+
+    res = db.info.get("defs_ficha")
+    if res is None:
+        res = db.info["defs_ficha"] = {
+            a.codigo: {"etiqueta": a.etiqueta, "tipo": a.tipo_dato, "unidad": a.unidad,
+                       "opciones": {o.codigo: o.etiqueta for o in a.opciones}}
+            for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones))
+                                .where(AtributoDef.activo.is_(True)).order_by(AtributoDef.orden, AtributoDef.codigo))}
+    return res
+
+
+def texto_ficha(d: dict, v):
+    """El valor de un atributo de la ficha como se imprime: el nombre de la opción,
+    Sí/No, la lista de opciones o la composición; un número queda número."""
+    if v is None or v == "" or v == [] or v == {}:
+        return None
+    if d["tipo"] == "boolean":
+        return "Yes" if v else "No"
+    if d["tipo"] == "number":
+        return v
+    if isinstance(v, list):
+        return ", ".join(str(d["opciones"].get(x, x)) for x in v)
+    if isinstance(v, dict):
+        return "; ".join(f"{k.replace('_', ' ').capitalize()}: {x}" for k, x in v.items() if x not in (None, "")) or None
+    return d["opciones"].get(v, v)
+
+
+def composicion(ficha: dict | None) -> str | None:
+    comp = (ficha or {}).get("comp")
+    if isinstance(comp, dict):
+        partes = [f"{k.replace('_', ' ').capitalize()}: {v}" for k, v in comp.items() if v]
+        return "; ".join(partes) or None
+    return str(comp) if comp else None
+
+
+def valores_etiqueta(db: Session, producto_ids: Iterable[int | None]) -> dict[int, dict]:
+    """{producto: lo de su ficha que puede imprimir una etiqueta}: descripción comercial, país de
+    origen, composición, uso y cada atributo de la ficha («producto.atributo.X»)."""
+    ids = sorted({i for i in producto_ids if i})
+    if not ids:
+        return {}
+    defs = defs_ficha(db)
+    res = {}
+    for p in db.scalars(select(Producto).where(Producto.id.in_(ids))):
+        ficha_ = p.ficha or {}
+        v = {"producto.descripcion_comercial": p.descripcion_comercial, "producto.pais_origen": p.pais_origen,
+             "producto.composicion": composicion(ficha_), "producto.uso": ficha_.get("uso")}
+        v.update({f"producto.atributo.{k}": texto_ficha(defs[k], x) for k, x in ficha_.items() if k in defs})
+        res[p.id] = v
+    return res

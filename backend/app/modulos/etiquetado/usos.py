@@ -20,15 +20,11 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.errores import ErrorNegocio
 from app.modelos import (
-    Articulo,
-    CategoriaEtiquetado,
     Centro,
-    FamiliaEtiquetado,
     OrdenCompra,
     Pais,
     PlantillaEtiqueta,
     PosicionOC,
-    Producto,
     Proveedor,
     Sociedad,
     TipoEmpaque,
@@ -40,6 +36,7 @@ from app.modelos import (
 )
 from app.modelos.etiquetado import ACCIONES, ALCANCES_DE, CANTIDADES_REGLA, CONTEXTOS, DESTINO_DE, NIVELES_DE
 from app.modulos.acceso.permisos import exigir, exigir_interno
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import reglas, tipos
 from app.modulos.etiquetado.reglas import Resolvedor, Sujeto, celda_de, nombre_destino
@@ -48,20 +45,12 @@ MAX_VALORES = 50
 MAX_SIMULACION = 20000  # artículos que se revisan al simular un cambio
 OC_ABIERTAS = ("BORRADOR", "EN_APROBACION", "RECHAZADA", "APROBADA")
 CON_VALORES = ("CENTRO_DESTINO", "PAIS_DESTINO", "SOCIEDAD", "PROVEEDOR")
-_MODELO_DESTINO = {"FAMILIA": FamiliaEtiquetado, "CATEGORIA": CategoriaEtiquetado, "PRODUCTO": Producto, "SKU": Articulo,
-                   "TIPO_EMPAQUE": TipoEmpaque}
 # Cuántas puede decir una regla según lo que se etiqueta (por unidad solo en artículos)
 CANTIDADES_DE_SUJETO = {"ARTICULO": CANTIDADES_REGLA, "DOCUMENTO": ("UNA", "MANUAL"), "BULTO": ("UNA", "MANUAL")}
 MAX_PRIORIDAD = 1000
 
 
 # ---- Lectura ---------------------------------------------------------------------------------
-def campos_articulo(a: Articulo) -> dict:
-    from app.modulos.etiquetado import campos
-
-    return campos.valores_articulo(a)
-
-
 def _nombre_p(u: UsoDiseno) -> str | None:
     """El diseño de una regla, o nada si dice que la etiqueta no va."""
     return u.plantilla.nombre if u.plantilla is not None else None
@@ -198,6 +187,17 @@ def informe_migracion(db: Session, user: Usuario) -> dict:
 
 
 # ---- Validación ------------------------------------------------------------------------------
+def _existe(db: Session, nivel: str, did: int) -> bool:
+    if nivel in ("FAMILIA", "CATEGORIA"):
+        n = catalogo.nodo(db, did)
+        return n is not None and n.es_categoria == (nivel == "CATEGORIA")
+    if nivel == "PRODUCTO":
+        return catalogo.producto(db, did) is not None
+    if nivel == "SKU":
+        return catalogo.articulo(db, did) is not None
+    return db.get(TipoEmpaque, did) is not None
+
+
 def _destino(db: Session, nivel: str, destino_id) -> int | None:
     if nivel == "GENERAL":
         return None
@@ -206,7 +206,7 @@ def _destino(db: Session, nivel: str, destino_id) -> int | None:
     except (TypeError, ValueError):
         raise ErrorNegocio("Choose where the design applies.", 422, "validacion",
                            [{"campo": "destino_id", "mensaje": nivel}]) from None
-    if not db.get(_MODELO_DESTINO[nivel], did):
+    if not _existe(db, nivel, did):
         raise ErrorNegocio("Where the design applies does not exist.", 422, "validacion", [{"campo": "destino_id", "mensaje": nivel}])
     return did
 
@@ -461,36 +461,27 @@ def _cadena(db: Session, nivel: str, destino_id: int | None) -> list[tuple[str, 
     """Los niveles de los que hereda una celda, del más cercano al más general."""
     res: list[tuple[str, int | None]] = []
     if nivel == "SKU":
-        a = db.get(Articulo, destino_id)
+        a = catalogo.articulo(db, destino_id)
         if a is not None:
             if a.producto_id:
                 res.append(("PRODUCTO", a.producto_id))
-            cat = reglas.categoria_de(db, a, campos_articulo(a))
+            cat = reglas.categoria_de(db, a)
             if cat is not None:
                 res.append(("CATEGORIA", cat.id))
-            f = a.familia_efectiva
-            res += [("FAMILIA", x.id) for x in reversed(f.ruta())] if f else []
+            res += [("FAMILIA", x) for x in reversed(a.familia.ruta_ids)] if a.familia else []
     elif nivel == "PRODUCTO":
-        p = db.get(Producto, destino_id)
-        f = familia_producto(db, p) if p else None
-        a = db.scalar(select(Articulo).where(Articulo.producto_id == destino_id).order_by(Articulo.id).limit(1)) if p else None
-        cat = reglas.categoria_de(db, a, campos_articulo(a)) if a is not None else None
+        p = catalogo.producto(db, destino_id)
+        primero = catalogo.articulos_de(db, producto_id=destino_id, solo_activos=False, limite=1) if p else []
+        cat = reglas.categoria_de(db, primero[0]) if primero else None
         if cat is not None:
             res.append(("CATEGORIA", cat.id))
-        res += [("FAMILIA", x.id) for x in reversed(f.ruta())] if f else []
-    elif nivel == "CATEGORIA":
-        c = db.get(CategoriaEtiquetado, destino_id)
-        res += [("FAMILIA", x.id) for x in reversed(c.familia.ruta())] if c else []
-    elif nivel == "FAMILIA":
-        f = db.get(FamiliaEtiquetado, destino_id)
-        res += [("FAMILIA", x.id) for x in reversed(f.ruta()[:-1])] if f else []
+        res += [("FAMILIA", x) for x in reversed(p.familia.ruta_ids)] if p and p.familia else []
+    elif nivel in ("CATEGORIA", "FAMILIA"):
+        n = catalogo.nodo(db, destino_id)
+        res += [("FAMILIA", x) for x in reversed(n.ruta_ids[:-1])] if n else []
     if nivel != "GENERAL":
         res.append(("GENERAL", None))
     return res
-
-
-def familia_producto(db: Session, p: Producto) -> FamiliaEtiquetado | None:
-    return db.get(FamiliaEtiquetado, p.familia_etiquetado_id) if p.familia_etiquetado_id else None
 
 
 def _normal(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> UsoDiseno | None:
@@ -508,21 +499,24 @@ def hereda(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> dic
     return None
 
 
-def _articulos_de(db: Session, nivel: str, destino_id: int | None, limite: int = MAX_SIMULACION) -> list[Articulo]:
+def _articulos_de(db: Session, nivel: str, destino_id: int | None,
+                 limite: int = MAX_SIMULACION) -> list[catalogo.FichaArticulo]:
     """Los artículos activos que caen en una celda (para simular y contar)."""
-    c = select(Articulo).where(Articulo.activo.is_(True)).options(
-        selectinload(Articulo.producto))
     if nivel == "SKU":
-        c = c.where(Articulo.id == destino_id)
-    elif nivel == "PRODUCTO":
-        c = c.where(Articulo.producto_id == destino_id)
-    arts = list(db.scalars(c.order_by(Articulo.id).limit(limite)))
+        a = catalogo.articulo(db, destino_id)
+        return [a] if a is not None and a.activo else []
+    if nivel == "PRODUCTO":
+        return catalogo.articulos_de(db, producto_id=destino_id, limite=limite)
     if nivel == "FAMILIA":
-        arts = [a for a in arts if a.familia_efectiva is not None and destino_id in {f.id for f in a.familia_efectiva.ruta()}]
-    elif nivel == "CATEGORIA":
+        return catalogo.articulos_de(db, familia_id=destino_id, limite=limite)
+    if nivel == "CATEGORIA":
+        c = catalogo.nodo(db, destino_id)
+        if c is None or c.padre_id is None:
+            return []
         cache: dict = {}
-        arts = [a for a in arts if (c := reglas.categoria_de(db, a, campos_articulo(a), cache)) is not None and c.id == destino_id]
-    return arts
+        return [a for a in catalogo.articulos_de(db, familia_id=c.padre_id, limite=limite)
+                if (x := catalogo.categoria(db, a, cache)) is not None and x.id == destino_id]
+    return catalogo.articulos_de(db, limite=limite)
 
 
 def _propios(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> list[dict]:
@@ -535,12 +529,12 @@ def _propios(db: Session, tipo_id: int, nivel: str, destino_id: int | None) -> l
     res = []
     for u in usos:
         if nivel == "PRODUCTO":
-            a = db.get(Articulo, u.articulo_id)
+            a = catalogo.articulo(db, u.articulo_id)
             if a is None or a.producto_id != destino_id:
                 continue
         elif nivel == "FAMILIA":
-            f = familia_producto(db, db.get(Producto, u.producto_id)) if u.nivel == "PRODUCTO" else \
-                db.get(Articulo, u.articulo_id).familia_efectiva
+            x = catalogo.producto(db, u.producto_id) if u.nivel == "PRODUCTO" else catalogo.articulo(db, u.articulo_id)
+            f = x.familia if x is not None else None
             if f is None or f.id != destino_id:
                 continue
         elif nivel == "GENERAL":
@@ -686,8 +680,9 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
     arts = _articulos_de(db, nivel, destino_id)
     con_condiciones = any(u.condiciones for x in despues.celdas.values() for u in [x.normal, *x.excepciones] if u is not None)
     res["alcance"] = len(arts)
+    cache: dict = {}
     for a in arts:
-        valores = campos.valores_articulo(a) if con_condiciones else {}
+        valores = campos.valores_articulo(db, a, cache) if con_condiciones else {}
         s = Sujeto("ARTICULO", articulo=a, valores=valores)
         e0, e1 = antes.elegir(s, tipo), despues.elegir(s, tipo)
         if e1.uso is None:
@@ -697,7 +692,7 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
         if (e0.plantilla.id if e0.plantilla else None) != (e1.plantilla.id if e1.plantilla else None):
             res["cambian"] += 1
             if len(res["ejemplos"]) < 50:
-                res["ejemplos"].append({"articulo_id": a.id, "sku": a.sku, "antes": e0.plantilla.nombre if e0.plantilla else None,
+                res["ejemplos"].append({"articulo_id": a.id, "sku": a.codigo, "antes": e0.plantilla.nombre if e0.plantilla else None,
                                         "despues": e1.plantilla.nombre if e1.plantilla else None})
     # Líneas de OC abiertas de esos artículos que cumplen cada excepción nueva o editada
     excepciones = [u for u in cambios if u.contexto_tipo not in ("NINGUNO",)]
@@ -705,11 +700,13 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
         ids = [a.id for a in arts]
         lineas = list(db.scalars(select(PosicionOC).join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id)
                                  .where(PosicionOC.articulo_id.in_(ids), OrdenCompra.estado.in_(OC_ABIERTAS)).limit(MAX_SIMULACION)))
+        por_id = {a.id: a for a in arts}
         for i, u in enumerate(excepciones):
             n = 0
             for p in lineas:
-                s = Sujeto("ARTICULO", articulo=p.articulo, oc=p.oc,
-                           valores=campos.valores_articulo(p.articulo) if u.condiciones else {})
+                a = por_id[p.articulo_id]
+                s = Sujeto("ARTICULO", articulo=a, oc=p.oc,
+                           valores=campos.valores_articulo(db, a, cache) if u.condiciones else {})
                 if u.contexto_tipo == "OC":
                     n += int(p.oc_id == u.oc_id and despues.coincide(u, s, despues.contexto(s)))
                 else:
@@ -726,10 +723,7 @@ def simular(db: Session, user: Usuario, datos: dict) -> dict:
 # ---- Matriz y cobertura ---------------------------------------------------------------------
 def _articulos_por_familia(db: Session) -> dict:
     """Artículos activos por la familia de su producto."""
-    sub = (select(Producto.familia_etiquetado_id.label("fid")).select_from(Articulo)
-           .join(Producto, Producto.id == Articulo.producto_id).where(Articulo.activo.is_(True)).subquery())
-    filas = db.execute(select(sub.c.fid, func.count()).group_by(sub.c.fid)).all()
-    return {k: n for k, n in filas}
+    return catalogo.contar_por_familia(db)
 
 
 def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
@@ -751,16 +745,15 @@ def matriz(db: Session, user: Usuario, sujeto: str = "ARTICULO") -> dict:
     conteo = {}
     if sujeto == "ARTICULO":
         conteo = _articulos_por_familia(db)
-        familias = list(db.scalars(select(FamiliaEtiquetado).where(FamiliaEtiquetado.activa.is_(True))
-                                   .order_by(FamiliaEtiquetado.orden, FamiliaEtiquetado.nombre)))
+        nodos = [f for f in catalogo.familias(db).values() if f.activa]
+        familias = sorted((f for f in nodos if not f.es_categoria), key=lambda f: (f.orden, f.nombre))
         hijos: dict = {}
         for f in familias:
             hijos.setdefault(f.padre_id if f.padre_id in {x.id for x in familias} else None, []).append(f)
 
         cats_de: dict = {}
-        for c in db.scalars(select(CategoriaEtiquetado).where(CategoriaEtiquetado.activa.is_(True))
-                            .order_by(CategoriaEtiquetado.orden, CategoriaEtiquetado.id)):
-            cats_de.setdefault(c.familia_id, []).append(c)
+        for c in sorted((f for f in nodos if f.es_categoria), key=lambda f: (f.orden, f.id)):
+            cats_de.setdefault(c.padre_id, []).append(c)
         por_cat = _articulos_por_categoria(db) if cats_de else {}
 
         def poner(padre, nivel):
@@ -844,9 +837,8 @@ def _articulos_por_categoria(db: Session) -> dict:
     """Artículos activos por su categoría de etiquetado (la puesta a mano o la que se reconoce)."""
     res: dict = {}
     cache: dict = {}
-    for a in db.scalars(select(Articulo).where(Articulo.activo.is_(True)).options(
-            selectinload(Articulo.producto))):
-        c = reglas.categoria_de(db, a, campos_articulo(a), cache)
+    for a in catalogo.articulos_de(db):
+        c = catalogo.categoria(db, a, cache)
         if c is not None:
             res[c.id] = res.get(c.id, 0) + 1
     return res
@@ -859,13 +851,12 @@ def _propios_por_familia(db: Session, usos: list[UsoDiseno]) -> dict:
         if u.contexto_tipo != "NINGUNO" or u.nivel not in ("PRODUCTO", "SKU"):
             continue
         if u.nivel == "SKU":
-            a = db.get(Articulo, u.articulo_id)
-            f, n = (a.familia_efectiva, 1) if a else (None, 0)
+            a = catalogo.articulo(db, u.articulo_id)
+            f, n = (a.familia, 1) if a else (None, 0)
         else:
-            p = db.get(Producto, u.producto_id)
-            f = familia_producto(db, p) if p else None
-            n = db.scalar(select(func.count()).select_from(Articulo).where(Articulo.producto_id == u.producto_id,
-                                                                           Articulo.activo.is_(True))) or 0
+            p = catalogo.producto(db, u.producto_id)
+            f = p.familia if p else None
+            n = catalogo.contar_de_producto(db, u.producto_id)
         clave = (u.tipo_etiqueta_id, f.id if f else None)
         res[clave] = res.get(clave, 0) + n
     return res
@@ -879,35 +870,32 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
     exigir_interno(user, "etiquetas.ver", "etiquetas.configurar", "etiquetas.generar")
     from app.modulos.acceso.permisos import proveedor_filtro
 
-    p = db.get(Producto, producto_id)
+    p = catalogo.producto(db, producto_id)
     prov = proveedor_filtro(user)
     if not p or (prov is not None and p.proveedor_id not in prov):
         raise ErrorNegocio("The product does not exist.", 404, "no_encontrado")
-    arts = list(db.scalars(select(Articulo).where(Articulo.producto_id == p.id, Articulo.activo.is_(True)).order_by(Articulo.sku)))
+    arts = catalogo.de_producto(db, p.id, solo_activos=True)
     r = Resolvedor(db)
-    familia = familia_producto(db, p)
+    familia = p.familia
     cats: dict = {}
     for a in arts:
         c = r.categoria(Sujeto("ARTICULO", articulo=a))
         if c is not None:
-            cats.setdefault(c.id, {"id": c.id, "nombre": c.nombre, "manual": c.id == p.categoria_etiquetado_id,
+            cats.setdefault(c.id, {"id": c.id, "nombre": c.nombre, "manual": c.id == p.grupo_id,
                                    "variantes": 0})["variantes"] += 1
-    from app.modulos.maestros import variantes as var_svc
+    def variante(a: catalogo.FichaArticulo) -> str | None:
+        return a.texto_variante
 
-    def variante(a: Articulo) -> str | None:
-        return var_svc.texto(var_svc.de_articulo(db, a)) or (f"pack {a.codigo_pack}" if a.codigo_pack else None)
-
-    res = {"producto": {"id": p.id, "codigo": p.codigo_generico, "nombre": p.nombre,
-                        "atributos": var_svc.ordenar_producto(db, p.valores)},
+    res = {"producto": {"id": p.id, "codigo": p.codigo, "nombre": p.nombre, "atributos": p.datos},
            "categorias": list(cats.values()),
            "familia": {"id": familia.id, "nombre": familia.nombre} if familia else None,
-           "articulos": [{"id": a.id, "sku": a.sku, "variante": variante(a)} for a in arts], "tipos": []}
+           "articulos": [{"id": a.id, "sku": a.codigo, "variante": variante(a)} for a in arts], "tipos": []}
     for t in r.tipos_de("ARTICULO"):
         propias, resto = [], []
         for a in arts:
             e = r.elegir(Sujeto("ARTICULO", articulo=a), t)
             if e.porque.get("nivel") == "SKU":
-                propias.append({"articulo_id": a.id, "sku": a.sku, "variante": variante(a), "uso_id": e.uso.id,
+                propias.append({"articulo_id": a.id, "sku": a.codigo, "variante": variante(a), "uso_id": e.uso.id,
                                "plantilla_id": e.plantilla.id if e.plantilla else None,
                                "plantilla": e.plantilla.nombre if e.plantilla else None, "no_lleva": e.no_lleva})
             else:
@@ -922,7 +910,7 @@ def de_producto(db: Session, user: Usuario, producto_id: int) -> dict:
         base = next((e for _, e in resto if clave(e) == mayor), None)
         if base is None and arts:
             base = r.elegir(Sujeto("ARTICULO", articulo=arts[0]), t)
-        distintas = [{"articulo_id": a.id, "sku": a.sku, "variante": variante(a), "eleccion": e.dict()}
+        distintas = [{"articulo_id": a.id, "sku": a.codigo, "variante": variante(a), "eleccion": e.dict()}
                      for a, e in resto if clave(e) != mayor]
         escalones = r.escalones(Sujeto("ARTICULO", articulo=arts[0])) if arts else [("PRODUCTO", p.id), ("GENERAL", None)]
         excepciones = []
@@ -948,7 +936,7 @@ def resolver(db: Session, user: Usuario, articulo_id: int | None = None, oc_id: 
     a = datos.cargar_articulo(db, user, articulo_id) if articulo_id else None
     oc = datos.cargar_oc(db, user, oc_id) if oc_id else None
     s = Sujeto(sujeto.upper(), articulo=a, oc=oc, tipo_empaque_id=tipo_empaque_id,
-               valores={**(campos.valores_articulo(a) if a else {}), **(campos.valores_oc(db, oc) if oc else {})})
+               valores={**(campos.valores_articulo(db, a) if a else {}), **(campos.valores_oc(db, oc) if oc else {})})
     r = Resolvedor(db)
     # En un bulto, los tipos que no van en ese empaque no se resuelven (no se imprimen ahí)
     ts = [t for t in r.tipos_de(s.sujeto) if s.sujeto != "BULTO" or tipo_empaque_id is None

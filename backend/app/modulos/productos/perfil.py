@@ -58,10 +58,16 @@ def _equivalente(db: Session | None, c: str) -> str:
     return c
 
 
+def obligatorios(grupo) -> list[str]:
+    """Campos obligatorios del nodo y de las familias que lo contienen."""
+    res: list[str] = []
+    for g in grupo.ruta() if grupo is not None else []:
+        res += [c["campo"] for c in g.campos or [] if c.get("obligatorio") and c["campo"] not in res]
+    return res
+
+
 def exigidos(grupo, db: Session | None = None) -> list[str]:
     """Campos que la familia (y las que la contienen) vuelve obligatorios al guardar."""
-    from app.modulos.etiquetado.familias import obligatorios
-
     res = []
     for c in obligatorios(grupo):
         c = _equivalente(db, c)
@@ -83,12 +89,14 @@ def _etiquetas(db: Session) -> dict[str, str]:
 def faltan_variante(a: Articulo) -> list[str]:
     from sqlalchemy.orm import object_session
 
+    from app.modulos.catalogo import servicio as catalogo
     from app.modulos.etiquetado.campos import valores_articulo
 
-    claves = exigidos(grupo_de(a), object_session(a))
+    db = object_session(a)
+    claves = exigidos(grupo_de(a), db)
     if a.tipo == "PREPACK":  # un pack o kit no tiene valores de variante propios
         claves = [c for c in claves if not c.startswith("articulo.atributo.")]
-    return _faltan(valores_articulo(a), claves)
+    return _faltan(valores_articulo(db, catalogo.ficha_de_modelo(db, a)), claves)
 
 
 def exigir_variantes(db: Session, articulos: list[Articulo]) -> None:
@@ -128,7 +136,6 @@ def perfil(db: Session, user: Usuario, grupo_id: int | None = None) -> dict:
     """Lo que el asistente y la ficha piden para un producto de la familia (o sin familia):
     el núcleo, lo que la empresa vuelve obligatorio y lo que vuelve obligatorio la familia."""
     from app.modelos import GrupoProducto
-    from app.modulos.etiquetado.familias import obligatorios
     from app.modulos.maestros import catalogos, gobierno, variantes
 
     exigir_alguno(user, "catalogos.ver", "producto.ficha")

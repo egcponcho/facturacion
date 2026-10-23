@@ -338,10 +338,11 @@ def _nombre(db: Session, origen: str, p: dict) -> str:
         from app.modelos import PackingList
 
         return f"{db.get(PackingList, p['pl_id']).numero} · {fecha}"
-    from app.modelos import Articulo
+    from app.modulos.catalogo import servicio as catalogo
 
     arts = p.get("articulos") or []
-    return f"{varios([db.get(Articulo, a['articulo_id']).sku for a in arts[:2]], len(arts))} · {fecha}"
+    fichas = catalogo.articulos(db, [a["articulo_id"] for a in arts[:2]])
+    return f"{varios([fichas[a['articulo_id']].codigo for a in arts[:2] if a['articulo_id'] in fichas], len(arts))} · {fecha}"
 
 
 def actualizar(db: Session, user: Usuario, trabajo_id: int, datos_: dict) -> dict:
@@ -522,11 +523,11 @@ def completar(db: Session, user: Usuario, trabajo_id: int, campo: str, valores: 
         try:
             catalogos.actualizar(db, user, "articulos", aid, {columna: valor})
         except ErrorNegocio as e:  # qué artículo, en el detalle (el mensaje se traduce tal cual)
-            from app.modelos import Articulo
+            from app.modulos.catalogo import servicio as catalogo
 
-            a = db.get(Articulo, aid)
+            a = catalogo.articulo(db, aid)
             raise ErrorNegocio(e.mensaje, e.status, e.codigo,
-                               [*(e.detalle if isinstance(e.detalle, list) else []), {"campo": "articulo", "mensaje": a.sku if a else str(aid)}]) from None
+                               [*(e.detalle if isinstance(e.detalle, list) else []), {"campo": "articulo", "mensaje": a.codigo if a else str(aid)}]) from None
     _validar(db, user, t)
     t.version += 1
     db.flush()

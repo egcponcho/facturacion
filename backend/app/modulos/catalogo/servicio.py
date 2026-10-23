@@ -50,10 +50,15 @@ class FichaFamilia:
     ruta_nombres: tuple[str, ...]
     activa: bool = True
     es_categoria: bool = False  # un nodo que se reconoce por condiciones dentro de su familia
+    orden: int = 0  # entre sus hermanos
 
     @property
     def texto_ruta(self) -> str:
         return " / ".join(self.ruta_nombres)
+
+    @property
+    def padre_id(self) -> int | None:
+        return self.ruta_ids[-2] if len(self.ruta_ids) > 1 else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +72,8 @@ class Componente:
     valores: dict
     unidad: str | None = None
     peso: float | None = None
+    codigo_barras: str | None = None
+    descripcion: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,7 +156,7 @@ def _ficha_familia(g: GrupoProducto | None) -> FichaFamilia | None:
     ruta = g.ruta()
     return FichaFamilia(id=g.id, codigo=g.codigo, nombre=g.nombre, ruta_ids=tuple(x.id for x in ruta),
                         ruta_codigos=tuple(x.codigo for x in ruta), ruta_nombres=tuple(x.nombre for x in ruta),
-                        activa=g.activa, es_categoria=g.clase == "CATEGORIA")
+                        activa=g.activa, es_categoria=g.clase == "CATEGORIA", orden=g.orden or 0)
 
 
 def familia(db: Session, familia_id: int | None) -> FichaFamilia | None:
@@ -166,6 +173,13 @@ def nodo(db: Session, nodo_id: int | None) -> FichaFamilia | None:
     return _ficha_familia(db.get(GrupoProducto, nodo_id)) if nodo_id else None
 
 
+def nodo_por_codigo(db: Session, codigo: str | None) -> FichaFamilia | None:
+    """El nodo (familia o categoría) con ese código, sin distinguir mayúsculas."""
+    if not codigo or not str(codigo).strip():
+        return None
+    return _ficha_familia(db.scalar(select(GrupoProducto).where(func.upper(GrupoProducto.codigo) == str(codigo).strip().upper())))
+
+
 def familia_de_grupos(db: Session) -> dict[int, FichaFamilia]:
     """{nodo: la familia que le corresponde} (una categoría da la familia que la contiene)."""
     return {g.id: f for g in db.scalars(select(GrupoProducto)) if (f := _ficha_familia(g.familia)) is not None}
@@ -175,6 +189,13 @@ def dias_extra_familias(db: Session) -> dict[int, int]:
     """{nodo: días extra efectivos} (los suyos o los de la familia más cercana que los tenga).
     Temporal: pasan a la sección de logística de la familia."""
     return {g.id: g.dias_extra_efectivos for g in db.scalars(select(GrupoProducto))}
+
+
+def campos_familia(db: Session, familia_id: int | None) -> list[dict]:
+    """TEMPORAL (hasta la sección de etiquetado de la familia): los campos que la familia y las que la
+    contienen esperan ({campo, obligatorio}), de la raíz a ella."""
+    g = db.get(GrupoProducto, familia_id) if familia_id else None
+    return [c for x in (g.ruta() if g is not None else []) for c in (x.campos or [])]
 
 
 def grupos_de_articulos():
@@ -202,12 +223,16 @@ def productos_de(db: Session, articulo_ids: Iterable[int | None]) -> dict[int, i
     return dict(db.execute(select(Articulo.id, Articulo.producto_id).where(Articulo.id.in_(lista))).all())
 
 
-def valores_condiciones(db: Session, ficha: FichaArticulo) -> dict:
+def valores_condiciones(db: Session, ficha: FichaArticulo, cache: dict | None = None) -> dict:
     """Los datos del artículo y de su producto con que se reconoce una categoría (y que las reglas de
-    otros módulos pueden comparar): «articulo.sku», «articulo.atributo.TALLA», «producto.dato.MARCA»…"""
+    otros módulos pueden comparar): «articulo.sku», «articulo.atributo.TALLA», «producto.dato.MARCA»…
+    `cache` guarda los nombres de marca ya leídos (al recorrer muchos artículos)."""
     from app.modelos import Marca
 
-    marca = db.scalar(select(Marca.nombre).where(Marca.codigo == ficha.marca)) if ficha.marca else None
+    marcas = cache.setdefault("marcas", {}) if cache is not None else {}
+    if ficha.marca and ficha.marca not in marcas:
+        marcas[ficha.marca] = db.scalar(select(Marca.nombre).where(Marca.codigo == ficha.marca))
+    marca = marcas.get(ficha.marca) if ficha.marca else None
     fam = ficha.familia
     return {
         "articulo.sku": ficha.codigo, "articulo.codigo_proveedor": ficha.codigo_proveedor,
@@ -223,6 +248,18 @@ def valores_condiciones(db: Session, ficha: FichaArticulo) -> dict:
     }
 
 
+def categoria(db: Session, ficha: FichaArticulo | None, cache: dict | None = None) -> FichaFamilia | None:
+    """La categoría del artículo: la puesta a mano en su producto o la primera de su familia (de la
+    más específica a la más general) que se reconoce por sus condiciones sobre `valores_condiciones`."""
+    if ficha is None or ficha.familia is None:
+        return None
+    from app.modulos.grupos import arbol
+
+    if cache is None:
+        cache = {}
+    return _ficha_familia(arbol.categoria_de(db, db.get(Articulo, ficha.id), valores_condiciones(db, ficha, cache), cache))
+
+
 def ruta_reglas(db: Session, ficha: FichaArticulo | None, cache: dict | None = None) -> list[int]:
     """Los nodos del árbol que recorren las reglas de empaque y de etiquetado para el artículo,
     de lo más específico a lo más general: su categoría (puesta a mano o reconocida por sus
@@ -231,8 +268,10 @@ def ruta_reglas(db: Session, ficha: FichaArticulo | None, cache: dict | None = N
         return []
     from app.modulos.grupos import arbol
 
+    if cache is None:
+        cache = {}
     a = db.get(Articulo, ficha.id)
-    return [g.id for g in arbol.ruta_efectiva(db, a, valores_condiciones(db, ficha), cache)]
+    return [g.id for g in arbol.ruta_efectiva(db, a, valores_condiciones(db, ficha, cache), cache)]
 
 
 def en_familia(ficha: FichaArticulo | None, familia_id: int) -> bool:
@@ -275,8 +314,14 @@ def _ficha(db: Session, a: Articulo) -> FichaArticulo:
         codigo_barras=a.codigo_barras, codigo_proveedor=a.codigo_proveedor, codigo_pack=a.codigo_pack,
         componentes=tuple(Componente(articulo_id=c.componente_id, codigo=c.componente.sku, cantidad=c.cantidad,
                                      producto_id=c.componente.producto_id, valores=val.ordenar(db, c.componente.variantes),
-                                     unidad=c.componente.unidad, peso=c.componente.peso_unitario)
+                                     unidad=c.componente.unidad, peso=c.componente.peso_unitario,
+                                     codigo_barras=c.componente.codigo_barras, descripcion=c.componente.descripcion)
                           for c in a.componentes))
+
+
+def ficha_de_modelo(db: Session, a: Articulo) -> FichaArticulo:
+    """La ficha de un artículo ya cargado (o recién creado, sin guardar). Solo para el catálogo por dentro."""
+    return _ficha(db, a)
 
 
 # Fichas ya armadas en la sesión: se olvidan cuando cambia cualquier tabla del catálogo
@@ -338,6 +383,33 @@ def de_producto(db: Session, producto_id: int, solo_activos: bool = False) -> li
     if solo_activos:
         c = c.where(Articulo.activo.is_(True))
     return [_ficha(db, a) for a in db.scalars(c.options(*_opciones()).order_by(Articulo.sku))]
+
+
+def articulos_de(db: Session, *, familia_id: int | None = None, producto_id: int | None = None,
+                 solo_activos: bool = True, limite: int | None = None) -> list[FichaArticulo]:
+    """Los artículos de una familia (con sus subfamilias y categorías) o de un producto, en orden de id."""
+    c = ids(familia_id=familia_id, producto_id=producto_id, solo_activos=solo_activos).order_by(Articulo.id)
+    lista = list(db.scalars(c.limit(limite) if limite else c))
+    fichas = articulos(db, lista)
+    return [fichas[i] for i in lista if i in fichas]
+
+
+def contar_por_familia(db: Session, solo_activos: bool = True) -> dict[int | None, int]:
+    """{familia: cuántos artículos} por la familia de su producto (None: sin familia)."""
+    fam = familia_de_grupos(db)
+    filas = select(Producto.grupo_producto_id, func.count()).join(Articulo, Articulo.producto_id == Producto.id)
+    if solo_activos:
+        filas = filas.where(Articulo.activo.is_(True))
+    res: dict[int | None, int] = {}
+    for gid, n in db.execute(filas.group_by(Producto.grupo_producto_id)):
+        f = fam.get(gid)
+        res[f.id if f else None] = res.get(f.id if f else None, 0) + n
+    return res
+
+
+def contar_de_producto(db: Session, producto_id: int, solo_activos: bool = True) -> int:
+    c = select(func.count()).select_from(Articulo).where(Articulo.producto_id == producto_id)
+    return db.scalar(c.where(Articulo.activo.is_(True)) if solo_activos else c) or 0
 
 
 def buscar(db: Session, texto: str | None = None, proveedor_id: int | None = None, solo_activos: bool = True,

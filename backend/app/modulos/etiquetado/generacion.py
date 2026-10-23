@@ -28,8 +28,6 @@ from sqlalchemy.orm import Session
 from app.core.empresa import regla
 from app.core.errores import ErrorNegocio
 from app.modelos import (
-    Articulo,
-    FamiliaEtiquetado,
     GeneracionEtiquetas,
     GeneracionItem,
     OrdenCompra,
@@ -42,6 +40,7 @@ from app.modelos import (
 )
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, tiene
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.historial import registrar
 from app.modulos.etiquetado import campos, datos, familias, plantillas, reglas, render, salidas
 from app.modulos.etiquetado import diseno as svc_diseno
@@ -60,7 +59,7 @@ class Grupo:
     referencia: str
     cantidad: int
     tipo: TipoEtiqueta
-    articulo: Articulo | None = None
+    articulo: catalogo.FichaArticulo | None = None
     posicion: PosicionOC | None = None
     bulto: campos.Bulto | None = None
     oc: OrdenCompra | None = None
@@ -93,7 +92,7 @@ class Grupo:
 
     def dict(self) -> dict:
         e, p = self.eleccion, self.plantilla
-        fam = self.articulo.familia_efectiva if self.articulo else None
+        fam = self.articulo.familia if self.articulo else None
         return {"clave": self.clave, "referencia": self.referencia, "cantidad": self.cantidad,
                 "tipo_etiqueta_id": self.tipo.id, "tipo": self.tipo.nombre,
                 "articulo_id": self.articulo.id if self.articulo else None,
@@ -159,8 +158,8 @@ def _posiciones_oc(db: Session, oc: OrdenCompra, pedido: dict) -> list[PosicionO
     posiciones = [p for p in posiciones if p.id in elegidas] if elegidas else [p for p in posiciones if not p.bloqueada]
     if pedido.get("familia_id"):
         fid = int(pedido["familia_id"])
-        posiciones = [p for p in posiciones if p.articulo and p.articulo.familia_efectiva
-                      and fid in {f.id for f in p.articulo.familia_efectiva.ruta()}]
+        fichas = catalogo.articulos(db, [p.articulo_id for p in posiciones])
+        posiciones = [p for p in posiciones if catalogo.en_familia(fichas.get(p.articulo_id), fid)]
     return posiciones
 
 
@@ -224,14 +223,18 @@ def _grupos_articulo(db: Session, user: Usuario, pedido: dict, t: TipoEtiqueta, 
     if pl is not None:
         for x in sorted(pl.lineas, key=lambda x: x.id):
             p = x.factura_linea.posicion_oc
-            finos.append((f"l{x.id}", f"{pl.numero} · {p.codigo_articulo}", p.articulo, p, p.oc, float(x.cantidad or 0), p.unidad))
+            finos.append((f"l{x.id}", f"{pl.numero} · {p.codigo_articulo}", catalogo.articulo(db, p.articulo_id), p, p.oc,
+                          float(x.cantidad or 0), p.unidad))
     elif oc is not None:
-        for p in _posiciones_oc(db, oc, pedido):
-            finos.append((f"p{p.id}", f"{p.posicion} · {p.codigo_articulo}", p.articulo, p, oc, float(p.cantidad or 0), p.unidad))
+        posiciones = _posiciones_oc(db, oc, pedido)
+        fichas = catalogo.articulos(db, [p.articulo_id for p in posiciones])
+        for p in posiciones:
+            finos.append((f"p{p.id}", f"{p.posicion} · {p.codigo_articulo}", fichas.get(p.articulo_id), p, oc,
+                          float(p.cantidad or 0), p.unidad))
     else:
         for x in pedido.get("articulos") or []:
             a = datos.cargar_articulo(db, user, x.get("articulo_id"))
-            finos.append((f"a{a.id}", a.sku, a, None, None, float(_entero(x.get("cantidad"), 1)), a.unidad))
+            finos.append((f"a{a.id}", a.codigo, a, None, None, float(_entero(x.get("cantidad"), 1)), a.unidad))
     res: dict[str, Grupo] = {}
     no_aplica: dict = {}
     for linea, ref, a, p, oc_, unidades, unidad in finos:
@@ -239,7 +242,7 @@ def _grupos_articulo(db: Session, user: Usuario, pedido: dict, t: TipoEtiqueta, 
         if e.no_lleva:
             continue
         alcance = e.alcance
-        codigo = (p.codigo_articulo if p else None) or (a.sku if a else "")
+        codigo = (p.codigo_articulo if p else None) or (a.codigo if a else "")
         if alcance == "LINEA":
             clave, referencia = linea, ref
         elif alcance == "POSICION_OC":
@@ -253,8 +256,7 @@ def _grupos_articulo(db: Session, user: Usuario, pedido: dict, t: TipoEtiqueta, 
                 continue
             clave, referencia = linea, ref
         elif alcance == "PRODUCTO" and a is not None and a.producto_id:
-            prod = a.producto
-            clave, referencia = f"r{a.producto_id}", prod.nombre or prod.codigo_generico
+            clave, referencia = f"r{a.producto_id}", a.producto_nombre or a.producto_codigo
         else:  # ARTICULO (o PRODUCTO de un artículo sin producto: cada variante)
             clave = f"a{a.id}" if a is not None else f"c{codigo}"
             referencia = codigo
@@ -318,7 +320,7 @@ def _grupos_bulto(db: Session, pedido: dict, t: TipoEtiqueta, oc: OrdenCompra | 
         una = lineas[0] if len(lineas) == 1 else None
         ocs = {p.oc_id for p in lineas}
         oc_bulto = lineas[0].oc if len(ocs) == 1 and lineas else None
-        articulo = lineas[0].articulo if len(u.articulos) == 1 and lineas else None
+        articulo = catalogo.articulo(db, lineas[0].articulo_id) if len(u.articulos) == 1 and lineas else None
         codigo = u.valores.get("bulto.codigo") or f"{u.numero}/{u.total}"
         g = Grupo(f"t{t.id}-{u.clave}", f"{u.valores.get('bulto.packing_list')} · {codigo}", 1, t, articulo=articulo, posicion=una,
                   bulto=u, oc=oc_bulto)
@@ -540,8 +542,8 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
                                                  "series for labels (Settings → Numbering, object «etiqueta»).")
             else:
                 g.valores["etiqueta.serie"] = proximo(db, serie)
-        fam = g.articulo.familia_efectiva if g.articulo else None
-        for faltante in familias.faltantes(db, fam, g.valores):
+        fam = g.articulo.familia if g.articulo else None
+        for faltante in familias.faltantes(db, fam.id if fam else None, g.valores):
             g.problema("advertencia", "dato_familia", f"The family {fam.nombre} expects {faltante}, which is empty.", campo=faltante)
         lz = render.componer(g.version.diseno, {**g.valores, "etiqueta.numero": 1, "etiqueta.total": g.cantidad,
                                                "etiqueta.numero_lote": 1, "etiqueta.total_lote": 1}, campos.tipos(db, sujeto),
@@ -656,7 +658,7 @@ def producir(db: Session, user: Usuario, grupos: list[Grupo], pedido: dict) -> d
     registros = pedido.get("_registros") or {}
     for g in grupos:
         usados = svc_diseno.campos_usados(g.version.diseno) | {"etiqueta.fecha"}
-        fam = g.articulo.familia_efectiva.id if g.articulo and g.articulo.familia_efectiva else None
+        fam = g.articulo.familia.id if g.articulo and g.articulo.familia else None
         valores = {k: g.valores.get(k) for k in sorted(usados) if k != "organizacion.logo"
                    and (not k.startswith("etiqueta.") or k == "etiqueta.fecha")}
         procedencia = {k: v for k, v in g.procedencia.items() if k in usados and v}
@@ -855,7 +857,7 @@ def dict_generacion(db: Session, g: GeneracionEtiquetas, completo: bool = False)
          "grupos": len(g.items), "advertencias": g.advertencias or [],
          "anulada_en": g.anulada_en, "motivo_anulacion": g.motivo_anulacion, "reimpresiones": len(g.reimpresiones or [])}
     if completo:
-        familias_ = {f.id: f.nombre for f in db.scalars(select(FamiliaEtiquetado))}
+        familias_ = {i: f.nombre for i, f in catalogo.familias(db).items()}
         r["items"] = [{"id": it.id, "referencia": it.referencia, "cantidad": it.cantidad, "articulo_id": it.articulo_id,
                        "posicion_id": it.posicion_id, "familia": familias_.get(it.grupo_id),
                        "tipo": nombres.get(it.tipo_etiqueta_id),
@@ -930,8 +932,8 @@ def resumen(db: Session, user: Usuario, origen: str, id_: int) -> dict:
     origen = origen.upper()
     tipos_ = list(db.scalars(select(TipoEtiqueta).where(TipoEtiqueta.activo.is_(True)).order_by(TipoEtiqueta.orden, TipoEtiqueta.id)))
     if origen == "PRODUCTO":
-        arts = list(db.scalars(select(Articulo.id).where(Articulo.producto_id == id_, Articulo.activo.is_(True))))
-        pedido = {"origen": "ARTICULOS", "articulos": [{"articulo_id": a, "cantidad": 1} for a in arts]}
+        arts = catalogo.articulos_de(db, producto_id=id_)
+        pedido = {"origen": "ARTICULOS", "articulos": [{"articulo_id": a.id, "cantidad": 1} for a in arts]}
         tipos_ = [t for t in tipos_ if t.sujeto == "ARTICULO"]
     elif origen == "OC":
         pedido = {"origen": "OC", "oc_id": id_}
@@ -958,7 +960,7 @@ def resumen(db: Session, user: Usuario, origen: str, id_: int) -> dict:
             d["etiquetas"] += max(g.cantidad, 0)
         for prob in g.errores:
             x["problemas"].append({"referencia": g.referencia, "articulo_id": g.articulo.id if g.articulo else None,
-                                   "familia_id": g.articulo.familia_efectiva.id if g.articulo and g.articulo.familia_efectiva else None,
+                                   "familia_id": g.articulo.familia.id if g.articulo and g.articulo.familia else None,
                                    "codigo": prob["codigo"], "mensaje": prob["mensaje"]})
     pl = db.get(PackingList, id_) if origen == "PACKING" else None
     generadas = 0

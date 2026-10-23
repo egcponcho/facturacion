@@ -16,11 +16,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, object_session, selectinload
+from sqlalchemy.orm import Session, object_session
 
 from app.core import campos_propios
 from app.modelos import (
-    Articulo,
     Centro,
     FacturaLinea,
     GrupoCajas,
@@ -31,6 +30,8 @@ from app.modelos import (
     Sociedad,
     Usuario,
 )
+from app.modulos.catalogo import servicio as catalogo_svc
+from app.modulos.comex import servicio as comex
 from app.modulos.etiquetado.datos_campos import EJEMPLO, ORIGEN
 
 GRUPOS = {
@@ -86,11 +87,9 @@ MAX_FILAS = 500  # filas por colección en una etiqueta (más es un dato equivoc
 
 def _columnas_atributos(db: Session | None) -> tuple:
     """Una columna por atributo de variante de la empresa (talla, color, voltaje…)."""
-    from app.modulos.maestros import variantes
-
     if db is None:
         return ()
-    return tuple((f"atributo.{a.codigo}", a.nombre, "texto") for a in variantes.atributos(db))
+    return tuple((f"atributo.{a['codigo']}", a["nombre"], "texto") for a in catalogo_svc.atributos(db))
 
 
 def colecciones(sujeto: str | None = None, db: Session | None = None) -> list[Coleccion]:
@@ -213,49 +212,16 @@ _FIJOS = [
 ]
 
 
-def defs_ficha(db: Session) -> dict[str, dict]:
-    """Atributos activos de la ficha técnica (clasificación): los de cualquier tipo de
-    producto, definidos con datos. Una vez por sesión."""
-    from app.modelos import AtributoDef
-
-    res = db.info.get("defs_ficha")
-    if res is None:
-        res = db.info["defs_ficha"] = {
-            a.codigo: {"etiqueta": a.etiqueta, "tipo": a.tipo_dato, "unidad": a.unidad,
-                       "opciones": {o.codigo: o.etiqueta for o in a.opciones}}
-            for a in db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones))
-                                .where(AtributoDef.activo.is_(True)).order_by(AtributoDef.orden, AtributoDef.codigo))}
-    return res
-
-
-def texto_ficha(d: dict, v):
-    """El valor de un atributo de la ficha como se imprime: el nombre de la opción,
-    Sí/No, la lista de opciones o la composición; un número queda número."""
-    if v is None or v == "" or v == [] or v == {}:
-        return None
-    if d["tipo"] == "boolean":
-        return "Yes" if v else "No"
-    if d["tipo"] == "number":
-        return v
-    if isinstance(v, list):
-        return ", ".join(str(d["opciones"].get(x, x)) for x in v)
-    if isinstance(v, dict):
-        return "; ".join(f"{k.replace('_', ' ').capitalize()}: {x}" for k, x in v.items() if x not in (None, "")) or None
-    return d["opciones"].get(v, v)
-
-
 def _dinamicos(db: Session) -> list[Campo]:
     """Atributos de variante y de producto de la empresa, atributos de la ficha técnica y
     campos propios de la OC."""
-    from app.modulos.maestros import variantes
-
-    res = [Campo(f"articulo.atributo.{a.codigo}", a.nombre, "numero" if a.tipo == "numero" else "texto",
-                 origen_propio=f"articulo_atributos.valor[{a.codigo}]") for a in variantes.atributos(db)]
-    res += [Campo(f"producto.dato.{a.codigo}", a.nombre, "numero" if a.tipo == "numero" else "texto",
-                  origen_propio=f"producto_atributos.valor[{a.codigo}]") for a in variantes.atributos(db, "PRODUCTO")]
+    res = [Campo(f"articulo.atributo.{a['codigo']}", a["nombre"], "numero" if a["tipo"] == "numero" else "texto",
+                 origen_propio=f"articulo_atributos.valor[{a['codigo']}]") for a in catalogo_svc.atributos(db)]
+    res += [Campo(f"producto.dato.{a['codigo']}", a["nombre"], "numero" if a["tipo"] == "numero" else "texto",
+                  origen_propio=f"producto_atributos.valor[{a['codigo']}]") for a in catalogo_svc.atributos(db, "PRODUCTO")]
     res += [Campo(f"producto.atributo.{k}", d["etiqueta"] + (f" ({d['unidad']})" if d["unidad"] else ""),
                   "numero" if d["tipo"] == "number" else "texto", origen_propio=f"productos.ficha[{k}]")
-            for k, d in defs_ficha(db).items()]
+            for k, d in comex.defs_ficha(db).items()]
     for entidad, grupo in (("ordenes", "oc"),):
         for d in campos_propios.definiciones(entidad):
             tipo = {"numero": "numero", "fecha": "fecha"}.get(d.get("tipo"), "texto")
@@ -363,7 +329,8 @@ def ejemplos(db: Session, sujeto: str | None = None, user: Usuario | None = None
             c = c.where(OrdenCompra.proveedor_id.in_(prov))
         p = db.scalar(c.order_by(PosicionOC.id.desc()).limit(1))
         if p is not None:
-            reales = {**valores_articulo(p.articulo), **valores_linea(p)}
+            a = catalogo_svc.articulo(db, p.articulo_id)
+            reales = {**(valores_articulo(db, a) if a else {}), **valores_linea(p)}
             reales.update({k: v for k, v in valores_oc(db, p.oc).items() if k != "oc.lineas"})
             res.update({k: v for k, v in reales.items() if v not in (None, "", [])})
     return res
@@ -378,14 +345,6 @@ def _txt(v):
     return v
 
 
-def _composicion(ficha: dict | None) -> str | None:
-    comp = (ficha or {}).get("comp")
-    if isinstance(comp, dict):
-        partes = [f"{k.replace('_', ' ').capitalize()}: {v}" for k, v in comp.items() if v]
-        return "; ".join(partes) or None
-    return str(comp) if comp else None
-
-
 def valores_organizacion(db: Session) -> dict:
     from app.modulos.empresa.organizacion import actual
 
@@ -394,51 +353,31 @@ def valores_organizacion(db: Session) -> dict:
             "organizacion.id_fiscal": o.id_fiscal, "organizacion.pais": o.pais, "organizacion.logo": o.logo}
 
 
-def valores_articulo(a: Articulo) -> dict:
-    from app.modulos.maestros import variantes
-    from app.modulos.maestros.catalogos import descripcion_articulo
-    from app.modulos.productos.productos import marca_de
-
-    p = a.producto
-    db = object_session(a)
-    marca = marca_de(p)
-    v = {
-        "articulo.sku": a.sku, "articulo.codigo_proveedor": a.codigo_proveedor, "articulo.codigo_barras": a.codigo_barras,
-        "articulo.generico": a.generico,
-        "articulo.variante": variantes.texto(variantes.de_articulo(db, a) if db is not None else a.variantes) or None,
-        # La suya o, vacía, la del producto con los valores de la variante (como en el catálogo)
-        "articulo.descripcion": descripcion_articulo(a), "articulo.unidad": a.unidad, "articulo.tipo": a.tipo,
-        "articulo.peso_unitario": a.peso_unitario, "articulo.codigo_pack": a.codigo_pack,
-        "articulo.familia_codigo": a.familia_efectiva.codigo if a.familia_efectiva else None,
-        "articulo.familia": a.familia_efectiva.nombre if a.familia_efectiva else None,
-        "articulo.familia_ruta": " / ".join(f.codigo for f in a.familia_efectiva.ruta()) if a.familia_efectiva else None,
-        "articulo.componentes": componentes_articulo(a),
-        "producto.nombre": p.nombre if p else None, "producto.descripcion_comercial": p.descripcion_comercial if p else None,
-        "producto.codigo_generico": p.codigo_generico if p else None, "producto.pais_origen": p.pais_origen if p else None,
-        "producto.marca": marca.nombre if marca else None,
-        "producto.composicion": _composicion(p.ficha) if p else None, "producto.uso": (p.ficha or {}).get("uso") if p else None,
-    }
-    for x in a.atributos:
-        v[f"articulo.atributo.{x.atributo.codigo}"] = x.valor
-    for x in (p.atributos if p is not None else []):
-        v[f"producto.dato.{x.atributo.codigo}"] = x.valor
-    if p is not None and p.ficha and db is not None:
-        defs = defs_ficha(db)
-        for k, val in p.ficha.items():
-            if k in defs:
-                v[f"producto.atributo.{k}"] = texto_ficha(defs[k], val)
+def valores_articulo(db: Session, a: catalogo_svc.FichaArticulo, cache: dict | None = None) -> dict:
+    """Los datos de un artículo para una etiqueta: los del catálogo (los mismos con que se reconoce su
+    categoría), su contenido si es un pack o kit y lo de la ficha técnica de su producto."""
+    v = catalogo_svc.valores_condiciones(db, a, cache)
+    v["articulo.componentes"] = componentes_articulo(a)
+    v.update({"producto.descripcion_comercial": None, "producto.pais_origen": None, "producto.composicion": None,
+              "producto.uso": None, **comex.valores_etiqueta(db, [a.producto_id]).get(a.producto_id, {})})
     return v
 
 
-def _fila_articulo(a: Articulo, cantidad) -> dict:
-    return {"sku": a.sku, "codigo_barras": a.codigo_barras, "descripcion": a.descripcion,
-            "variante": " · ".join(str(x.valor) for x in a.atributos) or None, "cantidad": cantidad,
-            **{f"atributo.{x.atributo.codigo}": x.valor for x in a.atributos}}
+def _fila_componente(c: catalogo_svc.Componente, cantidad) -> dict:
+    return {"sku": c.codigo, "codigo_barras": c.codigo_barras, "descripcion": c.descripcion,
+            "variante": " · ".join(str(x) for x in c.valores.values()) or None, "cantidad": cantidad,
+            **{f"atributo.{k}": x for k, x in c.valores.items()}}
 
 
-def componentes_articulo(a: Articulo) -> list[dict]:
+def _fila_articulo(a: catalogo_svc.FichaArticulo, cantidad) -> dict:
+    return {"sku": a.codigo, "codigo_barras": a.codigo_barras, "descripcion": a.descripcion,
+            "variante": " · ".join(str(x) for x in a.valores.values()) or None, "cantidad": cantidad,
+            **{f"atributo.{k}": x for k, x in a.valores.items()}}
+
+
+def componentes_articulo(a: catalogo_svc.FichaArticulo) -> list[dict]:
     """El contenido de un pack o kit con su cantidad por paquete (vacío en una variante simple)."""
-    return [_fila_articulo(c.componente, c.cantidad) for c in a.componentes]
+    return [_fila_componente(c, c.cantidad) for c in a.componentes]
 
 
 def valores_oc(db: Session, oc: OrdenCompra) -> dict:
@@ -473,9 +412,7 @@ def valores_linea(p: PosicionOC) -> dict:
 
 
 def posiciones(db: Session, oc_id: int) -> list[PosicionOC]:
-    return list(db.scalars(select(PosicionOC).where(PosicionOC.oc_id == oc_id).order_by(PosicionOC.id).options(
-        selectinload(PosicionOC.articulo).selectinload(Articulo.producto),
-        selectinload(PosicionOC.articulo).selectinload(Articulo.atributos))))
+    return list(db.scalars(select(PosicionOC).where(PosicionOC.oc_id == oc_id).order_by(PosicionOC.id)))
 
 
 @dataclass
@@ -538,7 +475,7 @@ def _contenido(g: GrupoCajas, hijos: dict, k: int = 0) -> list[tuple]:
 
 def _fila_linea(p: PosicionOC, q) -> dict:
     """Una línea en una tabla de etiqueta: la variante es la que la línea guardó al crearse."""
-    a = p.articulo
+    a = catalogo_svc.articulo(object_session(p), p.articulo_id)
     variante = dict(p.variante or {})
     fila = {"oc": p.oc.numero, "linea": p.posicion, "sku": p.codigo_articulo,
             "codigo_barras": p.codigo_barras or (a.codigo_barras if a else None), "descripcion": p.descripcion,
@@ -555,14 +492,14 @@ def _filas_contenido(items: list[tuple]) -> tuple[list[dict], list[dict], list[s
     lineas, componentes, avisos = [], {}, []
     for fl, q in items:
         p = fl.posicion_oc
-        a = p.articulo
+        a = catalogo_svc.articulo(object_session(p), p.articulo_id)
         lineas.append(_fila_linea(p, q))
-        if a is not None and a.tipo == "PREPACK":
+        if a is not None and a.es_pack:
             if not a.componentes:
-                avisos.append(f"The pack {a.sku} has no contents: its content by variant cannot be shown.")
+                avisos.append(f"The pack {a.codigo} has no contents: its content by variant cannot be shown.")
                 continue
             for c in a.componentes:
-                x = componentes.setdefault(c.componente_id, _fila_articulo(c.componente, 0))
+                x = componentes.setdefault(c.articulo_id, _fila_componente(c, 0))
                 x["cantidad"] += c.cantidad * q
         else:
             clave = a.id if a is not None else f"c{p.codigo_articulo}"

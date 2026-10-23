@@ -261,18 +261,20 @@ def asignar_articulos(db: Session, user: Usuario, familia_id: int | None, ids: l
     return {"cambiados": r["cambiados"], "elegidos": len(elegidos), "productos": len(productos_)}
 
 
-def obligatorios(familia: FamiliaEtiquetado | None) -> list[str]:
+def obligatorios(db: Session, familia_id: int | None) -> list[str]:
     """Campos obligatorios de la familia y de las familias que la contienen."""
+    from app.modulos.catalogo import servicio as catalogo
+
     res = []
-    for f in familia.ruta() if familia else []:
-        res += [c["campo"] for c in f.campos or [] if c.get("obligatorio") and c["campo"] not in res]
+    for c in catalogo.campos_familia(db, familia_id):
+        if c.get("obligatorio") and c["campo"] not in res:
+            res.append(c["campo"])
     return res
 
 
-def faltantes(db: Session, familia: FamiliaEtiquetado | None, valores: dict) -> list[str]:
+def faltantes(db: Session, familia_id: int | None, valores: dict) -> list[str]:
     """Campos obligatorios de la familia (incluidos los heredados) que el artículo no tiene."""
-    return [c for c in obligatorios(familia) if valores.get(c) in (None, "")]
-
+    return [c for c in obligatorios(db, familia_id) if valores.get(c) in (None, "")]
 
 
 # ---- Familia de cada producto (estilo-color) ----------------------------------------------------
@@ -300,13 +302,14 @@ def productos(db: Session, user: Usuario, q: str | None = None, familia: str | N
         Articulo.producto_id.in_([p.id for p in filas]), Articulo.activo.is_(True)).group_by(Articulo.producto_id)).all()) if filas else {}
     familias_ = {f.id: f.nombre for f in db.scalars(select(FamiliaEtiquetado))}
     # La categoría de etiquetado de sus tallas: la puesta a mano o la que reconocen las condiciones
-    from app.modulos.etiquetado import campos, reglas
+    from app.modulos.catalogo import servicio as catalogo
+    from app.modulos.etiquetado import reglas
 
     cats_de: dict = {}
     cache: dict = {}
-    for a in db.scalars(select(Articulo).where(Articulo.producto_id.in_([p.id for p in filas]), Articulo.activo.is_(True))
-                        .order_by(Articulo.id)) if filas else []:
-        cats_de.setdefault(a.producto_id, []).append(reglas.categoria_de(db, a, campos.valores_articulo(a), cache))
+    for p in filas:
+        for a in catalogo.articulos_de(db, producto_id=p.id):
+            cats_de.setdefault(a.producto_id, []).append(reglas.categoria_de(db, a, cache))
     res = []
     for p in filas:
         distintas = {c.id: c for c in cats_de.get(p.id, []) if c is not None}

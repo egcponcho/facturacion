@@ -71,22 +71,24 @@ def test_atributos_de_variante_con_tipo(interno):
 
 
 def test_atributos_de_la_ficha_en_las_etiquetas(interno):
+    from app.modulos.catalogo import servicio as catalogo
+    from app.modulos.comex import servicio as comex
     from app.modulos.etiquetado import campos
 
     with SessionLocal() as db:
-        defs = campos.defs_ficha(db)
+        defs = comex.defs_ficha(db)
         a = next(x for x in db.scalars(select(Articulo).where(Articulo.producto_id.is_not(None)))
                  if x.producto.ficha and set(x.producto.ficha) & set(defs))
-        v = campos.valores_articulo(a)
+        v = campos.valores_articulo(db, catalogo.articulo(db, a.id))
         clave = next(k for k in a.producto.ficha if k in defs and a.producto.ficha[k] not in (None, "", [], {}))
         d = defs[clave]
-        assert v[f"producto.atributo.{clave}"] == campos.texto_ficha(d, a.producto.ficha[clave])
+        assert v[f"producto.atributo.{clave}"] == comex.texto_ficha(d, a.producto.ficha[clave])
         if d["tipo"] == "select":
             assert v[f"producto.atributo.{clave}"] == d["opciones"].get(a.producto.ficha[clave], a.producto.ficha[clave])
     claves = {c["clave"] for c in interno.get("/etiquetas/campos", params={"sujeto": "ARTICULO"}).json()["campos"]}
     assert f"producto.atributo.{clave}" in claves
-    assert campos.texto_ficha({"tipo": "multi_select", "opciones": {"a": "Alpha"}}, ["a", "b"]) == "Alpha, b"
-    assert campos.texto_ficha({"tipo": "boolean", "opciones": {}}, False) == "No"
+    assert comex.texto_ficha({"tipo": "multi_select", "opciones": {"a": "Alpha"}}, ["a", "b"]) == "Alpha, b"
+    assert comex.texto_ficha({"tipo": "boolean", "opciones": {}}, False) == "No"
 
 
 def test_cada_linea_guarda_la_version_del_articulo(interno):

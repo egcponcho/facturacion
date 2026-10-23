@@ -25,11 +25,9 @@ DUENOS = ("main.py", "modelos/", "modulos/catalogo/", "modulos/comex/", "modulos
 PENDIENTES = {
     "modulos/clasificacion/aranceles.py", "modulos/clasificacion/especialista.py",
     "modulos/clasificacion/familias.py", "modulos/clasificacion/impacto.py", "modulos/clasificacion/meta.py",
-    "modulos/clasificacion/motor_clasificacion.py", "modulos/etiquetado/buscadores.py",
-    "modulos/etiquetado/campos.py", "modulos/etiquetado/categorias.py", "modulos/etiquetado/datos.py",
-    "modulos/etiquetado/familias.py", "modulos/etiquetado/generacion.py", "modulos/etiquetado/reglas.py",
-    "modulos/etiquetado/trabajos.py", "modulos/etiquetado/usos.py", "modulos/maestros/api.py",
-    "modulos/maestros/cargas.py", "modulos/maestros/catalogos.py",
+    "modulos/clasificacion/motor_clasificacion.py", "modulos/etiquetado/categorias.py",
+    "modulos/etiquetado/familias.py", "modulos/maestros/api.py", "modulos/maestros/cargas.py",
+    "modulos/maestros/catalogos.py",
 }
 
 
