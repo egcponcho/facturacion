@@ -16,6 +16,21 @@ se crean variantes propias de botones, pestañas, chips, tablas ni ventanas.
 | Sombra | `--sombra`, `--sombra-media`, `--sombra-flotante` | Paneles, menús y ventanas. |
 | Puntos de quiebre | 600 · 720 · 900 · 1100 px | 720 px es el corte principal a celular. CSS no admite variables en `@media`: se usan estos valores y no otros. |
 
+**Paletas.** El acento y la barra lateral salen de la paleta de la empresa
+(*Configuración → Empresa → Marca → Paleta*): `indigo` (de fábrica),
+`esmeralda`, `terracota` y `marino`, cada una con valores para tema claro
+(`--pal-*`) y oscuro (`--pald-*`) en `:root[data-paleta='…']`
+(`frontend/src/styles.css`). Neutros y colores de estado son los mismos en
+todas: un estado no cambia de color con la paleta. Las vistas usan solo
+`--acento*`, `--lateral*` y `--marca-*`, nunca los `--pal-*` directamente.
+
+**Datos que cambian por familia.** Atributos y variantes no se muestran como
+texto armado: los datos de producto van en tarjetas (una por atributo, la
+vacía punteada) y los valores de variante como fichas por atributo
+(`.var-fichas` / `.var-ficha`); con dos o más ejes, las variantes se ven en
+matriz (último eje en columnas). Ver
+`docs/reestructuracion/07-productos-ux.md`.
+
 Utilidades en lugar de estilos en línea: `mt-0`, `mt-chico`, `mt`, `mb-2`,
 `mb-3`, `mb-4`, `ms-0`, `separar`, `col-completa`, `texto-error`,
 `sin-sombra`, `nowrap`, `mono`, `relleno-chico`, `fila-flex`, `oculto-visual`.

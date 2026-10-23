@@ -49,7 +49,9 @@ def configuracion(db: Session) -> dict:
 PREFERENCIAS = {"idioma": "es", "moneda": "USD", "zona_horaria": "UTC", "formato_fecha": "MM/DD/YYYY"}
 # Marca: color de la interfaz y de los documentos, nombre del sistema y textos
 # de la pantalla de ingreso. Un texto vacío usa el de fábrica (traducido).
-MARCA = {"color": "", "titulo": "", "ingreso_titulo": "", "ingreso_texto": "", "ingreso_ayuda": ""}
+MARCA = {"color": "", "paleta": "", "titulo": "", "ingreso_titulo": "", "ingreso_texto": "", "ingreso_ayuda": ""}
+# Paletas de la interfaz (frontend/src/styles.css): acento y barra lateral. Vacío = la de fábrica (índigo)
+PALETAS = ("indigo", "esmeralda", "terracota", "marino")
 # Documentos (PDF): tamaño del papel, declaraciones legales de la factura y de
 # la lista de empaque y si los reportes llevan el logo de la empresa.
 DOCUMENTOS = {"papel": "LETTER", "declaracion_factura": "", "declaracion_packing": "", "logo_en_reportes": True,
@@ -258,6 +260,8 @@ def _validar_seccion(base: dict, valores: dict) -> dict:
             v = str(v or "").strip()
             if k == "color" and v and not re.fullmatch(r"#[0-9a-fA-F]{6}", v):
                 raise ErrorNegocio("Enter the color as #RRGGBB, for example #3355E0.", 422, "validacion")
+            if k == "paleta" and v and v not in PALETAS:
+                raise ErrorNegocio(f"The palette must be one of {', '.join(PALETAS)}.", 422, "validacion")
             if k == "papel" and v not in PAPELES:
                 raise ErrorNegocio(f"The paper size must be one of {', '.join(PAPELES)}.", 422, "validacion")
             if k == "columnas_linea":

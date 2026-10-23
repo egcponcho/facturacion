@@ -11,6 +11,8 @@ import DocumentosTecnicos from '@/modulos/productos/componentes/ficha/Documentos
 import EtiquetadoProducto from '@/modulos/etiquetado/componentes/EtiquetadoProducto.vue'
 import UsoProducto from '@/modulos/productos/componentes/UsoProducto.vue'
 import EmpaqueProducto from '@/modulos/productos/componentes/EmpaqueProducto.vue'
+import CabeceraProducto from '@/modulos/productos/componentes/CabeceraProducto.vue'
+import VariantesProducto from '@/modulos/productos/componentes/VariantesProducto.vue'
 import GenericoModal from '@/modulos/maestros/componentes/GenericoModal.vue'
 import AvisoEdicion from '@/componentes/AvisoEdicion.vue'
 import { useEdicion } from '@/composables/useEdicion'
@@ -23,7 +25,7 @@ import { cargarContexto, entradaDe, fichaDe, sesion } from '@/modulos/clasificac
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modulos/clasificacion/formato.js'
 import { comercioExterior, esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtFecha, fmtFechaHora, textoVariante } from '@/nucleo/utils'
+import { fmtFecha, fmtFechaHora } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 
 // Página del producto: sus datos, sus variantes, dónde se usa, su empaque y sus
@@ -46,6 +48,15 @@ const filas = reactive({}) // filas de composición que se editan, por campo com
 const comex = comercioExterior()
 const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : comex ? 'ficha' : 'variantes')
 const editarProducto = ref(false)
+// Pestañas que se consultan poco: van en «Más» ([clave, nombre, cuenta])
+const masAbierto = ref(false)
+const SECUNDARIAS = computed(() => [
+  ...(comex ? [['acuerdos', t('Trade agreements'), 0], ['versiones', t('Versions'), (p.value?.versiones?.length || 0) + 1]] : []),
+  ['historial', t('History'), p.value?.historial?.length || 0],
+])
+function cerrarMas() { masAbierto.value = false }
+onMounted(() => document.addEventListener('click', cerrarMas))
+onBeforeUnmount(() => document.removeEventListener('click', cerrarMas))
 const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
 const calculando = ref(false)
@@ -584,19 +595,6 @@ const colCodigosVersion = [
   { clave: 'estado', texto: t('Status'), prioridad: 2 },
   { clave: 'fuente', texto: t('Source'), prioridad: 3 },
 ]
-// Variantes (artículos) del producto
-const descripcionArticulo = (a) => (p.value.descripcion_comercial
-  ? `${p.value.descripcion_comercial}, ${textoVariante(a)}` : a.descripcion)
-const colArticulos = [
-  { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
-  { clave: 'codigo_proveedor', texto: t('Supplier code'), prioridad: 3 },
-  { clave: 'codigo_barras', texto: t('Barcode'), prioridad: 3 },
-  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
-  { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
-  { clave: 'descripcion', texto: t('Description'), prioridad: 3, valor: (a) => descripcionArticulo(a) },
-  { clave: 'activo', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
-]
-
 // ---- Historial -------------------------------------------------------------
 const ACCION = {
   ficha_guardada: t('Saved the technical sheet'),
@@ -645,45 +643,27 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
     <router-link to="/productos/catalogo" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Catalog') }}</router-link>
     <AvisoEdicion :edicion="p.edicion" :pausado="edicion.pausado.value" entidad="producto" :id="Number(props.id)" @liberado="cargar" @continuar="edicion.continuar" />
 
-    <section class="doc-cabeza">
-      <div class="doc-fila">
-        <span class="foto-cabeza">
-          <img v-if="p.fotos.length" :src="`/api/productos/fotos/${p.fotos[0].id}`" alt="" />
-          <Icono v-else nombre="caja" :tam="24" />
-        </span>
-        <div>
-          <span class="doc-numero">{{ tx(p.nombre || p.codigo_generico) }}</span>
-          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Product code')">{{ p.codigo_generico }}</span>
-            {{ [p.descripcion_comercial, p.proveedor].filter(Boolean).map(tx).join(' · ') }}</div>
-        </div>
-        <template v-if="comex">
-          <EstadoBadge :estado="p.estado" tipo="producto" />
-          <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
-        </template>
-        <div class="doc-acciones">
+    <CabeceraProducto :producto="p" :origen="f.origen || ''" :comex="comex" :editable="!!p.codigo_generico && puede('catalogos.editar')"
+                      @editar="editarProducto = true" @variantes="pestana = 'variantes'">
+      <template v-if="comex" #estado>
+        <EstadoBadge :estado="p.estado" tipo="producto" />
+        <span v-if="p.version_ficha > 1" class="etiqueta ms-0">{{ t('Version {0}', [p.version_ficha]) }}</span>
+      </template>
+      <template #acciones>
           <button v-if="p.codigo_generico && puede('catalogos.editar')" class="btn" @click="editarProducto = true"><Icono nombre="editar" />{{ t('Edit product') }}</button>
-          <MasOpciones v-if="comex">
-            <button class="btn btn-fantasma" :title="t('Technical sheet with the classification, as PDF')" @click="descargarFicha('pdf')"><Icono nombre="descargar" />PDF</button>
-            <button class="btn btn-fantasma" :title="t('Technical sheet with composition and national codes, as Excel')" @click="descargarFicha('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
-            <button v-if="aprobado && puede('producto.ficha')" class="btn" @click="modal = { tipo: 'version', texto: '', desde: '' }"><Icono nombre="editar" />{{ t('New version') }}</button>
-            <router-link v-if="reglaDesdeAqui" class="btn" :to="{ path: '/familias', query: { vista: 'reglas', desde: p.id } }"
-                         :title="t('Next time the engine suggests this code by itself')"><Icono nombre="varita" />{{ t('Turn this decision into a rule') }}</router-link>
-            <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
-          </MasOpciones>
-          <button v-if="comex && puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
-          <button v-if="comex && envioPrevio" class="btn btn-primario" :disabled="ocupado || !completa || (!oculta && codigo6.length < 6)"
-                  :title="tx(!completa ? t('Complete first: {0}', [faltan.join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
-        </div>
-      </div>
-      <div class="doc-meta">
-        <span>{{ t('Family') }} <b>{{ tx(p.familia || '—') }}</b></span>
-        <span v-for="a in p.atributos_txt || []" :key="a.codigo">{{ tx(a.nombre) }} <b>{{ tx(a.valor) }}</b></span>
-        <span>{{ t('Variants') }} <b>{{ tx(p.resumen_variantes || '—') }}</b></span>
-        <span>{{ t('SKUs') }} <b>{{ tx(p.skus) }}</b></span>
-        <span v-if="comex">{{ t('Origin') }} <b>{{ tx(f.origen || '—') }}</b></span>
-        <span v-if="p.revisado_por">{{ t('Reviewed by') }} <b>{{ tx(p.revisado_por) }}</b> · {{ fmtFecha(p.revisado_en) }}</span>
-      </div>
-    </section>
+        <MasOpciones v-if="comex">
+          <button class="btn btn-fantasma" :title="t('Technical sheet with the classification, as PDF')" @click="descargarFicha('pdf')"><Icono nombre="descargar" />PDF</button>
+          <button class="btn btn-fantasma" :title="t('Technical sheet with composition and national codes, as Excel')" @click="descargarFicha('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
+          <button v-if="aprobado && puede('producto.ficha')" class="btn" @click="modal = { tipo: 'version', texto: '', desde: '' }"><Icono nombre="editar" />{{ t('New version') }}</button>
+          <router-link v-if="reglaDesdeAqui" class="btn" :to="{ path: '/familias', query: { vista: 'reglas', desde: p.id } }"
+                       :title="t('Next time the engine suggests this code by itself')"><Icono nombre="varita" />{{ t('Turn this decision into a rule') }}</router-link>
+          <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
+        </MasOpciones>
+        <button v-if="comex && puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
+        <button v-if="comex && envioPrevio" class="btn btn-primario" :disabled="ocupado || !completa || (!oculta && codigo6.length < 6)"
+                :title="tx(!completa ? t('Complete first: {0}', [faltan.join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
+      </template>
+    </CabeceraProducto>
 
     <Pasos v-if="comex" class="pasos-producto" :pasos="pasos" />
 
@@ -704,21 +684,27 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
     <div class="producto-layout" :class="{ 'sin-lateral': !comex }">
       <div class="producto-principal">
-        <div class="pestanas" role="tablist">
-          <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
-            <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'variantes'" @click="pestana = 'variantes'"><Icono nombre="caja" :tam="16" />{{ t('Variants and packs') }}
-            <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
-            <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
-          <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
-          <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
-            <span class="cuenta">{{ tx(p.versiones.length + 1) }}</span></button>
-          <!-- Dónde se usa y cómo se empaca: el producto conectado con compras, facturación, logística y empaque -->
-          <button class="pestana" role="tab" :aria-selected="pestana === 'uso'" @click="pestana = 'uso'"><Icono nombre="ruta" :tam="16" />{{ t('Usage') }}</button>
-          <button v-if="puede('catalogos.ver')" class="pestana" role="tab" :aria-selected="pestana === 'empaque'" @click="pestana = 'empaque'"><Icono nombre="caja" :tam="16" />{{ t('Packing') }}</button>
-          <button v-if="puede('etiquetas.ver') && esInterno()" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'historial'" @click="pestana = 'historial'"><Icono nombre="historial" :tam="16" />{{ t('History') }}</button>
+        <div class="pestanas-barra">
+          <div class="pestanas" role="tablist">
+            <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
+              <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
+            <button class="pestana" role="tab" :aria-selected="pestana === 'variantes'" @click="pestana = 'variantes'"><Icono nombre="cuadricula" :tam="16" />{{ t('Variants and packs') }}
+              <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
+            <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
+              <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
+            <!-- Dónde se usa y cómo se empaca: el producto conectado con compras, facturación, logística y empaque -->
+            <button class="pestana" role="tab" :aria-selected="pestana === 'uso'" @click="pestana = 'uso'"><Icono nombre="ruta" :tam="16" />{{ t('Usage') }}</button>
+            <button v-if="puede('catalogos.ver')" class="pestana" role="tab" :aria-selected="pestana === 'empaque'" @click="pestana = 'empaque'"><Icono nombre="caja" :tam="16" />{{ t('Packing') }}</button>
+            <button v-if="puede('etiquetas.ver') && esInterno()" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
+            <!-- Lo que se consulta de vez en cuando: en «Más» (con su nombre a la vista si está abierta) -->
+            <button class="pestana" role="tab" :aria-selected="SECUNDARIAS.some((x) => x[0] === pestana)" aria-haspopup="menu" :aria-expanded="masAbierto"
+                    @click.stop="masAbierto = !masAbierto">
+              <Icono nombre="puntos" :tam="16" />{{ tx(SECUNDARIAS.find((x) => x[0] === pestana)?.[1] || t('More')) }}<Icono nombre="abajo" :tam="13" /></button>
+          </div>
+          <div v-if="masAbierto" class="pestanas-menu" role="menu">
+            <button v-for="[k, txt, n] in SECUNDARIAS" :key="k" type="button" role="menuitem" :class="{ activa: pestana === k }"
+                    @click="pestana = k; masAbierto = false">{{ txt }}<span v-if="n" class="cuenta">{{ n }}</span></button>
+          </div>
         </div>
 
         <!-- Ficha técnica -->
@@ -787,24 +773,8 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         </div>
 
         <!-- Variantes, packs y kits -->
-        <div v-else-if="pestana === 'variantes'">
-          <div class="fila-flex mt-chico entre">
-            <p class="ayuda">{{ comex ? t('Every variant of product {0} shares its technical sheet and its HS code. Packs and kits are built with these variants and take their code.', [p.codigo_generico || '—'])
-              : t('Every variant of product {0} shares its data. Packs and kits are built with these variants.', [p.codigo_generico || '—']) }}</p>
-            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarVariantes = true"><Icono nombre="mas" :tam="14" />{{ t('Add variants') }}</button>
-          </div>
-          <div class="mt-chico">
-            <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Variants and packs')">
-              <template #celda-sku="{ fila: a }"><span class="fuerte">{{ tx(a.sku) }}</span><span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Pack or kit') }}</span></template>
-              <template #celda-descripcion="{ fila: a }"><span class="apagado">{{ tx(descripcionArticulo(a)) }}</span></template>
-              <template #celda-activo="{ fila: a }"><span v-if="a.activo" class="etiqueta ok ms-0">{{ t('Active') }}</span><span v-else class="etiqueta ms-0">{{ t('Inactive') }}</span></template>
-            </TablaDatos>
-          </div>
-          <div v-for="x in p.compuestos" :key="x.id" class="panel mt">
-            <div class="panel-cabeza"><div><h2>{{ x.kit ? t('Kit {0}', [x.codigo]) : t('Pack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per pack', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
-            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.variante || c.sku) }} × {{ tx(c.cantidad) }}</span></div>
-          </div>
-        </div>
+        <VariantesProducto v-else-if="pestana === 'variantes'" :producto="p" :comex="comex"
+                           :puede-agregar="!!p.codigo_generico && puede('catalogos.crear')" @agregar="agregarVariantes = true" />
 
         <!-- Historial -->
         <div v-else class="panel">
@@ -899,7 +869,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
             <li v-for="n in (verNotas ? notasVista : notasVista.slice(0, 3))" :key="n.id">
               <b>{{ tx(n.ambito === 'explicativa' ? t('Explanatory note, heading {0}', [fmtCode(n.codigo)]) : n.codigo === 'RGI' ? t('General rule {0}', [n.numero]) : n.ambito === 'seccion' ? t('Section {0}, note {1}', [n.codigo, n.numero]) : n.ambito === 'complementaria' ? t('Chapter {0}, Central American note {1}', [n.codigo, n.numero.replace('NCC ', '')]) : t('Chapter {0}, note {1}', [n.codigo, n.numero])) }}</b>
               <span class="etiqueta" :class="n.oficial ? 'ok' : 'aviso'">{{ n.oficial ? t('Official text') : n.tipo_fuente === 'CLASSIFIER_GUIDANCE' ? t('Classifier summary') : t('Internal guidance') }}</span>
-              <span>{{ tx(n.texto) }}</span>
+              <span :class="{ 'nota-recorte': !verNotas }" :title="verNotas ? '' : tx(n.texto)">{{ tx(n.texto) }}</span>
             </li>
             <li v-if="!notasVista.length" class="apagado">{{ soporte === 'explicativas' ? t('No guidance for this heading. Internal guidance and classifier summaries are added in Tariff schedule → Notes.') : t('No legal notes loaded for this chapter.') }}</li>
           </ul>

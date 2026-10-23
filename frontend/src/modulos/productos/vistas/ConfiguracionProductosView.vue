@@ -102,7 +102,7 @@ const APARTADOS = computed(() => [
     <header class="pagina-cabeza">
       <div>
         <h1>{{ t('Products setup') }}</h1>
-        <p>{{ t('What you set up once so creating products is quick: families, variant attributes, scales, brands and the rest of the catalogs.') }}</p>
+        <p>{{ t('What you set up once so creating products is quick: families and their attributes, value scales, brands and the rest of the catalogs.') }}</p>
       </div>
     </header>
     <PortadaConfig :grupos="APARTADOS" :cuentas="cuentas" />

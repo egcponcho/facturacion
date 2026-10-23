@@ -116,6 +116,8 @@ export function useVariantes(g, info = ref(null)) {
     peso_unitario: peso === '' || peso === null ? null : Number(peso),
   }))
 
+  // Los valores ya expandidos de cada atributo ({código: [valores]}), para mostrarlos al escribirlos
+  const expandidos = computed(() => Object.fromEntries(listas.value))
   return { atributos, escalas, familias, escalaId, valores, filas, pesoTodas, cargar, ejes, escalasDe, usarEscala, nuevaFila,
-    existentes, totalCombinaciones, combinar, pesoParaTodas, vacia, paraEnviar }
+    existentes, totalCombinaciones, combinar, pesoParaTodas, vacia, paraEnviar, expandidos }
 }

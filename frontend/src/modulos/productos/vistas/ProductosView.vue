@@ -295,7 +295,13 @@ alCambiar(() => consultar(), ['/productos'])
         </span>
         <span>
           <router-link :to="`/productos/${p.id}`" class="enlace-doc" @click.stop><strong><span v-if="p.codigo_generico" class="codigo">{{ tx(p.codigo_generico) }}</span> {{ tx(p.nombre || '—') }}</strong></router-link>
-          <span class="sub">{{ [p.descripcion_comercial, p.resumen_variantes || t('no variants')].filter(Boolean).map(tx).join(' · ') }}</span>
+          <!-- Sus variantes por atributo (talla, color, sabor…), como fichas: nombre y valores -->
+          <span class="var-fichas">
+            <span v-for="e in p.variantes_atributos || []" :key="e.codigo" class="var-ficha" :title="`${tx(e.nombre)}: ${e.valores.join(', ')}`">
+              <small>{{ tx(e.nombre) }}</small>{{ tx(e.texto) }}</span>
+            <span v-if="!(p.variantes_atributos || []).length" class="apagado">{{ p.skus ? t('{0} variants', [p.skus]) : t('no variants') }}</span>
+            <span v-if="p.n_compuestos" class="var-ficha pack">{{ t('+ {0} packs or kits', [p.n_compuestos]) }}</span>
+          </span>
         </span>
       </div>
     </template>

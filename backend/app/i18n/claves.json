@@ -1936,6 +1936,7 @@
  "The packing list {0} is not finalized yet: its packages can still change. Generate test labels or finalize it first.",
  "The packing recipe does not exist.",
  "The packing rule does not exist.",
+ "The palette must be one of {0}.",
  "The pallet dimensions are missing.",
  "The pallet does not exist in this packing list.",
  "The paper size must be one of {0}.",

@@ -358,7 +358,7 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
             "marca": p.marca_codigo, "marca_nombre": marcas.get(p.marca_codigo),
             "proveedor_id": p.proveedor_id, "proveedor": p.proveedor.nombre if p.proveedor else None,
             "grupo_producto_id": p.grupo_producto_id, "unidad": p.unidad,
-            "resumen_variantes": variantes.resumen(db, simples),
+            "resumen_variantes": variantes.resumen(db, simples), "variantes_atributos": variantes.por_atributo(db, simples),
             "n_variantes": len(simples), "n_compuestos": len(ls) - len(simples), "activos": sum(1 for a in ls if a.activo),
             "descripcion_comercial": p.descripcion_comercial, "estado": p.estado, "estado_txt": ESTADOS.get(p.estado, p.estado),
             "codigo": fmt_codigo(p.codigo) if p.codigo else None,

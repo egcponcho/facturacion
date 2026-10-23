@@ -3,4 +3,5 @@ try {
   const t = localStorage.getItem('tema')
   if (t === 'oscuro') document.documentElement.dataset.theme = 'dark'
   if (t === 'claro') document.documentElement.dataset.theme = 'light'
+  document.documentElement.dataset.paleta = localStorage.getItem('paleta') || 'indigo'
 } catch {}

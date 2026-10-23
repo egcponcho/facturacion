@@ -107,7 +107,13 @@ def rango(valores: list, orden: list[str] | None = None) -> str:
     los demás valores, en el orden que la empresa les dio (las opciones del
     atributo o sus escalas de valores: S, M, L… o 250 ml, 500 ml, 1 L) y, si no
     están ahí, en el orden en que aparecen."""
-    ts = [str(t).strip().upper() for t in valores if str(t or "").strip()]
+    # Sin repetir (sin distinguir mayúsculas) y con el texto como se escribió la primera vez
+    vistos: dict[str, str] = {}
+    for t in valores:
+        t = str(t or "").strip()
+        if t and t.upper() not in vistos:
+            vistos[t.upper()] = t
+    ts = list(vistos)
     if not ts:
         return ""
 
@@ -137,8 +143,25 @@ def rango(valores: list, orden: list[str] | None = None) -> str:
     lista = [str(x).strip().upper() for x in (orden or [])]
     if lista and all(t in lista for t in ts):
         idx = sorted({lista.index(t) for t in ts})
-        return tramos(idx, 1, lambda i: lista[i])
-    return ", ".join(dict.fromkeys(ts))
+        return tramos(idx, 1, lambda i: vistos.get(lista[i], lista[i]))
+    return ", ".join(vistos[t] for t in ts)
+
+
+def ordenados(valores: list, orden: list[str] | None = None) -> list[str]:
+    """Los valores distintos de un atributo en su orden: números como números; los demás en el
+    orden de sus opciones y escalas y, si no están ahí, en el orden en que aparecen."""
+    vistos: dict[str, str] = {}
+    for t in valores:
+        t = str(t or "").strip()
+        if t and t.upper() not in vistos:
+            vistos[t.upper()] = t
+    lista = list(vistos.values())
+    try:
+        return sorted(lista, key=lambda t: float(t.replace(",", ".")))
+    except ValueError:
+        pass
+    pos = {str(x).strip().upper(): i for i, x in enumerate(orden or [])}
+    return sorted(lista, key=lambda t: (pos.get(t.upper(), len(pos)), lista.index(t)))
 
 
 def orden_de_valores(db: Session) -> dict[str, list[str]]:
@@ -155,6 +178,24 @@ def orden_de_valores(db: Session) -> dict[str, list[str]]:
             lista += [x["valor"] for x in e.lista_valores or [] if x.get("valor") and x["valor"] not in lista]
         db.info["orden_valores"] = res
     return res
+
+
+def por_atributo(db: Session | None, articulos: list, ejes: list[str] | None = None) -> list[dict]:
+    """Las variantes de un producto por atributo, para mostrarlas sin armar textos:
+    [{codigo, nombre, valores (en orden), texto («7–12»)}]. Primero los ejes de la familia (aunque
+    todavía no tengan valores), luego cualquier otro atributo que tengan sus variantes. Los packs no
+    cuentan: no son una variante sino una combinación de ellas."""
+    if db is None:
+        return []
+    vals: dict[str, list] = {k: [] for k in ejes or []}
+    for a in articulos:
+        if getattr(a, "tipo", "SOLIDO") == "PREPACK":
+            continue
+        for k, v in de_articulo(db, a).items():
+            vals.setdefault(k, []).append(v)
+    nombres_atr, orden = nombres(db), orden_de_valores(db)
+    return [{"codigo": k, "nombre": nombres_atr.get(k, k), "valores": ordenados(vs, orden.get(k)), "texto": rango(vs, orden.get(k))}
+            for k, vs in vals.items()]
 
 
 def resumen(db: Session | None, articulos: list) -> str:

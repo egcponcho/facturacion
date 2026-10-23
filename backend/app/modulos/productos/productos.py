@@ -311,6 +311,8 @@ def _resumen(p: Producto, variantes: dict, ds: list[dict], marcas: dict | None =
         "skus": t.get("skus", 0),
         # Las variantes por atributo de la familia («Size 7–12 · Color BLACK, WHITE»), para cualquier producto
         "resumen_variantes": var_svc.resumen(object_session(p), t.get("articulos", [])),
+        # Lo mismo por atributo ([{codigo, nombre, valores, texto}]), para mostrarlo como datos
+        "variantes_atributos": var_svc.por_atributo(object_session(p), t.get("articulos", [])),
         "n_compuestos": t.get("compuestos", 0),
         "unidad": t.get("unidad"), "descripcion_comercial": p.descripcion_comercial,
         "actualizado_en": p.actualizado_en, "version": p.version, "version_ficha": p.version_ficha,
@@ -325,6 +327,21 @@ def _atributos_txt(db: Session, p: Producto) -> list[dict]:
     return [{"codigo": k, "nombre": nombres.get(k, k),
              "valor": marca.nombre if cat.get(k) == "marcas" and marca and marca.codigo == v else v}
             for k, v in var_svc.ordenar_producto(db, p.valores).items()]
+
+
+def _atributos_familia(db: Session, p: Producto) -> list[dict]:
+    """[{codigo, nombre, tipo, unidad, valor, general, fuera}] de los atributos de producto que lleva su
+    familia, con el valor del producto (vacío si no lo tiene) y, al final, los que tiene y su familia
+    ya no lleva (`fuera`)."""
+    txt = {a["codigo"]: a["valor"] for a in _atributos_txt(db, p)}
+    aplican = var_svc.de_grupo(db, p.grupo_producto, "PRODUCTO")
+    res = [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo, "unidad": a.unidad, "valor": txt.get(a.codigo),
+            "general": a.general, "fuera": False} for a in aplican]
+    vistos = {a.codigo for a in aplican}
+    nombres = var_svc.nombres(db)
+    res += [{"codigo": k, "nombre": nombres.get(k, k), "tipo": None, "unidad": None, "valor": v, "general": False, "fuera": True}
+            for k, v in txt.items() if k not in vistos]
+    return res
 
 
 def _variantes(db: Session, ids: list[int]) -> dict:
@@ -512,6 +529,9 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "familia": p.grupo_producto.nombre if p.grupo_producto is not None else None,
         # Los atributos del producto para mostrar: su nombre y su valor (de un catálogo, el nombre del registro)
         "atributos_txt": _atributos_txt(db, p),
+        # Los atributos que lleva su familia (con valor o sin él) y los ejes de sus variantes con sus valores
+        "atributos_familia": _atributos_familia(db, p),
+        "ejes": var_svc.por_atributo(db, arts, var_svc.ejes_de_grupo(db, p.grupo_producto)),
         "analisis": p.analisis or {}, "alertas_ok": p.alertas_ok or [], "observaciones": p.observaciones,
         "resolucion": p.resolucion, "notas": p.notas, "opinion_ia": p.opinion_ia,
         "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
@@ -537,6 +557,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "compuestos": [{"id": a.id, "sku": a.sku, "codigo": a.codigo_pack, "descripcion": a.descripcion,
                         "total": a.total_componentes, "kit": a.es_kit,
                         "componentes": [{"sku": c.componente.sku, "cantidad": c.cantidad,
+                                         "valores": var_svc.de_articulo(db, c.componente),
                                          "variante": var_svc.texto(var_svc.de_articulo(db, c.componente)) or None}
                                         for c in a.componentes]} for a in arts if a.tipo == "PREPACK"],
         "historial": _historial(db, p),

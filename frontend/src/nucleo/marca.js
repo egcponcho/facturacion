@@ -7,7 +7,7 @@ import { api } from './api'
 // texto vacío usa el de fábrica. Antes de iniciar sesión se lee de la ruta
 // pública; con sesión, de /auth/me.
 export const marca = reactive({
-  nombre: null, logo: null, color: '', titulo: '', ingreso_titulo: '', ingreso_texto: '', ingreso_ayuda: '', demo: null,
+  nombre: null, logo: null, color: '', paleta: '', titulo: '', ingreso_titulo: '', ingreso_texto: '', ingreso_ayuda: '', demo: null,
 })
 
 const VARIABLES = ['--acento', '--acento-hover', '--acento-claro', '--acento-medio', '--acento-texto']
@@ -27,11 +27,21 @@ function aplicarColor(hex) {
   raiz.setProperty('--acento-texto', `color-mix(in srgb, ${hex} 80%, var(--tinta))`)
 }
 
+// La paleta de la empresa (acento y barra lateral, en los dos temas: styles.css). Se recuerda en el
+// navegador para pintarla desde el arranque (public/tema-inicial.js)
+export const PALETAS = ['indigo', 'esmeralda', 'terracota', 'marino']
+export function aplicarPaleta(paleta) {
+  const p = PALETAS.includes(paleta) ? paleta : 'indigo'
+  document.documentElement.dataset.paleta = p
+  try { localStorage.setItem('paleta', p) } catch { /* sin almacenamiento: solo esta sesión */ }
+}
+
 export const tituloSistema = () => marca.titulo || t('Workspace')
 
 export function usarMarca(empresa) {
   if (!empresa) return
   Object.assign(marca, { nombre: empresa.nombre, logo: empresa.logo, demo: empresa.demo ?? marca.demo }, empresa.marca || {})
+  aplicarPaleta(marca.paleta)
   aplicarColor(marca.color)
   if (empresa.textos) usarTextosPropios(empresa.textos)
   document.title = marca.nombre ? `${marca.nombre} · ${tituloSistema()}` : tituloSistema()

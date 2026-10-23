@@ -12,6 +12,7 @@ import { avisar, errorApi, guardando } from '@/stores/ui'
 import { reducirImagen } from '@/nucleo/utils'
 import { estadoFabrica } from '@/nucleo/estados.js'
 import BotonArchivo from '@/componentes/BotonArchivo.vue'
+import { aplicarPaleta } from '@/nucleo/marca.js'
 
 // Empresa de la instalación: datos generales, logo, preferencias y reglas de
 // negocio. Solo la administración los cambia.
@@ -123,6 +124,19 @@ async function subirLogo(archivo) {
   }
 }
 
+// Paletas de la interfaz: el acento y la barra lateral (los colores de muestra son los de styles.css)
+const PALETAS_UI = computed(() => [
+  { codigo: '', nombre: t('Indigo'), texto: t('Light side bar, indigo accent (standard).'), lateral: '#ffffff', acento: '#4f46e5', borde: true },
+  { codigo: 'esmeralda', nombre: t('Emerald'), texto: t('Graphite side bar, emerald accent.'), lateral: '#18181b', acento: '#047857' },
+  { codigo: 'terracota', nombre: t('Terracotta'), texto: t('Warm light side bar, terracotta accent.'), lateral: '#fbf8f5', acento: '#c2410c', borde: true },
+  { codigo: 'marino', nombre: t('Navy'), texto: t('Navy side bar, blue accent (the previous one).'), lateral: '#0f172a', acento: '#0369a1' },
+])
+// Elegir una paleta la muestra al momento; se guarda con el resto de la empresa
+function elegirPaleta(codigo) {
+  datos.value.marca.paleta = codigo
+  aplicarPaleta(codigo)
+}
+
 async function guardar() {
   ocupado.value = true
   try {
@@ -188,7 +202,19 @@ async function guardar() {
     <section class="panel">
       <div class="panel-cabeza"><div><h2>{{ t('Brand') }}</h2><p>{{ t('Color of the screens and documents, name of the system and texts of the sign-in screen. Leave a text empty to use the standard one.') }}</p></div></div>
       <div class="rejilla-campos">
-        <label class="campo"><span>{{ t('Color') }}</span>
+        <div class="campo ancho"><span>{{ t('Palette') }}</span>
+          <div class="paletas" role="radiogroup" :aria-label="t('Palette')">
+            <button v-for="x in PALETAS_UI" :key="x.codigo" type="button" class="paleta" role="radio"
+                    :aria-checked="(datos.marca.paleta || '') === x.codigo" @click="elegirPaleta(x.codigo)">
+              <span class="paleta-muestra" aria-hidden="true">
+                <span class="paleta-lateral" :class="{ borde: x.borde }" :style="{ background: x.lateral }"><i :style="{ background: x.acento }" /><i /><i /></span>
+                <span class="paleta-cuerpo"><i :style="{ background: x.acento }" /><i /><i /></span>
+              </span>
+              <b>{{ x.nombre }}</b><small>{{ x.texto }}</small>
+            </button>
+          </div>
+          <small class="ayuda">{{ t('The colors of every screen, in the light and the dark theme. Each person still chooses light or dark.') }}</small></div>
+        <label class="campo"><span>{{ t('Accent color (optional)') }}</span>
           <span class="fila-flex"><input type="color" :value="datos.marca.color || '#3355e0'" :aria-label="t('Color')" @input="datos.marca.color = $event.target.value" />
             <input v-model="datos.marca.color" class="entrada" maxlength="7" placeholder="#3355E0" />
             <button v-if="datos.marca.color" type="button" class="btn btn-chico btn-fantasma" @click="datos.marca.color = ''">{{ t('Standard') }}</button></span></label>
@@ -343,6 +369,20 @@ async function guardar() {
 </template>
 
 <style scoped>
+.paletas { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.paleta { display: flex; flex-direction: column; gap: 4px; text-align: start; padding: 10px; border: 1px solid var(--linea); border-radius: var(--radio-panel);
+  background: var(--superficie); cursor: pointer; color: inherit; transition: border-color 0.12s, box-shadow 0.12s; }
+.paleta:hover { border-color: var(--borde-hover); }
+.paleta[aria-checked='true'] { border-color: var(--acento); box-shadow: 0 0 0 3px var(--foco); }
+.paleta small { color: var(--tinta-3); font-size: var(--t-xs); line-height: 1.35; }
+.paleta-muestra { display: grid; grid-template-columns: 34% 1fr; height: 58px; border-radius: 8px; overflow: hidden; border: 1px solid var(--linea); margin-bottom: 4px; }
+.paleta-lateral { display: flex; flex-direction: column; gap: 5px; padding: 8px 6px; }
+.paleta-lateral.borde { border-inline-end: 1px solid #e4e7ec; }
+.paleta-lateral i { display: block; height: 5px; border-radius: 3px; background: rgba(128, 128, 128, 0.35); }
+.paleta-lateral i:first-child { width: 70%; }
+.paleta-cuerpo { display: flex; flex-direction: column; gap: 5px; padding: 8px; background: #f6f7f9; }
+.paleta-cuerpo i { display: block; height: 6px; border-radius: 3px; background: #dfe3ea; }
+.paleta-cuerpo i:first-child { width: 42%; height: 10px; }
 .panel + .panel { margin-top: 16px; }
 .empresa-general { display: grid; grid-template-columns: 180px 1fr; gap: 24px; align-items: start; }
 .empresa-logo { display: flex; flex-direction: column; align-items: center; gap: 8px; }

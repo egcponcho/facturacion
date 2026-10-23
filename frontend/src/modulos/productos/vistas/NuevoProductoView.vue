@@ -29,7 +29,7 @@ const VACIO = () => ({ generico: '', nombre: '', proveedor_id: '', grupo_product
 const g = reactive(VACIO())
 const op = reactive({ marcas: [], proveedores: [], paises: [] })
 const { atributos, familias, escalaId, valores, filas, pesoTodas, cargar, ejes, escalasDe, usarEscala, nuevaFila, totalCombinaciones, combinar,
-  pesoParaTodas, vacia, paraEnviar } = useVariantes(g)
+  pesoParaTodas, vacia, paraEnviar, expandidos } = useVariantes(g)
 const actual = ref(0)
 const ocupado = ref(false)
 const cargado = ref(false)
@@ -67,7 +67,13 @@ onMounted(async () => {
 // (los de variante que valen en ella: suyos, de las familias que la contienen o generales)
 const nombreAtributo = (c) => tx(atributos.value.find((a) => a.codigo === c)?.nombre || c)
 const familiasVista = computed(() => familias.value.map((f) => ({
-  ...f, ejesTexto: ejesDeFamilia(familias.value, f.id, atributos.value).map(nombreAtributo).join(' · ') })))
+  ...f, ejesLista: ejesDeFamilia(familias.value, f.id, atributos.value).map(nombreAtributo),
+  datos: (f.atributos_producto || []).map(nombreAtributoProducto),
+  rutaTxt: String(f.ruta || '').split(' / ').map(tx).join(' / ') })))
+// Los nombres de los atributos de producto (para las tarjetas de familia)
+const atrsProducto = ref([])
+api.get('/catalogos/atributos', { size: 200 }).then((r) => (atrsProducto.value = r.items || [])).catch(() => {})
+const nombreAtributoProducto = (c) => tx(atrsProducto.value.find((a) => a.codigo === c)?.nombre || c)
 const familia = computed(() => familias.value.find((f) => String(f.id) === String(g.grupo_producto_id)) || null)
 const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto, sub: x.sub }))
 // Con proveedor, solo sus marcas autorizadas; sin proveedor, todas
@@ -216,8 +222,12 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
         <label v-for="f in familiasVista" :key="f.id" class="np-familia" :class="{ elegida: String(g.grupo_producto_id) === String(f.id) }">
           <input v-model="g.grupo_producto_id" type="radio" :value="f.id" class="oculto-visual" />
           <span class="np-familia-nombre">{{ tx(f.nombre) }}</span>
-          <span v-if="f.ruta && f.ruta !== f.nombre" class="ayuda">{{ tx(f.ruta) }}</span>
-          <span class="np-ejes"><Icono nombre="capas" :tam="13" />{{ f.ejesTexto ? t('Variants by {0}', [f.ejesTexto]) : t('No variant attributes yet: assign them to the family.') }}</span>
+          <span v-if="f.ruta && f.ruta !== f.nombre" class="ayuda">{{ f.rutaTxt }}</span>
+          <span v-if="f.datos.length" class="np-grupo"><small>{{ t('Data') }}</small>
+            <span class="np-fichas"><span v-for="d in f.datos" :key="d" class="np-ficha">{{ d }}</span></span></span>
+          <span class="np-grupo"><small>{{ t('Variants by') }}</small>
+            <span class="np-fichas"><span v-for="e in f.ejesLista" :key="e" class="np-ficha eje">{{ e }}</span>
+              <span v-if="!f.ejesLista.length" class="ayuda">{{ t('No variant attributes yet: assign them to the family.') }}</span></span></span>
         </label>
       </div>
       <router-link to="/grupos-producto" class="enlace np-crear"><Icono nombre="mas" :tam="14" />{{ t('Create or change families') }}</router-link>
@@ -273,6 +283,11 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
               </Seleccion>
             </div>
             <datalist v-if="a.tipo === 'opcion'" :id="`np-op-${a.codigo}`"><option v-for="o in opcionesDe(a)" :key="o" :value="o" /></datalist>
+            <span v-if="expandidos[a.codigo]?.length" class="np-fichas np-vista" :aria-label="t('{0} values', [expandidos[a.codigo].length])">
+              <small>{{ t('{0} values', [expandidos[a.codigo].length]) }}</small>
+              <span v-for="v in expandidos[a.codigo].slice(0, 24)" :key="v" class="np-ficha eje">{{ v }}</span>
+              <span v-if="expandidos[a.codigo].length > 24" class="np-ficha">+{{ expandidos[a.codigo].length - 24 }}</span>
+            </span>
           </div>
         </div>
         <button type="button" class="btn" :disabled="!totalCombinaciones" @click="combinar">
@@ -335,7 +350,13 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
 .np-familia.elegida { border-color: var(--acento); background: var(--acento-claro); box-shadow: 0 0 0 1px var(--acento); }
 .np-familia:focus-within { outline: 2px solid var(--acento); outline-offset: 2px; }
 .np-familia-nombre { font-weight: 650; }
-.np-ejes { display: inline-flex; gap: 5px; align-items: center; font-size: var(--t-sm); color: var(--tinta-2); }
+.np-grupo { display: flex; gap: 8px; align-items: baseline; margin-top: 4px; }
+.np-grupo > small { flex: none; width: 74px; font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 650; }
+.np-fichas { display: flex; flex-wrap: wrap; gap: 4px; }
+.np-ficha { font-size: var(--t-xs); font-weight: 600; border: 1px solid var(--linea); background: var(--superficie); border-radius: 6px; padding: 0 7px; color: var(--tinta-2); }
+.np-vista { margin-top: 6px; align-items: center; }
+.np-vista small { color: var(--tinta-3); font-size: var(--t-xs); margin-inline-end: 2px; }
+.np-ficha.eje { border-color: var(--acento-medio); background: var(--acento-claro); color: var(--acento-texto); }
 .np-crear { align-self: flex-start; display: inline-flex; gap: 5px; align-items: center; }
 .np-ejes-captura { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .np-acciones { margin-top: 4px; }

@@ -112,7 +112,10 @@ watch(() => props.recarga, () => {
       {{ tx((a.catalogo === 'marcas' && g.marca_nombre) || g.atributos?.[a.codigo] || '—') }}</template>
     <template #celda-proveedor_id="{ fila: g }">{{ tx(g.proveedor || '—') }}</template>
     <template #celda-variantes="{ fila: g }">
-      <span class="fuerte">{{ tx(g.resumen_variantes || '—') }}</span>
+      <span class="var-fichas">
+        <span v-for="e in g.variantes_atributos || []" :key="e.codigo" class="var-ficha" :title="`${tx(e.nombre)}: ${e.valores.join(', ')}`"><small>{{ tx(e.nombre) }}</small>{{ tx(e.texto) }}</span>
+        <span v-if="!(g.variantes_atributos || []).length" class="apagado">—</span>
+      </span>
       <span class="sub">{{ plural(g.n_variantes, t('variant'), t('variants')) }}<template v-if="g.n_compuestos"> · {{ plural(g.n_compuestos, t('pack or kit'), t('packs and kits')) }}</template></span>
     </template>
     <template #celda-descripcion_comercial="{ fila: g }">
