@@ -287,7 +287,8 @@ def ids(*, marca: str | None = None, marcas: Iterable[str] | None = None, provee
         tipo: str | None = None) -> Select:
     """`select(id)` de los artículos que cumplen todos los filtros dados. Se usa como
     `Tabla.articulo_id.in_(catalogo.ids(...))`. Los valores de variante se comparan sin
-    distinguir mayúsculas; la familia incluye sus subfamilias y categorías."""
+    distinguir mayúsculas; la familia incluye sus subfamilias y categorías; el texto sigue la
+    regla de búsqueda de las listas (sin acentos ni mayúsculas, términos en cualquier orden)."""
     c = select(Articulo.id)
     if solo_activos:
         c = c.where(Articulo.activo.is_(True))
@@ -312,12 +313,15 @@ def ids(*, marca: str | None = None, marcas: Iterable[str] | None = None, provee
                 select(ArticuloAtributo.articulo_id).join(Atributo, Atributo.id == ArticuloAtributo.atributo_id)
                 .where(Atributo.codigo == codigo, func.upper(ArticuloAtributo.valor).in_(vs))))
     if texto and texto.strip():
-        t = f"%{texto.strip()}%"
-        c = c.where(or_(
+        from app.modulos.comun.texto import filtro_texto
+
+        cond = filtro_texto(texto, lambda t: [
             Articulo.sku.ilike(t),
             Articulo.producto_id.in_(select(Producto.id).where(or_(Producto.nombre.ilike(t), Producto.codigo_generico.ilike(t)))),
             Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(t))),
-            Articulo.id.in_(select(ArticuloAtributo.articulo_id).where(ArticuloAtributo.valor.ilike(t)))))
+            Articulo.id.in_(select(ArticuloAtributo.articulo_id).where(ArticuloAtributo.valor.ilike(t)))])
+        if cond is not None:
+            c = c.where(cond)
     return c
 
 

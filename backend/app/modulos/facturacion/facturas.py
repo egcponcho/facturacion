@@ -34,6 +34,8 @@ from app.modulos.acceso.permisos import (
     proveedor_filtro,
     sociedad_filtro,
 )
+from app.modulos.catalogo import servicio as catalogo
+from app.modulos.comex import servicio as comex
 from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.formato import cant_txt
@@ -51,9 +53,6 @@ from app.modulos.facturacion.cantidades import (
     totales_pl,
 )
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL, ESTADO_TXT
-from app.modulos.maestros import variantes
-from app.modulos.maestros.variantes import texto_linea as texto_variante
-from app.modulos.productos.productos import partida_para, producto_de, sin_marca
 
 ETIQUETAS = {
     "sociedad": "companies",
@@ -90,7 +89,7 @@ def exigir_editable(f: Factura) -> None:
 
 
 def _ref_linea(l: FacturaLinea) -> str:
-    variante = texto_variante(l.variante)
+    variante = catalogo.texto(l.variante)
     return f"PO {l.oc_numero} line {l.posicion} ({l.codigo_articulo}{' · ' + variante if variante else ''})"
 
 
@@ -208,10 +207,11 @@ def _preparar_posiciones(
 
 
 def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
-    # Partida, origen y descripción aduanera salen del producto clasificado; la variante y los
-    # atributos del producto, de la foto de la línea de la OC
-    prod = producto_de(p.articulo)
-    marca = variantes.de_catalogo(object_session(p), p.atributos, "marcas")
+    # Partida, origen y descripción aduanera salen de la ficha del producto (comercio exterior); la
+    # variante y los atributos del producto, de la foto de la línea de la OC
+    db = object_session(p)
+    ficha = comex.de_articulos(db, [p.articulo_id]).get(p.articulo_id)
+    marca = catalogo.marca(db, p.atributos)
     return FacturaLinea(
         posicion_oc_id=p.id,
         cantidad=cantidad,
@@ -234,28 +234,27 @@ def _nueva_linea(p: PosicionOC, oc: OrdenCompra, cantidad: int) -> FacturaLinea:
         receta_id=p.receta_id,
         receta_foto=p.receta_foto,
         centro_destino=oc.centro_destino,
-        pais_origen=p.pais_origen or (prod.pais_origen if prod else None),
-        partida_arancelaria=partida_para(prod),  # 6 dígitos: el destino es solo proyectado
+        pais_origen=p.pais_origen or (ficha.pais_origen if ficha else None),
+        partida_arancelaria=ficha.partida if ficha else None,  # 6 dígitos: el destino es solo proyectado
         # Descripción aduanera del artículo, sin la marca (va en su propia columna)
-        descripcion_comercial=sin_marca((prod.descripcion_aduana or prod.descripcion_comercial) if prod else None, marca)
-        or sin_marca(p.descripcion, marca),
+        descripcion_comercial=comex.sin_marca((ficha.descripcion_aduana or ficha.descripcion_comercial) if ficha else None, marca)
+        or comex.sin_marca(p.descripcion, marca),
     )
 
 
 def completar_aduana(db: Session, f: Factura) -> None:
     """Llena la partida y el origen que falten en las líneas con el producto
     ya clasificado (por ejemplo, si se aprobó después de facturar)."""
-    for l in f.lineas:
-        if l.partida_arancelaria and l.pais_origen:
-            continue
-        a = l.posicion_oc.articulo
-        prod = producto_de(a)
-        if not prod:
+    faltan = [l for l in f.lineas if not (l.partida_arancelaria and l.pais_origen)]
+    fichas = comex.de_articulos(db, [l.posicion_oc.articulo_id for l in faltan])
+    for l in faltan:
+        ficha = fichas.get(l.posicion_oc.articulo_id)
+        if ficha is None:
             continue
         if not l.partida_arancelaria:
-            l.partida_arancelaria = partida_para(prod)
+            l.partida_arancelaria = ficha.partida
         if not l.pais_origen:
-            l.pais_origen = prod.pais_origen
+            l.pais_origen = ficha.pais_origen
 
 
 def crear_factura(db: Session, user: Usuario, datos: FacturaCrear) -> dict:
@@ -564,6 +563,8 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
     if not f.lineas:
         errores.append({"mensaje": "The invoice has no lines."})
     facturado = facturado_por_posicion(db, [l.posicion_oc_id for l in f.lineas])
+    fichas = comex.de_articulos(db, [l.posicion_oc.articulo_id for l in f.lineas])
+    productos = catalogo.productos(db, [x.producto_id for x in fichas.values()])
     for l in f.lineas:
         ref = _ref_linea(l)
         if l.precio_unitario <= 0:
@@ -576,10 +577,12 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
             if not l.pais_origen:
                 errores.append({"linea_id": l.id, "mensaje": f"{ref}: the country of origin is missing."})
             if not l.partida_arancelaria:
-                prod = producto_de(l.posicion_oc.articulo)
-                if prod and not prod.aprobado:
-                    errores.append({"linea_id": l.id, "codigo": "sin_clasificar", "producto_id": prod.id, "mensaje":
-                                    f"{ref}: the HS code is missing: product {prod.codigo_generico or prod.nombre} is not "
+                ficha = fichas.get(l.posicion_oc.articulo_id)
+                if ficha and not ficha.aprobado:
+                    prod = productos.get(ficha.producto_id)
+                    nombre = (prod.codigo or prod.nombre) if prod else ficha.producto_id
+                    errores.append({"linea_id": l.id, "codigo": "sin_clasificar", "producto_id": ficha.producto_id, "mensaje":
+                                    f"{ref}: the HS code is missing: product {nombre} is not "
                                     "classified yet (Products)."})
                 else:
                     errores.append({"linea_id": l.id, "mensaje": f"{ref}: the HS code is missing."})
@@ -877,6 +880,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
     lineas = []
     por_unidad: dict[str, dict] = {}
     importe = dinero.CERO
+    producto_de = catalogo.productos_de(db, [l.posicion_oc.articulo_id for l in f.lineas])
     for l in f.lineas:
         a = en_pl.get(l.id, 0)
         e = empacado.get(l.id, 0)
@@ -894,12 +898,12 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "posicion": l.posicion,
             "codigo_articulo": l.codigo_articulo,
             "codigo_barras": l.codigo_barras,
-            "variante": texto_variante(l.variante),
+            "variante": catalogo.texto(l.variante),
             "valores": dict(l.variante or {}),
             "atributos": dict(l.atributos or {}),
             "descripcion": l.descripcion,
             "unidad": l.unidad,
-            "marca": variantes.de_catalogo(db, l.atributos, "marcas"),
+            "marca": catalogo.marca(db, l.atributos),
             "tipo_empaque": l.tipo_empaque,
             "casepack": l.casepack,
             "inner_pack": l.inner_pack,
@@ -913,7 +917,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
             "importe": dinero.numero(total),
             "pais_origen": l.pais_origen,
             "partida_arancelaria": l.partida_arancelaria,
-            "producto_id": (producto_de(l.posicion_oc.articulo).id if producto_de(l.posicion_oc.articulo) else None),
+            "producto_id": producto_de.get(l.posicion_oc.articulo_id),
             "descripcion_comercial": l.descripcion_comercial,
             "en_pl": a,
             "sin_asignar": l.cantidad - a,

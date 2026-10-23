@@ -20,7 +20,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core import dinero
 from app.modelos import Centro, Pais, Proveedor, Puerto
@@ -29,7 +29,6 @@ from app.modulos.documentos import aduana
 from app.modulos.documentos.idioma_doc import L
 from app.modulos.documentos.partes import partes
 from app.modulos.facturacion.cantidades import cbm_caja, cubierto, inner_de, nombre_factura, numeracion, totales_pl
-from app.modulos.productos.productos import sin_marca
 
 TINTA = colors.HexColor("#1f2430")
 TENUE = colors.HexColor("#5b6475")
@@ -86,13 +85,14 @@ FONDO = colors.HexColor("#f3f1fb")
 FONDO_2 = colors.HexColor("#f7f8fa")
 
 from app.core import listas
+from app.modulos.catalogo import servicio as catalogo
+from app.modulos.comex import servicio as comex
 
 # Montos y números en letras: modulos/documentos/letras.py (reglas de cada idioma)
 from app.modulos.documentos.letras import (
     cantidad_en_letras,
     monto_en_letras,  # noqa: E402
 )
-from app.modulos.maestros import variantes
 from app.modulos.maestros.unidades import texto as unidad_txt
 
 # ---- Datos de cada línea ---------------------------------------------------------
@@ -105,7 +105,7 @@ COLUMNAS_LINEA_FABRICA = "variante"
 
 
 def columnas_linea(db: Session) -> list[tuple[str, str]]:
-    nombres = variantes.nombres(db)
+    nombres = catalogo.nombres_atributos(db)
     res = []
     for k in [x.strip() for x in (_empresa("documentos").get("columnas_linea") or COLUMNAS_LINEA_FABRICA).split(",")]:
         if k == "variante":
@@ -118,16 +118,18 @@ def columnas_linea(db: Session) -> list[tuple[str, str]]:
 
 
 def variantes_texto(l) -> str | None:
-    return variantes.texto(variantes.de_linea(l)) or None
+    return catalogo.texto(catalogo.ordenar(object_session(l), l.variante))
 
 
 def datos_de_linea(l, columnas: list[tuple[str, str]]) -> dict:
     """{columna: valor} de una línea de factura con su variante y los atributos de su producto guardados."""
-    valores = {**variantes.de_producto_linea(l), **variantes.de_linea(l)}
+    db = object_session(l)
+    variante = catalogo.ordenar(db, l.variante)
+    valores = {**catalogo.ordenar(db, l.atributos, "PRODUCTO"), **variante}
     res = {}
     for k, _ in columnas:
         if k == "variante":
-            res[k] = variantes.texto(variantes.de_linea(l)) or None
+            res[k] = catalogo.texto(variante)
         elif k == "codigo_barras":
             res[k] = l.codigo_barras
         else:
@@ -238,13 +240,13 @@ def datos_factura(db: Session, f) -> dict:
         total = dinero.importe(l.cantidad, l.precio_unitario, f.moneda)
         importe += total
         por_unidad[l.unidad] = por_unidad.get(l.unidad, 0) + l.cantidad
-        marca = variantes.de_catalogo(db, l.atributos, "marcas")
+        marca = catalogo.marca(db, l.atributos)
         lineas.append({
             "oc": l.oc_numero, "posicion": l.posicion, "sku": l.codigo_articulo, "codigo_barras": l.codigo_barras, "marca": marca,
-            "descripcion": sin_marca(l.descripcion_comercial or l.descripcion, marca),
+            "descripcion": comex.sin_marca(l.descripcion_comercial or l.descripcion, marca),
             "partida": l.partida_arancelaria, "origen": l.pais_origen, "cantidad": l.cantidad, "unidad": l.unidad,
             "precio": l.precio_unitario, "total": dinero.numero(total), "motivo_precio": l.motivo_precio,
-            "pack": l.codigo_pack if l.tipo_empaque == "PREPACK" else None,
+            "pack": l.codigo_pack if l.tipo_empaque == catalogo.TIPO_PACK else None,
             "variante": variantes_texto(l), "datos": datos_de_linea(l, columnas),
         })
     bultos = neto = bruto = cbm = 0
@@ -303,9 +305,9 @@ def datos_pl(db: Session, pl) -> dict:
         items = []
         for pll, n in empaques.contenido(pl, g):
             fl = pll.factura_linea
-            marca = variantes.de_catalogo(db, fl.atributos, "marcas")
+            marca = catalogo.marca(db, fl.atributos)
             items.append({"oc": fl.oc_numero, "posicion": fl.posicion, "sku": fl.codigo_articulo, "codigo_barras": fl.codigo_barras,
-                          "marca": marca, "descripcion": sin_marca(fl.descripcion_comercial or fl.descripcion, marca),
+                          "marca": marca, "descripcion": comex.sin_marca(fl.descripcion_comercial or fl.descripcion, marca),
                           "unidad": fl.unidad,
                           "variante": variantes_texto(fl), "datos": datos_de_linea(fl, base["columnas_linea"]),
                           "por_caja": n, "total": n * g.num_cajas,
@@ -782,7 +784,7 @@ def secciones_ficha(d: dict) -> dict:
     partes = et.get("partes") or {}
     composicion = [[partes.get(k) or _legible(k), v] for k, v in comp.items() if v] if isinstance(comp, dict) else []
     tallas = [[a["sku"], a.get("codigo_barras") or "—", a.get("variante") or "—", a["unidad"], a["descripcion"] or "—"]
-              for a in d.get("articulos") or [] if a["tipo"] == "SOLIDO"]
+              for a in d.get("articulos") or [] if a["tipo"] == catalogo.TIPO_VARIANTE]
     return {"clasificacion": clasif, "descripcion": d.get("descripcion_aduana") or "",
             "descripcion_comercial": d.get("descripcion_comercial") or "",
             "razones": [str(r) for r in (an.get("razones") or [])[:8]], "partidas": partidas, "datos": datos,

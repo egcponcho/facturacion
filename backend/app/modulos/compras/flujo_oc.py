@@ -23,7 +23,6 @@ from app.core.errores import ErrorNegocio
 from app.core.estados import OC
 from app.modelos import (
     AprobacionOC,
-    Articulo,
     Centro,
     Embarque,
     Factura,
@@ -46,6 +45,8 @@ from app.modelos import (
     ahora,
 )
 from app.modulos.acceso.permisos import asegurar_proveedor, exige_datos_aduana, exigir, proveedor_filtro, tiene
+from app.modulos.catalogo import servicio as catalogo
+from app.modulos.comex import servicio as comex
 from app.modulos.compras import liberaciones
 from app.modulos.comun.historial import registrar, requerir_motivo, tocar, verificar_version
 
@@ -231,7 +232,7 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
         prov = db.scalar(select(Proveedor).where(Proveedor.codigo == _texto(cab.get("proveedor")).upper()))
         for i, ln in enumerate(lineas):
             ref = f"lineas.{i}"
-            art = db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_articulo")))) if _texto(ln.get("codigo_articulo")) else None
+            art = catalogo.por_codigo(db, _texto(ln.get("codigo_articulo")))
             if not art:
                 falta(f"{ref}.codigo_articulo", f"Line {i + 1}: choose an item from the item master.")
             elif prov and art.proveedor_id not in (None, prov.id):
@@ -278,8 +279,9 @@ def validar_paso(db: Session, user: Usuario, borrador: dict, paso: str, oc_id: i
             existe(campo, modelo, etiqueta)
         # Datos de aduana: se piden aquí (no antes) si la empresa los exige para facturar
         if exige_datos_aduana() and "pais_origen" not in obligatorios and not _texto(cab.get("pais_origen")):
-            arts = [db.scalar(select(Articulo).where(Articulo.sku == _texto(ln.get("codigo_articulo")))) for ln in lineas]
-            if any(a is not None and not (a.producto and a.producto.pais_origen) for a in arts):
+            arts = catalogo.por_codigos(db, [_texto(ln.get("codigo_articulo")) for ln in lineas])
+            fichas = comex.de_articulos(db, [a.id for a in arts.values()])
+            if any(not (fichas.get(a.id) and fichas[a.id].pais_origen) for a in arts.values()):
                 falta("pais_origen", "The country of origin is required for customs (some items do not have it).")
     elif paso == "documentacion":
         extra = cab.get("extra") or {}

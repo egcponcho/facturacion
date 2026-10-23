@@ -5,7 +5,7 @@ import unicodedata
 from datetime import date, datetime
 
 from sqlalchemy import Integer, cast, func, or_, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.core import campos_propios, dinero, empresa, listas
 from app.core.archivos import abrir_libro
@@ -15,10 +15,6 @@ from app.core.estados import OC
 from app.modelos import (
     Alerta,
     Almacen,
-    Articulo,
-    ArticuloAtributo,
-    ArticuloCodigo,
-    Atributo,
     Centro,
     Factura,
     FacturaLinea,
@@ -26,8 +22,6 @@ from app.modelos import (
     OrdenCompra,
     Pais,
     PosicionOC,
-    Producto,
-    ProductoAtributo,
     Proveedor,
     Puerto,
     Sociedad,
@@ -45,17 +39,16 @@ from app.modulos.acceso.permisos import (
     un_proveedor,
 )
 from app.modulos.acceso.preferencias import leer_fecha
+from app.modulos.catalogo import servicio as catalogo
+from app.modulos.comex import servicio as comex
 from app.modulos.compras import liberaciones, perfiles
 from app.modulos.comun import tabla as tabla_datos
 from app.modulos.comun.historial import registrar
-from app.modulos.comun.texto import filtro_texto, terminos
+from app.modulos.comun.texto import filtro_texto
 from app.modulos.empaque import recetas
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
-from app.modulos.maestros import variantes
 from app.modulos.maestros.unidades import error_cantidad
 from app.modulos.maestros.unidades import normalizar as unidad_de
-from app.modulos.maestros.variantes import texto_linea as texto_variante
-from app.modulos.productos.productos import clasificacion_txt, partida_para, producto_de
 
 # Dos liberaciones de dos equipos distintos (comercial y logística). Sus
 # códigos, nombres y efecto los define cada empresa en Datos maestros →
@@ -63,13 +56,6 @@ from app.modulos.productos.productos import clasificacion_txt, partida_para, pro
 
 
 # ---- Vista general de OCs ---------------------------------------------------
-def articulos_de_marca(marca: str):
-    """Los artículos de los productos de una marca (su atributo de catálogo de marcas)."""
-    return (select(Articulo.id).join(ProductoAtributo, ProductoAtributo.producto_id == Articulo.producto_id)
-            .join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
-            .where(Atributo.catalogo == "marcas", ProductoAtributo.valor == marca))
-
-
 ORDEN_OC = {"numero", "fecha", "fecha_xf", "fecha_tienda", "importe", "avance", "proveedor"}
 
 
@@ -139,7 +125,7 @@ def _consulta_ordenes(db: Session, user: Usuario, proveedor_id=None, q=None, cen
         consulta = consulta.where(OrdenCompra.liberada.is_(liberada))
     if marca:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.articulo_id.in_(
-            articulos_de_marca(marca)))))
+            catalogo.ids(marca=marca)))))
     if almacen:
         consulta = consulta.where(OrdenCompra.id.in_(select(PosicionOC.oc_id).where(PosicionOC.almacen == almacen)))
     if solo_disponible:
@@ -224,7 +210,7 @@ def listar_ordenes(
             d["cantidad"] = cant_norm(d["cantidad"] + (cant or 0))
             d["disponible"] = cant_norm(d["disponible"] + (cant or 0))
             # La marca de la línea: el atributo de producto que apunta al catálogo de marcas
-            if marca_oc := variantes.de_catalogo(db, atributos, "marcas"):
+            if marca_oc := catalogo.marca(db, atributos):
                 marcas[oc_id].add(marca_oc)
         for oc_id, unidad, cant in db.execute(
             select(PosicionOC.oc_id, PosicionOC.unidad, func.sum(FacturaLinea.cantidad))
@@ -287,11 +273,7 @@ def filtros_ordenes(db: Session, user: Usuario, proveedor_id: int | None = None)
         return sorted({v for (v,) in db.execute(
             select(col).where(PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if v})
 
-    marcas = sorted({v for (v,) in db.execute(
-        select(ProductoAtributo.valor).join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
-        .join(Articulo, Articulo.producto_id == ProductoAtributo.producto_id)
-        .join(PosicionOC, PosicionOC.articulo_id == Articulo.id)
-        .where(Atributo.catalogo == "marcas", PosicionOC.oc_id.in_(select(sub.c.id))).distinct()) if v})
+    marcas = catalogo.marcas_de(db, select(PosicionOC.articulo_id).where(PosicionOC.oc_id.in_(select(sub.c.id))))
     lib = liberaciones.de(db)
     return {
         "sociedades": distintos(sub.c.sociedad),
@@ -354,8 +336,9 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
     facturas = facturas_por_posicion(db, ids)
     # La partida sale de la clasificación del producto, con el código del país destino
     posiciones = []
+    fichas = comex.de_articulos(db, [p.articulo_id for p in oc.posiciones])
     for p in oc.posiciones:
-        prod = producto_de(p.articulo)
+        ficha = fichas.get(p.articulo_id)
         fact = facturado.get(p.id, 0)
         fs = facturas.get(p.id, [])
         estado, motivo, restringida = estado_posicion(oc, p, fact, fs)
@@ -366,11 +349,11 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "almacen": p.almacen,
                 "codigo_articulo": p.codigo_articulo,
                 "codigo_barras": p.codigo_barras,
-                "variante": texto_variante(p.variante),
+                "variante": catalogo.texto(p.variante),
                 "valores": dict(p.variante or {}),
                 "atributos": dict(p.atributos or {}),
                 "descripcion": p.descripcion,
-                "marca": variantes.de_catalogo(db, p.atributos, "marcas"),
+                "marca": catalogo.marca(db, p.atributos),
                 "tipo_empaque": p.tipo_empaque,
                 "casepack": p.casepack,
                 "inner_pack": p.inner_pack,
@@ -382,8 +365,8 @@ def posiciones_oc(db: Session, user: Usuario, oc_id: int) -> dict:
                 "importe": dinero.numero(dinero.importe(p.cantidad, p.precio, oc.moneda)) if p.precio is not None else None,
                 "fecha_entrega": p.fecha_entrega,
                 "pais_origen": p.pais_origen,
-                "partida_arancelaria": partida_para(prod),  # 6 dígitos: el destino es solo proyectado
-                "clasificacion": clasificacion_txt(prod),
+                "partida_arancelaria": ficha.partida if ficha else None,  # 6 dígitos: el destino es solo proyectado
+                "clasificacion": ficha.resumen() if ficha else dict(comex.SIN_PRODUCTO),
                 "facturado": fact,
                 "disponible": max(p.cantidad - fact, 0),
                 "facturas": fs,
@@ -591,7 +574,7 @@ class Maestros:
         self.almacenes = {a.codigo: a for a in db.scalars(select(Almacen))}
         self.puertos = {p.codigo: p for p in db.scalars(select(Puerto))}
         self.paises = {p.codigo for p in db.scalars(select(Pais))}
-        self.articulos: dict[str, Articulo] = {}
+        self.articulos: dict[str, catalogo.FichaArticulo | None] = {}
         self._db = db
         # Códigos escritos de otra forma (minúsculas, espacios, por nombre) -> código real
         from app.modulos.comun.normalizar import Referencias
@@ -604,10 +587,10 @@ class Maestros:
         obj = self.refs[tabla].buscar(valor)
         return obj.codigo if obj else valor
 
-    def articulo(self, sku: str) -> Articulo | None:
-        if sku not in self.articulos:
-            self.articulos[sku] = self._db.scalar(select(Articulo).where(Articulo.sku == sku))
-        return self.articulos[sku]
+    def articulo(self, codigo: str) -> catalogo.FichaArticulo | None:
+        if codigo not in self.articulos:
+            self.articulos[codigo] = catalogo.por_codigo(self._db, codigo)
+        return self.articulos[codigo]
 
 
 PAIS_TXT = {"pais_origen": "country of origin", "pais_procedencia": "country of shipment"}
@@ -762,26 +745,24 @@ def _normalizar(registro: dict, m: Maestros) -> tuple[dict, list[str]]:
         errores.append(f"SKU {d['codigo_articulo']} does not exist in the item master. Load it first.")
     elif art:
         prov = m.proveedores.get(d["proveedor"])
-        marca = art.producto.marca_codigo if art.producto is not None else None
         if prov and art.proveedor_id and art.proveedor_id != prov.id:
-            errores.append(f"SKU {art.sku} belongs to another supplier, not {prov.nombre}.")
-        elif prov and marca and marca not in {x.codigo for x in prov.marcas}:
-            errores.append(f"Brand {marca} of SKU {art.sku} is not a brand of {prov.nombre}.")
+            errores.append(f"SKU {art.codigo} belongs to another supplier, not {prov.nombre}.")
+        elif prov and art.marca and art.marca not in {x.codigo for x in prov.marcas}:
+            errores.append(f"Brand {art.marca} of SKU {art.codigo} is not a brand of {prov.nombre}.")
         if not art.activo:
-            errores.append(f"SKU {art.sku} is inactive in the item master.")
+            errores.append(f"SKU {art.codigo} is inactive in the item master.")
         if d["unidad"] and d["unidad"] != art.unidad:
             errores.append(f"Unit {d['unidad']} does not match the item master ({art.unidad}).")
-        from app.modulos.maestros.catalogos import descripcion_articulo
-
         d.update(
-            articulo_id=art.id, codigo_barras=art.codigo_barras, descripcion=descripcion_articulo(art),
+            articulo_id=art.id, codigo_barras=art.codigo_barras, descripcion=art.descripcion,
             tipo_empaque=art.tipo, unidad=art.unidad, codigo_pack=art.codigo_pack,
-            unidades_por_caja=art.total_componentes if art.tipo == "PREPACK" else None,
+            unidades_por_caja=art.total_componentes if art.es_pack else None,
         )
         errores += validar_empaque(art.tipo, d["casepack"], d["inner_pack"], d["cantidad"])
         if d["cantidad"] and (msg := error_cantidad(d["cantidad"], art.unidad)):
             errores.append(msg)
-        d["pais_origen_pos"] = (producto_de(art).pais_origen if producto_de(art) else None) or d["pais_origen"]
+        ficha = comex.de_articulos(m._db, [art.id]).get(art.id)
+        d["pais_origen_pos"] = (ficha.pais_origen if ficha else None) or d["pais_origen"]
     return d, errores
 
 
@@ -792,7 +773,7 @@ def validar_empaque(tipo: str, casepack: int | None, inner_pack: int | None, can
     - con inner pack, la cantidad de la posición es múltiplo del inner pack
       (todos los inner packs llevan la misma cantidad)."""
     errores = []
-    if tipo == "PREPACK":
+    if tipo == catalogo.TIPO_PACK:
         if casepack or inner_pack:
             errores.append("A pack or kit is already a defined carton (its contents): it takes no casepack or inner pack.")
         return errores
@@ -1166,17 +1147,11 @@ def articulos_formulario(db: Session, user: Usuario, proveedor: str, q: str = ""
     prov = db.scalar(select(Proveedor).where(Proveedor.codigo == (proveedor or "").upper()))
     if not prov or (proveedores_de(user) is not None and prov.id not in proveedores_de(user)):
         return []
-    from app.modulos.maestros.catalogos import descripcion_articulo
+    arts = catalogo.buscar(db, q, proveedor_id=prov.id, solo_activos=True, limite=300)
+    fichas = comex.de_articulos(db, [a.id for a in arts])  # el origen es del producto (ficha técnica)
 
-    consulta = select(Articulo).join(Producto, Producto.id == Articulo.producto_id).where(
-        Producto.proveedor_id == prov.id, Articulo.activo.is_(True))
-    if terminos(q):
-        consulta = consulta.where(filtro_texto(q, lambda t: [
-            Articulo.sku.ilike(t), Producto.nombre.ilike(t), Producto.codigo_generico.ilike(t),
-            Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(t))),
-            Articulo.id.in_(select(ArticuloAtributo.articulo_id).where(ArticuloAtributo.valor.ilike(t)))]))
-    return [{"valor": a.sku, "texto": " · ".join(x for x in (a.sku, variantes.texto(variantes.de_articulo(db, a))) if x),
-             "unidad": a.unidad, "tipo": a.tipo, "sub": descripcion_articulo(a),
-             "pais_origen": a.producto.pais_origen if a.producto else None}  # el origen es del producto (ficha técnica)
-            for a in db.scalars(consulta.options(selectinload(Articulo.producto))
-                                .order_by(Producto.codigo_generico, Articulo.sku).limit(300))]
+    def opcion(a: catalogo.FichaArticulo, ficha: comex.FichaComex | None) -> dict:
+        return {"valor": a.codigo, "texto": " · ".join(x for x in (a.codigo, catalogo.texto(a.valores)) if x),
+                "unidad": a.unidad, "tipo": a.tipo, "sub": a.descripcion, "pais_origen": ficha.pais_origen if ficha else None}
+
+    return [opcion(a, fichas.get(a.id)) for a in arts]

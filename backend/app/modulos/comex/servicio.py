@@ -96,6 +96,15 @@ def ficha(db: Session, producto_id: int | None) -> FichaComex | None:
     return fichas(db, [producto_id]).get(producto_id) if producto_id else None
 
 
+def de_articulos(db: Session, articulo_ids: Iterable[int | None]) -> dict[int, FichaComex]:
+    """{artículo: la ficha de su producto} (una variante, un pack o un kit usa la de su producto)."""
+    from app.modulos.catalogo import servicio as catalogo
+
+    productos = catalogo.productos_de(db, articulo_ids)
+    f = fichas(db, productos.values())
+    return {a: f[p] for a, p in productos.items() if p in f}
+
+
 def _de_proveedores(c, proveedores):
     """Sin lista (None), de todos; con lista (aunque esté vacía), solo de esos proveedores."""
     return c if proveedores is None else c.where(Producto.proveedor_id.in_(list(proveedores)))
