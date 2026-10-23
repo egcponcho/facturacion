@@ -9,7 +9,6 @@ from app.core.seguridad import hash_password
 from app.modelos import (
     Almacen,
     Articulo,
-    ArticuloComponente,
     Atributo,
     Centro,
     Contacto,
@@ -49,7 +48,6 @@ from app.modelos import (
 from app.modulos.acceso.roles import crear_roles_fabrica, crear_roles_sugeridos
 from app.modulos.comun.historial import registrar
 from app.modulos.empaque import empaques
-from app.modulos.maestros import atributos as atr_svc
 from app.modulos.maestros import escalas
 from app.modulos.productos.productos import (
     _aprobar,
@@ -147,33 +145,48 @@ CUENTAS_DEMO = [["tnf@demo.com", "Supplier", "The North Face"], ["vans@demo.com"
                 ["interno@demo.com", "Imports", "Internal team"], ["admin@demo.com", "Administrator", "Full access"]]
 MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CAT", "Caterpillar"),
           ("HPU", "Hush Puppies"), ("CASA", "House brand")]
-# Atributos de esta empresa de ejemplo (cada empresa define los suyos en Datos maestros → Atributos):
-# código, nombre, nivel, tipo, catálogo, orden. La marca es la que apunta al catálogo de marcas.
 # La regla de código de variante de la empresa de ejemplo (Configuración de productos)
 REGLA_CODIGO = {"regla": "MULTIPLICAR", "factor": 10, "longitud": 3}
-ATRIBUTOS = [
-    ("MARCA", "Brand", "PRODUCTO", "catalogo", "marcas", 1), ("MODELO", "Style", "PRODUCTO", "texto", None, 2),
-    ("COLOR", "Color", "VARIANTE", "texto", None, 1), ("TALLA", "Size", "VARIANTE", "texto", None, 2),
+# Familias de producto de la empresa de ejemplo: código, nombre, familia padre, descripción
+FAMILIAS = [
+    ("FOOTWEAR", "Footwear", None, "Shoes and sandals: hang tag with size and color."),
+    ("FOOTWEAR-TECH", "Technical footwear", "FOOTWEAR", "Trail and running footwear (inherits the footwear designs)."),
+    ("APPAREL", "Apparel", None, "Jackets and fleece."),
+    ("ACCESSORIES", "Bags and accessories", None, "Backpacks and bags: by color, without sizes."),
 ]
-# Cada fila es un producto (un estilo en un color, como lo maneja esta empresa) y sus tallas son sus variantes:
-# estilo, color, marca, peso neto por unidad (kg), proveedor, unidad, precio, origen, partida, descripción,
-# empaque de la OC, tallas. El empaque (casepack, inner pack) es de la posición de la OC, no del artículo:
-# aquí solo es el que usan las OCs de ejemplo.
+# Atributos de esta empresa de ejemplo (cada empresa define los suyos en Datos maestros → Atributos):
+# código, nombre, nivel, tipo, catálogo, opciones, orden y sus familias (None = todas). La marca es la
+# que apunta al catálogo de marcas. Cada familia lleva solo los suyos: el calzado, su material del
+# corte y su talla; los accesorios, su capacidad y su color, sin talla.
+ATRIBUTOS = [
+    ("MARCA", "Brand", "PRODUCTO", "catalogo", "marcas", None, 1, None),
+    ("MODELO", "Style", "PRODUCTO", "texto", None, None, 2, None),
+    ("GENERO", "Gender", "PRODUCTO", "opcion", None, "Men, Women, Unisex, Kids", 3, ["FOOTWEAR", "APPAREL"]),
+    ("CORTE", "Upper material", "PRODUCTO", "opcion", None, "Textile, Leather, Synthetic, Mixed", 4, ["FOOTWEAR"]),
+    ("CAPACIDAD", "Capacity (liters)", "PRODUCTO", "numero", None, None, 5, ["ACCESSORIES"]),
+    ("COLOR", "Color", "VARIANTE", "texto", None, None, 1, ["FOOTWEAR", "APPAREL", "ACCESSORIES"]),
+    ("TALLA", "Size", "VARIANTE", "texto", None, None, 2, ["FOOTWEAR", "APPAREL"]),
+]
+# Cada fila es un producto (un estilo, con su familia y sus atributos propios) y cada valor, una variante
+# (color y talla, o solo color en los accesorios): estilo, color, marca, peso neto por unidad (kg),
+# proveedor, unidad, precio, origen, partida, descripción, empaque de la OC, tallas (None: sin talla),
+# familia y atributos de su familia. El empaque (casepack, inner pack) es de la posición de la OC, no
+# del artículo: aquí solo es el que usan las OCs de ejemplo.
 ESTILOS = [
     ("NF0A5GLL", "JK3 TNF Black", "TNF", 0.9, "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
-     None, ["S", "M", "L", "XL", "XXL"]),
-    ("NF0A5GLL", "Summit blue", "TNF", 0.9, "TNF", "UN", 48.50, "VN", "6201.40", "Men's waterproof jacket",
-     None, ["M", "L"]),
+     None, ["S", "M", "L", "XL", "XXL"], "APPAREL", {"GENERO": "Men"}),
+    ("NF0A84KD", "Summit blue", "TNF", 0.9, "TNF", "UN", 48.50, "VN", "6201.40", "Women's waterproof jacket",
+     None, ["M", "L"], "APPAREL", {"GENERO": "Women"}),
     ("NF0A7W4G", "KX7 Black", "TNF", 0.9, "TNF", "PAR", 62.00, "CN", "6404.11", "Trail running footwear",
-     (12, None), ["8", "9", "10", "11", "12"]),
+     (12, None), ["8", "9", "10", "11", "12"], "FOOTWEAR-TECH", {"GENERO": "Men", "CORTE": "Textile"}),
     ("NF0A3VY2", "JK3 TNF Black", "TNF", 0.8, "TNF", "UN", 31.20, "ID", "4202.92", "Backpack 28 L", (20, 5),
-     ["OS"]),
+     None, "ACCESSORIES", {"CAPACIDAD": "28"}),
     ("NF0A5IHO", "Heather grey", "TNF", 0.5, "TNF", "UN", 22.75, "KH", "6110.30", "Half-zip fleece",
-     (None, 5), ["S", "M", "L"]),
+     (None, 5), ["S", "M", "L"], "APPAREL", {"GENERO": "Unisex"}),
     ("VN000EE3", "BLK Black", "VANS", 0.8, "VANS", "PAR", 25.50, "VN", "6404.19", "Classic canvas footwear",
-     (12, None), ["7", "8", "9", "10", "11", "12"]),
+     (12, None), ["7", "8", "9", "10", "11", "12"], "FOOTWEAR", {"GENERO": "Unisex", "CORTE": "Mixed"}),
     ("VN0A4BV4", "White", "VANS", 0.8, "VANS", "PAR", 21.00, "CN", "6404.19", "Basic canvas footwear",
-     (12, None), ["7", "8", "9", "10"]),
+     (12, None), ["7", "8", "9", "10"], "FOOTWEAR", {"GENERO": "Unisex", "CORTE": "Textile"}),
 ]
 # Ficha técnica y clasificación de cada estilo-color (producto). La partida
 # aprobada es la que saca el motor de clasificación con esta ficha; el código
@@ -185,9 +198,9 @@ FICHAS = {
                "uso": "Waterproof shell jacket for hiking", "tallas": "S to XXL",
                "comp": {"exterior": "100% nylon", "forro": "100% polyester"}},
         desc="CHAQUETA DE TEXTIL, DE TEJIDO PLANO, PARA HOMBRE"),
-    ("NF0A5GLL", "Summit blue"): dict(
-        nombre="Men's Antora rain jacket", tipo="chaqueta", estado="observado",
-        ficha={"genero": "M", "edad": "adulto", "materia_base": "textil", "tejido": "plano",
+    ("NF0A84KD", "Summit blue"): dict(
+        nombre="Women's Antora rain jacket", tipo="chaqueta", estado="observado",
+        ficha={"genero": "F", "edad": "adulto", "materia_base": "textil", "tejido": "plano",
                "uso": "Waterproof shell jacket for hiking", "tallas": "M to L", "comp": {}},
         faltan=["Composition: outer fabric or surface"],
         observaciones="Send the shell composition. If the coating is visible on the outside it goes in 6210; "
@@ -321,11 +334,13 @@ def _catalogos(db: Session) -> dict:
     db.add_all([Transportista(codigo=c, nombre=n, tipo=t, codigo_internacional=ci, pais=pais, correos=correos,
                               sociedades=[socs[x] for x in lista]) for c, n, t, ci, pais, correos, lista in TRANSPORTISTAS])
     marcas = {c: Marca(codigo=c, nombre=n) for c, n in MARCAS}
-    # Una base instalada ya puede traer TALLA y COLOR (migraciones anteriores): se completan, no se repiten
+    # Una base instalada ya puede traer TALLA y COLOR (migraciones anteriores): se completan, no se repiten.
+    # Sus familias se les asignan al crear las familias (_familias).
     existentes = {x.codigo: x for x in db.scalars(select(Atributo))}
-    for c, n, nv, t, cat, o in ATRIBUTOS:
+    for c, n, nv, t, cat, ops, o, fams in ATRIBUTOS:
         x = existentes.get(c) or Atributo(codigo=c)
-        x.nombre, x.nivel, x.tipo, x.catalogo, x.orden, x.activo = n, nv, t, cat, o, True
+        x.nombre, x.nivel, x.tipo, x.catalogo, x.opciones, x.orden, x.activo = n, nv, t, cat, ops, o, True
+        x.general = fams is None
         db.add(x)
     # Escalas de tallas reutilizables (ejemplos; cada empresa crea las suyas)
     db.add_all([
@@ -366,50 +381,65 @@ def _tipos_empaque(db: Session) -> dict:
     return tipos
 
 
-def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
-    """Productos y variantes: cada estilo-color es un producto con su marca y su
-    estilo (atributos de producto) y cada talla, una variante simple con su color
-    y su talla (atributos de variante), su código de barras y el del proveedor.
-    Los packs son variantes compuestas del mismo producto con su contenido."""
+def _familias(db: Session, admin: Usuario) -> dict:
+    """Las familias de producto con sus atributos, con el mismo servicio de la pantalla
+    (Productos → Familias): cada una dice qué atributos llevan sus productos."""
+    from app.modulos.grupos import arbol
+
+    ids = {}
+    for codigo, nombre, padre, descripcion in FAMILIAS:
+        propios = [a[0] for a in ATRIBUTOS if a[7] and codigo in a[7]]
+        g = arbol.crear(db, admin, {"clase": "FAMILIA", "codigo": codigo, "nombre": nombre, "descripcion": descripcion,
+                                    "padre_id": ids.get(padre), "atributos": propios})
+        ids[codigo] = g["id"]
+    return ids
+
+
+def _articulos(db: Session, cat: dict, proveedores: dict, admin: Usuario, familias: dict) -> dict:
+    """Productos y variantes con los mismos servicios que la pantalla (Productos → Nuevo producto y
+    Nuevo pack o kit): cada estilo es un producto de su familia con su marca, su estilo y los
+    atributos propios de su familia; cada color y talla (o solo el color, en los accesorios) es una
+    variante simple con su código de barras y el del proveedor. Los packs son compuestos del mismo
+    producto con su contenido."""
+    from app.esquemas.productos import GenericoIn, VarianteIn
+    from app.modulos.maestros import catalogos, genericos
+
     arts = {}
-    # Datos de ejemplo: el código de artículo de esta empresa demo es el del
-    # producto más un código de talla; cada empresa usa su propio formato
+    # Datos de ejemplo: el código de artículo de esta empresa demo es el del producto más el código
+    # del valor (la regla de la empresa: talla × 10; sin número, consecutivo); cada empresa usa el suyo
     productos, usados = {}, {}
-    for n, (estilo, color, marca, peso, prov, unidad, precio, origen, partida, desc, empaque, tallas) in enumerate(ESTILOS):
+    for n, (estilo, color, marca, peso, prov, unidad, precio, origen, partida, desc, empaque, tallas, familia,
+            propios) in enumerate(ESTILOS):
         gen = str(30095120 + n)
-        p = Producto(codigo_generico=gen, proveedor_id=proveedores[prov].id, unidad=unidad, nombre=desc, ficha={},
-                     faltan=[], alertas_ok=[])
-        db.add(p)
-        atr_svc.poner(db, p, {"MARCA": cat["marcas"][marca].codigo, "MODELO": estilo})
-        productos[(estilo, color)], usados[(estilo, color)] = p, set()
-        for talla in tallas:
-            # Calzado: la talla por 10 (7 → 070, 10 → 100); letras: 001, 002…
-            suf = escalas.codigo(None, talla, usados[(estilo, color)], REGLA_CODIGO)
-            usados[(estilo, color)].add(suf)
+        filas, claves = [], []
+        for talla in tallas or [None]:
+            suf = escalas.codigo(None, talla or color, usados.setdefault(gen, set()), REGLA_CODIGO)
+            usados[gen].add(suf)
             sku = f"{gen}{suf}"
-            a = Articulo(sku=sku, producto=p, descripcion=desc, unidad=unidad, tipo="SOLIDO", peso_unitario=peso)
-            db.add(a)
-            a.variantes = {"COLOR": color, "TALLA": talla}
-            a.poner_codigo("BARRAS", f"0196{int(sku) % 10**8:08d}")
-            a.poner_codigo("PROVEEDOR", _sku_proveedor(estilo, color, talla), p.proveedor_id)
-            a.precio_demo = precio
-            a.origen_demo = origen
-            a.partida_demo = partida
-            a.empaque_demo = empaque or (None, None)
-            arts[(estilo, color, talla)] = a
-    db.flush()
+            filas.append(VarianteIn(valores={"COLOR": color, **({"TALLA": talla} if talla else {})}, sku=sku,
+                                    codigo_barras=f"0196{int(sku) % 10**8:08d}", peso_unitario=peso,
+                                    codigo_proveedor=_sku_proveedor(estilo, color, talla or "")))
+            claves.append((estilo, color, talla or color))
+        genericos.crear(db, admin, GenericoIn(
+            generico=gen, unidad=unidad, nombre=desc, proveedor_id=proveedores[prov].id, grupo_producto_id=familias[familia],
+            atributos={"MARCA": cat["marcas"][marca].codigo, "MODELO": estilo, **propios}, variantes=filas))
+        p = db.scalar(select(Producto).where(Producto.codigo_generico == gen))
+        productos[(estilo, color)] = p
+        por_sku = {a.sku: a for a in p.articulos}
+        for clave, fila in zip(claves, filas, strict=True):
+            a = por_sku[fila.sku]
+            a.precio_demo, a.origen_demo, a.partida_demo, a.empaque_demo = precio, origen, partida, empaque or (None, None)
+            arts[clave] = a
     for estilo, color, codigo, curva in PREPACKS:
         p, base = productos[(estilo, color)], arts[(estilo, color, next(iter(curva)))]
-        suf = escalas.codigo(None, codigo, usados[(estilo, color)], REGLA_CODIGO)
-        usados[(estilo, color)].add(suf)
-        a = Articulo(sku=f"{p.codigo_generico}{suf}", producto=p, descripcion=f"{base.descripcion}, pack {codigo}",
-                     unidad="CJ", tipo="PREPACK",
-                     peso_unitario=round(sum((arts[(estilo, color, t)].peso_unitario or 0) * c for t, c in curva.items()), 3))
-        db.add(a)
-        a.poner_codigo("PACK", codigo)
+        gen = p.codigo_generico
+        suf = escalas.codigo(None, codigo, usados[gen], REGLA_CODIGO)
+        usados[gen].add(suf)
+        catalogos.crear_compuesto(db, admin, {
+            "sku": f"{gen}{suf}", "codigo": codigo, "tipo": "PACK", "unidad": "CJ",
+            "componentes": [{"articulo_id": arts[(estilo, color, t)].id, "cantidad": c} for t, c in curva.items()]})
+        a = db.scalar(select(Articulo).where(Articulo.sku == f"{gen}{suf}"))
         a.poner_codigo("PROVEEDOR", _sku_proveedor(estilo, color, codigo), p.proveedor_id)
-        for talla, cant in curva.items():
-            a.componentes.append(ArticuloComponente(componente=arts[(estilo, color, talla)], cantidad=cant))
         a.origen_demo = base.origen_demo
         a.partida_demo = base.partida_demo
         a.precio_demo = base.precio_demo * sum(curva.values())
@@ -578,7 +608,7 @@ def _historial_demo(db, hoy, tnf, vans, usuarios, plantillas, arts):
     d = lambda n: hoy - timedelta(days=n)  # noqa: E731
     historicas = [
         (tnf, "4400003701", 140, [("NF0A5GLL", "JK3 TNF Black", [("M", 50), ("L", 50)])], "TNF-2026-0418", 128, c1, 90),
-        (tnf, "4400003702", 115, [("NF0A3VY2", "JK3 TNF Black", [("OS", 80)])], "TNF-2026-0502", 100, c1, 90),
+        (tnf, "4400003702", 115, [("NF0A3VY2", "JK3 TNF Black", [("JK3 TNF Black", 80)])], "TNF-2026-0502", 100, c1, 90),
         (vans, "4400003751", 110, [("VN000EE3", "BLK Black", [("8", 60)])], "VN-88120", 95, c1, 90),
         (tnf, "4400003703", 85, [("NF0A7W4G", "KX7 Black", [("9", 36), ("10", 48)])], "TNF-2026-0611", 70, c2, 21),
         (vans, "4400003752", 50, [("VN000EE3", "BLK Black", [("9", 72)])], "VN-88177", 35, c2, 21),
@@ -662,7 +692,16 @@ def seed(db: Session) -> None:
     tnf.sociedades = [cat["sociedades"]["8000"], cat["sociedades"]["PA01"]]
     vans.sociedades = [cat["sociedades"]["8000"], cat["sociedades"]["PA01"]]
     db.flush()
-    arts = _articulos(db, cat, {"TNF": tnf, "VANS": vans})
+    admin = db.scalar(select(Usuario).where(Usuario.email == "admin@demo.com"))
+    familias = _familias(db, admin)
+    # Los productos se crean con la configuración de la empresa (su regla de código de variante)
+    from app.core.empresa import usar_configuracion
+
+    usar_configuracion(empresa.configuracion)
+    try:
+        arts = _articulos(db, cat, {"TNF": tnf, "VANS": vans}, admin, familias)
+    finally:
+        usar_configuracion(None)
     tipos = _tipos_empaque(db)
     hoy = date.today()
     d = lambda n: hoy + timedelta(days=n)  # noqa: E731
@@ -672,10 +711,10 @@ def seed(db: Session) -> None:
         ("NF0A7W4G", "KX7 Black", [("8", 24), ("9", 36), ("10", 50), ("11", 36), ("12", 12)], "BF20"),
     ], xf=d(10), xf_nueva=d(14), tienda=d(75))
     _oc(db, tnf, arts, "4400003846", d(-12), [
-        ("NF0A3VY2", "JK3 TNF Black", [("OS", 120)]),
+        ("NF0A3VY2", "JK3 TNF Black", [("JK3 TNF Black", 120)]),
         ("NF0A5IHO", "Heather grey", [("S", 30), ("M", 30), ("L", 30)]),
     ], puerto="CNYTN", origen="ID", xf=d(18), tienda=d(80))
-    _oc(db, tnf, arts, "4400003850", d(-8), [("NF0A5GLL", "Summit blue", [("M", 30), ("L", 30)])],
+    _oc(db, tnf, arts, "4400003850", d(-8), [("NF0A84KD", "Summit blue", [("M", 30), ("L", 30)])],
         sociedad="PA01", centro="PA10", almacen="BF01", destino="5910", puerto="SVAQJ", origen="SV", xf=d(20),
         tienda=d(70), lib_antes=18)
     _oc(db, tnf, arts, "4400003851", d(-2), [("NF0A5IHO", "Heather grey", [("S", 20), ("M", 20)])],

@@ -396,6 +396,7 @@ def valores_organizacion(db: Session) -> dict:
 
 def valores_articulo(a: Articulo) -> dict:
     from app.modulos.maestros import variantes
+    from app.modulos.maestros.catalogos import descripcion_articulo
     from app.modulos.productos.productos import marca_de
 
     p = a.producto
@@ -405,7 +406,8 @@ def valores_articulo(a: Articulo) -> dict:
         "articulo.sku": a.sku, "articulo.codigo_proveedor": a.codigo_proveedor, "articulo.codigo_barras": a.codigo_barras,
         "articulo.generico": a.generico,
         "articulo.variante": variantes.texto(variantes.de_articulo(db, a) if db is not None else a.variantes) or None,
-        "articulo.descripcion": a.descripcion, "articulo.unidad": a.unidad, "articulo.tipo": a.tipo,
+        # La suya o, vacía, la del producto con los valores de la variante (como en el catálogo)
+        "articulo.descripcion": descripcion_articulo(a), "articulo.unidad": a.unidad, "articulo.tipo": a.tipo,
         "articulo.peso_unitario": a.peso_unitario, "articulo.codigo_pack": a.codigo_pack,
         "articulo.familia_codigo": a.familia_efectiva.codigo if a.familia_efectiva else None,
         "articulo.familia": a.familia_efectiva.nombre if a.familia_efectiva else None,

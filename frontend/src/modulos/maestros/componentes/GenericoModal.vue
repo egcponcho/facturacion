@@ -53,8 +53,10 @@ const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto, sub: x.sub }))
 async function guardar() {
   errores.value = []
   const variantes = paraEnviar()
-  // Al editar van todos los atributos (vacío = se quita); al crear, solo los escritos
-  const atributos = Object.fromEntries(Object.entries(g.atributos).map(([k, v]) => [k, String(v ?? '').trim() || null])
+  // Al editar van todos los atributos (vacío = se quita; uno que no vale en la familia elegida
+  // también se quita, y se avisa antes); al crear, solo los escritos de su familia
+  const vale = (k) => atributosProducto.value.some((a) => a.codigo === k)
+  const atributos = Object.fromEntries(Object.entries(g.atributos).map(([k, v]) => [k, (vale(k) && String(v ?? '').trim()) || null])
     .filter(([, v]) => props.editar || v))
   const maestros = { ...g, proveedor_id: Number(g.proveedor_id) || null, grupo_producto_id: Number(g.grupo_producto_id) || null,
     nombre: g.nombre || null, atributos }
@@ -90,6 +92,9 @@ watch(() => g.proveedor_id, () => {
     if (v && !marcasProveedor.value.some((m) => m.codigo === v)) g.atributos[a.codigo] = ''
   }
 })
+// Los atributos con valor que la familia elegida no lleva: se quitan al guardar
+const seQuitan = computed(() => Object.entries(g.atributos)
+  .filter(([k, v]) => String(v ?? '').trim() && !atributosProducto.value.some((a) => a.codigo === k)).map(([k]) => k))
 const variantesActuales = computed(() => (info.value?.variantes || []).filter((x) => x.tipo === 'SOLIDO')
   .map((x) => Object.values(x.valores || {}).join(' · ') || x.sku).join(', '))
 </script>
@@ -114,6 +119,8 @@ const variantesActuales = computed(() => (info.value?.variantes || []).filter((x
         <span :class="{ req: exigeAtributo(a.codigo) }">{{ tx(a.nombre) }}<small v-if="a.unidad" class="ayuda"> ({{ a.unidad }})</small></span>
         <CampoAtributo v-model="g.atributos[a.codigo]" :atributo="a" :marcas="marcasProveedor" :requerido="exigeAtributo(a.codigo)" /></div>
     </div>
+    <p v-if="props.editar && seQuitan.length" class="nota aviso mt-chico" role="status">
+      {{ t('The family chosen does not use {0}: saving clears it.', [seQuitan.join(', ')]) }}</p>
     <p v-if="props.editar" class="ayuda mt-chico">{{ t('Changes apply to every variant of the product. Item codes, barcodes and supplier codes are edited per variant.') }}</p>
 
     <template v-if="!props.editar">

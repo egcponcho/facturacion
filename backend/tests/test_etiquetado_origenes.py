@@ -8,6 +8,7 @@ import zipfile
 
 import pdfplumber
 import pytest
+from conftest import con_atributos
 from etiquetado_util import aprobada, cambiar, generado, tipo, trabajo, uso
 from sqlalchemy import inspect, select
 
@@ -49,6 +50,7 @@ def familia(interno):
     r = interno.post("/etiquetas/familias", {"codigo": "MASIVO", "nombre": "Bulk family"})
     assert r.status_code == 200, r.text
     f = r.json()
+    con_atributos(interno, f["id"])
     with SessionLocal() as db, en_organizacion(1):
         antes = {pid: fam for pid, fam in db.execute(
             select(Producto.id, Producto.grupo_producto_id).join(Articulo, Articulo.producto_id == Producto.id)

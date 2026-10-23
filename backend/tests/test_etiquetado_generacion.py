@@ -9,6 +9,7 @@ import zipfile
 
 import pdfplumber
 import pytest
+from conftest import con_atributos, familia_de
 from etiquetado_util import (
     aprobada,
     articulo_de,
@@ -146,6 +147,8 @@ def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, ti
     assert fam.status_code == 422  # un campo que no existe no se acepta
     fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
                                                "campos": [{"campo": "producto.uso", "obligatorio": True}]}).json()
+    con_atributos(interno, fam["id"])
+    antes = familia_de(articulo_id)
     assert interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [articulo_id]}).status_code == 200
     de_familia = aprobada(interno, admin, "Generation family label", tipos["linea"]["id"], [c for c in COMBINADA if c["id"] != "talla"])
     uso(interno, tipos["linea"]["id"], de_familia["id"], "FAMILIA", fam["id"])
@@ -165,7 +168,7 @@ def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, ti
             assert "dato_familia" in problemas(r0)
     finally:
         # Se deja todo como estaba para las demás pruebas
-        interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [articulo_id]})
+        interno.post("/etiquetas/articulos/familia", {"familia_id": antes, "ids": [articulo_id]})
 
 
 def test_advertencias_y_duplicados_piden_confirmar(interno, oc, tipos, combinada):

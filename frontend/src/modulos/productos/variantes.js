@@ -32,18 +32,12 @@ export function expandir(texto, orden = []) {
 
 export const opcionesDe = (a) => (a.opciones || '').split(',').map((x) => x.trim()).filter(Boolean)
 
-// Los atributos que distinguen las variantes: los de la familia (o de su
-// antecesora más cercana que los tenga); sin familia ni ejes, todos los activos
-export function ejesDeFamilia(familias, id) {
-  const porId = Object.fromEntries(familias.map((f) => [String(f.id), f]))
-  let f = porId[String(id)]
-  const vistos = new Set()
-  while (f && !vistos.has(f.id)) {
-    vistos.add(f.id)
-    if (f.ejes_variante?.length) return f.ejes_variante
-    f = porId[String(f.padre_id)]
-  }
-  return []
+// Los atributos que distinguen las variantes: los de variante que valen en la
+// familia (los suyos, los de las familias que la contienen y los generales, como
+// los calcula el servidor); sin familia, solo los generales
+export function ejesDeFamilia(familias, id, atributos = []) {
+  const f = familias.find((x) => String(x.id) === String(id))
+  return f ? f.ejes || [] : atributos.filter((a) => a.general).map((a) => a.codigo)
 }
 
 // g: datos del producto (grupo_producto_id); info: el producto existente (al agregar variantes)
@@ -66,8 +60,8 @@ export function useVariantes(g, info = ref(null)) {
   }
 
   const ejes = computed(() => {
-    const codigos = ejesDeFamilia(familias.value, g.grupo_producto_id)
-    return codigos.length ? codigos.map((c) => atributos.value.find((a) => a.codigo === c)).filter(Boolean) : atributos.value
+    return ejesDeFamilia(familias.value, g.grupo_producto_id, atributos.value)
+      .map((c) => atributos.value.find((a) => a.codigo === c)).filter(Boolean)
   })
   watch(ejes, (lista) => {
     for (const a of lista) if (!(a.codigo in valores)) valores[a.codigo] = ''
@@ -117,7 +111,8 @@ export function useVariantes(g, info = ref(null)) {
   const vacia = (f) => !Object.values(f.valores).some((v) => String(v || '').trim())
   // Lo que se manda al servidor
   const paraEnviar = () => filas.value.filter((f) => !vacia(f)).map(({ peso, valores: v, ...f }) => ({
-    ...f, valores: Object.fromEntries(Object.entries(v).filter(([, x]) => String(x || '').trim())),
+    // Solo los atributos de variante de su familia (si cambió de familia, los otros no se mandan)
+    ...f, valores: Object.fromEntries(Object.entries(v).filter(([k, x]) => String(x || '').trim() && ejes.value.some((a) => a.codigo === k))),
     peso_unitario: peso === '' || peso === null ? null : Number(peso),
   }))
 

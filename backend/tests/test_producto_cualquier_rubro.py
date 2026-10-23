@@ -26,8 +26,10 @@ def _borrar(*gens):
         db.commit()
 
 
-def _atributo(api, codigo):
-    r = api.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": codigo, "nombre": f"Attr {codigo}", "orden": 60})
+def _atributo(api, codigo, familias=None):
+    """Un atributo de variante general o, con `familias`, solo de esas familias."""
+    r = api.post("/catalogos/atributos", {"general": not familias, "familias": familias or [], "nivel": "VARIANTE",
+                                          "codigo": codigo, "nombre": f"Attr {codigo}", "orden": 60})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -77,12 +79,11 @@ def test_la_empresa_vuelve_obligatoria_la_marca(admin, interno):
 
 
 def test_la_familia_exige_el_codigo_de_barras(admin, interno):
-    atr = _atributo(interno, "VOLTQ")
     fam = admin.post("/grupos-producto", {"clase": "FAMILIA", "codigo": "ELECTRO-Q", "nombre": "Appliances",
-                                          "ejes_variante": ["VOLTQ"],
                                           "campos": [{"campo": "articulo.codigo_barras", "obligatorio": True}]})
     assert fam.status_code == 200, fam.text
     fam = fam.json()
+    atr = _atributo(interno, "VOLTQ", [fam["id"]])  # solo de esta familia
     try:
         assert fam["campos"] == [{"campo": "articulo.codigo_barras", "obligatorio": True}]
         perfil = interno.get("/productos/perfil", params={"grupo_id": fam["id"]}).json()
@@ -128,9 +129,8 @@ def _libro(productos: list[list], variantes: list[list]) -> bytes:
 
 
 def test_carga_masiva_de_productos_sin_datos_de_rubro(admin, interno):
-    atr = _atributo(interno, "CARGQ")
+    atr = _atributo(interno, "CARGQ")  # general: también lo lleva el producto sin familia
     fam = admin.post("/grupos-producto", {"clase": "FAMILIA", "codigo": "CARGA-Q", "nombre": "Bulk family",
-                                          "ejes_variante": ["CARGQ"],
                                           "campos": [{"campo": "articulo.codigo_barras", "obligatorio": True}]}).json()
     try:
         # La plantilla pide el núcleo y deja lo demás opcional

@@ -112,11 +112,23 @@ def _conteos(db: Session) -> dict:
     return res
 
 
-def dict_grupo(g: GrupoProducto, conteos: dict | None = None) -> dict:
+def _atributos_de(db: Session, g: GrupoProducto) -> dict:
+    """Los atributos del nodo: los que se le asignaron (no generales) y los que valen en él por
+    nivel (generales, suyos y de las familias que lo contienen), en orden. Los de variante
+    («ejes») distinguen las variantes de sus productos."""
+    from app.modulos.maestros import variantes
+
+    propios = [a.codigo for n in ("PRODUCTO", "VARIANTE") for a in variantes.atributos(db, n)
+               if not a.general and any(f.id == g.id for f in a.familias)]
+    valen = {n: [a.codigo for a in variantes.de_grupo(db, g, n)] for n in ("PRODUCTO", "VARIANTE")}
+    return {"atributos": propios, "atributos_producto": valen["PRODUCTO"], "ejes": valen["VARIANTE"]}
+
+
+def dict_grupo(db: Session, g: GrupoProducto, conteos: dict | None = None) -> dict:
     c = (conteos or {}).get(g.id, {})
     return {"id": g.id, "clase": g.clase, "codigo": g.codigo, "nombre": g.nombre, "descripcion": g.descripcion,
             "padre_id": g.padre_id, "ruta": " / ".join(x.nombre for x in g.ruta()), "profundidad": len(g.ruta()) - 1,
-            "condiciones": g.condiciones or [], "ejes_variante": g.ejes_variante or [], "campos": g.campos or [],
+            "condiciones": g.condiciones or [], **_atributos_de(db, g), "campos": g.campos or [],
             "orden": g.orden, "activa": g.activa, "dias_extra": g.dias_extra,
             "articulos": c.get("articulos", 0), "productos": c.get("productos", 0), "reglas_etiqueta": c.get("reglas_etiqueta", 0),
             "reglas_empaque": c.get("reglas_empaque", 0)}
@@ -143,7 +155,7 @@ def arbol(db: Session, user: Usuario, incluir_inactivos: bool = True) -> list[di
             if g.id in vistos:
                 continue
             vistos.add(g.id)
-            res.append(dict_grupo(g, conteos))
+            res.append(dict_grupo(db, g, conteos))
             poner(g.id)
     poner(None)
     return res
@@ -203,19 +215,18 @@ def _validar(db: Session, datos: dict, actual: GrupoProducto | None) -> dict:
             errores.append({"campo": "condiciones", "mensaje": "Only a category is recognized by conditions."})
         else:
             limpio["condiciones"] = reglas.validar_condiciones(db, datos.get("condiciones") or [])
-    if "ejes_variante" in datos:
+    if "atributos" in datos:
+        # Los atributos que se le asignan a la familia (valen también en sus subfamilias y categorías)
         from app.modelos import Atributo
 
-        ejes = [str(x).strip().upper() for x in (datos.get("ejes_variante") or []) if str(x).strip()]
-        validos = set(db.scalars(select(Atributo.codigo).where(Atributo.activo.is_(True), Atributo.nivel == "VARIANTE")))
-        malos = [x for x in ejes if x not in validos]
-        if clase != "FAMILIA" and ejes:
-            errores.append({"campo": "ejes_variante", "mensaje": "The variant attributes are set on a family."})
+        codigos = list(dict.fromkeys(str(x).strip().upper() for x in (datos.get("atributos") or []) if str(x).strip()))
+        validos = {a.codigo: a for a in db.scalars(select(Atributo).where(Atributo.activo.is_(True)))}
+        malos = [x for x in codigos if x not in validos]
+        if clase != "FAMILIA" and codigos:
+            errores.append({"campo": "atributos", "mensaje": "Attributes are assigned to a family: its categories take them."})
         elif malos:
-            errores.append({"campo": "ejes_variante", "mensaje": f"{malos[0]} is not an active variant attribute."})
-        elif len(set(ejes)) != len(ejes):
-            errores.append({"campo": "ejes_variante", "mensaje": "Each variant attribute goes once."})
-        limpio["ejes_variante"] = ejes
+            errores.append({"campo": "atributos", "mensaje": f"{malos[0]} is not an active attribute."})
+        limpio["atributos"] = [validos[x] for x in codigos if x in validos]
     if "campos" in datos:
         # Los datos que el grupo vuelve obligatorios: los pide el alta del producto y los revisa el etiquetado
         from app.modulos.etiquetado.familias import _campos
@@ -247,11 +258,37 @@ def crear(db: Session, user: Usuario, datos: dict) -> dict:
         limpio["orden"] = (db.scalar(select(func.max(GrupoProducto.orden)).where(
             GrupoProducto.padre_id.is_(None) if limpio["padre_id"] is None else GrupoProducto.padre_id == limpio["padre_id"]))
             or 0) + 10
-    g = clase(**{"activa": True, "condiciones": [], "campos": [], "ejes_variante": [], **limpio})
+    atrs = limpio.pop("atributos", None)
+    g = clase(**{"activa": True, "condiciones": [], "campos": [], **limpio})
     db.add(g)
     db.flush()
-    registrar(db, user, "grupo_producto", g.id, "crear", {"codigo": g.codigo, "clase": g.clase, "padre_id": g.padre_id})
-    return dict_grupo(g, _conteos(db))
+    if atrs:
+        _asignar_atributos(db, g, atrs)
+    registrar(db, user, "grupo_producto", g.id, "crear", {"codigo": g.codigo, "clase": g.clase, "padre_id": g.padre_id,
+                                                          **({"atributos": [a.codigo for a in atrs]} if atrs else {})})
+    return dict_grupo(db, g, _conteos(db))
+
+
+def _asignar_atributos(db: Session, g: GrupoProducto, elegidos: list) -> dict | None:
+    """Deja asignados a la familia exactamente esos atributos (los generales ya valen en todas).
+    Devuelve [antes, después] si cambió."""
+    from app.modelos import Atributo
+    from app.modulos.maestros import variantes
+
+    elegidos = {a.id for a in elegidos if not a.general}
+    antes, despues = [], []
+    for a in db.scalars(select(Atributo).where(Atributo.general.is_(False)).order_by(Atributo.orden, Atributo.codigo)):
+        tiene = any(f.id == g.id for f in a.familias)
+        if tiene:
+            antes.append(a.codigo)
+        if a.id in elegidos:
+            despues.append(a.codigo)
+            if not tiene:
+                a.familias.append(g)
+        elif tiene:
+            a.familias.remove(g)
+    variantes.olvidar(db)
+    return [antes, despues] if antes != despues else None
 
 
 def actualizar(db: Session, user: Usuario, grupo_id: int, datos: dict) -> dict:
@@ -260,14 +297,24 @@ def actualizar(db: Session, user: Usuario, grupo_id: int, datos: dict) -> dict:
     limpio = _validar(db, datos, g)
     if g.clase == "CATEGORIA" and limpio.get("padre_id", g.padre_id) != g.padre_id and en_uso(db, g):
         raise ErrorNegocio("The category is in use (rules or products): it cannot move to another family.", 409, "en_uso")
+    atrs = limpio.pop("atributos", None)
     cambios = {k: [getattr(g, k), v] for k, v in limpio.items() if getattr(g, k) != v}
     for k, v in limpio.items():
         setattr(g, k, v)
     db.flush()
+    if atrs is not None and (cambio := _asignar_atributos(db, g, atrs)):
+        cambios["atributos"] = cambio
+    if "atributos" in cambios or "padre_id" in cambios:
+        # Quitarle atributos o moverla no deja valores guardados fuera de la familia de su atributo
+        from app.modulos.maestros import atributos as atr_svc
+        from app.modulos.maestros import variantes
+
+        variantes.olvidar(db)
+        atr_svc.exigir(atr_svc.sin_alcance(db, campo="atributos"), "The family's products use those attributes.")
     if cambios:
         registrar(db, user, "grupo_producto", g.id, "editar", {k: v for k, v in cambios.items() if k != "condiciones"}
                   | ({"condiciones": True} if "condiciones" in cambios else {}))
-    return dict_grupo(g, _conteos(db))
+    return dict_grupo(db, g, _conteos(db))
 
 
 def eliminar(db: Session, user: Usuario, grupo_id: int) -> dict:

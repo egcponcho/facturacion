@@ -187,6 +187,10 @@ def asignar_productos(db: Session, user: Usuario, categoria_id: int | None, ids:
     if len(elegidos) != len(set(ids)):
         raise ErrorNegocio("Some products do not exist or are out of your scope.", 404, "no_encontrado")
     cambiados = [p for p in elegidos if p.categoria_etiquetado_id != (cat.id if cat else None)]
+    if cat is not None:  # quitarla deja la misma familia
+        from app.modulos.etiquetado.familias import _exigir_atributos
+
+        _exigir_atributos(db, cambiados, cat)
     for p in cambiados:
         p.categoria_etiquetado_id = cat.id if cat else None
     db.flush()

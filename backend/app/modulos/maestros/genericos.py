@@ -102,13 +102,14 @@ def _nucleo(db: Session, user: Usuario, datos, errores: list) -> tuple:
     return familia, prov
 
 
-def _atributos(db: Session, p: Producto | None, datos, prov: Proveedor | None, errores: list, nuevo: bool) -> dict:
-    """Los atributos de producto que vienen, validados (con proveedor, la marca debe ser suya)
-    y con los que la empresa exige."""
-    valores, errs = atr_svc.validar(db, "PRODUCTO", getattr(datos, "atributos", None) or {}, prov.id if prov else None)
+def _atributos(db: Session, p: Producto | None, datos, prov: Proveedor | None, grupo, errores: list, nuevo: bool) -> dict:
+    """Los atributos de producto que vienen, validados (que valgan en la familia `grupo` y, con
+    proveedor, que la marca sea suya) y con los que la empresa exige."""
+    valores, errs = atr_svc.validar(db, "PRODUCTO", getattr(datos, "atributos", None) or {}, prov.id if prov else None,
+                                    grupo=grupo)
     errores += errs
     finales = {**({} if nuevo or p is None else p.valores), **valores}
-    errores += atr_svc.exigir_empresa(db, "PRODUCTO", finales)
+    errores += atr_svc.exigir_empresa(db, "PRODUCTO", finales, grupo=grupo)
     return valores
 
 
@@ -123,7 +124,7 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     elif producto_por_generico(db, gen):
         errores.append({"campo": "generico", "mensaje": f"Product {gen} already exists: add variants to it instead."})
     familia, prov = _nucleo(db, user, datos, errores)
-    valores = _atributos(db, None, datos, prov, errores, nuevo=True)
+    valores = _atributos(db, None, datos, prov, familia, errores, nuevo=True)
     pais = (getattr(datos, "pais_origen", None) or "").strip().upper() or None
     if pais and not db.scalar(select(Pais.id).where(Pais.codigo == pais)):
         errores.append({"campo": "pais_origen", "mensaje": f"Country {pais} is not in the countries catalog."})
@@ -208,11 +209,11 @@ def agregar_variantes(db: Session, user: Usuario, gen: str, filas_in: list, esca
         raise ErrorNegocio(f"At most {MAX_VARIANTES} variants at a time.", 422, "validacion")
     usados = _sufijos(db, gen)
     escala = db.get(EscalaValores, escala_id) if escala_id else None
-    ejes = variantes.ejes_de_grupo(p.grupo_producto) or [a.codigo for a in variantes.atributos(db)]
+    ejes = variantes.ejes_de_grupo(db, p.grupo_producto)
     ya = {frozenset((k, str(v).upper()) for k, v in a.variantes.items()) for a in p.articulos if a.tipo == "SOLIDO"}
     ids, nuevas, errores = [], [], []
     for i, (crudos, t) in enumerate(filas):
-        valores, errs = atr_svc.validar(db, "VARIANTE", crudos, campo=f"variantes.{i}")
+        valores, errs = atr_svc.validar(db, "VARIANTE", crudos, campo=f"variantes.{i}", grupo=p.grupo_producto)
         valores = {k: v for k, v in valores.items() if v}
         texto = " · ".join(valores.values()) or "—"
         if errs:
@@ -267,7 +268,8 @@ def _exigidos_empresa(db: Session, a: Articulo) -> list[dict]:
     errores = [{"campo": c, "mensaje": f"{a.sku}: your company requires this data for every item."}
                for c in ("codigo_barras", "codigo_proveedor", "peso_unitario") if c in exigidos and valores[c] in (None, "")]
     if a.tipo == "SOLIDO":
-        errores += [{**e, "mensaje": f"{a.sku}: {e['mensaje']}"} for e in atr_svc.exigir_empresa(db, "VARIANTE", a.variantes)]
+        errores += [{**e, "mensaje": f"{a.sku}: {e['mensaje']}"}
+                    for e in atr_svc.exigir_empresa(db, "VARIANTE", a.variantes, grupo=a.familia_efectiva)]
     return errores
 
 
@@ -375,7 +377,11 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
     familia, prov = _nucleo(db, user, datos, errores)
     if prov is not None and p.proveedor_id and prov.id != p.proveedor_id and _en_ordenes(db, p):
         errores.append({"campo": "proveedor_id", "mensaje": "The product is on purchase orders: its supplier cannot change."})
-    valores = _atributos(db, p, datos, prov, errores, nuevo=False)
+    grupo = familia if familia is not None else p.grupo_producto
+    valores = _atributos(db, p, datos, prov, grupo, errores, nuevo=False)
+    if familia is not None and familia.id != p.grupo_producto_id:
+        # Lo que ya tiene el producto (y lo que no se está quitando) debe valer en la familia nueva
+        errores += atr_svc.fuera_de_familia(db, p, familia, quitados={k for k, v in valores.items() if v in (None, "")})
     if errores:
         raise ErrorNegocio("Check the product.", 422, "validacion", errores)
     antes = {"proveedor_id": p.proveedor_id, "unidad": p.unidad, "grupo_producto_id": p.grupo_producto_id}

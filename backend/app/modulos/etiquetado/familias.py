@@ -324,6 +324,15 @@ def productos(db: Session, user: Usuario, q: str | None = None, familia: str | N
     return {"total": total, "items": res}
 
 
+def _exigir_atributos(db: Session, productos: list[Producto], grupo) -> None:
+    """Los atributos que ya tienen los productos (y sus variantes) deben valer en su familia nueva."""
+    from app.modulos.maestros import atributos as atr_svc
+
+    atr_svc.exigir([{**e, "mensaje": f"{p.codigo_generico or p.nombre}: {e['mensaje']}"}
+                    for p in productos for e in atr_svc.fuera_de_familia(db, p, grupo)],
+                   "Some products have attributes that do not apply to that family.")
+
+
 def asignar_productos(db: Session, user: Usuario, familia_id: int | None, ids: list[int]) -> dict:
     """Pone (o quita, con familia vacía) la familia de varios productos: la comparten sus variantes."""
     from app.modulos.acceso.permisos import proveedor_filtro
@@ -341,6 +350,7 @@ def asignar_productos(db: Session, user: Usuario, familia_id: int | None, ids: l
     if len(elegidos) != len(set(ids)):
         raise ErrorNegocio("Some products do not exist or are out of your scope.", 404, "no_encontrado")
     cambiados = [p for p in elegidos if p.familia_etiquetado_id != familia_id]
+    _exigir_atributos(db, cambiados, cargar(db, familia_id) if familia_id is not None else None)
     for p in cambiados:
         p.familia_etiquetado_id = familia_id
     db.flush()

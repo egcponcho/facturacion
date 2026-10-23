@@ -143,14 +143,16 @@ def perfil(db: Session, user: Usuario, grupo_id: int | None = None) -> dict:
         if c not in {x["clave"] for x in de_familia}:
             de_familia.append({"clave": c, "etiqueta": nombres.get(c, c), "al_guardar": editable(c)})
     nombres_atr = variantes.nombres(db)
+    aplican = {a.codigo for n in ("PRODUCTO", "VARIANTE") for a in variantes.de_grupo(db, grupo, n)}
     return {
         "nucleo": list(NUCLEO),
         "empresa": [{"campo": c, "etiqueta": nombres_atr.get(c[9:], c) if c.startswith("atributo.") else campos_art.get(c, c)}
-                    for c in sorted(gobierno.obligatorios("articulos"))],
+                    for c in sorted(gobierno.obligatorios("articulos")) if not c.startswith("atributo.") or c[9:] in aplican],
         "familia": de_familia,
-        "ejes": variantes.ejes_de_grupo(grupo),
-        # Los atributos de producto que la empresa define (el formulario muestra uno por atributo)
+        # Los atributos de variante de la familia (con ellos se distinguen sus variantes) y sus
+        # atributos de producto (el formulario muestra uno por atributo): solo los que valen en ella
+        "ejes": variantes.ejes_de_grupo(db, grupo),
         "atributos": [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo, "catalogo": a.catalogo,
                        "opciones": [o.strip() for o in (a.opciones or "").split(",") if o.strip()], "unidad": a.unidad}
-                      for a in variantes.atributos(db, "PRODUCTO")],
+                      for a in variantes.de_grupo(db, grupo, "PRODUCTO")],
     }

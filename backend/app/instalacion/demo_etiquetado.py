@@ -2,10 +2,9 @@
 
 - Tipos de etiqueta: colgante (obligatoria), sticker de precio, etiqueta de
   caja (obligatoria) y hoja de contenido de OC.
-- Familias: calzado (con una subfamilia técnica) y ropa. La familia es del
-  producto: el calzado casual y la ropa van a su familia y el calzado de trail a
-  la subfamilia técnica. La mochila queda sin familia a propósito y lleva un
-  diseño propio de su producto.
+- Familias: las de los productos (demo.py: calzado con una subfamilia técnica,
+  ropa y accesorios). El calzado y la ropa tienen su colgante; la mochila
+  (accesorios) lleva un diseño propio de su producto.
 - Diseños aprobados para cada tipo, uno con una versión nueva esperando
   aprobación.
 - Qué diseño lleva cada cosa: diseños generales, por familia, por producto,
@@ -90,7 +89,7 @@ def _contenido() -> dict:
 
 
 def sembrar(db: Session) -> None:
-    from app.modulos.etiquetado import familias, plantillas, tipos, trabajos, usos
+    from app.modulos.etiquetado import plantillas, tipos, trabajos, usos
 
     interno = db.scalar(select(Usuario).where(Usuario.email == "interno@demo.com"))
     admin = db.scalar(select(Usuario).where(Usuario.email == "admin@demo.com"))
@@ -99,15 +98,8 @@ def sembrar(db: Session) -> None:
     # ---- Tipos de etiqueta ------------------------------------------------------------------
     t = {x["codigo"]: x for x in tipos.crear_sugeridos(db, admin, [s["codigo"] for s in tipos.SUGERIDOS])}
 
-    # ---- Familias del producto y una subfamilia --------------------------------------------------
-    calzado = familias.crear(db, admin, {"codigo": "FOOTWEAR", "nombre": "Footwear",
-                                         "descripcion": "Shoes and sandals: hang tag with size and color."})
-    tecnico = familias.crear(db, admin, {"codigo": "FOOTWEAR-TECH", "nombre": "Technical footwear", "padre_id": calzado["id"],
-                                         "descripcion": "Trail and running footwear (inherits the footwear designs)."})
-    ropa = familias.crear(db, admin, {"codigo": "APPAREL", "nombre": "Apparel", "descripcion": "Jackets and fleece."})
-    familias.asignar_productos(db, admin, calzado["id"], _productos(db, "VN000EE3", "VN0A4BV4"))
-    familias.asignar_productos(db, admin, ropa["id"], _productos(db, "NF0A5GLL", "NF0A5IHO"))
-    familias.asignar_productos(db, admin, tecnico["id"], _productos(db, "NF0A7W4G"))
+    # ---- Familias del producto (ya creadas con sus atributos y sus productos: demo._familias) ----
+    calzado, ropa = _familia(db, "FOOTWEAR"), _familia(db, "APPAREL")
     mochila = db.get(Producto, _productos(db, "NF0A3VY2")[0])
 
     # ---- Diseños aprobados -----------------------------------------------------------------
@@ -145,7 +137,7 @@ def sembrar(db: Session) -> None:
     uso("CONTENIDO", contenido)
     uso("COLGANTE", colgante_calzado, "FAMILIA", calzado["id"])
     uso("COLGANTE", colgante_ropa, "FAMILIA", ropa["id"])
-    uso("COLGANTE", colgante_ropa, "PRODUCTO", mochila.id)  # sin familia, con diseño propio
+    uso("COLGANTE", colgante_ropa, "PRODUCTO", mochila.id)  # su familia no tiene diseño: lleva uno propio
     uso("COLGANTE", colgante_es, "FAMILIA", calzado["id"], contexto_tipo="PAIS_DESTINO", contexto_valores=["PA"],
         motivo="Customs in Panama ask for Spanish texts on the hang tag.")
     oc_especial = db.scalar(select(OrdenCompra).where(OrdenCompra.estado == "APROBADA").order_by(OrdenCompra.id.desc()))
@@ -198,6 +190,12 @@ def sembrar(db: Session) -> None:
                            "fill it in the Review step.")
         trabajos.validar(db, interno, j["id"])
     db.flush()
+
+
+def _familia(db: Session, codigo: str) -> dict:
+    from app.modelos import GrupoFamilia
+
+    return {"id": db.scalar(select(GrupoFamilia.id).where(GrupoFamilia.codigo == codigo))}
 
 
 def _productos(db: Session, *estilos: str) -> list[int]:

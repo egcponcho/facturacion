@@ -117,7 +117,7 @@ def test_ficha_aprobacion_y_documentos(tnf, vans, interno):
 
 
 def test_devolver_aprobar_lote_y_aprendizaje(vans, interno):
-    p = _producto(interno, "NF0A5GLL", "Summit blue")
+    p = _producto(interno, "NF0A84KD", "Summit blue")
     det = interno.get(f"/productos/{p['id']}").json()
     assert det["estado"] == "observado" and det["observaciones"]
     # Devolver exige decir qué corregir

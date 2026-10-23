@@ -64,12 +64,10 @@ onMounted(async () => {
 })
 
 // Familias en árbol (con su ruta) y los atributos que distinguen sus variantes
+// (los de variante que valen en ella: suyos, de las familias que la contienen o generales)
 const nombreAtributo = (c) => tx(atributos.value.find((a) => a.codigo === c)?.nombre || c)
-// (los heredados de la antecesora más cercana que los tenga; si ninguna, todos los activos)
-const familiasVista = computed(() => familias.value.map((f) => {
-  const ejes = ejesDeFamilia(familias.value, f.id)
-  return { ...f, ejesTexto: ejes.map(nombreAtributo).join(' · '), heredados: !f.ejes_variante?.length && ejes.length > 0 }
-}))
+const familiasVista = computed(() => familias.value.map((f) => ({
+  ...f, ejesTexto: ejesDeFamilia(familias.value, f.id, atributos.value).map(nombreAtributo).join(' · ') })))
 const familia = computed(() => familias.value.find((f) => String(f.id) === String(g.grupo_producto_id)) || null)
 const opc = (l) => l.map((x) => ({ valor: x.id, texto: x.texto, sub: x.sub }))
 // Con proveedor, solo sus marcas autorizadas; sin proveedor, todas
@@ -168,7 +166,9 @@ async function crear() {
     const r = await api.post('/catalogos/genericos', {
       ...g, proveedor_id: Number(g.proveedor_id) || null, grupo_producto_id: Number(g.grupo_producto_id) || null, nombre: g.nombre || null,
       descripcion_comercial: g.descripcion_comercial || null, pais_origen: g.pais_origen || null,
-      atributos: Object.fromEntries(Object.entries(g.atributos).filter(([, v]) => String(v ?? '').trim())),
+      // Solo los atributos de su familia (los de otra familia elegida antes no se mandan)
+      atributos: Object.fromEntries(Object.entries(g.atributos).filter(([k, v]) => String(v ?? '').trim()
+        && atributosProducto.value.some((a) => a.codigo === k))),
       variantes: paraEnviar(), escala_id: Number(escalaId.value) || null,
     })
     await api.del(`/perfil/borradores/${BORRADOR}`).catch(() => {})
@@ -211,13 +211,13 @@ const nombreDe = (lista, id) => tx(lista.find((x) => String(x.id) === String(id)
         <label class="np-familia" :class="{ elegida: !g.grupo_producto_id }">
           <input v-model="g.grupo_producto_id" type="radio" value="" class="oculto-visual" />
           <span class="np-familia-nombre">{{ t('Without family') }}</span>
-          <span class="ayuda">{{ t('Its variants use every active variant attribute.') }}</span>
+          <span class="ayuda">{{ t('Only the attributes that apply to all families.') }}</span>
         </label>
         <label v-for="f in familiasVista" :key="f.id" class="np-familia" :class="{ elegida: String(g.grupo_producto_id) === String(f.id) }">
           <input v-model="g.grupo_producto_id" type="radio" :value="f.id" class="oculto-visual" />
           <span class="np-familia-nombre">{{ tx(f.nombre) }}</span>
           <span v-if="f.ruta && f.ruta !== f.nombre" class="ayuda">{{ tx(f.ruta) }}</span>
-          <span class="np-ejes"><Icono nombre="capas" :tam="13" />{{ f.ejesTexto ? t('Variants by {0}', [f.ejesTexto]) : t('Its variants use every active variant attribute.') }}<template v-if="f.heredados"> ({{ t('from its parent') }})</template></span>
+          <span class="np-ejes"><Icono nombre="capas" :tam="13" />{{ f.ejesTexto ? t('Variants by {0}', [f.ejesTexto]) : t('No variant attributes yet: assign them to the family.') }}</span>
         </label>
       </div>
       <router-link to="/grupos-producto" class="enlace np-crear"><Icono nombre="mas" :tam="14" />{{ t('Create or change families') }}</router-link>

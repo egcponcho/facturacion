@@ -14,13 +14,13 @@ atrás).
 |---|---|
 | `productos` | Núcleo: código del producto (`codigo_generico`), nombre, unidad, familia (`grupo_producto_id`), proveedor (opcional), país de origen; con comercio exterior, la ficha técnica y la clasificación. |
 | `articulos` | La variante, o un pack o kit: código de artículo (`sku`), producto (obligatorio), unidad, peso unitario, descripción, tipo (`SOLIDO` = simple, `PREPACK` = pack o kit), activo. |
-| `atributos` | Los atributos de la empresa. Cada uno tiene su **nivel** (`PRODUCTO`: los comparten todas sus variantes; `VARIANTE`: las distinguen) y su **tipo de valor** (texto, número con unidad, una de sus opciones, fecha, sí/no o un registro de un catálogo: la marca apunta a `marcas` y, con proveedor, solo acepta sus marcas). |
+| `atributos` | Los atributos de la empresa. Cada uno vale en sus familias (`atributo_familias`) o en todas (`general`; sección 8) y tiene su **nivel** (`PRODUCTO`: los comparten todas sus variantes; `VARIANTE`: las distinguen) y su **tipo de valor** (texto, número con unidad, una de sus opciones, fecha, sí/no o un registro de un catálogo: la marca apunta a `marcas` y, con proveedor, solo acepta sus marcas). |
 | `producto_atributos` | Valores de los atributos de producto (marca, modelo, material…). |
 | `articulo_atributos` | Valores de los atributos de variante (talla, color, sabor…). |
 | `articulo_codigos` | Los códigos de la variante, varios por variante: `BARRAS` (GTIN/EAN/UPC), `PROVEEDOR` (con su proveedor) y `PACK` (el identificador de un pack, p. ej. `AB12`). |
 | `articulo_componentes` | El contenido de un pack o un kit: el compuesto es el artículo mismo. Un **pack** junta variantes de un mismo producto (es de ese producto); un **kit** junta artículos de cualquier producto (es su propio producto). El contenido no cambia después de creado. |
 | `escalas_valores` | Escalas de cualquier atributo de variante (antes solo tallas): sus valores en orden y la regla de su código (valor × factor, consecutivo o el mismo valor). |
-| `grupos_producto` | La familia: la **única clasificación** del producto (antes había además grupos de artículos y categorías de artículo). Lleva sus ejes de variante, los datos que exige a sus productos y los días extra de lead time (antes en el grupo de artículos). |
+| `grupos_producto` | La familia: la **única clasificación** del producto (antes había además grupos de artículos y categorías de artículo). Lleva sus atributos (en `atributo_familias`; sus variantes se distinguen por los de variante), los datos que exige a sus productos y los días extra de lead time (antes en el grupo de artículos). |
 
 Las líneas de OC y de factura guardan la **foto** de lo que eran el producto y
 la variante al crearse: `atributos` (los del producto), `variante` (los de la
@@ -113,8 +113,9 @@ campos propios de artículos (pasan a ser atributos de variante).
 
 ## 6. Lo que se mantuvo a propósito
 
-- `campos` y `ejes_variante` de la familia siguen como JSON (son
-  configuración, no datos que se consulten por valor).
+- `campos` de la familia sigue como JSON (es configuración, no datos que se
+  consulten por valor). Los `ejes_variante` se reemplazaron en 0094 por los
+  atributos de la familia (sección 8).
 - No hay tabla aparte para comercio exterior: la ficha y la clasificación
   siguen en el producto, ocultas sin el complemento.
 - Los tipos de artículo conservan sus códigos `SOLIDO` y `PREPACK` (se
@@ -145,3 +146,59 @@ texto «estilo» y «tallas» son nombres de sus reglas, configuradas como datos
 y el tipo de atributo «registro de un catálogo», que por ahora apunta solo al
 catálogo de marcas (las listas propias se cubren con el tipo «una de las
 opciones»).
+
+## 8. Atributos por familia (migración 0094)
+
+Hasta 0093 un atributo valía para todos los productos: crear «Upper material»
+lo ponía también en la mochila y en la chaqueta. La familia solo decía, con sus
+`ejes_variante`, con qué atributos se distinguían sus variantes.
+
+Ahora **cada atributo vale en las familias que tiene** (y en sus subfamilias y
+categorías) **o en todas si es general**:
+
+| Dónde | Qué cambia |
+|---|---|
+| *Datos maestros → Atributos* | Cada atributo pide *Todas las familias* o sus *Familias*. Uno nuevo empieza sin familias: hay que elegirlas o marcarlo para todas. |
+| *Productos → Familias* | Cada familia elige sus atributos de producto y de variante; los generales y los de la familia que la contiene aparecen marcados (no se eligen). La fila de la familia dice sus atributos y por qué se distinguen sus variantes. |
+| *Nuevo producto* y *Editar producto* | Muestran solo los atributos de la familia elegida. Al cambiar la familia de un producto, los atributos de producto que la nueva no lleva se quitan al guardar (se avisa antes). |
+| Servidor | Crear o editar productos, agregar variantes, el catálogo de artículos y la carga masiva rechazan un atributo que no vale en la familia del producto. Un producto sin familia solo lleva atributos generales. |
+| Lo que ya está guardado | Ningún cambio deja valores fuera de su familia: quitarle una familia a un atributo, quitarle atributos a una familia, mover una subfamilia o pasar un producto a otra familia (también desde Etiquetas) se rechaza y dice qué productos lo impiden. |
+
+Modelo: tabla `atributo_familias` (atributo, familia) y columna
+`atributos.general`. `GET /grupos-producto` devuelve de cada nodo sus
+`atributos` (los asignados a él), `atributos_producto` y `ejes` (los de
+producto y de variante que valen en él); `PATCH /grupos-producto/{id}` recibe
+`atributos`. El perfil de un producto (`GET /productos/perfil?grupo_id=`) solo
+trae los atributos de su familia.
+
+La migración **0094** convierte sin perder nada lo que ya valía, por
+organización:
+
+1. los atributos de producto quedan generales;
+2. si ninguna familia tenía ejes, los de variante también (nada cambia);
+3. si no, cada familia recibe los ejes que usaba (los suyos, los heredados o,
+   sin ninguno, todos) que su familia padre no le da ya, y el atributo que
+   valía en todas las familias queda general;
+4. un atributo con valores guardados en una familia donde no valdría se le
+   asigna a esa familia.
+
+`ejes_variante` se respalda en `respaldos_migracion` y se borra; la vuelta atrás
+lo recrea con lo respaldado.
+
+**Demostración rehecha.** Los productos y artículos de la demostración se
+borraron y se crean de nuevo con los mismos servicios que usa la pantalla
+(*Nuevo producto*, *Nuevo pack o kit*), después de crear las familias con sus
+atributos:
+
+| Familia | Atributos de producto | Variantes por |
+|---|---|---|
+| Footwear (y su subfamilia Technical footwear) | Brand, Style, Gender, Upper material | Color, Size |
+| Apparel | Brand, Style, Gender | Color, Size |
+| Bags and accessories | Brand, Style, Capacity (liters) | Color |
+
+Marca y estilo son generales. Cada producto es un estilo con su familia; la
+mochila ya no tiene una «talla OS»: se distingue solo por su color. La chaqueta
+en azul que estaba «observada» es ahora su propio estilo (NF0A84KD, de mujer).
+Solo se rehízo la base de demostración (`python -m app.instalacion.demo`, que
+exige `SEED_DEMO=1` y se niega a borrar una base que no es de demostración): la
+migración no borra artículos de ninguna empresa.

@@ -35,13 +35,13 @@ def test_unidades_que_convierten(interno):
 
 
 def test_atributos_de_variante_con_tipo(interno):
-    assert interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion"}
+    assert interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion"}
                         ).status_code == 422  # sin opciones
-    assert interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "texto",
+    assert interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "texto",
                                                           "unidad": "UN"}).status_code == 422  # unidad solo en números
-    volt = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion",
+    volt = interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "VOLTAJE", "nombre": "Voltage", "tipo": "opcion",
                                                           "opciones": "110 V, 220 V"}).json()
-    cap = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "CAPACIDAD", "nombre": "Capacity", "tipo": "numero",
+    cap = interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "CAPML", "nombre": "Capacity", "tipo": "numero",
                                                          "unidad": "ML"}).json()
     try:
         meta = {c["tipo"]: c for c in interno.get("/catalogos").json()}
@@ -51,10 +51,10 @@ def test_atributos_de_variante_con_tipo(interno):
         guardados = {k: v for k, v in art.items() if k.startswith("atr.")}
         url = f"/catalogos/articulos/{art['id']}"
         assert interno.patch(url, {"atr.VOLTAJE": "380 V"}).status_code == 422
-        assert interno.patch(url, {"atr.CAPACIDAD": "mucho"}).status_code == 422
-        r = interno.patch(url, {"atr.VOLTAJE": "220 v", "atr.CAPACIDAD": "500,0"})
+        assert interno.patch(url, {"atr.CAPML": "mucho"}).status_code == 422
+        r = interno.patch(url, {"atr.VOLTAJE": "220 v", "atr.CAPML": "500,0"})
         assert r.status_code == 200, r.text
-        assert r.json()["atr.VOLTAJE"] == "220 V" and r.json()["atr.CAPACIDAD"] == "500"
+        assert r.json()["atr.VOLTAJE"] == "220 V" and r.json()["atr.CAPML"] == "500"
         # Con valores guardados, el tipo solo cambia si siguen valiendo
         assert interno.patch(f"/catalogos/atributos/{volt['id']}", {"opciones": "110 V"}).status_code == 422
         assert interno.patch(f"/catalogos/atributos/{cap['id']}", {"tipo": "texto", "unidad": None}).status_code == 200
@@ -63,8 +63,8 @@ def test_atributos_de_variante_con_tipo(interno):
         assert campos["articulo.atributo.VOLTAJE"]["tipo"] == "texto"
         interno.patch(f"/catalogos/atributos/{cap['id']}", {"tipo": "numero", "unidad": "ML"})
         campos = {c["clave"]: c for c in interno.get("/etiquetas/campos").json()["campos"]}
-        assert campos["articulo.atributo.CAPACIDAD"]["tipo"] == "numero"
-        interno.patch(url, {"atr.VOLTAJE": "", "atr.CAPACIDAD": "", **guardados})
+        assert campos["articulo.atributo.CAPML"]["tipo"] == "numero"
+        interno.patch(url, {"atr.VOLTAJE": "", "atr.CAPML": "", **guardados})
     finally:
         interno.delete_(f"/catalogos/atributos/{volt['id']}")
         interno.delete_(f"/catalogos/atributos/{cap['id']}")
@@ -152,7 +152,7 @@ def test_producto_sin_atributos_de_moda(interno):
     distinguen por los atributos que la empresa define."""
     from app.modelos import Producto
 
-    conc = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "CONC", "nombre": "Concentration",
+    conc = interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "CONC", "nombre": "Concentration",
                                                  "tipo": "numero", "unidad": "UN"}).json()
     try:
         r = interno.post("/catalogos/genericos", {"generico": "QUIM-001", "nombre": "Solvent", "unidad": "L",
@@ -219,23 +219,24 @@ def test_codigos_y_valores_de_variante():
 
 
 def test_ejes_de_variante_por_familia(interno):
+    """Las variantes de una familia se distinguen por los atributos de variante que valen en ella
+    (los suyos y los de las familias que la contienen), en el orden de los atributos."""
     from app.modelos import GrupoProducto
     from app.modulos.maestros import variantes
 
     arbol = interno.get("/grupos-producto").json()
-    familia = next(g for g in arbol if g["clase"] == "FAMILIA")
-    assert interno.patch(f"/grupos-producto/{familia['id']}", {"ejes_variante": ["NOEXISTE"]}).status_code == 422
-    r = interno.patch(f"/grupos-producto/{familia['id']}", {"ejes_variante": ["COLOR", "TALLA"]})
-    assert r.status_code == 200, r.text
-    try:
-        with SessionLocal() as db:
-            hija = db.scalars(select(GrupoProducto).where(GrupoProducto.padre_id == familia["id"])).first()
-            if hija is not None:  # sin ejes propios, hereda los de la familia
-                assert variantes.ejes_de_grupo(hija) == ["COLOR", "TALLA"]
-            assert variantes.ejes_de_grupo(db.get(GrupoProducto, familia["id"])) == ["COLOR", "TALLA"]
-            assert variantes.texto(variantes.ordenar(db, {"TALLA": "9", "COLOR": "BLACK"})) in ("BLACK · 9", "9 · BLACK")
-    finally:
-        interno.patch(f"/grupos-producto/{familia['id']}", {"ejes_variante": []})
+    calzado = next(g for g in arbol if g["codigo"] == "FOOTWEAR")
+    tecnico = next(g for g in arbol if g["codigo"] == "FOOTWEAR-TECH")
+    accesorios = next(g for g in arbol if g["codigo"] == "ACCESSORIES")
+    assert calzado["ejes"] == ["COLOR", "TALLA"] and tecnico["ejes"] == ["COLOR", "TALLA"] and accesorios["ejes"] == ["COLOR"]
+    assert tecnico["atributos"] == [] and "CORTE" in tecnico["atributos_producto"]  # heredados de Footwear
+    assert "CAPACIDAD" in accesorios["atributos_producto"] and "CORTE" not in accesorios["atributos_producto"]
+    assert interno.patch(f"/grupos-producto/{calzado['id']}", {"atributos": ["NOEXISTE"]}).status_code == 422
+    with SessionLocal() as db:
+        hija = db.get(GrupoProducto, tecnico["id"])
+        assert variantes.ejes_de_grupo(db, hija) == ["COLOR", "TALLA"]
+        assert variantes.ejes_de_grupo(db, None) == []  # sin familia: solo los generales (ninguno de variante)
+        assert variantes.texto(variantes.ordenar(db, {"TALLA": "9", "COLOR": "BLACK"})) == "BLACK · 9"
 
 
 def test_las_lineas_guardan_su_variante():
@@ -258,7 +259,7 @@ def test_packs_y_kits_genericos(interno):
     from app.modulos.maestros import unidades as u
 
     base = _cat(interno, "articulos", tipo="SOLIDO")[0]
-    sabor = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "SABOR", "nombre": "Flavor"}).json()
+    sabor = interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "SABOR", "nombre": "Flavor"}).json()
     try:
         r = interno.post("/catalogos/genericos", {"generico": "SALSA-01", "nombre": "Sauce", "unidad": "UN",
                                                   "combinar": {"SABOR": ["Hot", "Mild"]}})

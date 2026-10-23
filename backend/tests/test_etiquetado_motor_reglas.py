@@ -3,6 +3,7 @@ oficial): familias → categorías (reconocidas por condiciones o puestas a mano
 → reglas que deciden qué diseño, si la etiqueta va o no, dónde va (línea,
 posición de la OC o de la lista, variante, artículo genérico, OC, lista,
 empaque) y cuántas."""
+from conftest import con_atributos
 from etiquetado_util import aprobada, articulo_de, oc_con_articulos, tipo, trabajo, uso
 
 from app.core.db import SessionLocal
@@ -34,6 +35,7 @@ def test_categorias_reglas_no_lleva_y_donde_va(interno, admin):
     prods = sorted({v["producto_id"] for v in info.values() if v["producto_id"]})
     antes = {v["producto_id"]: v["familia_producto"] for v in info.values() if v["producto_id"]}
     fam = interno.post("/etiquetas/familias", {"codigo": "MRFAM", "nombre": "Rules family"}).json()
+    con_atributos(interno, fam["id"])
     try:
         assert interno.post("/etiquetas/productos/familia", {"familia_id": fam["id"], "ids": prods}).status_code == 200
         t = tipo(interno, "MR_TAG", cantidad="POR_LINEA")

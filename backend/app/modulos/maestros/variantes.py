@@ -1,16 +1,17 @@
 """Variantes de un producto de cualquier tipo.
 
-Cada familia del árbol de grupos de producto dice con qué atributos de variante
-se distinguen las variantes de sus productos (`ejes_variante`, en orden): un
-calzado por color y talla, un químico por concentración y envase, un alimento
-por sabor y presentación. Una familia sin ejes usa los de su padre; sin
-ninguno, valen todos los atributos activos de la empresa.
+Cada atributo vale en sus familias (y en sus subfamilias y categorías) o, si
+es general, en todas (atributo_familias). Las variantes de un producto se
+distinguen por los atributos de variante que valen en su familia, en el orden
+de los atributos: un calzado por color y talla, un químico por concentración y
+envase, un alimento por sabor y presentación. Un producto sin familia solo
+lleva atributos generales.
 
 Las líneas de OC y de factura guardan los valores de variante del artículo
 (`variante`) y su texto se arma en el orden de los atributos («BLACK · 9.5»).
 """
 from sqlalchemy import select
-from sqlalchemy.orm import Session, object_session
+from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.modelos import Articulo, Atributo
 
@@ -24,22 +25,32 @@ def atributos(db: Session, nivel: str = "VARIANTE") -> list[Atributo]:
     if res is None:
         res = db.info[clave] = list(db.scalars(
             select(Atributo).where(Atributo.activo.is_(True), Atributo.nivel == nivel)
-            .order_by(Atributo.orden, Atributo.codigo)))
+            .options(selectinload(Atributo.familias)).order_by(Atributo.orden, Atributo.codigo)))
     return res
 
 
-def ejes_de_grupo(grupo) -> list[str]:
-    """Los ejes de la familia o de la primera antecesora que los tenga."""
-    for g in reversed(grupo.ruta() if grupo is not None else []):
-        if g.ejes_variante:
-            return list(g.ejes_variante)
-    return []
+def olvidar(db: Session) -> None:
+    """Después de cambiar atributos o sus familias: la próxima lectura los vuelve a cargar."""
+    for k in ("atributos_VARIANTE", "atributos_PRODUCTO", "orden_valores"):
+        db.info.pop(k, None)
 
 
-def ejes(db: Session, articulo: Articulo | None = None) -> list[str]:
-    """Con qué atributos se distinguen las variantes del producto del artículo."""
-    propios = ejes_de_grupo(articulo.familia_efectiva) if articulo is not None else []
-    return propios or [a.codigo for a in atributos(db)]
+def aplica(atributo: Atributo, grupo) -> bool:
+    """El atributo vale en el grupo (familia o categoría): es general o es de él o de una familia que lo contiene."""
+    if atributo.general:
+        return True
+    ruta = {g.id for g in grupo.ruta()} if grupo is not None else set()
+    return any(f.id in ruta for f in atributo.familias)
+
+
+def de_grupo(db: Session, grupo, nivel: str = "VARIANTE") -> list[Atributo]:
+    """Los atributos activos de ese nivel que valen en el grupo, en su orden."""
+    return [a for a in atributos(db, nivel) if aplica(a, grupo)]
+
+
+def ejes_de_grupo(db: Session, grupo) -> list[str]:
+    """Con qué atributos se distinguen las variantes de los productos del grupo, en orden."""
+    return [a.codigo for a in de_grupo(db, grupo)]
 
 
 def ordenar(db: Session, valores: dict | None) -> dict:

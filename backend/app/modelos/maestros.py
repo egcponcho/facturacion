@@ -35,6 +35,7 @@ from app.modelos.comercial import ConContacto, ExtensionDeTercero
 
 if TYPE_CHECKING:
     from app.modelos.comercial import Direccion, MedioContacto, Tercero
+    from app.modelos.grupos import GrupoFamilia
     from app.modelos.productos import Producto
     from app.modelos.transporte import Puerto
 
@@ -50,6 +51,15 @@ proveedor_sociedades = Table(
     "proveedor_sociedades", Base.metadata,
     Column("proveedor_id", ForeignKey("proveedores.id", ondelete="CASCADE"), primary_key=True),
     Column("sociedad_id", ForeignKey("sociedades.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
+
+# Las familias en que vale un atributo (y sus subfamilias y categorías); un atributo
+# general (Atributo.general) vale en todas y no lleva filas aquí
+atributo_familias = Table(
+    "atributo_familias", Base.metadata,
+    Column("atributo_id", ForeignKey("atributos.id", ondelete="CASCADE"), primary_key=True),
+    Column("grupo_id", ForeignKey("grupos_producto.id", ondelete="CASCADE"), primary_key=True, index=True),
 )
 
 
@@ -560,9 +570,11 @@ CATALOGOS_ATRIBUTO = ("marcas",)
 class Atributo(DeOrganizacion, Base):
     """Un dato que la empresa define para sus productos o sus variantes: marca,
     modelo, material, número ONU (del producto); talla, color, sabor,
-    presentación, concentración (de la variante)… Cada familia dice cuáles usa,
-    cuáles son obligatorios (grupos_producto.campos) y con cuáles se distinguen
-    sus variantes (grupos_producto.ejes_variante)."""
+    presentación, concentración (de la variante)… Vale en las familias que tiene
+    (y en sus subfamilias y categorías) o, si es general, en todas: un producto
+    solo lleva los atributos de su familia, y sus variantes se distinguen por los
+    atributos de variante que valen en ella. La familia dice además cuáles son
+    obligatorios (grupos_producto.campos)."""
 
     __tablename__ = "atributos"
     __table_args__ = (UniqueConstraint("organizacion_id", "codigo", name="uq_atributos_org_codigo"),
@@ -582,6 +594,9 @@ class Atributo(DeOrganizacion, Base):
     unidad: Mapped[str | None] = mapped_column(String(10))  # código de la unidad de medida (tipo número)
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Vale en todas las familias (y en los productos sin familia); si no, solo en las suyas
+    general: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    familias: Mapped[list["GrupoFamilia"]] = relationship(secondary=atributo_familias, order_by="GrupoProducto.codigo")
 
 
 class ArticuloAtributo(DeOrganizacion, Base):

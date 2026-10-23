@@ -4,6 +4,7 @@ ejemplo y reales, e imágenes."""
 import io
 
 import pytest
+from conftest import con_atributos
 from etiquetado_util import tipo
 from PIL import Image
 
@@ -135,6 +136,7 @@ def test_duplicar_es_independiente(interno, admin):
 def mundo(interno, admin):
     """Artículos, una familia y diseños aprobados para ver cuál gana."""
     fam = interno.post("/etiquetas/familias", {"codigo": "PRIO", "nombre": "Priority test"}).json()
+    con_atributos(interno, fam["id"])
     arts = interno.get("/etiquetas/articulos", params={"size": 200}).json()["items"]
     # x e y, variantes de un producto que toma la familia; z, de otro producto
     # (el primero de un producto con más de una variante: otras pruebas crean productos de una sola)

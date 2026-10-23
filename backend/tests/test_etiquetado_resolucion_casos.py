@@ -7,6 +7,7 @@ vigencias en sus bordes y en el futuro, el diseño normal sin fechas, la familia
 from datetime import date, timedelta
 
 import pytest
+from conftest import con_atributos, familia_de
 from etiquetado_util import aprobada, problemas, tipo, trabajo, uso
 
 from app.core.db import SessionLocal
@@ -129,6 +130,8 @@ def test_vigencias_en_sus_bordes_y_en_el_futuro(interno, caso):
 
 def test_familia_inactiva_sigue_aplicando_y_sin_coincidencia(interno, admin, caso):
     fam = interno.post("/etiquetas/familias", {"codigo": "CASOS-F", "nombre": "Cases family"}).json()
+    con_atributos(interno, fam["id"])
+    antes = familia_de(caso["articulo_id"])
     assert interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [caso["articulo_id"]]}).status_code == 200
     u = uso(interno, caso["tipo"]["id"], caso["d"]["a"]["id"], "FAMILIA", fam["id"])
     caso["usos"].append(u)
@@ -141,7 +144,7 @@ def test_familia_inactiva_sigue_aplicando_y_sin_coincidencia(interno, admin, cas
         assert interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [caso["articulo_id"]]}).status_code == 422
     finally:
         _baja(interno, caso, u)
-        interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [caso["articulo_id"]]})
+        interno.post("/etiquetas/articulos/familia", {"familia_id": antes, "ids": [caso["articulo_id"]]})
     # Sin ningún diseño que aplique: opcional → no se imprime; obligatorio → error
     general = caso["usos"][0]
     _baja(interno, caso, general)

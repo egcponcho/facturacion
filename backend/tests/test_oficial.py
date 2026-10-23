@@ -5,6 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from conftest import familia_demo
 from openpyxl import Workbook
 
 from app.core.db import SessionLocal
@@ -444,7 +445,7 @@ def test_producto_guarda_hs6_y_cada_pais_su_linea_con_evidencia(interno):
     cada país guarda su línea oficial, versión, regla, impuestos y regulaciones."""
     # Un producto propio de esta prueba (los de la demostración los usan otras pruebas)
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    assert interno.post("/catalogos/genericos", {"generico": "30077703", "atributos": {"MARCA": "VANS", "MODELO": "VNEVID01"},
+    assert interno.post("/catalogos/genericos", {"generico": "30077703", "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": "VNEVID01"},
                                                  "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Canvas sneaker",
                                                  "variantes": [{"valores": {"COLOR": "White", "TALLA": "8"}}]}).status_code == 200
     p = next(x for x in interno.get("/productos", params={"q": "VNEVID01"}).json()["items"] if x["codigo_generico"] == "30077703")

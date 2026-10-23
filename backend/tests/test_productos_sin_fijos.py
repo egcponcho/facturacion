@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 
+from conftest import familia_demo
 from sqlalchemy import select
 
 from app.core.db import SessionLocal
@@ -40,7 +41,7 @@ def test_regla_de_codigo_de_variante_de_la_empresa(admin, interno):
     assert r.status_code == 200, r.text
     assert r.json()["productos"]["codigo_variante"] == {"regla": "CONSECUTIVO", "factor": None, "longitud": 2}
     try:
-        r = interno.post("/catalogos/genericos", {"generico": "REGLA01", "nombre": "Rule test", "unidad": "UN",
+        r = interno.post("/catalogos/genericos", {"generico": "REGLA01", "nombre": "Rule test", "unidad": "UN", "grupo_producto_id": familia_demo(),
                                                   "variantes": [{"valores": {"TALLA": "7"}}, {"valores": {"TALLA": "8"}}]})
         assert r.status_code == 200, r.text
         assert sorted(v["sku"] for v in r.json()["variantes"]) == ["REGLA0101", "REGLA0102"]

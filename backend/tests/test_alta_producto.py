@@ -1,5 +1,6 @@
 """Alta de un producto de cualquier tipo y sus variantes: valores de cualquier
 atributo, escritos o combinados, con el código del artículo armado solo."""
+from conftest import familia_demo
 from sqlalchemy import select
 
 from app.core.db import SessionLocal
@@ -22,8 +23,8 @@ def _borrar(gen):
 
 
 def test_quimico_con_concentraciones_y_envases(interno):
-    conc = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "CONCQ", "nombre": "Concentration", "orden": 50}).json()
-    env = interno.post("/catalogos/atributos", {"nivel": "VARIANTE", "codigo": "ENVQ", "nombre": "Container", "tipo": "opcion",
+    conc = interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "CONCQ", "nombre": "Concentration", "orden": 50}).json()
+    env = interno.post("/catalogos/atributos", {"general": True, "nivel": "VARIANTE", "codigo": "ENVQ", "nombre": "Container", "tipo": "opcion",
                                                          "opciones": "1 L, 5 L", "orden": 51}).json()
     try:
         r = interno.post("/catalogos/genericos", {
@@ -60,7 +61,7 @@ def test_calzado_sigue_igual_con_tallas(interno):
     vans = next(p["id"] for p in interno.get("/catalogos/proveedores/opciones").json() if p["codigo"] == "VANS")
     try:
         r = interno.post("/catalogos/genericos", {
-            "generico": "ZAP0001", "atributos": {"MARCA": "VANS", "MODELO": "RUNNER"}, "proveedor_id": vans,
+            "generico": "ZAP0001", "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": "RUNNER"}, "proveedor_id": vans,
             "unidad": "PAR", "variantes": [{"valores": {"COLOR": "BLACK", "TALLA": "7"}},
                                            {"valores": {"COLOR": "BLACK", "TALLA": "7.5"}}]})
         assert r.status_code == 200, r.text

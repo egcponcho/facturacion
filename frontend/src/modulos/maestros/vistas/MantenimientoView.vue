@@ -239,7 +239,7 @@ async function guardarGobierno() {
 
 function vacio() {
   const f = {}
-  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? !c.propio : ['multi', 'opciones'].includes(c.tipo) ? [] : c.tipo === 'regla_lt' ? { pasos: [], orden: null } : ''
+  for (const c of campos.value) f[c.nombre] = c.tipo === 'bool' ? (c.defecto ?? !c.propio) : ['multi', 'opciones'].includes(c.tipo) ? [] : c.tipo === 'regla_lt' ? { pasos: [], orden: null } : ''
   return f
 }
 

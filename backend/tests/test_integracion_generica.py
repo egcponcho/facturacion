@@ -2,10 +2,12 @@
 familia, documentos con las etiquetas del catálogo y aprobación que no exige
 líneas nacionales (los documentos usan la subpartida de 6 dígitos)."""
 
+from conftest import familia_demo
+
 
 def test_items_accept_units_of_any_family(interno):
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    base = {"atributos": {"MARCA": "VANS", "MODELO": "CHEMKG01"}, "proveedor_id": pv["VANS"],
+    base = {"grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": "CHEMKG01"}, "proveedor_id": pv["VANS"],
             "nombre": "Citric acid 25 kg bag", "variantes": [{"valores": {"COLOR": "Clear", "TALLA": "25"}}]}
     r = interno.post("/catalogos/genericos", {**base, "generico": "30077801", "unidad": "XX"})
     assert r.status_code == 422 and "unit" in r.text.lower()

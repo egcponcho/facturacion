@@ -31,6 +31,7 @@ from app.modelos import (
     DominioClasificacion,
     EscalaValores,
     EstadoLiberacion,
+    GrupoFamilia,
     Incoterm,
     Marca,
     ModoTransporte,
@@ -63,6 +64,7 @@ from app.modulos.comun.normalizar import texto as texto_fmt
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.maestros import atributos as atr_svc
 from app.modulos.maestros import gobierno, unidades
+from app.modulos.maestros import variantes as variantes_svc
 from app.modulos.productos.productos import (
     asegurar_producto,
     codigo_valido,
@@ -329,8 +331,9 @@ CATALOGOS = {
         "modelo": Atributo, "titulo": "Attributes", "singular": "attribute",
         "ayuda": "The data your company records for its products. Product attributes (brand, model, material, UN "
                  "number…) are shared by all the variants of a product; variant attributes (size, color, flavor, "
-                 "presentation, concentration…) tell the variants apart. Each product family says which ones its "
-                 "variants use and which ones are required.",
+                 "presentation, concentration…) tell the variants apart. Each attribute applies to the families "
+                 "you choose (and their subfamilies and categories) or to all of them: a product only takes the "
+                 "attributes of its family, and its variants are told apart by the variant attributes of that family.",
         "campos": [
             c("codigo", "Code", obligatorio=True, max=20, mayus=True, patron=r"^[A-Z][A-Z0-9_]{0,19}$",
               mensaje_patron="Letters, numbers and _, starting with a letter."),
@@ -343,9 +346,21 @@ CATALOGOS = {
               ayuda="For a record of a catalog: the value is the record's code (a brand: brands of the product's supplier)."),
             c("unidad", "Unit", "opcion", lista="unidad", mostrar_si={"campo": "tipo", "valores": ["numero"]},
               ayuda="For numbers: the unit the value is written in (ml, kg, V…)."),
+            c("general", "All families", "bool", filtro=True, defecto=False,
+              ayuda="It applies to every family and to products without a family."),
+            c("familias", "Families", "multi", catalogo="familias", filtro=True,
+              mostrar_si={"campo": "general", "valores": [False]},
+              ayuda="Where it applies: these families, their subfamilies and their categories."),
             c("orden", "Order", "entero", minimo=0),
             c("activo", "Active", "bool", filtro=True),
         ],
+        "buscar": ["codigo", "nombre"],
+    },
+    # Familias de producto (se mantienen en Productos → Familias): solo para elegirlas desde otros catálogos
+    "familias": {
+        "modelo": GrupoFamilia, "titulo": "Product families", "singular": "product family",
+        "solo_lectura": True,
+        "campos": [c("codigo", "Code"), c("nombre", "Name"), c("activa", "Active", "bool")],
         "buscar": ["codigo", "nombre"],
     },
     "escalas": {
@@ -1091,17 +1106,26 @@ def _limpiar(db: Session, cat: dict, datos: dict, parcial: bool, actual=None) ->
         limpio[n] = v
 
     if cat["modelo"] is Atributo:
-        d = {**({k: getattr(actual, k) for k in ("codigo", "nivel", "tipo", "opciones", "catalogo", "unidad")}
-                if actual else {}), **limpio}
+        d = {**({k: getattr(actual, k) for k in ("codigo", "nivel", "tipo", "opciones", "catalogo", "unidad", "general",
+                                                  "familias")} if actual else {}), **limpio}
         errores += _validar_atributo(db, d, actual)
         if (d.get("tipo") or "texto") != "catalogo":
             limpio["catalogo"] = None
+        # Vale en todas las familias o en las elegidas: nunca en ninguna
+        if d.get("general"):
+            if d.get("familias"):
+                limpio["familias"] = []
+        elif not d.get("familias"):
+            errores.append({"campo": "familias", "mensaje": "Choose the families it applies to, or mark it for all families."})
 
     # Atributos de variante: uno por atributo, con el tipo de valor de cada uno
     if cat["modelo"] is Articulo:
         crudos = {k[4:]: v for k, v in datos.items() if k.startswith("atr.")}
         if crudos:
-            valores, errs = atr_svc.validar(db, "VARIANTE", crudos, campo="atr")
+            gen = str(datos.get("generico") or "").strip().upper()
+            prod = db.scalar(select(Producto).where(Producto.codigo_generico == gen)) if gen else None
+            grupo = prod.grupo_producto if prod is not None else actual.familia_efectiva if actual is not None else None
+            valores, errs = atr_svc.validar(db, "VARIANTE", crudos, campo="atr", grupo=grupo)
             errores += [{**e, "campo": e["campo"].replace("atr.", "atr.", 1)} for e in errs]
             if not errs:
                 limpio["variantes"] = {k: v for k, v in {**(actual.variantes if actual else {}), **valores}.items() if v}
@@ -1211,6 +1235,8 @@ def crear(db: Session, user: Usuario, tipo: str, datos: dict) -> dict:
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
     if isinstance(obj, Articulo):
         _exigir_articulo(db, obj)
+    if isinstance(obj, Atributo):
+        variantes_svc.olvidar(db)
     _asegurar_tercero(db, obj)
     registrar(db, user, tipo, obj.id, "crear", {"codigo": _mostrar(obj)})
     return _fila(cat, obj, _refs(db, cat, [obj]))
@@ -1261,6 +1287,10 @@ def actualizar(db: Session, user: Usuario, tipo: str, obj_id: int, datos: dict) 
         raise ErrorNegocio(f"A {cat['singular']} with that code already exists.", 409, "duplicado") from None
     if isinstance(obj, Articulo) and cambios:
         _exigir_articulo(db, obj)
+    if isinstance(obj, Atributo) and cambios:
+        variantes_svc.olvidar(db)
+        # Quitarle familias no deja valores guardados fuera de ellas
+        atr_svc.exigir(atr_svc.sin_alcance(db, [obj]), "The attribute is in use outside those families.")
     if {"nombre", "razon_social", "id_fiscal", "pais"} & set(cambios):
         _asegurar_tercero(db, obj)
     if cambios:
@@ -1296,6 +1326,9 @@ def _exigir_articulo(db: Session, a: Articulo) -> None:
 
     db.flush()
     errores = _exigidos_empresa(db, a)
+    # Sus valores de variante valen en la familia de su producto (también si cambió de producto)
+    errores += [{"campo": f"atr.{x.atributo.codigo}", "mensaje": f"{x.atributo.nombre} does not apply to the family of "
+                 f"product {a.generico}."} for x in a.atributos if not variantes_svc.aplica(x.atributo, a.familia_efectiva)]
     if errores:
         raise ErrorNegocio("Some data your company requires is missing.", 422, "validacion", errores)
     perfil.exigir_variantes(db, [a])

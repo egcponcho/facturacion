@@ -35,16 +35,41 @@ async function cargar() {
     cargando.value = false
   }
 }
-// Atributos de variante de la empresa: cada familia elige los que distinguen a sus variantes
+// Atributos de la empresa: cada familia elige los de sus productos (los generales valen en todas)
 const atributos = ref([])
+function cargarAtributos() {
+  api.get('/catalogos/atributos', { size: 200 })
+    .then((r) => (atributos.value = (r.items || []).filter((a) => a.activo !== false)
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.codigo.localeCompare(b.codigo))))
+    .catch(() => {})
+}
 onMounted(() => {
   cargar()
+  cargarAtributos()
   api.get('/grupos-producto/campos').then((c) => (catalogo.value = c)).catch(() => {})
-  api.get('/catalogos/atributos', { size: 200 })
-    .then((r) => (atributos.value = (r.items || []).filter((a) => a.activo !== false && a.nivel === 'VARIANTE')))
-    .catch(() => {})
 })
 alCambiar(cargar, ['/grupos-producto'])
+alCambiar(cargarAtributos, ['/catalogos/atributos'])
+const NIVELES = computed(() => [['PRODUCTO', t('Product attributes'), t('Shared by all the variants of a product (brand, model, material…).')],
+  ['VARIANTE', t('Variant attributes'), t('They tell the variants of its products apart (a size and a color, a concentration and a container…).')]])
+const nombreAtributo = (c) => tx(atributos.value.find((a) => a.codigo === c)?.nombre || c)
+function atributosTxt(g) {
+  const prod = (g.atributos_producto || []).map(nombreAtributo).join(', ')
+  const ejes = (g.ejes || []).map(nombreAtributo).join(' · ')
+  return [prod && t('Attributes: {0}', [prod]), ejes && t('Variants by: {0}', [ejes])].filter(Boolean).join(' — ')
+    || t('No attributes yet')
+}
+// En la familia que se edita: un atributo general o de una familia que la contiene ya vale (no se elige)
+const delPadre = computed(() => {
+  const e = edicion.value
+  const padre = e && e.padre_id !== '' ? nodos.value.find((g) => g.id === Number(e.padre_id)) : null
+  return padre ? { nombre: padre.nombre, codigos: new Set([...(padre.atributos_producto || []), ...(padre.ejes || [])]) } : null
+})
+function origenAtributo(a) {
+  if (a.general) return t('all families')
+  if (delPadre.value?.codigos.has(a.codigo)) return t('from {0}', [tx(delPadre.value.nombre)])
+  return ''
+}
 
 const familias = computed(() => nodos.value.filter((g) => g.clase === 'FAMILIA'))
 // Con un texto: los nodos que lo tienen y sus antecesores, para no perder dónde están
@@ -82,11 +107,11 @@ const edicion = ref(null)
 const guardando = ref(false)
 function nuevo(clase = 'FAMILIA', padre = null) {
   edicion.value = reactive({ id: null, clase, codigo: '', nombre: '', descripcion: '', padre_id: padre?.id ?? '',
-    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], ejes_variante: [], campos: [], dias_extra: '',
+    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], atributos: [], campos: [], dias_extra: '',
     activa: true })
 }
 function editar(g) {
-  edicion.value = reactive({ ...g, descripcion: g.descripcion || '', padre_id: g.padre_id ?? '', ejes_variante: [...(g.ejes_variante || [])],
+  edicion.value = reactive({ ...g, descripcion: g.descripcion || '', padre_id: g.padre_id ?? '', atributos: [...(g.atributos || [])],
     dias_extra: g.dias_extra ?? '',
     campos: (g.campos || []).map((c) => ({ ...c })),
     condiciones: (g.condiciones || []).map((c) => ({ ...c, valor: Array.isArray(c.valor) ? c.valor.join(', ') : c.valor })) })
@@ -127,7 +152,7 @@ async function guardar() {
   const cuerpo = { codigo: e.codigo, nombre: e.nombre, descripcion: e.descripcion || null,
     padre_id: e.padre_id === '' ? null : Number(e.padre_id), activa: e.activa, campos: e.campos,
     ...(e.clase === 'CATEGORIA' ? { condiciones: condicionesLimpias(e.condiciones) }
-      : { ejes_variante: e.ejes_variante, dias_extra: e.dias_extra === '' || e.dias_extra === null ? null : Number(e.dias_extra) }) }
+      : { atributos: e.atributos, dias_extra: e.dias_extra === '' || e.dias_extra === null ? null : Number(e.dias_extra) }) }
   guardando.value = true
   try {
     if (e.id) await api.patch(`/grupos-producto/${e.id}`, cuerpo)
@@ -166,7 +191,7 @@ async function quitar(g) {
   <div class="pagina-cabeza">
     <div>
       <h1>{{ t('Product groups') }}</h1>
-      <p>{{ t('One tree of families and categories for the whole company. Each family says which data its products need and how their variants differ; labeling and packing rules use it, from the most specific group to the most general.') }}</p>
+      <p>{{ t('One tree of families and categories for the whole company. Each family says which attributes its products have, which data they need and how their variants differ; labeling and packing rules use it, from the most specific group to the most general.') }}</p>
     </div>
     <div v-if="editable" class="acciones-cabeza">
       <button type="button" class="btn btn-primario" @click="nuevo('FAMILIA')"><Icono nombre="mas" />{{ t('New family') }}</button>
@@ -190,6 +215,7 @@ async function quitar(g) {
             <span v-if="!g.activa" class="etiqueta ms-0">{{ t('Inactive') }}</span>
           </div>
           <div v-if="g.clase === 'CATEGORIA'" class="ayuda">{{ condicionesTxt(g) }}</div>
+          <div class="ayuda">{{ atributosTxt(g) }}</div>
           <div class="ayuda">{{ usosTxt(g) }}</div>
         </div>
         <div v-if="editable" class="acciones">
@@ -222,11 +248,15 @@ async function quitar(g) {
           <option v-for="f in padresPosibles" :key="f.id" :value="f.id">{{ tx(f.ruta) }}</option>
         </Seleccion></label>
       <label class="campo"><span>{{ t('Description') }}</span><input v-model="edicion.descripcion" maxlength="300" /></label>
-      <div v-if="edicion.clase === 'FAMILIA'" class="campo"><span>{{ t('Variant attributes of its products') }}</span>
+      <div v-for="[nivel, titulo, ayuda] in edicion.clase === 'FAMILIA' ? NIVELES : []" :key="nivel" class="campo"><span>{{ titulo }}</span>
         <div class="fila-flex gap-2 envolver">
-          <label v-for="a in atributos" :key="a.codigo" class="check"><input v-model="edicion.ejes_variante" type="checkbox" :value="a.codigo" /> {{ tx(a.nombre) }}</label>
+          <label v-for="a in atributos.filter((x) => x.nivel === nivel)" :key="a.codigo" class="check">
+            <input v-if="origenAtributo(a)" type="checkbox" checked disabled />
+            <input v-else v-model="edicion.atributos" type="checkbox" :value="a.codigo" />
+            {{ tx(a.nombre) }}<small v-if="origenAtributo(a)" class="ayuda">({{ origenAtributo(a) }})</small></label>
+          <span v-if="!atributos.some((x) => x.nivel === nivel)" class="ayuda">{{ t('No attributes of this level yet.') }}</span>
         </div>
-        <small class="ayuda">{{ t('What tells the variants of its products apart (for example a measure and a color, or a concentration and a container). Empty: the ones of the parent family, or all.') }}</small></div>
+        <small class="ayuda">{{ ayuda }} {{ t('Its subfamilies and categories take them too; its products only take these.') }}</small></div>
       <label v-if="edicion.clase === 'FAMILIA'" class="campo"><span>{{ t('Extra days to the store') }}</span>
         <input v-model="edicion.dias_extra" type="number" min="0" max="365" class="ancho-s" />
         <small class="ayuda">{{ t('Days its products add after the port (inspection, labeling…) when estimating the date in store. Empty: the ones of the parent family, or none.') }}</small></label>

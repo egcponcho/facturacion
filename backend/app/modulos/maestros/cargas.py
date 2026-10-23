@@ -133,6 +133,8 @@ def _col_atributo(db: Session, a, lbl: str) -> dict:
         col["ayuda"] += f" Number in {a.unidad}."
     elif a.tipo == "fecha":
         col["ayuda"] += " Date YYYY-MM-DD."
+    if not a.general:
+        col["ayuda"] += f" Only for the families {', '.join(f.nombre for f in a.familias)} (and their subfamilies)."
     return col
 
 
@@ -246,12 +248,16 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
         unidad = normalizar(f.get("unidad")) or (f.get("unidad") or "").strip().upper()
         if unidad not in de_articulo():
             faltan.append(f"Unit must be one of {', '.join(de_articulo())}")
-        valores, errs = atr_svc.validar(db, "PRODUCTO", {k[5:]: v for k, v in f.items() if k.startswith("atrp.")}, prov_id)
+        p = producto_por_generico(db, gen)
+        grupo = familia if familia is not None else p.grupo_producto if p is not None else None
+        valores, errs = atr_svc.validar(db, "PRODUCTO", {k[5:]: v for k, v in f.items() if k.startswith("atrp.")}, prov_id,
+                                        grupo=grupo)
         valores = {k: v for k, v in valores.items() if v}
         faltan += [e["mensaje"] for e in errs]
-        p = producto_por_generico(db, gen)
         if p is None:
-            faltan += [e["mensaje"] for e in atr_svc.exigir_empresa(db, "PRODUCTO", valores)]
+            faltan += [e["mensaje"] for e in atr_svc.exigir_empresa(db, "PRODUCTO", valores, grupo=grupo)]
+        elif familia is not None and familia.id != p.grupo_producto_id:
+            faltan += [e["mensaje"] for e in atr_svc.fuera_de_familia(db, p, familia)]
         if faltan:
             errores.append({"fila": donde, "mensaje": "; ".join(faltan) + "."})
             continue
@@ -302,7 +308,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
         if (f.get("tipo") or "").strip().upper() in ("PREPACK", "PACK", "KIT"):
             errores.append({"fila": donde, "mensaje": "Packs and kits are loaded with their contents in their own tab."})
             continue
-        valores, errs = atr_svc.validar(db, "VARIANTE", crudos)
+        valores, errs = atr_svc.validar(db, "VARIANTE", crudos, grupo=p.grupo_producto)
         valores = {k: v for k, v in valores.items() if v}
         suf = (f.get("sufijo") or "").strip().upper()
         if sku and not codigo_valido(sku):
@@ -343,7 +349,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
                         existente.activo = si_no(f["activo"]) is not False
                     a = existente
                 else:
-                    ejes = variantes.ejes_de_grupo(p.grupo_producto) or [x.codigo for x in variantes.atributos(db)]
+                    ejes = variantes.ejes_de_grupo(db, p.grupo_producto)
                     base = next((valores[e] for e in reversed(ejes) if e in valores), "")
                     a = nueva_variante(db, p, sku or gen + (suf or siguiente_sufijo(db, gen, valor=base)), valores, barras,
                                        cod_prov, peso)

@@ -2,6 +2,7 @@
 proveedor y cómo se aprueba se cambia desde el sistema; el motor (familias,
 atributos y reglas) tiene sus propios permisos."""
 import pytest
+from conftest import familia_demo
 
 
 @pytest.fixture
@@ -14,7 +15,7 @@ def flujo(admin):
 def _sugerido(interno, generico: str, estilo: str) -> dict:
     """Un artículo propio de Vans con la ficha completa (estado «sugerida»)."""
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    r = interno.post("/catalogos/genericos", {"generico": generico, "atributos": {"MARCA": "VANS", "MODELO": estilo},
+    r = interno.post("/catalogos/genericos", {"generico": generico, "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": estilo},
                                               "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather skate shoe",
                                               "variantes": [{"valores": {"COLOR": "Black", "TALLA": "8"}}]})
     assert r.status_code == 200, r.text

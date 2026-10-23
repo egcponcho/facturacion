@@ -4,7 +4,7 @@ from test_alta_producto import _borrar
 
 
 def test_resumen_y_filtro_por_familia(interno, admin, vans):
-    fam = admin.post("/grupos-producto", {"codigo": "RES-FAM", "nombre": "Summary family"}).json()
+    fam = admin.post("/grupos-producto", {"codigo": "RES-FAM", "nombre": "Summary family", "atributos": ["TALLA"]}).json()
     sub = admin.post("/grupos-producto", {"codigo": "RES-SUB", "nombre": "Summary sub", "padre_id": fam["id"]}).json()
     antes = interno.get("/productos/resumen").json()
     try:

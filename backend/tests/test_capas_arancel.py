@@ -1,6 +1,7 @@
 """Separación de capas: solo fuentes oficiales determinan qué códigos, textos
 legales, DAI, impuestos y regulaciones existen. El motor interpreta y la empresa
 aporta historial, pero ninguno de los dos crea ni modifica datos oficiales."""
+from conftest import familia_demo
 from sqlalchemy import func, select
 
 from app.core.db import SessionLocal
@@ -359,7 +360,7 @@ def test_history_preferred_national_line_needs_confirmation(interno):
     """640399 tiene dos líneas oficiales en GT sin condiciones: la que solo el historial
     prefiere es una sugerencia; al aprobar, una persona la confirma."""
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    r = interno.post("/catalogos/genericos", {"generico": "30077702", "atributos": {"MARCA": "VANS", "MODELO": "VNHIST01"},
+    r = interno.post("/catalogos/genericos", {"generico": "30077702", "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": "VNHIST01"},
                                               "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather court shoe",
                                               "variantes": [{"valores": {"COLOR": "Black", "TALLA": "8"}}]})
     assert r.status_code == 200, r.text

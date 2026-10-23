@@ -2,10 +2,14 @@
 clasificación arancelaria), su asignación a los artículos y el catálogo de
 campos dinámicos con su origen."""
 
+from conftest import con_atributos
+
 
 def _familia(api, codigo, nombre, **kw):
     r = api.post("/etiquetas/familias", {"codigo": codigo, "nombre": nombre, **kw})
     assert r.status_code == 200, r.text
+    if not kw.get("padre_id"):
+        con_atributos(api, r.json()["id"])  # recibe productos de la demostración: lleva sus atributos
     return r.json()
 
 
@@ -62,8 +66,8 @@ def test_asignar_familia_por_articulos_la_pone_a_su_producto(interno):
     assert f["articulos"] == len(arts) and f["productos"] == 1
     # En uso no se borra: se desactiva
     assert interno.delete_(f"/etiquetas/familias/{ropa['id']}").status_code == 409
-    # Quitarla (familia vacía) y luego sí se puede borrar
-    assert interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": elegidos}).json()["cambiados"] == 1
+    # Devolverla a su familia y luego sí se puede borrar
+    assert interno.post("/etiquetas/articulos/familia", {"familia_id": antes[p["id"]], "ids": elegidos}).json()["cambiados"] == 1
     assert interno.delete_(f"/etiquetas/familias/{ropa['id']}").status_code == 200
     # Por filtro: los artículos que encuentra la búsqueda (aquí, los del producto por su código)
     acc = _familia(interno, "ACCESORIOS", "Accessories")
@@ -150,7 +154,10 @@ def test_asistente_de_familia_se_termina_de_una_vez_o_no_cambia_nada(interno, ad
     assert "borradores" not in interno.get("/auth/me").json()["preferencias"]
     assert interno.put("/perfil/borradores/Mal Nombre", borr).status_code == 422
     # Si algo falla (un producto que no existe) no se crea la familia
-    malo = {"familia": {"codigo": "WIZ", "nombre": "Wizard"}, "productos": [prod["id"], 999999],
+    # Dentro de la familia del producto: la nueva hereda sus atributos (un producto solo pasa a una
+    # familia donde valen los atributos que tiene)
+    malo = {"familia": {"codigo": "WIZ", "nombre": "Wizard", "padre_id": prod["familia_propia_id"]},
+            "productos": [prod["id"], 999999],
             "disenos": [{"tipo_etiqueta_id": t["id"], "plantilla_id": p["id"]}]}
     assert interno.post("/etiquetas/familias/configurar", malo).status_code == 404
     assert "WIZ" not in {f["codigo"] for f in interno.get("/etiquetas/familias").json()}

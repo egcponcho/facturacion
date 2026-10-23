@@ -21,7 +21,7 @@ def test_atributos_en_uso_y_propios(interno):
     assert interno.delete_(f"/catalogos/atributos/{talla['id']}").status_code == 409
     interno.patch(f"/catalogos/atributos/{talla['id']}", {"nombre": talla["nombre"]})
 
-    r = interno.post("/catalogos/atributos", {"codigo": "MATERIAL", "nombre": "Material", "nivel": "VARIANTE", "orden": 3})
+    r = interno.post("/catalogos/atributos", {"general": True, "codigo": "MATERIAL", "nombre": "Material", "nivel": "VARIANTE", "orden": 3})
     assert r.status_code == 200, r.text
     material = r.json()
     try:

@@ -4,6 +4,7 @@ y a la lectura de fechas de los archivos que se suben."""
 import io
 from datetime import date
 
+from conftest import familia_demo
 from openpyxl import load_workbook
 
 from app.modulos.acceso import preferencias
@@ -134,7 +135,7 @@ def test_escalas_de_valores(interno):
     assert r.status_code == 200, r.text
     # Un producto parte de la escala: los códigos de sus variantes salen de ella
     provs = {p["codigo"]: p["id"] for p in interno.get("/catalogos/proveedores/opciones").json()}
-    r = interno.post("/catalogos/genericos", {"generico": "ESC-TEST", "atributos": {"MARCA": "TNF", "MODELO": "ESCTEST"},
+    r = interno.post("/catalogos/genericos", {"generico": "ESC-TEST", "grupo_producto_id": familia_demo("APPAREL"), "atributos": {"MARCA": "TNF", "MODELO": "ESCTEST"},
                                               "proveedor_id": provs["TNF"], "unidad": "UN", "escala_id": escalas["LETRAS"]["id"],
                                               "variantes": [{"valores": {"COLOR": "Black", "TALLA": "M"}},
                                                             {"valores": {"COLOR": "Black", "TALLA": "L"}}]})

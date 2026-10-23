@@ -2,13 +2,15 @@
 que usa la pantalla: crear el producto → abrir la ficha → el motor pregunta →
 se responde → sugiere → se guarda → se envía a revisión → se aprueba → el
 producto guarda HS6, línea SAC, código de cada país y la evidencia completa."""
+from conftest import familia_demo
+
 from app.core.db import SessionLocal
 from app.modelos import Producto
 
 
 def _producto_nuevo(api):
     pv = {x["codigo"]: x["id"] for x in api.get("/catalogos/proveedores").json()["items"]}
-    r = api.post("/catalogos/genericos", {"generico": "30077701", "atributos": {"MARCA": "VANS", "MODELO": "VN0E2E01"},
+    r = api.post("/catalogos/genericos", {"generico": "30077701", "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": "VN0E2E01"},
                                           "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather skate shoe",
                                           "variantes": [{"valores": {"COLOR": "Black", "TALLA": "8"}},
                                                         {"valores": {"COLOR": "Black", "TALLA": "9"}}]})

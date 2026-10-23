@@ -48,9 +48,8 @@ class GrupoProducto(DeOrganizacion, Base):
     condiciones: Mapped[list] = mapped_column(JSON, default=list)
     # Los campos habituales del grupo y cuáles son obligatorios ([{"campo": "articulo.atributo.TALLA", "obligatorio": true}])
     campos: Mapped[list] = mapped_column(JSON, default=list)
-    # Con qué atributos de variante se distinguen las variantes de sus productos, en orden
-    # (["COLOR", "TALLA"], ["CONCENTRACION", "ENVASE"]…). Vacío: los del grupo padre.
-    ejes_variante: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # Sus atributos (los de producto y los de variante, con los que se distinguen sus variantes)
+    # están en atributo_familias: valen en la familia, sus subfamilias y sus categorías.
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)

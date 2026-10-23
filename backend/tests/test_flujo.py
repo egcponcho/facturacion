@@ -1,6 +1,8 @@
 """Recorre el flujo completo OC -> factura -> PL -> cajas -> unidad de carga -> salida."""
 from datetime import date, datetime, timedelta
 
+from conftest import familia_demo
+
 HOY = date.today().isoformat()
 # La salida va una hora antes de ahora (no a una hora fija del día): así los
 # hitos que otras pruebas registran «ahora» (arribo, recepción) quedan después
@@ -526,7 +528,7 @@ def test_catalogos(interno, tnf):
     r = interno.patch(f"/catalogos/proveedores/{provs['TNF']['id']}", {"marcas": []})
     assert r.status_code == 422 and "has products" in r.json()["detalle"][0]["mensaje"]
     assert provs["TNF"]["marcas_txt"] == "TNF" and "8000" in provs["TNF"]["sociedades_txt"]
-    r = interno.post("/catalogos/genericos", {**base, "atributos": {"MARCA": "TNF", "MODELO": "E1"},
+    r = interno.post("/catalogos/genericos", {**base, "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "TNF", "MODELO": "E1"},
                                               "variantes": [{"valores": {"COLOR": "Rojo", "TALLA": "9"}, "sku": "30099990002"}]})
     assert r.status_code == 200, r.text
     # El código de artículo es de la empresa (letras, números y . - _ /)
@@ -675,7 +677,10 @@ def test_inner_pack_y_casepack_de_la_oc(tnf, vans, interno):
     det = _oc(tnf, "4400003846")
     oc_id = next(o for o in interno.get("/ordenes", params={"solo_disponible": False}).json()["items"]
                  if o["numero"] == "4400003846")["id"]
-    mochila, fleece_s, fleece_l = _pos(det, "OS"), _pos(det, "S"), _pos(det, "L")
+    # La mochila (accesorios) no tiene talla: se distingue solo por su color
+    mochila = next(p for p in det["posiciones"] if _estilo(p) == "NF0A3VY2")
+    assert _talla(mochila) is None and mochila["valores"] == {"COLOR": "JK3 TNF Black"}
+    fleece_s, fleece_l = _pos(det, "S"), _pos(det, "L")
     assert (mochila["casepack"], mochila["inner_pack"]) == (20, 5) and fleece_s["inner_pack"] == 5
     assert "casepack" not in interno.get("/catalogos/articulos", params={"size": 1}).json()["items"][0]
     # Editar el empaque de una posición: casepack múltiplo del inner pack
@@ -698,7 +703,7 @@ def test_inner_pack_y_casepack_de_la_oc(tnf, vans, interno):
     pl_id = tnf.post(f"/facturas/{fid}/packing-lists", {}).json()["id"]
     pl = tnf.get(f"/packing-lists/{pl_id}").json()
     lf = next(l for l in pl["lineas"] if _talla(l) == "S")
-    lm = next(l for l in pl["lineas"] if _talla(l) == "OS")
+    lm = next(l for l in pl["lineas"] if l["valores"] == {"COLOR": "JK3 TNF Black"})  # la mochila, sin talla
     assert (lf["regla"], lf["inner_pack"]) == ("LIBRE", 5) and lm["regla"] == "CASEPACK"
     # Sin casepack: la caja lleva inner packs enteros
     r = tnf.post(f"/packing-lists/{pl_id}/cajas", {"version": pl["version"], "num_cajas": 1, "items": [
@@ -758,10 +763,10 @@ def test_plantillas_de_carga_en_ingles(interno):
     assert filas and not any("column" in m or "date" in m for f in filas for m in f["mensajes"])
     # Productos y variantes en una sola hoja: una columna por atributo (marca, estilo, color, talla)
     r = subir("/catalogos/articulos/importar", "productos.csv", "\n".join([
-        "Product code,Name,Unit,Supplier,Brand,Style,Color,Size,Item code,Barcode",
-        "30095129,Hiking footwear,PAR,TNF,TNF,NF0A7W4X,KX7 Black,13,30095129130,0196000200010",
-        "30095129,Hiking footwear,PAR,TNF,TNF,NF0A7W4X,KX7 Black,14,30095129140,0196000200011",
-        "30095129,Hiking footwear,PAR,TNF,TNF,NF0A7W4X,KX7 Black,15,30095129150,0196000200012"]))
+        "Product code,Name,Unit,Supplier,Family,Brand,Style,Color,Size,Item code,Barcode",
+        "30095129,Hiking footwear,PAR,TNF,FOOTWEAR-TECH,TNF,NF0A7W4X,KX7 Black,13,30095129130,0196000200010",
+        "30095129,Hiking footwear,PAR,TNF,FOOTWEAR-TECH,TNF,NF0A7W4X,KX7 Black,14,30095129140,0196000200011",
+        "30095129,Hiking footwear,PAR,TNF,FOOTWEAR-TECH,TNF,NF0A7W4X,KX7 Black,15,30095129150,0196000200012"]))
     assert r.status_code == 200 and not r.json()["errores"], r.text
     arts = interno.get("/catalogos/articulos", params={"q": "30095129"}).json()["items"]
     assert sorted(a["sku"] for a in arts) == ["30095129130", "30095129140", "30095129150"]

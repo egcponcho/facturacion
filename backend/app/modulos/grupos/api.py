@@ -32,7 +32,7 @@ class GrupoIn(_Cuerpo):
     descripcion: str | None = None
     padre_id: int | None = None
     condiciones: list[Condicion] = Field(default_factory=list)
-    ejes_variante: list[str] = Field(default_factory=list, max_length=20)
+    atributos: list[str] = Field(default_factory=list, max_length=100)
     campos: list[CampoGrupo] = Field(default_factory=list, max_length=60)
     dias_extra: int | None = Field(None, ge=0, le=365)
 
@@ -43,7 +43,7 @@ class GrupoPatch(_Cuerpo):
     descripcion: str | None = None
     padre_id: int | None = None
     condiciones: list[Condicion] | None = None
-    ejes_variante: list[str] | None = Field(None, max_length=20)
+    atributos: list[str] | None = Field(None, max_length=100)
     campos: list[CampoGrupo] | None = Field(None, max_length=60)
     dias_extra: int | None = Field(None, ge=0, le=365)
     orden: int | None = None
