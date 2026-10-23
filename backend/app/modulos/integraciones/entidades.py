@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.errores import ErrorNegocio
 from app.modelos import Factura, ImportacionOC, Usuario
-from app.modulos.maestros import variantes
+from app.modulos.catalogo import servicio as catalogo_svc
 
 
 # ---- Órdenes de compra (entrada) ------------------------------------------------
@@ -84,7 +84,7 @@ def filas_facturas(db: Session, excluir_ids: set[int], desde=None) -> tuple[list
                 "proveedor": f.proveedor.codigo if f.proveedor else None, "sociedad": f.sociedad, "centro": f.centro,
                 "moneda": f.moneda, "incoterm": f.incoterm, "oc": li.oc_numero, "posicion": li.posicion,
                 "codigo_articulo": li.codigo_articulo, "codigo_barras": li.codigo_barras, "descripcion": li.descripcion,
-                "variante": variantes.texto(variantes.de_linea(li, db)) or None,
+                "variante": catalogo_svc.texto(catalogo_svc.ordenar(db, li.variante)),
                 "cantidad": li.cantidad, "unidad": li.unidad, "precio": li.precio_unitario,
                 "importe": round(float(li.cantidad) * float(li.precio_unitario), 2),
                 "partida": li.partida_arancelaria, "pais_origen": li.pais_origen,

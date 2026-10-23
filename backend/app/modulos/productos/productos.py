@@ -47,6 +47,7 @@ from app.modelos import (
 from app.modulos.acceso.permisos import asegurar_proveedor, exigir, proveedor_filtro, tiene
 from app.modulos.clasificacion.categorias import categorias as categorias_config
 from app.modulos.clasificacion.indice_arbol import dominios_ficha
+from app.modulos.comex import flujo
 from app.modulos.comex import servicio as comex
 from app.modulos.comex.servicio import (  # noqa: F401
     APROBADOS,
@@ -57,14 +58,13 @@ from app.modulos.comex.servicio import (  # noqa: F401
     fmt_codigo,
     sin_marca,
 )
-from app.modulos.comun import adjuntos, tabla
+from app.modulos.comun import adjuntos, edicion, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.documentos import aduana
 from app.modulos.maestros import variantes as var_svc
 from app.modulos.maestros.acuerdos import acuerdos_contexto
-from app.modulos.productos import flujo
 
 
 # Países destino y dígitos de su código nacional (Centroamérica y Panamá)
@@ -1273,3 +1273,11 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
                                                   ("Status", 0.9, False), ("Source", 0.9, False)], "filas": codigos_filas},
     ]
     return exportar.exportar_reporte(titulo, sub, texto, indicadores, columnas, filas, hojas)
+
+
+# La ficha del producto se edita en exclusiva (comun/edicion.py): el producto y sus partes
+edicion.registrar_documento(
+    "producto", Producto,
+    {Producto: lambda db, o: o.id, PartidaPais: lambda db, o: o.producto_id, ProductoFoto: lambda db, o: o.producto_id,
+     ProductoDocumento: lambda db, o: o.producto_id},
+    lambda db, user, producto_id: _producto(db, user, producto_id))

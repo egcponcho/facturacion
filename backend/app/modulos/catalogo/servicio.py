@@ -489,11 +489,33 @@ def sql_familia(producto_id):
             .where(Producto.id == producto_id).scalar_subquery())
 
 
+# ---- Datos maestros que el catálogo usa -------------------------------------------------------
+def usa_registro_de(db: Session, catalogo_: str, codigo: str) -> bool:
+    """Algún producto o artículo tiene ese registro (p. ej. esa marca) en un atributo de tipo catálogo."""
+    return any(db.scalar(select(t.id).join(Atributo, Atributo.id == t.atributo_id)
+                         .where(Atributo.catalogo == catalogo_, t.valor == codigo).limit(1)) is not None
+               for t in (ProductoAtributo, ArticuloAtributo))
+
+
+def usa_unidad(db: Session, unidad: str) -> bool:
+    """Algún artículo usa esa unidad de medida."""
+    return db.scalar(select(Articulo.id).where(Articulo.unidad == unidad).limit(1)) is not None
+
+
+def regla_codigo_variante():
+    """Las reglas para formar el código de cada valor de variante (configuración de la empresa):
+    (REGLAS, REGLA_FABRICA, validar)."""
+    from app.modulos.maestros import escalas
+
+    return escalas.REGLAS, escalas.REGLA_FABRICA, escalas.validar_regla
+
+
 # ---- Atributos y valores ----------------------------------------------------------------------
 def atributos(db: Session, nivel: str = "VARIANTE") -> list[dict]:
-    """Los atributos activos de ese nivel en su orden: [{codigo, nombre, tipo, catalogo, unidad, opciones}]."""
-    return [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo, "catalogo": a.catalogo, "unidad": a.unidad,
-             "opciones": [o.strip() for o in (a.opciones or "").split(",") if o.strip()]} for a in val.atributos(db, nivel)]
+    """Los atributos activos de ese nivel en su orden: [{codigo, nombre, nivel, tipo, catalogo, unidad, opciones}]."""
+    return [{"codigo": a.codigo, "nombre": a.nombre, "nivel": nivel, "tipo": a.tipo or "texto", "catalogo": a.catalogo,
+             "unidad": a.unidad, "opciones": [o.strip() for o in (a.opciones or "").split(",") if o.strip()]}
+            for a in val.atributos(db, nivel)]
 
 
 def nombres_atributos(db: Session) -> dict[str, str]:

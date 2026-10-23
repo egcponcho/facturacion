@@ -30,12 +30,8 @@ from app.modelos import (
     GrupoCajasItem,
     OrdenCompra,
     PackingList,
-    PartidaPais,
     PLLinea,
     PosicionOC,
-    Producto,
-    ProductoDocumento,
-    ProductoFoto,
     UnidadCarga,
     Usuario,
     ahora,
@@ -45,8 +41,7 @@ from app.modulos.comun.historial import registrar
 
 VIGENCIA = 120  # segundos sin renovar para que el permiso venza
 
-ENTIDADES = {"factura": Factura, "packing_list": PackingList, "embarque": Embarque, "producto": Producto,
-             "orden": OrdenCompra}
+ENTIDADES = {"factura": Factura, "packing_list": PackingList, "embarque": Embarque, "orden": OrdenCompra}
 
 # Para cada tabla: a qué documento pertenece (entidad y cómo obtener su id)
 _RAIZ = {
@@ -60,13 +55,21 @@ _RAIZ = {
     Embarque: ("embarque", lambda db, o: o.id),
     UnidadCarga: ("embarque", lambda db, o: o.embarque_id),
     EventoEmbarque: ("embarque", lambda db, o: o.embarque_id),
-    Producto: ("producto", lambda db, o: o.id),
-    PartidaPais: ("producto", lambda db, o: o.producto_id),
-    ProductoFoto: ("producto", lambda db, o: o.producto_id),
-    ProductoDocumento: ("producto", lambda db, o: o.producto_id),
     OrdenCompra: ("orden", lambda db, o: o.id),
     PosicionOC: ("orden", lambda db, o: o.oc_id),
 }
+# Quién puede ver un documento registrado por otro módulo: (db, user, id) → falla si no
+_ACCESO: dict = {}
+
+
+def registrar_documento(entidad: str, modelo, partes: dict, verificar_acceso) -> None:
+    """Un módulo registra un documento suyo que se edita en exclusiva: su modelo, sus partes
+    ({modelo: (db, objeto) → id del documento}) y cómo se verifica que el usuario lo ve."""
+    ENTIDADES[entidad] = modelo
+    _RAIZ.update({m: (entidad, f) for m, f in partes.items()})
+    _ACCESO[entidad] = verificar_acceso
+
+
 # Cambios que no son edición del documento (los hace el sistema al tocar otro)
 _NO_CUENTAN = {"version", "actualizado_en"}
 
@@ -97,7 +100,9 @@ def _error(e: Edicion) -> ErrorNegocio:
 
 def _verificar_acceso(db: Session, user: Usuario, entidad: str, entidad_id: int) -> None:
     """Solo pide el permiso quien puede ver el documento."""
-    if entidad == "factura":
+    if entidad in _ACCESO:
+        _ACCESO[entidad](db, user, entidad_id)
+    elif entidad == "factura":
         from app.modulos.facturacion.facturas import cargar_factura
         cargar_factura(db, user, entidad_id)
     elif entidad == "packing_list":
@@ -106,9 +111,6 @@ def _verificar_acceso(db: Session, user: Usuario, entidad: str, entidad_id: int)
     elif entidad == "embarque":
         from app.modulos.transporte.transporte import _embarque
         _embarque(db, user, entidad_id)
-    elif entidad == "producto":
-        from app.modulos.productos.productos import _producto
-        _producto(db, user, entidad_id)
     elif entidad == "orden":
         from app.modulos.acceso.permisos import asegurar_proveedor
         oc = db.get(OrdenCompra, entidad_id)

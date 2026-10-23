@@ -20,7 +20,6 @@ from sqlalchemy.orm import Session
 from app.core.empresa import configuracion_actual
 from app.core.errores import ErrorNegocio
 from app.modelos import (
-    Articulo,
     Centro,
     Embarque,
     Factura,
@@ -149,7 +148,7 @@ USOS_CODIGO = {
     "monedas": [OrdenCompra.moneda, Factura.moneda, Sociedad.moneda],
     "incoterms": [OrdenCompra.incoterm, Factura.incoterm],
     "condiciones_pago": [OrdenCompra.condicion_pago],
-    "unidades": [PosicionOC.unidad, Articulo.unidad, PlantillaCaja.unidad],
+    "unidades": [PosicionOC.unidad, PlantillaCaja.unidad],
     "modos_transporte": [Puerto.tipo, TipoUnidad.modo],
 }
 
@@ -159,15 +158,14 @@ def en_uso(db: Session, tipo: str, codigo: str | None) -> bool:
         return False
     if any(db.scalar(select(col).where(col == codigo).limit(1)) is not None for col in USOS_CODIGO.get(tipo, [])):
         return True
+    from app.modulos.catalogo import servicio as catalogo
+
+    if tipo == "unidades" and catalogo.usa_unidad(db, codigo):
+        return True
     # Un catálogo al que apuntan atributos (las marcas): lo usan los productos que tienen ese valor
-    from app.modelos import ArticuloAtributo, Atributo, ProductoAtributo
     from app.modelos.maestros import CATALOGOS_ATRIBUTO
 
-    if tipo not in CATALOGOS_ATRIBUTO:
-        return False
-    return any(db.scalar(select(t.id).join(Atributo, Atributo.id == t.atributo_id)
-                         .where(Atributo.catalogo == tipo, t.valor == codigo).limit(1)) is not None
-               for t in (ProductoAtributo, ArticuloAtributo))
+    return tipo in CATALOGOS_ATRIBUTO and catalogo.usa_registro_de(db, tipo, codigo)
 
 
 def exigir_sin_uso(db: Session, tipo: str, obj) -> None:

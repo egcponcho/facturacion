@@ -206,7 +206,7 @@ def _segun_flujo(user: Usuario, permisos: list[str]) -> list[str]:
     llenan las fichas, aunque su rol tenga el permiso."""
     from sqlalchemy.orm import object_session
 
-    from app.modulos.productos.flujo import captura_permitida
+    from app.modulos.comex.flujo import captura_permitida
 
     db = object_session(user)
     if db is None or "producto.ficha" not in permisos or captura_permitida(db, user.proveedor_id):

@@ -27,8 +27,8 @@ from app.modulos.acceso import roles as servicio_roles
 from app.modulos.acceso import usuarios as servicio_usuarios
 from app.modulos.acceso.limites import limitar
 from app.modulos.acceso.permisos import catalogo_permisos, exige_datos_aduana, modulos_activos, permisos_de
+from app.modulos.comex import flujo
 from app.modulos.empresa import organizacion
-from app.modulos.productos import flujo
 from app.web.dependencias import COOKIE
 from app.web.rutas import Clave, Db, User, ejecutar
 

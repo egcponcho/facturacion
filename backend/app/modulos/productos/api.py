@@ -78,7 +78,7 @@ def clasificacion_sesion(datos: s.SesionClasificacionIn, db: Db, user: User):
     regulaciones e impuestos, con la traza de reglas aplicadas."""
     from app.modulos.acceso.permisos import exigir
     from app.modulos.clasificacion import motor_clasificacion
-    from app.modulos.productos import flujo
+    from app.modulos.comex import flujo
 
     exigir(user, "producto.ver")
     entrada = datos.model_dump(exclude={"paises", "respuestas"})

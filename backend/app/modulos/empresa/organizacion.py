@@ -18,8 +18,8 @@ from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
 from app.core.errores import ErrorNegocio
 from app.modelos import Organizacion, ReglaAprobacionOC, Sociedad, Usuario
 from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, exigir
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.historial import registrar
-from app.modulos.maestros import escalas
 
 
 def asegurar_principal(db: Session, nombre: str = "My company") -> Organizacion:
@@ -73,11 +73,8 @@ def _reglas_de(o: Organizacion) -> dict:
 
 def atributos(db: Session) -> list[dict]:
     """Atributos activos de la empresa, de producto y de variante, en su orden."""
-    from app.modelos import Atributo
-
-    return [{"codigo": a.codigo, "nombre": a.nombre, "nivel": a.nivel, "tipo": a.tipo or "texto", "opciones": a.opciones,
-             "catalogo": a.catalogo, "unidad": a.unidad}
-            for a in db.scalars(select(Atributo).where(Atributo.activo.is_(True)).order_by(Atributo.orden, Atributo.codigo))]
+    return [{**a, "opciones": ", ".join(a["opciones"]) or None}
+            for a in (*catalogo.atributos(db, "PRODUCTO"), *catalogo.atributos(db, "VARIANTE"))]
 
 
 def _definiciones(o: Organizacion) -> dict:
@@ -111,12 +108,12 @@ def _dict(o: Organizacion) -> dict:
         "campos_obligables": [{"clave": k, "texto": v} for k, v in CAMPOS_OBLIGABLES_OC.items()],
         # Productos: la regla del código de las variantes sin escala de valores
         "productos": {"codigo_variante": _codigo_variante(conf)},
-        "reglas_codigo": [{"clave": k, "texto": v} for k, v in escalas.REGLAS],
+        "reglas_codigo": [{"clave": k, "texto": v} for k, v in catalogo.regla_codigo_variante()[0]],
     }
 
 
 def _codigo_variante(conf: dict) -> dict:
-    return {**escalas.REGLA_FABRICA, **((conf.get("productos") or {}).get("codigo_variante") or {})}
+    return {**catalogo.regla_codigo_variante()[1], **((conf.get("productos") or {}).get("codigo_variante") or {})}
 
 
 # Datos de la OC que la empresa puede volver obligatorios (además de los que
@@ -320,7 +317,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
         if not isinstance(productos, dict) or set(productos) - {"codigo_variante"}:
             raise ErrorNegocio("Unknown product setting.", 422, "validacion")
         conf["productos"] = {**(conf.get("productos") or {}),
-                             **({"codigo_variante": escalas.validar_regla(productos["codigo_variante"])}
+                             **({"codigo_variante": catalogo.regla_codigo_variante()[2](productos["codigo_variante"])}
                                 if "codigo_variante" in productos else {})}
     if "campos_propios" in datos:
         campos_propios.guardar(db, campos_propios.validar_definiciones(datos["campos_propios"] or {}))
