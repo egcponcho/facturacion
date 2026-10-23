@@ -4,7 +4,7 @@ oficial): familias → categorías (reconocidas por condiciones o puestas a mano
 posición de la OC o de la lista, variante, artículo genérico, OC, lista,
 empaque) y cuántas."""
 from conftest import con_atributos
-from etiquetado_util import aprobada, articulo_de, oc_con_articulos, tipo, trabajo, uso
+from etiquetado_util import aprobada, articulo_de, nueva_familia, oc_con_articulos, tipo, trabajo, uso
 
 from app.core.db import SessionLocal
 from app.core.organizacion import en_organizacion
@@ -34,10 +34,10 @@ def test_categorias_reglas_no_lleva_y_donde_va(interno, admin):
     info = _productos(arts)
     prods = sorted({v["producto_id"] for v in info.values() if v["producto_id"]})
     antes = {v["producto_id"]: v["familia_producto"] for v in info.values() if v["producto_id"]}
-    fam = interno.post("/etiquetas/familias", {"codigo": "MRFAM", "nombre": "Rules family"}).json()
+    fam = nueva_familia(interno, "MRFAM", "Rules family").json()
     con_atributos(interno, fam["id"])
     try:
-        assert interno.post("/etiquetas/productos/familia", {"familia_id": fam["id"], "ids": prods}).status_code == 200
+        assert interno.post("/grupos-producto/productos/familia", {"familia_id": fam["id"], "ids": prods}).status_code == 200
         t = tipo(interno, "MR_TAG", cantidad="POR_LINEA")
         d_fam = aprobada(interno, admin, "MR family tag", t["id"], TEXTO)
         d_cat = aprobada(interno, admin, "MR category tag", t["id"], TEXTO)
@@ -45,11 +45,12 @@ def test_categorias_reglas_no_lleva_y_donde_va(interno, admin):
         # Categoría reconocida por condiciones (como en la clasificación): primero se prueba sin guardar
         uno = arts[0]
         cond = [{"campo": "articulo.sku", "op": "igual", "valor": info[uno]["sku"]}]
-        p = interno.post("/etiquetas/categorias/probar", {"familia_id": fam["id"], "condiciones": cond}).json()
+        p = interno.post("/grupos-producto/categorias/probar", {"familia_id": fam["id"], "condiciones": cond}).json()
         assert p["entran"] == 1 and p["ejemplos"][0]["sku"] == info[uno]["sku"], p
-        cat = interno.post("/etiquetas/categorias", {"familia_id": fam["id"], "codigo": "MRCAT", "nombre": "Rules category",
-                                                     "condiciones": cond}).json()
-        assert cat["articulos"] == 1, cat
+        cat = interno.post("/grupos-producto", {"clase": "CATEGORIA", "padre_id": fam["id"], "codigo": "MRCAT",
+                                                "nombre": "Rules category", "condiciones": cond}).json()
+        cats = interno.get("/grupos-producto/categorias", params={"familia_id": fam["id"]}).json()
+        assert [c["articulos"] for c in cats if c["id"] == cat["id"]] == [1], cats
         uso(interno, t["id"], d_cat["id"], nivel="CATEGORIA", destino_id=cat["id"])
         tr = trabajo(interno, "OC", {"oc_ids": [oc["id"]], "tipos": [t["id"]]})
         por_art = {r["articulo_id"]: r for r in _registros(tr)}
@@ -93,21 +94,21 @@ def test_categorias_reglas_no_lleva_y_donde_va(interno, admin):
         otro_p = next(x for x in interno.get("/etiquetas/productos", params={"size": 200}).json()["items"]
                       if x["id"] != info[uno]["producto_id"])
         antes[otro_p["id"]] = otro_p["familia_propia_id"]
-        interno.post("/etiquetas/productos/familia", {"familia_id": fam["id"], "ids": [otro_p["id"]]})
+        interno.post("/grupos-producto/productos/familia", {"familia_id": fam["id"], "ids": [otro_p["id"]]})
         otro = interno.get("/etiquetas/articulos", params={"producto_id": otro_p["id"]}).json()["items"][0]["id"]
         el = interno.get("/etiquetas/resolver", params={"articulo_id": otro}).json()["elecciones"]
         assert not next(x for x in el if x["tipo_etiqueta_id"] == t["id"])["porque"].get("categoria")
-        assert interno.post("/etiquetas/productos/categoria", {"categoria_id": cat["id"], "ids": [otro_p["id"]]}).status_code == 200
+        assert interno.post("/grupos-producto/productos/categoria", {"categoria_id": cat["id"], "ids": [otro_p["id"]]}).status_code == 200
         el = interno.get("/etiquetas/resolver", params={"articulo_id": otro}).json()["elecciones"]
         assert next(x for x in el if x["tipo_etiqueta_id"] == t["id"])["porque"].get("categoria") == "Rules category"
         ficha = interno.get(f"/etiquetas/productos/{otro_p['id']}").json()
         assert [(c["nombre"], c["manual"]) for c in ficha["categorias"]] == [("Rules category", True)], ficha["categorias"]
-        interno.post("/etiquetas/productos/categoria", {"categoria_id": None, "ids": [otro_p["id"]]})
+        interno.post("/grupos-producto/productos/categoria", {"categoria_id": None, "ids": [otro_p["id"]]})
         # Una categoría en uso no se borra
-        assert interno.delete_(f"/etiquetas/categorias/{cat['id']}").status_code == 409
+        assert interno.delete_(f"/grupos-producto/{cat['id']}").status_code == 409
     finally:
         for pid, f in antes.items():
-            interno.post("/etiquetas/productos/familia", {"familia_id": f, "ids": [pid]})
+            interno.post("/grupos-producto/productos/familia", {"familia_id": f, "ids": [pid]})
 
 
 def test_validacion_de_las_reglas(interno, admin):
@@ -167,7 +168,7 @@ def test_celda_guarda_la_regla_completa_y_prioridad_permite_cruces(interno, admi
     t = tipo(interno, "MR_CELDA", cantidad="POR_LINEA")
     d = aprobada(interno, admin, "MR cell", t["id"], TEXTO)
     d2 = aprobada(interno, admin, "MR cell 2", t["id"], TEXTO)
-    fam = interno.post("/etiquetas/familias", {"codigo": "MRCEL", "nombre": "Cell family"}).json()
+    fam = nueva_familia(interno, "MRCEL", "Cell family").json()
     base = {"tipo_etiqueta_id": t["id"], "nivel": "FAMILIA", "destino_id": fam["id"]}
     # La regla normal de la celda: un diseño con dónde va y cuántas
     c = interno.get("/etiquetas/celda", params={"tipo": t["id"], "nivel": "FAMILIA", "destino_id": fam["id"]}).json()

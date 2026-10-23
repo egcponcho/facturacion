@@ -133,3 +133,19 @@ centros, usuarios y roles **no se tocan**.
 
 Mientras no termine la etapa 7, el sistema sigue funcionando con lo
 actual; lo viejo solo se borra al final, cuando todo ya usa lo nuevo.
+
+## 9. Avance
+
+| Etapa | Estado | Qué quedó |
+|---|---|---|
+| 1. Núcleo y servicio | En curso | `catalogo/servicio.py` (fichas de familia, producto y artículo; consultas de ids; conteos y listados por familia) y la prueba de arquitectura. Faltan las tablas nuevas (llegan con la etapa 7, opción A). |
+| 2. Familias | Hecha | Un solo controlador: `catalogo/familias.py` (rutas `/grupos-producto`: familias, categorías, probar condiciones, orden, poner familia o categoría a productos y artículos). Registro de secciones (`catalogo/secciones.py`) con logística (`familia_logistica`: días extra), etiquetado (`familia_etiquetado`: campos de sus etiquetas) y empaque (sus reglas, solo lectura). Migración 0095. Las familias y categorías del etiquetado dejaron de tener su propio alta y cambio: las pantallas del etiquetado usan el controlador del catálogo. La sección de comercio exterior llega con la etapa 3. |
+| 3. Comercio exterior | Pendiente | `comex/servicio.py` ya da estado, partida, origen, descripción aduanera y los datos de ficha que imprime una etiqueta; faltan las tablas propias. |
+| 4. Compras, facturación, PL, recepción, seguimiento, transporte, reportes | Hecha | Leen por los servicios del catálogo y de comercio exterior. |
+| 5. Etiquetado y empaque | Hecha | Motor de reglas, generación, trabajos, matriz y simulación con fichas del catálogo; la categoría se reconoce solo con datos del catálogo. |
+| 6. Pantallas | Pendiente | La pantalla de familias ya muestra una pestaña por sección. |
+| 7. Retiro de lo viejo | Pendiente | |
+
+Las categorías se reconocen con el vocabulario del catálogo
+(`catalogo.campos_condiciones`): datos del artículo, de su producto y sus
+atributos. Los datos de comercio exterior no deciden la categoría.

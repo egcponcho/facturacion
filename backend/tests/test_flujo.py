@@ -994,10 +994,10 @@ def test_estado_del_embarque_frente_a_tienda(interno):
 
     ocs = interno.get("/ordenes", params={"size": 50}).json()["items"]
     o, fam = next((o, f) for o in ocs if o.get("tienda_estimada") for f in [familia_de(o["id"])] if f)
-    assert interno.patch(f"/grupos-producto/{fam}", {"dias_extra": 10}).status_code == 200
+    assert interno.put(f"/grupos-producto/{fam}/secciones/logistica", {"dias_extra": 10}).status_code == 200
     o2 = next(x for x in interno.get("/ordenes", params={"size": 50}).json()["items"] if x["id"] == o["id"])
     assert (date.fromisoformat(o2["tienda_estimada"]) - date.fromisoformat(o["tienda_estimada"])).days == 10
-    interno.patch(f"/grupos-producto/{fam}", {"dias_extra": None})
+    interno.put(f"/grupos-producto/{fam}/secciones/logistica", {"dias_extra": None})
 
 
 def test_consistencia_de_maestros(interno):

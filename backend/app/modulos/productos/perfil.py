@@ -58,6 +58,32 @@ def _equivalente(db: Session | None, c: str) -> str:
     return c
 
 
+MAX_CAMPOS = 60
+
+
+def validar_campos(db: Session, campos) -> list[dict]:
+    """[{campo, obligatorio}] con datos del artículo o del producto que existan: lo que la familia
+    exige a sus productos al guardarlos."""
+    from app.core.errores import ErrorNegocio
+
+    if campos is None:
+        return []
+    if not isinstance(campos, list) or len(campos) > MAX_CAMPOS:
+        raise ErrorNegocio(f"At most {MAX_CAMPOS} fields per family.", 422, "validacion")
+    validos = {k for k in _etiquetas(db) if k.startswith(("articulo.", "producto."))}
+    limpio, vistos = [], set()
+    for x in campos:
+        clave = (x or {}).get("campo") if isinstance(x, dict) else None
+        if clave not in validos:
+            raise ErrorNegocio(f"Unknown item field: {clave}.", 422, "validacion",
+                               [{"campo": "campos", "mensaje": f"Unknown item field: {clave}."}])
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        limpio.append({"campo": clave, "obligatorio": bool(x.get("obligatorio"))})
+    return limpio
+
+
 def obligatorios(grupo) -> list[str]:
     """Campos obligatorios del nodo y de las familias que lo contienen."""
     res: list[str] = []

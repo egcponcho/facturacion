@@ -8146,5 +8146,16 @@
 "{0} per pack": "{0} por pack",
 "{0} values": "{0} valores",
 "{0} variants lack a value of their family and are only in the list.": "{0} variantes no tienen un valor de su familia y solo aparecen en la lista.",
-"{0} without data": "{0} sin dato"
+"{0} without data": "{0} sin dato",
+"Asked when its products and variants are created or changed (also in bulk uploads). Its subfamilies and categories add theirs.": "Se piden al crear o cambiar sus productos y variantes (también en cargas masivas). Sus subfamilias y categorías agregan los suyos.",
+"Fields the labels of its products expect. A required one that is empty stops the labels from being printed until it is filled.": "Campos que esperan las etiquetas de sus productos. Si uno obligatorio está vacío, las etiquetas no se imprimen hasta completarlo.",
+"From the families that contain it": "De las familias que la contienen",
+"Its label designs ({0} rules)": "Sus diseños de etiqueta ({0} reglas)",
+"No fields yet.": "Todavía no hay campos.",
+"No packing rules for this family: the ones of the families that contain it or of the whole company apply.": "Esta familia no tiene reglas de empaque: valen las de las familias que la contienen o las de toda la empresa.",
+"Packing recipes and rules": "Recetas y reglas de empaque",
+"Packing rules that choose the packing recipe of its products.": "Reglas de empaque que eligen la receta de empaque de sus productos.",
+"Saved.": "Guardado.",
+"Search a field (barcode, weight, brand…)": "Buscar un campo (código de barras, peso, marca…)",
+"Today it uses {0}.": "Hoy usa {0}."
 }

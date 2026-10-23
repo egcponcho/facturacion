@@ -48,9 +48,9 @@ const oc = (await a.get('/ordenes?solo_disponible=false&size=1')).items[0]
 const posiciones = (await a.get(`/ordenes/${oc.id}`)).posiciones.filter((x) => x.codigo_articulo)
 // Una familia con un artículo de esa OC
 let familia = (await a.get('/etiquetas/familias'))[0]
-if (!familia) familia = await (await a.post('/etiquetas/familias', { codigo: 'E2E', nombre: 'E2E family' })).json()
+if (!familia) familia = await (await a.post('/grupos-producto', { clase: 'FAMILIA', codigo: 'E2E', nombre: 'E2E family' })).json()
 const art = (await a.get(`/etiquetas/articulos?q=${encodeURIComponent(posiciones[0].codigo_articulo)}`)).items?.[0]
-if (art && !art.familia_id) await a.post('/etiquetas/articulos/familia', { familia_id: familia.id, ids: [art.id] })
+if (art && !art.familia_id) await a.post('/grupos-producto/articulos/familia', { familia_id: familia.id, ids: [art.id] })
 for (const [ruta, espera] of [[`/etiquetas/generar?oc=${oc.id}`, /\/etiquetas\/trabajos\/\d+/],
   [`/etiquetas/masiva?familia=${familia.id}`, /\/etiquetas\/trabajos\/\d+/]]) {
   await p.goto(BASE + ruta)
@@ -125,8 +125,8 @@ await quieto()
   revisar(!(await a.get('/perfil/borradores')).length, 'al terminar el borrador desaparece')
   // Deja la demostración como estaba
   if (fam) {
-    if (sinFamilia) await a.post('/etiquetas/productos/familia', { familia_id: null, ids: [sinFamilia.id] })
-    await a.del(`/etiquetas/familias/${fam.id}`)
+    if (sinFamilia) await a.post('/grupos-producto/productos/familia', { familia_id: null, ids: [sinFamilia.id] })
+    await a.del(`/grupos-producto/${fam.id}`)
   }
 }
 
@@ -150,10 +150,10 @@ await quieto()
     await form.getByRole('button', { name: /Test with the items|Probar con los artículos/ }).click()
     await quieto()
     revisar(/\b1 (of|de)\b/.test(await form.locator('.cats-prueba').innerText()), 'probar dice cuántos artículos caen en la categoría antes de guardar')
-    revisar(!(await a.get(`/etiquetas/categorias?familia_id=${fam.id}`)).some((c) => c.codigo === codigo), 'probar no guarda nada')
+    revisar(!(await a.get(`/grupos-producto/categorias?familia_id=${fam.id}`)).some((c) => c.codigo === codigo), 'probar no guarda nada')
     await form.getByRole('button', { name: /^(Create category|Crear categoría)$/ }).click()
     await quieto()
-    const cat = (await a.get(`/etiquetas/categorias?familia_id=${fam.id}`)).find((c) => c.codigo === codigo)
+    const cat = (await a.get(`/grupos-producto/categorias?familia_id=${fam.id}`)).find((c) => c.codigo === codigo)
     revisar(cat?.articulos === 1, `la categoría se crea y reconoce su artículo (${cat?.articulos})`)
     // Su primera etiqueta: «no lleva»
     const tipo = (await a.get('/etiquetas/tipos')).find((x) => x.sujeto === 'ARTICULO')
@@ -175,8 +175,8 @@ await quieto()
     // Deja la demostración como estaba
     await a.put('/etiquetas/usos/celda', { tipo_etiqueta_id: tipo.id, nivel: 'CATEGORIA', destino_id: cat.id, firma: celda.firma, normal: null })
     // La regla dada de baja queda en el historial: la categoría no se borra, se desactiva
-    revisar((await a.del(`/etiquetas/categorias/${cat.id}`)).status() === 409, 'una categoría con historial de reglas no se borra')
-    await a.patch(`/etiquetas/categorias/${cat.id}`, { activa: false })
+    revisar((await a.del(`/grupos-producto/${cat.id}`)).status() === 409, 'una categoría con historial de reglas no se borra')
+    await a.patch(`/grupos-producto/${cat.id}`, { activa: false })
     const m = await a.get('/etiquetas/matriz')
     revisar(!m.filas.some((f) => f.nivel === 'CATEGORIA' && f.id === cat.id), 'desactivada, sale de la matriz y sus artículos vuelven a la familia')
   }

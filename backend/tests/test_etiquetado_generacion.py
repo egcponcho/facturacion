@@ -16,6 +16,7 @@ from etiquetado_util import (
     cambiar,
     generado,
     generar,
+    nueva_familia,
     oc_con_articulos,
     pdf,
     problemas,
@@ -142,14 +143,14 @@ def test_hoja_que_no_cabe_se_rechaza(interno, oc, tipos, combinada):
 def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, tipos, combinada):
     linea = oc["lineas"][0]
     articulo_id = articulo_de(linea["id"])
-    fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
-                                               "campos": [{"campo": "articulo.extra.no_existe_aun", "obligatorio": True}]})
-    assert fam.status_code == 422  # un campo que no existe no se acepta
-    fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
-                                               "campos": [{"campo": "producto.uso", "obligatorio": True}]}).json()
+    fam = nueva_familia(interno, "GENFAM", "Generation family").json()
+    seccion = f"/grupos-producto/{fam['id']}/secciones/etiquetado"
+    # Un campo que no existe no se acepta en los campos de sus etiquetas
+    assert interno.put(seccion, {"campos": [{"campo": "articulo.extra.no_existe_aun", "obligatorio": True}]}).status_code == 422
+    assert interno.put(seccion, {"campos": [{"campo": "producto.uso", "obligatorio": True}]}).status_code == 200
     con_atributos(interno, fam["id"])
     antes = familia_de(articulo_id)
-    assert interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [articulo_id]}).status_code == 200
+    assert interno.post("/grupos-producto/articulos/familia", {"familia_id": fam["id"], "ids": [articulo_id]}).status_code == 200
     de_familia = aprobada(interno, admin, "Generation family label", tipos["linea"]["id"], [c for c in COMBINADA if c["id"] != "talla"])
     uso(interno, tipos["linea"]["id"], de_familia["id"], "FAMILIA", fam["id"])
     try:
@@ -168,7 +169,7 @@ def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, ti
             assert "dato_familia" in problemas(r0)
     finally:
         # Se deja todo como estaba para las demás pruebas
-        interno.post("/etiquetas/articulos/familia", {"familia_id": antes, "ids": [articulo_id]})
+        interno.post("/grupos-producto/articulos/familia", {"familia_id": antes, "ids": [articulo_id]})
 
 
 def test_advertencias_y_duplicados_piden_confirmar(interno, oc, tipos, combinada):

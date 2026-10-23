@@ -26,6 +26,9 @@ import { textoDonde, textoSalida } from '@/modulos/etiquetado/etiquetas.js'
 // la vista de artículos elige variantes y les pone la familia a sus productos. Para agregar no hay que ir
 // al final: «Agregar a esta familia» está arriba y lo elegido se pone desde la
 // barra flotante. Editar y crear se hace en la misma página, sin ventanas.
+// La familia es una sola (la del catálogo, /grupos-producto): aquí se crea o se
+// cambia con el mismo controlador que en Productos, y lo del etiquetado (los
+// campos de sus etiquetas) se guarda en su sección de etiquetado.
 const route = useRoute()
 const router = useRouter()
 const editable = computed(() => puede('etiquetas.familias'))
@@ -45,7 +48,7 @@ async function cargarFamilias() {
   }
 }
 onMounted(cargarFamilias)
-alCambiar(() => cargarFamilias(), ['/etiquetas/familias'])
+alCambiar(() => cargarFamilias(), ['/etiquetas/familias', '/grupos-producto'])
 const arbol = computed(() => {
   const hijos = {}
   for (const f of familias.value) (hijos[f.padre_id || 0] ||= []).push(f)
@@ -77,7 +80,7 @@ async function cargarMatriz() {
   }
 }
 onMounted(cargarMatriz)
-alCambiar(() => cargarMatriz(), ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias', '/etiquetas/categorias'])
+alCambiar(() => cargarMatriz(), ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias', '/grupos-producto'])
 const filaMatriz = computed(() => (matriz.value?.filas || []).find((f) => f.nivel === 'FAMILIA' && String(f.id) === elegida.value))
 const celda = ref(null)
 function abrirCelda(tipo) {
@@ -93,7 +96,7 @@ const categorias = ref([])
 const categoriaDestino = ref('')
 async function asignarCategoria(categoria) {
   try {
-    const r = await api.post('/etiquetas/productos/categoria', { categoria_id: categoria ? Number(categoria) : null, ids: seleccion.value })
+    const r = await api.post('/grupos-producto/productos/categoria', { categoria_id: categoria ? Number(categoria) : null, ids: seleccion.value })
     avisar(t('{0} changed.', [fmtNum(r.cambiados)]))
     categoriaDestino.value = ''
     cargarMatriz()
@@ -167,10 +170,12 @@ async function asignar(familia, todos = false) {
   const familia_id = familia === 'ninguna' || familia == null ? null : Number(familia)
   try {
     let r
-    if (que.value === 'productos') r = await api.post('/etiquetas/productos/familia', { familia_id, ids: seleccion.value })
+    if (que.value === 'productos') r = await api.post('/grupos-producto/productos/familia', { familia_id, ids: seleccion.value })
     else {
-      r = await api.post('/etiquetas/articulos/familia', todos ? { familia_id, filtro: { q: q.value || undefined, familia: filtroFamilia.value } }
-        : { familia_id, ids: seleccion.value })
+      // Todos los del filtro: primero sus ids (la familia la pone el catálogo, por artículos elegidos)
+      const ids = todos ? (await api.get('/etiquetas/articulos', { q: q.value || undefined, familia: filtroFamilia.value, solo_ids: true })).ids
+        : seleccion.value
+      r = await api.post('/grupos-producto/articulos/familia', { familia_id, ids })
     }
     avisar(t('{0} changed.', [fmtNum(r.cambiados ?? seleccion.value.length)]))
     destino.value = ''
@@ -192,9 +197,10 @@ function editar(f) {
 }
 async function guardar() {
   const f = formulario.value
-  const cuerpo = { codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion, activa: f.activa, campos: f.campos, padre_id: f.padre_id || null }
+  const cuerpo = { codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion, activa: f.activa, padre_id: f.padre_id || null }
   try {
-    const r = f.id ? await api.patch(`/etiquetas/familias/${f.id}`, cuerpo) : await api.post('/etiquetas/familias', cuerpo)
+    const r = f.id ? await api.patch(`/grupos-producto/${f.id}`, cuerpo) : await api.post('/grupos-producto', { ...cuerpo, clase: 'FAMILIA' })
+    await api.put(`/grupos-producto/${r.id}/secciones/etiquetado`, { campos: f.campos || [] })
     avisar(f.id ? t('Family saved.') : t('Family “{0}” created.', [f.nombre]))
     formulario.value = null
     await cargarFamilias()
@@ -211,7 +217,7 @@ function cancelar() {
 async function eliminar(f) {
   if (!(await confirmar(t('The family {0} is deleted (if something uses it, it is deactivated instead).', [f.nombre]), { titulo: t('Delete family'), boton: t('Delete'), peligro: true }))) return
   try {
-    await api.del(`/etiquetas/familias/${f.id}`)
+    await api.del(`/grupos-producto/${f.id}`)
     avisar(t('Family deleted.'))
     formulario.value = null
     elegir('')
@@ -230,7 +236,8 @@ async function mover(f, delta) {
   const b = ids.indexOf(hermanas[j].id)
   ;[ids[a], ids[b]] = [ids[b], ids[a]]
   try {
-    familias.value = await api.put('/etiquetas/familias/orden', { ids })
+    await api.put('/grupos-producto/orden', { ids })
+    await cargarFamilias()
   } catch (e) {
     errorApi(e)
   }

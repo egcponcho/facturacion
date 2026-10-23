@@ -16,7 +16,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Select, event, func, or_, select
+from sqlalchemy import Select, and_, event, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.modelos import (
@@ -185,19 +185,6 @@ def familia_de_grupos(db: Session) -> dict[int, FichaFamilia]:
     return {g.id: f for g in db.scalars(select(GrupoProducto)) if (f := _ficha_familia(g.familia)) is not None}
 
 
-def dias_extra_familias(db: Session) -> dict[int, int]:
-    """{nodo: días extra efectivos} (los suyos o los de la familia más cercana que los tenga).
-    Temporal: pasan a la sección de logística de la familia."""
-    return {g.id: g.dias_extra_efectivos for g in db.scalars(select(GrupoProducto))}
-
-
-def campos_familia(db: Session, familia_id: int | None) -> list[dict]:
-    """TEMPORAL (hasta la sección de etiquetado de la familia): los campos que la familia y las que la
-    contienen esperan ({campo, obligatorio}), de la raíz a ella."""
-    g = db.get(GrupoProducto, familia_id) if familia_id else None
-    return [c for x in (g.ruta() if g is not None else []) for c in (x.campos or [])]
-
-
 def grupos_de_articulos():
     """Subconsulta (articulo_id, producto_id, grupo_id) para unir con tablas de otros módulos:
     `join(sub, sub.c.articulo_id == Tabla.articulo_id)`. grupo_id es el nodo del árbol de su producto."""
@@ -253,7 +240,7 @@ def categoria(db: Session, ficha: FichaArticulo | None, cache: dict | None = Non
     más específica a la más general) que se reconoce por sus condiciones sobre `valores_condiciones`."""
     if ficha is None or ficha.familia is None:
         return None
-    from app.modulos.grupos import arbol
+    from app.modulos.catalogo import familias as arbol
 
     if cache is None:
         cache = {}
@@ -266,7 +253,7 @@ def ruta_reglas(db: Session, ficha: FichaArticulo | None, cache: dict | None = N
     condiciones sobre `valores_condiciones`), su familia y las familias que la contienen."""
     if ficha is None:
         return []
-    from app.modulos.grupos import arbol
+    from app.modulos.catalogo import familias as arbol
 
     if cache is None:
         cache = {}
@@ -426,7 +413,7 @@ def buscar(db: Session, texto: str | None = None, proveedor_id: int | None = Non
 def ids(*, marca: str | None = None, marcas: Iterable[str] | None = None, proveedor_id: int | None = None,
         proveedores: Iterable[int] | None = None, familia_id: int | None = None, producto_id: int | None = None,
         valores: dict[str, Iterable[str]] | None = None, texto: str | None = None, solo_activos: bool = False,
-        tipo: str | None = None) -> Select:
+        tipo: str | None = None, familia_exacta_id: int | None = None, sin_familia: bool = False) -> Select:
     """`select(id)` de los artículos que cumplen todos los filtros dados. Se usa como
     `Tabla.articulo_id.in_(catalogo.ids(...))`. Los valores de variante se comparan sin
     distinguir mayúsculas; la familia incluye sus subfamilias y categorías; el texto sigue la
@@ -448,6 +435,8 @@ def ids(*, marca: str | None = None, marcas: Iterable[str] | None = None, provee
             .where(Atributo.catalogo == "marcas", ProductoAtributo.valor.in_(lista_marcas))))
     if familia_id is not None:
         c = c.where(Articulo.producto_id.in_(select(Producto.id).where(Producto.grupo_producto_id.in_(_subarbol(familia_id)))))
+    if familia_exacta_id is not None or sin_familia:
+        c = c.where(Articulo.producto_id.in_(ids_productos(familia_exacta_id=familia_exacta_id, sin_familia=sin_familia)))
     for codigo, vs in (valores or {}).items():
         vs = [str(v).upper() for v in vs if v not in (None, "")]
         if vs:
@@ -536,6 +525,67 @@ def ids_productos_con_articulos(articulo_ids: Select | Iterable[int]) -> Select:
     return select(Articulo.producto_id).where(Articulo.id.in_(articulo_ids)).distinct()
 
 
+def ids_productos(*, texto: str | None = None, proveedores: Iterable[int] | None = None,
+                  familia_exacta_id: int | None = None, sin_familia: bool = False) -> Select:
+    """`select(id)` de productos por texto, proveedores y familia: la suya exacta (o una categoría
+    de ella), no las subfamilias; `sin_familia`, los que no tienen."""
+    c = ids_productos_texto(texto, proveedores)
+    if familia_exacta_id is not None:
+        c = c.where(Producto.grupo_producto_id.in_(select(GrupoProducto.id).where(or_(
+            GrupoProducto.id == familia_exacta_id,
+            and_(GrupoProducto.padre_id == familia_exacta_id, GrupoProducto.clase == "CATEGORIA")))))
+    if sin_familia:
+        c = c.where(Producto.grupo_producto_id.is_(None))
+    return c
+
+
+def ids_entre(filtro: Select, ids_: Iterable[int]) -> Select:
+    """El filtro de artículos, solo entre esos ids."""
+    return filtro.where(Articulo.id.in_(list(ids_)))
+
+
+def lista_ids(db: Session, filtro: Select, limite: int) -> list[int]:
+    """Los ids de artículos del filtro, en orden, hasta el límite."""
+    return list(db.scalars(filtro.order_by(Articulo.id).limit(limite)))
+
+
+def pagina_articulos(db: Session, filtro: Select, page: int = 1, size: int = 50) -> tuple[int, list[FichaArticulo]]:
+    """(cuántos, una página de fichas en orden de código) de un filtro de `ids()`."""
+    total = db.scalar(select(func.count()).select_from(filtro.subquery())) or 0
+    lista = list(db.scalars(filtro.order_by(Articulo.sku, Articulo.id).offset((max(page, 1) - 1) * size).limit(size)))
+    fichas = articulos(db, lista)
+    return total, [fichas[i] for i in lista if i in fichas]
+
+
+def pagina_productos(db: Session, filtro: Select, page: int = 1, size: int = 50) -> tuple[int, list[FichaProducto]]:
+    """(cuántos, una página de fichas en orden de código) de un filtro de `ids_productos()`."""
+    total = db.scalar(select(func.count()).select_from(filtro.subquery())) or 0
+    lista = list(db.scalars(select(Producto.id).where(Producto.id.in_(filtro))
+                            .order_by(Producto.codigo_generico, Producto.id).offset((max(page, 1) - 1) * size).limit(size)))
+    fichas = productos(db, lista)
+    return total, [fichas[i] for i in lista if i in fichas]
+
+
+def contar_productos_por_familia(db: Session) -> dict[int | None, int]:
+    """{familia: cuántos productos} (None: sin familia)."""
+    fam = familia_de_grupos(db)
+    res: dict[int | None, int] = {}
+    for gid, n in db.execute(select(Producto.grupo_producto_id, func.count()).group_by(Producto.grupo_producto_id)):
+        f = fam.get(gid)
+        res[f.id if f else None] = res.get(f.id if f else None, 0) + n
+    return res
+
+
+def contar_articulos_por_producto(db: Session, producto_ids: Iterable[int], solo_activos: bool = True) -> dict[int, int]:
+    lista = sorted(set(producto_ids))
+    if not lista:
+        return {}
+    c = select(Articulo.producto_id, func.count()).where(Articulo.producto_id.in_(lista))
+    if solo_activos:
+        c = c.where(Articulo.activo.is_(True))
+    return dict(db.execute(c.group_by(Articulo.producto_id)).all())
+
+
 # ---- Expresiones SQL para reportes -------------------------------------------------------------
 def columnas_producto() -> dict:
     """Las columnas del producto que un reporte puede usar como tabla base: id, codigo, nombre,
@@ -618,3 +668,24 @@ def valores_distintos(db: Session, articulo_ids: Select | Iterable[int]) -> dict
         res.setdefault(codigo, []).append(valor)
     orden = val.orden_de_valores(db)
     return {k: val.ordenados(res[k], orden.get(k)) for k in val.ordenar(db, res)}
+
+
+# ---- Vocabulario de las condiciones de una categoría ---------------------------------------------
+_CAMPOS_CONDICION = {
+    "articulo.sku": "SKU", "articulo.codigo_proveedor": "Supplier item code", "articulo.codigo_barras": "Barcode (GTIN, EAN, UPC)",
+    "articulo.generico": "Product code", "articulo.variante": "Variant (its values)", "articulo.descripcion": "Item description",
+    "articulo.unidad": "Unit of measure", "articulo.tipo": "Item type (simple / pack or kit)",
+    "articulo.peso_unitario": "Unit weight (kg)", "articulo.codigo_pack": "Pack ID",
+    "articulo.familia_codigo": "Product family code", "articulo.familia": "Product family",
+    "articulo.familia_ruta": "Product family path (codes)", "producto.nombre": "Product name",
+    "producto.codigo_generico": "Product code (product)", "producto.marca": "Brand",
+}
+
+
+def campos_condiciones(db: Session) -> list[dict]:
+    """Los datos con que se reconoce una categoría (las claves de `valores_condiciones`): los del
+    artículo, los de su producto y un campo por cada atributo de variante y de producto."""
+    res = [{"clave": k, "etiqueta": e} for k, e in _CAMPOS_CONDICION.items()]
+    res += [{"clave": f"articulo.atributo.{a.codigo}", "etiqueta": a.nombre} for a in val.atributos(db, "VARIANTE")]
+    res += [{"clave": f"producto.dato.{a.codigo}", "etiqueta": a.nombre} for a in val.atributos(db, "PRODUCTO")]
+    return res

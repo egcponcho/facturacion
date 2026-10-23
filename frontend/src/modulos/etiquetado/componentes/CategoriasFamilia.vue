@@ -30,7 +30,7 @@ const operadores = ref([])
 async function cargar() {
   cargando.value = true
   try {
-    categorias.value = await api.get('/etiquetas/categorias', { familia_id: props.familia.id })
+    categorias.value = await api.get('/grupos-producto/categorias', { familia_id: props.familia.id })
     emit('cargadas', categorias.value)
   } catch (e) {
     errorApi(e)
@@ -41,14 +41,14 @@ async function cargar() {
 onMounted(() => {
   cargar()
   catalogos().then((c) => (operadores.value = c.operadores_simples)).catch(() => {})
-  api.get('/etiquetas/campos', { sujeto: 'ARTICULO' })
-    .then((r) => (campos.value = r.campos.filter((c) => /^(articulo|producto)\./.test(c.clave)))).catch(() => {}) // solo datos del artículo y del producto
+  // Las categorías se reconocen con los datos del catálogo (los del artículo y su producto)
+  api.get('/grupos-producto/campos').then((r) => (campos.value = r.campos)).catch(() => {})
 })
 watch(() => props.familia.id, () => {
   formulario.value = null
   cargar()
 })
-alCambiar(() => cargar(), ['/etiquetas/categorias'])
+alCambiar(() => cargar(), ['/grupos-producto'])
 
 const filaDe = (c) => (props.matriz?.filas || []).find((f) => f.nivel === 'CATEGORIA' && f.id === c.id)
 const nombreCampo = (clave) => tx(campos.value.find((f) => f.clave === clave)?.etiqueta || clave)
@@ -72,7 +72,7 @@ function editar(c) {
 async function probar() {
   probando.value = true
   try {
-    prueba.value = await api.post('/etiquetas/categorias/probar', { familia_id: props.familia.id, categoria_id: formulario.value.id || null,
+    prueba.value = await api.post('/grupos-producto/categorias/probar', { familia_id: props.familia.id, categoria_id: formulario.value.id || null,
       condiciones: condicionesLimpias(formulario.value.condiciones) })
   } catch (e) {
     errorApi(e)
@@ -84,11 +84,12 @@ async function probar() {
 watch(() => formulario.value && JSON.stringify(formulario.value.condiciones), () => (prueba.value = null))
 async function guardar() {
   const f = formulario.value
-  const cuerpo = { familia_id: props.familia.id, codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion || null,
+  // La categoría es un nodo del árbol de familias del catálogo, dentro de esta familia
+  const cuerpo = { padre_id: props.familia.id, codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion || null,
     condiciones: condicionesLimpias(f.condiciones), activa: f.activa }
   try {
-    if (f.id) await api.patch(`/etiquetas/categorias/${f.id}`, cuerpo)
-    else await api.post('/etiquetas/categorias', cuerpo)
+    if (f.id) await api.patch(`/grupos-producto/${f.id}`, cuerpo)
+    else await api.post('/grupos-producto', { ...cuerpo, clase: 'CATEGORIA' })
     avisar(f.id ? t('Category saved.') : t('Category “{0}” created: now give it its labels.', [f.nombre]))
     formulario.value = null
     await cargar()
@@ -101,7 +102,7 @@ async function eliminar(c) {
   if (!(await confirmar(t('The category {0} is deleted. Its items go back to the rules of the family.', [tx(c.nombre)]),
     { titulo: t('Delete category'), boton: t('Delete'), peligro: true }))) return
   try {
-    await api.del(`/etiquetas/categorias/${c.id}`)
+    await api.del(`/grupos-producto/${c.id}`)
     avisar(t('Category deleted.'))
     formulario.value = null
     await cargar()
@@ -109,7 +110,7 @@ async function eliminar(c) {
   } catch (e) {
     if (e.status === 409 && await confirmar(t('It has rules or products: deactivate it instead? Its items go back to the rules of the family.'),
       { titulo: t('Deactivate category'), boton: t('Deactivate') })) {
-      await api.patch(`/etiquetas/categorias/${c.id}`, { activa: false }).catch(errorApi)
+      await api.patch(`/grupos-producto/${c.id}`, { activa: false }).catch(errorApi)
       formulario.value = null
       await cargar()
       emit('cambio')

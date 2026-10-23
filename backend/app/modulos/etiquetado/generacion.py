@@ -42,7 +42,7 @@ from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, tiene
 from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.historial import registrar
-from app.modulos.etiquetado import campos, datos, familias, plantillas, reglas, render, salidas
+from app.modulos.etiquetado import campos, datos, familia, plantillas, reglas, render, salidas
 from app.modulos.etiquetado import diseno as svc_diseno
 from app.modulos.etiquetado import tipos as tipos_etiqueta
 from app.modulos.maestros import unidades as medidas
@@ -543,7 +543,7 @@ def planear(db: Session, user: Usuario, pedido: dict, dibujar: bool = True, solo
             else:
                 g.valores["etiqueta.serie"] = proximo(db, serie)
         fam = g.articulo.familia if g.articulo else None
-        for faltante in familias.faltantes(db, fam.id if fam else None, g.valores):
+        for faltante in familia.faltantes(db, fam.id if fam else None, g.valores):
             g.problema("advertencia", "dato_familia", f"The family {fam.nombre} expects {faltante}, which is empty.", campo=faltante)
         lz = render.componer(g.version.diseno, {**g.valores, "etiqueta.numero": 1, "etiqueta.total": g.cantidad,
                                                "etiqueta.numero_lote": 1, "etiqueta.total_lote": 1}, campos.tipos(db, sujeto),

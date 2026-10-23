@@ -72,8 +72,7 @@ from app.modelos.empaque import (
 from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
 from app.modelos.etiquetado import (
     CampoEtiqueta,
-    CategoriaEtiquetado,
-    FamiliaEtiquetado,
+    EtiquetadoFamilia,
     GeneracionEtiquetas,
     GeneracionItem,
     PlantillaEtiqueta,
@@ -131,6 +130,7 @@ from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, 
 from app.modelos.transporte import (
     Embarque,
     EventoEmbarque,
+    FamiliaLogistica,
     PasoLeadTime,
     Puerto,
     RegionLeadTime,
@@ -147,8 +147,8 @@ _aplicar_referencias(_Base.metadata)
 
 __all__ = [
     "CampoEtiqueta",
-    "CategoriaEtiquetado",
-    "FamiliaEtiquetado",
+    "EtiquetadoFamilia",
+    "FamiliaLogistica",
     "GrupoCategoria",
     "GrupoFamilia",
     "GrupoProducto",

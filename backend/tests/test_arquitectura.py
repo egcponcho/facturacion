@@ -14,19 +14,18 @@ MODELOS_CATALOGO = {
     "atributo_familias",
 }
 # Módulos internos del catálogo (lo de afuera usa catalogo.servicio)
-INTERNOS = ("app.modulos.productos", "app.modulos.grupos", "app.modulos.maestros.variantes",
+INTERNOS = ("app.modulos.productos", "app.modulos.maestros.variantes",
             "app.modulos.maestros.genericos", "app.modulos.maestros.versiones", "app.modulos.maestros.atributos",
             "app.modulos.maestros.escalas", "app.modulos.catalogo.valores")
 # Quienes son el catálogo (o lo serán al terminar la reconstrucción); main.py une todos los módulos
-DUENOS = ("main.py", "modelos/", "modulos/catalogo/", "modulos/comex/", "modulos/productos/", "modulos/grupos/", "modulos/maestros/variantes.py",
+DUENOS = ("main.py", "modelos/", "modulos/catalogo/", "modulos/comex/", "modulos/productos/", "modulos/maestros/variantes.py",
           "modulos/maestros/genericos.py", "modulos/maestros/versiones.py", "modulos/maestros/atributos.py",
           "modulos/maestros/escalas.py", "instalacion/")
 # Archivos que todavía leen el catálogo por dentro: la lista solo puede achicarse
 PENDIENTES = {
     "modulos/clasificacion/aranceles.py", "modulos/clasificacion/especialista.py",
     "modulos/clasificacion/familias.py", "modulos/clasificacion/impacto.py", "modulos/clasificacion/meta.py",
-    "modulos/clasificacion/motor_clasificacion.py", "modulos/etiquetado/categorias.py",
-    "modulos/etiquetado/familias.py", "modulos/maestros/api.py", "modulos/maestros/cargas.py",
+    "modulos/clasificacion/motor_clasificacion.py", "modulos/maestros/api.py", "modulos/maestros/cargas.py",
     "modulos/maestros/catalogos.py",
 }
 

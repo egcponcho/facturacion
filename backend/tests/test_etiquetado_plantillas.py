@@ -5,7 +5,7 @@ import io
 
 import pytest
 from conftest import con_atributos
-from etiquetado_util import tipo
+from etiquetado_util import nueva_familia, tipo
 from PIL import Image
 
 TEXTO = {"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 4, "y": 4, "w": 60, "h": 10, "estilo": {"tam": 12}}
@@ -135,7 +135,7 @@ def test_duplicar_es_independiente(interno, admin):
 @pytest.fixture(scope="module")
 def mundo(interno, admin):
     """Artículos, una familia y diseños aprobados para ver cuál gana."""
-    fam = interno.post("/etiquetas/familias", {"codigo": "PRIO", "nombre": "Priority test"}).json()
+    fam = nueva_familia(interno, "PRIO", "Priority test").json()
     con_atributos(interno, fam["id"])
     arts = interno.get("/etiquetas/articulos", params={"size": 200}).json()["items"]
     # x e y, variantes de un producto que toma la familia; z, de otro producto
@@ -145,14 +145,14 @@ def mundo(interno, admin):
     z = next(a for a in arts if a["producto_id"] != x["producto_id"])
     antes = next(p for p in interno.get("/etiquetas/productos", params={"size": 200}).json()["items"]
                  if p["id"] == x["producto_id"])["familia_id"]
-    interno.post("/etiquetas/productos/familia", {"familia_id": fam["id"], "ids": [x["producto_id"]]})
+    interno.post("/grupos-producto/productos/familia", {"familia_id": fam["id"], "ids": [x["producto_id"]]})
     p = {k: _aprobada(interno, admin, f"Priority {k}") for k in ("general", "familia", "articulo", "oc_especial")}
     oc = interno.get("/ordenes", params={"solo_disponible": False, "size": 1}).json()["items"][0]
     doc = {"id": "n", "tipo": "campo", "campo": "oc.numero", "x": 4, "y": 4, "w": 60, "h": 10}
     p["oc"] = _aprobada(interno, admin, "Priority PO", sujeto="DOCUMENTO", elementos=[doc])
     p["oc_general"] = _aprobada(interno, admin, "Priority PO general", sujeto="DOCUMENTO", elementos=[doc])
     yield {"familia": fam, "x": x, "y": y, "z": z, "p": p, "oc": oc}
-    interno.post("/etiquetas/productos/familia", {"familia_id": antes, "ids": [x["producto_id"]]})
+    interno.post("/grupos-producto/productos/familia", {"familia_id": antes, "ids": [x["producto_id"]]})
 
 
 def test_cual_diseno_gana(interno, admin, mundo):

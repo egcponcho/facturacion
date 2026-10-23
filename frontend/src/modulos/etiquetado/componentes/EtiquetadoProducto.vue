@@ -33,7 +33,7 @@ async function cargar() {
   }
 }
 onMounted(cargar)
-alCambiar(() => cargar(), ['/etiquetas/usos', '/etiquetas/familias', '/etiquetas/productos'])
+alCambiar(() => cargar(), ['/etiquetas/usos', '/etiquetas/familias', '/etiquetas/productos', '/grupos-producto'])
 const miniatura = (e) => (e?.version_id ? `/api/etiquetas/versiones/${e.version_id}/miniatura.svg` : null)
 
 // Cambiar la familia del producto (la comparten todas sus variantes)
@@ -45,7 +45,7 @@ async function abrirFamilia() {
 }
 async function guardarFamilia() {
   try {
-    await api.post('/etiquetas/productos/familia', { familia_id: cambioFamilia.value.familia_id ? Number(cambioFamilia.value.familia_id) : null, ids: [props.productoId] })
+    await api.post('/grupos-producto/productos/familia', { familia_id: cambioFamilia.value.familia_id ? Number(cambioFamilia.value.familia_id) : null, ids: [props.productoId] })
     avisar(t('Labeling family of the product changed.'))
     cambioFamilia.value = null
     cargar()

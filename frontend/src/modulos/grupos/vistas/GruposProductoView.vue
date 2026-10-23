@@ -6,6 +6,7 @@ import Icono from '@/componentes/Icono.vue'
 import PanelLateral from '@/componentes/PanelLateral.vue'
 import Segmentos from '@/componentes/Segmentos.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
+import SeccionFamilia from '@/modulos/grupos/componentes/SeccionFamilia.vue'
 import { alCambiar } from '@/nucleo/cambios.js'
 import { plural } from '@/nucleo/utils'
 import EditorCondiciones from '@/modulos/etiquetado/componentes/EditorCondiciones.vue'
@@ -14,10 +15,12 @@ import { confirmar } from '@/stores/confirmar'
 import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 
-// Grupos de producto: un solo árbol de familias (con subfamilias) y categorías
-// (dentro de una familia, reconocidas por condiciones) para toda la empresa.
-// Las reglas de etiquetado y de empaque lo recorren de lo más específico a lo
-// más general; las pantallas del etiquetado editan estos mismos nodos.
+// Familias: un solo árbol de familias (con subfamilias) y categorías (dentro de
+// una familia, reconocidas por condiciones) para toda la empresa, con un solo
+// controlador (/grupos-producto). Lo general y los atributos son del catálogo;
+// cada módulo agrega su pestaña (logística, etiquetado, empaque…) con lo suyo.
+// Las reglas de etiquetado y de empaque recorren el árbol de lo más específico
+// a lo más general.
 const editable = computed(() => puede('catalogos.editar') || puede('etiquetas.familias'))
 const nodos = ref([])
 const catalogo = ref({ campos: [], operadores: [] })
@@ -107,14 +110,34 @@ const edicion = ref(null)
 const guardando = ref(false)
 function nuevo(clase = 'FAMILIA', padre = null) {
   edicion.value = reactive({ id: null, clase, codigo: '', nombre: '', descripcion: '', padre_id: padre?.id ?? '',
-    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], atributos: [], campos: [], dias_extra: '',
+    condiciones: clase === 'CATEGORIA' ? [{ campo: '', op: 'contiene', valor: '' }] : [], atributos: [], campos: [],
     activa: true })
+  pestana.value = 'general'
+  secciones.value = []
 }
 function editar(g) {
   edicion.value = reactive({ ...g, descripcion: g.descripcion || '', padre_id: g.padre_id ?? '', atributos: [...(g.atributos || [])],
-    dias_extra: g.dias_extra ?? '',
     campos: (g.campos || []).map((c) => ({ ...c })),
     condiciones: (g.condiciones || []).map((c) => ({ ...c, valor: Array.isArray(c.valor) ? c.valor.join(', ') : c.valor })) })
+  pestana.value = 'general'
+  cargarSecciones(g.id)
+}
+// Lo que cada módulo guarda de la familia: una pestaña por sección
+const pestana = ref('general')
+const secciones = ref([])
+async function cargarSecciones(id) {
+  secciones.value = []
+  try {
+    secciones.value = await api.get(`/grupos-producto/${id}/secciones`)
+  } catch (e) {
+    errorApi(e)
+  }
+}
+const pestanas = computed(() => [['general', t('General')], ...secciones.value.map((s) => [s.clave, tx(s.nombre)])])
+const seccionActual = computed(() => secciones.value.find((s) => s.clave === pestana.value) || null)
+function seccionGuardada(r) {
+  secciones.value = secciones.value.map((s) => (s.clave === r.clave ? r : s))
+  cargar()
 }
 // Datos que el grupo exige a sus productos: se piden al crearlos y se revisan antes de etiquetar.
 // Los campos «habituales» (sin obligatorio) que use el etiquetado se conservan tal cual.
@@ -152,7 +175,7 @@ async function guardar() {
   const cuerpo = { codigo: e.codigo, nombre: e.nombre, descripcion: e.descripcion || null,
     padre_id: e.padre_id === '' ? null : Number(e.padre_id), activa: e.activa, campos: e.campos,
     ...(e.clase === 'CATEGORIA' ? { condiciones: condicionesLimpias(e.condiciones) }
-      : { atributos: e.atributos, dias_extra: e.dias_extra === '' || e.dias_extra === null ? null : Number(e.dias_extra) }) }
+      : { atributos: e.atributos }) }
   guardando.value = true
   try {
     if (e.id) await api.patch(`/grupos-producto/${e.id}`, cuerpo)
@@ -167,7 +190,7 @@ async function guardar() {
   }
 }
 async function quitar(g) {
-  const enUso = g.articulos || g.productos || g.grupos_articulos || g.reglas_etiqueta || g.reglas_empaque
+  const enUso = g.en_uso
     || nodos.value.some((x) => x.padre_id === g.id)
   try {
     if (enUso) {
@@ -233,7 +256,9 @@ async function quitar(g) {
   </section>
 
   <PanelLateral v-if="edicion" :titulo="edicion.id ? t('Edit {0}', [tx(edicion.nombre)]) : t('New product group')" ancho="620px" @cerrar="edicion = null">
-    <form id="form-grupo" class="formulario" @submit.prevent="guardar">
+    <Segmentos v-if="edicion.id && secciones.length" v-model="pestana" :opciones="pestanas" :etiqueta="t('Section')" class="mb-2" />
+    <SeccionFamilia v-if="seccionActual" :key="seccionActual.clave" :familia-id="edicion.id" :seccion="seccionActual" @guardada="seccionGuardada" />
+    <form v-show="!seccionActual" id="form-grupo" class="formulario" @submit.prevent="guardar">
       <Segmentos v-if="!edicion.id" v-model="edicion.clase" :opciones="CLASES" :etiqueta="t('Kind')" />
       <p class="ayuda mt-0">{{ edicion.clase === 'CATEGORIA'
         ? t('A category goes inside a family and is recognized by its conditions on the item data, or set by hand on the product.')
@@ -257,9 +282,6 @@ async function quitar(g) {
           <span v-if="!atributos.some((x) => x.nivel === nivel)" class="ayuda">{{ t('No attributes of this level yet.') }}</span>
         </div>
         <small class="ayuda">{{ ayuda }} {{ t('Its subfamilies and categories take them too; its products only take these.') }}</small></div>
-      <label v-if="edicion.clase === 'FAMILIA'" class="campo"><span>{{ t('Extra days to the store') }}</span>
-        <input v-model="edicion.dias_extra" type="number" min="0" max="365" class="ancho-s" />
-        <small class="ayuda">{{ t('Days its products add after the port (inspection, labeling…) when estimating the date in store. Empty: the ones of the parent family, or none.') }}</small></label>
       <div class="campo"><span>{{ t('Data its products require') }}</span>
         <input v-model="buscarCampo" type="search" :placeholder="t('Search a field to require it (barcode, weight, brand…)')" :aria-label="t('Search a field')" />
         <div class="fila-flex gap-2 envolver">
@@ -267,14 +289,14 @@ async function quitar(g) {
             <input type="checkbox" :checked="requeridos.has(c.clave)" @change="alternarRequerido(c.clave, $event.target.checked)" /> {{ tx(c.etiqueta) }}</label>
           <span v-if="!camposVisibles.length" class="ayuda">{{ t('No field matches the search.') }}</span>
         </div>
-        <small class="ayuda">{{ t('Nothing checked: only the code, name and unit are required.') }} {{ t('Asked when its products and variants are created or changed (also in bulk uploads) and checked before printing labels. Its subfamilies and categories add theirs.') }}</small></div>
+        <small class="ayuda">{{ t('Nothing checked: only the code, name and unit are required.') }} {{ t('Asked when its products and variants are created or changed (also in bulk uploads). Its subfamilies and categories add theirs.') }}</small></div>
       <EditorCondiciones v-if="edicion.clase === 'CATEGORIA'" v-model="edicion.condiciones" :campos="catalogo.campos"
                          :operadores="catalogo.operadores" :titulo="t('Recognized when (all must be met; empty: only by hand)')" />
       <label class="check"><input v-model="edicion.activa" type="checkbox" /> {{ t('Active') }}</label>
     </form>
     <template #pie>
-      <button class="btn separar" type="button" @click="edicion = null">{{ t('Cancel') }}</button>
-      <button class="btn btn-primario" type="submit" form="form-grupo" :disabled="guardando">{{ t('Save group') }}</button>
+      <button class="btn separar" type="button" @click="edicion = null">{{ seccionActual ? t('Close') : t('Cancel') }}</button>
+      <button v-if="!seccionActual" class="btn btn-primario" type="submit" form="form-grupo" :disabled="guardando">{{ t('Save group') }}</button>
     </template>
   </PanelLateral>
 </template>

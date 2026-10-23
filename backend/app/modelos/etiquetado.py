@@ -19,6 +19,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -31,7 +32,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 from app.core.organizacion import DeOrganizacion
 from app.modelos.base import ahora
-from app.modelos.grupos import GrupoCategoria, GrupoFamilia
 
 # Qué se etiqueta: un artículo (con o sin OC: la OC solo agrega datos), un
 # bulto de una lista de empaque o un documento (la OC o la lista completa)
@@ -91,10 +91,16 @@ CK_DESTINO_USO = " OR ".join([_solo("GENERAL", None), _solo("FAMILIA", "grupo_id
                               _solo("TIPO_EMPAQUE", "tipo_empaque_id")])
 
 
-# Las familias y categorías de etiquetado son nodos del árbol compartido de
-# grupos de producto (modelos/grupos.py); el etiquetado los sigue llamando así
-FamiliaEtiquetado = GrupoFamilia
-CategoriaEtiquetado = GrupoCategoria
+class EtiquetadoFamilia(DeOrganizacion, Base):
+    """La sección de etiquetado de una familia del catálogo (grupos_producto): los campos que
+    esperan las etiquetas de sus productos ([{"campo": "articulo.codigo_barras", "obligatorio": true}])."""
+
+    __tablename__ = "familia_etiquetado"
+    __table_args__ = (ForeignKeyConstraint(["familia_id", "organizacion_id"], ["grupos_producto.id", "grupos_producto.organizacion_id"],
+                                           ondelete="CASCADE", name="fk_familia_etiquetado_familia_org"),)
+
+    familia_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    campos: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
 
 
 class TipoEtiqueta(DeOrganizacion, Base):

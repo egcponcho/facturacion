@@ -27,10 +27,10 @@ def test_el_arbol_es_el_mismo_que_ven_las_familias_y_categorias(admin):
     # El etiquetado los ve como sus familias y categorías
     familias = {f["id"]: f for f in admin.get("/etiquetas/familias").json()}
     assert fam["id"] in familias and familias[sub["id"]]["padre_id"] == fam["id"] and cat["id"] not in familias
-    cats = {c["id"]: c for c in admin.get("/etiquetas/categorias").json()}
+    cats = {c["id"]: c for c in admin.get("/grupos-producto/categorias").json()}
     assert cats[cat["id"]]["familia_id"] == fam["id"]
     # El código es único en todo el árbol (familias y categorías)
-    r = admin.post("/etiquetas/familias", {"codigo": "GP-SAND", "nombre": "Clash"})
+    r = admin.post("/grupos-producto", {"codigo": "GP-SAND", "nombre": "Clash"})
     assert r.status_code == 422 and "Another family or category has this code." in r.text
     assert admin.post("/grupos-producto", {"codigo": "gp-calz", "nombre": "Clash"}).status_code == 422
     # Una categoría va dentro de una familia; una familia no puede quedar dentro de sí misma
@@ -216,3 +216,63 @@ def test_migracion_copia_familias_y_categorias_y_vuelve_atras():
         assert not c.execute("SELECT name FROM sqlite_master WHERE name = 'grupos_producto'").fetchall()
         c.close()
         migrar("upgrade", "head")
+
+
+def test_cada_modulo_guarda_su_seccion_de_la_familia(admin):
+    """La familia es una sola (el controlador del catálogo); logística, etiquetado y empaque
+    guardan lo suyo en su sección, y lo que un módulo apunta a la familia impide borrarla."""
+    fam = _grupo(admin, codigo="GP-SEC", nombre="Sections family")
+    sub = _grupo(admin, codigo="GP-SEC-S", nombre="Sections subfamily", padre_id=fam["id"])
+    secciones = {s["clave"]: s for s in admin.get(f"/grupos-producto/{fam['id']}/secciones").json()}
+    assert {"logistica", "etiquetado", "empaque"} <= set(secciones)
+    assert secciones["logistica"]["datos"] == {"dias_extra": None, "efectivos": 0} and secciones["logistica"]["editable"]
+    # Logística: los días extra de la familia valen en su subfamilia mientras ella no tenga los suyos
+    assert admin.put(f"/grupos-producto/{fam['id']}/secciones/logistica", {"dias_extra": 7}).json()["datos"]["efectivos"] == 7
+    de_sub = next(s for s in admin.get(f"/grupos-producto/{sub['id']}/secciones").json() if s["clave"] == "logistica")
+    assert de_sub["datos"] == {"dias_extra": None, "efectivos": 7}
+    assert admin.put(f"/grupos-producto/{fam['id']}/secciones/logistica", {"dias_extra": 900}).status_code == 422
+    # Etiquetado: los campos que piden sus etiquetas (los de la familia que la contiene se heredan)
+    r = admin.put(f"/grupos-producto/{fam['id']}/secciones/etiquetado",
+                  {"campos": [{"campo": "articulo.codigo_barras", "obligatorio": True}]})
+    assert r.status_code == 200 and r.json()["datos"]["campos"] == [{"campo": "articulo.codigo_barras", "obligatorio": True}]
+    de_sub = next(s for s in admin.get(f"/grupos-producto/{sub['id']}/secciones").json() if s["clave"] == "etiquetado")
+    assert de_sub["datos"]["heredados"] == [{"campo": "articulo.codigo_barras", "obligatorio": True}]
+    assert admin.put(f"/grupos-producto/{fam['id']}/secciones/etiquetado",
+                     {"campos": [{"campo": "no.existe"}]}).status_code == 422
+    etq = {f["id"]: f for f in admin.get("/etiquetas/familias").json()}
+    assert etq[fam["id"]]["campos"][0]["campo"] == "articulo.codigo_barras"
+    # Empaque se cambia desde sus reglas; una sección que no existe, 404
+    assert admin.put(f"/grupos-producto/{fam['id']}/secciones/empaque", {}).status_code == 422
+    assert admin.put(f"/grupos-producto/{fam['id']}/secciones/nada", {}).status_code == 404
+    # Las secciones solo guardan datos: la subfamilia sin uso se borra (y con ella su sección)
+    assert admin.delete_(f"/grupos-producto/{sub['id']}").status_code == 200
+    assert admin.get(f"/grupos-producto/{fam['id']}/secciones").status_code == 200
+
+
+def test_migracion_mueve_lo_de_cada_modulo_a_su_seccion():
+    """0095: los días extra pasan a familia_logistica (y se borran de la familia) y los campos de la
+    familia se copian a familia_etiquetado; revertir devuelve los días extra."""
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"DATABASE_URL": f"sqlite:///{tmp}/m.db", "PATH": "/usr/bin:/bin"}
+        alembic = [sys.executable, "-m", "alembic"]
+        r = subprocess.run(alembic + ["upgrade", "0094"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        c = sqlite3.connect(f"{tmp}/m.db")
+        if not c.execute("SELECT id FROM organizaciones WHERE id = 1").fetchone():
+            c.execute("INSERT INTO organizaciones (id, codigo, nombre, configuracion, activa, creada_en)"
+                      " VALUES (1, 'UNO', 'UNO', '{}', 1, '2026-01-01')")
+        for gid, cod, dias, campos in ((201, "CON", 5, '[{"campo": "producto.uso", "obligatorio": true}]'),
+                                       (202, "SIN", None, '[]')):
+            c.execute("INSERT INTO grupos_producto (id, organizacion_id, clase, codigo, nombre, condiciones, campos, orden,"
+                      " activa, creada_en, dias_extra) VALUES (?, 1, 'FAMILIA', ?, ?, '[]', ?, 0, 1, '2026-01-01', ?)",
+                      (gid, cod, cod, campos, dias))
+        c.commit()
+        r = subprocess.run(alembic + ["upgrade", "0095"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        assert c.execute("SELECT familia_id, dias_extra FROM familia_logistica").fetchall() == [(201, 5)]
+        assert [f for f, _ in c.execute("SELECT familia_id, campos FROM familia_etiquetado")] == [201]
+        assert "dias_extra" not in [x[1] for x in c.execute("PRAGMA table_info(grupos_producto)")]
+        r = subprocess.run(alembic + ["downgrade", "0094"], cwd=RAIZ, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        assert dict(c.execute("SELECT id, dias_extra FROM grupos_producto WHERE id IN (201, 202)")) == {201: 5, 202: None}
+        c.close()

@@ -9,7 +9,7 @@ import zipfile
 import pdfplumber
 import pytest
 from conftest import con_atributos
-from etiquetado_util import aprobada, cambiar, generado, tipo, trabajo, uso
+from etiquetado_util import aprobada, cambiar, generado, nueva_familia, tipo, trabajo, uso
 from sqlalchemy import inspect, select
 
 from app.core.db import SessionLocal
@@ -47,7 +47,7 @@ def familia(interno):
 
     from app.modelos import Articulo, PosicionOC, Producto
 
-    r = interno.post("/etiquetas/familias", {"codigo": "MASIVO", "nombre": "Bulk family"})
+    r = nueva_familia(interno, "MASIVO", "Bulk family")
     assert r.status_code == 200, r.text
     f = r.json()
     con_atributos(interno, f["id"])
@@ -56,10 +56,10 @@ def familia(interno):
             select(Producto.id, Producto.grupo_producto_id).join(Articulo, Articulo.producto_id == Producto.id)
             .join(PosicionOC, PosicionOC.articulo_id == Articulo.id).group_by(Producto.id, Producto.grupo_producto_id)
             .order_by(func.count(PosicionOC.id).desc(), Producto.id).limit(3))}
-    assert interno.post("/etiquetas/productos/familia", {"familia_id": f["id"], "ids": list(antes)}).status_code == 200
+    assert interno.post("/grupos-producto/productos/familia", {"familia_id": f["id"], "ids": list(antes)}).status_code == 200
     yield f
     for pid, fam in antes.items():
-        interno.post("/etiquetas/productos/familia", {"familia_id": fam, "ids": [pid]})
+        interno.post("/grupos-producto/productos/familia", {"familia_id": fam, "ids": [pid]})
 
 
 def test_ordenes_de_una_familia_un_pdf_por_oc_y_cada_articulo_una_vez(interno, admin, tnf, familia):

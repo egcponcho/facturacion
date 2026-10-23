@@ -17,6 +17,7 @@ from app.core.db import SessionLocal
 from app.core.errores import ErrorNegocio
 from app.modulos.acceso import api as acceso_api
 from app.modulos.acceso import visibilidad
+from app.modulos.catalogo import api_familias as grupos_api
 from app.modulos.clasificacion import api as clasificacion_api
 from app.modulos.clasificacion import api_conocimiento as clasificacion_api_conocimiento
 from app.modulos.compras import api as compras_api
@@ -28,7 +29,6 @@ from app.modulos.empaque import api_recetas as empaque_api_recetas
 from app.modulos.empresa import api as empresa_api
 from app.modulos.etiquetado import api as etiquetado_api
 from app.modulos.facturacion import api as facturacion_api
-from app.modulos.grupos import api as grupos_api
 from app.modulos.integraciones import api as integraciones_api
 from app.modulos.maestros import api as maestros_api
 from app.modulos.maestros import api_listas as maestros_api_listas
@@ -230,6 +230,11 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={
         "mensaje": "Check the data you sent.", "codigo": "datos_invalidos", "detalle": detalle})
 
+
+# Cada módulo registra la sección que guarda de las familias del catálogo (catalogo/secciones.py)
+from app.modulos.empaque import familia as _seccion_empaque  # noqa: E402, F401
+from app.modulos.etiquetado import familia as _seccion_etiquetado  # noqa: E402, F401
+from app.modulos.transporte import familia as _seccion_logistica  # noqa: E402, F401
 
 # Rutas de cada módulo, todas bajo /api. El orden se conserva: una ruta fija
 # (p. ej. /seguimiento/exportar) va antes que una con parámetro del mismo prefijo.

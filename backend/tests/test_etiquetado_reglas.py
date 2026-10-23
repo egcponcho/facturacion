@@ -29,16 +29,16 @@ def caso(interno, admin):
         centro = db.query(Centro).filter(Centro.codigo == oc.centro_destino).one()
         datos = {"articulo_id": p.articulo_id, "producto_id": p.articulo.producto_id, "oc_id": oc.id, "centro": oc.centro_destino,
                  "pais": centro.pais, "sociedad": oc.sociedad, "proveedor": str(oc.proveedor_id), "posicion_id": p.id}
-    fam = interno.post("/etiquetas/familias", {"codigo": "ESCALERA", "nombre": "Ladder family"}).json()
+    fam = interno.post("/grupos-producto", {"codigo": "ESCALERA", "nombre": "Ladder family"}).json()
     con_atributos(interno, fam["id"])
     antes = familia_de(datos["articulo_id"])
-    sub = interno.post("/etiquetas/familias", {"codigo": "ESCALERA-SUB", "nombre": "Ladder subfamily", "padre_id": fam["id"]}).json()
-    assert interno.post("/etiquetas/articulos/familia", {"familia_id": sub["id"], "ids": [datos["articulo_id"]]}).status_code == 200
+    sub = interno.post("/grupos-producto", {"codigo": "ESCALERA-SUB", "nombre": "Ladder subfamily", "padre_id": fam["id"]}).json()
+    assert interno.post("/grupos-producto/articulos/familia", {"familia_id": sub["id"], "ids": [datos["articulo_id"]]}).status_code == 200
     t = tipo(interno, "ESCALERA")
     d = {k: aprobada(interno, admin, f"Ladder {k}", t["id"], TEXTO, ancho=80, alto=30)
          for k in ("general", "familia", "pais", "sociedad", "centro", "condicion", "producto", "oc")}
     yield {**datos, "familia": fam, "sub": sub, "tipo": t, "d": d}
-    interno.post("/etiquetas/articulos/familia", {"familia_id": antes, "ids": [datos["articulo_id"]]})
+    interno.post("/grupos-producto/articulos/familia", {"familia_id": antes, "ids": [datos["articulo_id"]]})
 
 
 def _elige(interno, caso, con_oc=True):

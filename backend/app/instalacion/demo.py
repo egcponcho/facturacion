@@ -384,7 +384,7 @@ def _tipos_empaque(db: Session) -> dict:
 def _familias(db: Session, admin: Usuario) -> dict:
     """Las familias de producto con sus atributos, con el mismo servicio de la pantalla
     (Productos → Familias): cada una dice qué atributos llevan sus productos."""
-    from app.modulos.grupos import arbol
+    from app.modulos.catalogo import familias as arbol
 
     ids = {}
     for codigo, nombre, padre, descripcion in FAMILIAS:

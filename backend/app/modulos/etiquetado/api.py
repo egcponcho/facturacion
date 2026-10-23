@@ -12,8 +12,7 @@ from app.modulos.etiquetado import (
     buscadores,
     campos,
     campos_logicos,
-    categorias,
-    familias,
+    familia,
     generacion,
     plantillas,
     previa,
@@ -212,108 +211,37 @@ def eliminar_campo_logico(campo_id: int, db: Db, user: User):
     return ejecutar(db, user, None, lambda: campos_logicos.eliminar(db, user, campo_id))
 
 
-# ---- Familias de etiquetado --------------------------------------------------------------
+# ---- Familias (las del catálogo, con lo del etiquetado) ------------------------------------
+# Crear, cambiar, ordenar o borrar una familia o una categoría, y poner la familia de un
+# producto, es del controlador único del catálogo (/grupos-producto); los campos de las
+# etiquetas de una familia son su sección de etiquetado (/grupos-producto/{id}/secciones/etiquetado).
 @router.get("/etiquetas/familias")
 def listar_familias(db: Db, user: User, activas: bool | None = None):
-    """Familias de etiquetado de la empresa con cuántos artículos y diseños tienen."""
-    return familias.listar(db, user, activas)
-
-
-@router.post("/etiquetas/familias")
-def crear_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Nueva familia: código, nombre, descripción, orden y campos habituales u obligatorios."""
-    return ejecutar(db, user, clave, lambda: familias.crear(db, user, datos))
+    """Las familias con lo del etiquetado: sus campos y cuántos artículos y diseños tienen."""
+    return familia.listar(db, user, activas)
 
 
 @router.post("/etiquetas/familias/configurar")
 def configurar_familia(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
     """Termina el asistente de una familia de una vez: datos, productos que entran y diseño por tipo."""
-    return ejecutar(db, user, clave, lambda: familias.configurar(db, user, datos))
-
-
-@router.put("/etiquetas/familias/orden")
-def ordenar_familias(db: Db, user: User, ids: list[int] = Body(..., embed=True)):
-    """Orden de las familias (todas, en el orden deseado)."""
-    return ejecutar(db, user, None, lambda: familias.ordenar(db, user, ids))
-
-
-@router.patch("/etiquetas/familias/{familia_id}")
-def actualizar_familia(familia_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Cambia nombre, descripción, orden, campos o la desactiva (activa: false)."""
-    return ejecutar(db, user, clave, lambda: familias.actualizar(db, user, familia_id, datos))
-
-
-@router.delete("/etiquetas/familias/{familia_id}")
-def eliminar_familia(familia_id: int, db: Db, user: User):
-    """Borra una familia sin uso (si se usa, se desactiva)."""
-    return ejecutar(db, user, None, lambda: familias.eliminar(db, user, familia_id))
-
-
-# ---- Categorías de etiquetado (dentro de una familia) --------------------------------------
-@router.get("/etiquetas/categorias")
-def listar_categorias(db: Db, user: User, familia_id: int | None = None):
-    """Categorías de etiquetado (de una familia) con sus condiciones y cuántos artículos caen en cada una."""
-    return categorias.listar(db, user, familia_id)
-
-
-@router.post("/etiquetas/categorias")
-def crear_categoria(db: Db, user: User, datos: dict[str, Any] = Body(...), clave: Clave = None):
-    """Nueva categoría: familia, código, nombre, descripción, condiciones de reconocimiento y orden."""
-    return ejecutar(db, user, clave, lambda: categorias.crear(db, user, datos))
-
-
-@router.post("/etiquetas/categorias/probar")
-def probar_categoria(db: Db, user: User, datos: dict[str, Any] = Body(...)):
-    """Qué artículos de la familia caerían en una categoría con estas condiciones (sin guardar)."""
-    return categorias.probar(db, user, datos)
-
-
-@router.patch("/etiquetas/categorias/{categoria_id}")
-def actualizar_categoria(categoria_id: int, db: Db, user: User, datos: dict[str, Any] = Body(...)):
-    """Cambia la categoría (nombre, condiciones, orden, activa…)."""
-    return ejecutar(db, user, None, lambda: categorias.actualizar(db, user, categoria_id, datos))
-
-
-@router.delete("/etiquetas/categorias/{categoria_id}")
-def eliminar_categoria(categoria_id: int, db: Db, user: User):
-    """Borra una categoría sin uso (si tiene reglas o productos, se desactiva)."""
-    return ejecutar(db, user, None, lambda: categorias.eliminar(db, user, categoria_id))
-
-
-@router.post("/etiquetas/productos/categoria")
-def asignar_categoria_productos(db: Db, user: User, categoria_id: int | None = Body(None), ids: list[int] = Body(...)):
-    """Pone a mano la categoría de varios productos (o la quita, con categoría vacía)."""
-    return ejecutar(db, user, None, lambda: categorias.asignar_productos(db, user, categoria_id, ids))
+    return ejecutar(db, user, clave, lambda: familia.configurar(db, user, datos))
 
 
 @router.get("/etiquetas/articulos")
-def articulos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None,
+def articulos_familia(db: Db, user: User, q: str | None = None, familia_: str | None = Query(None, alias="familia"),
                       producto_id: int | None = None, ids: str | None = Query(None, pattern=r"^\d+(,\d+)*$"),
                       page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), solo_ids: bool = False):
     """Artículos con la familia de su producto (familia=sin: los que no tienen; ids=1,2,3: solo esos;
     solo_ids: los números de todos los que cumplen el filtro, para elegirlos de una vez)."""
-    return familias.articulos(db, user, q, familia, producto_id, page, size,
-                              [int(x) for x in ids.split(",")][:200] if ids else None, solo_ids)
+    return familia.articulos(db, user, q, familia_, producto_id, page, size,
+                             [int(x) for x in ids.split(",")][:200] if ids else None, solo_ids)
 
 
 @router.get("/etiquetas/productos")
-def productos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None, page: int = Query(1, ge=1),
-                      size: int = Query(50, ge=1, le=200)):
-    """Productos con su familia (familia=sin: los que no tienen)."""
-    return familias.productos(db, user, q, familia, page, size)
-
-
-@router.post("/etiquetas/productos/familia")
-def asignar_familia_productos(db: Db, user: User, familia_id: int | None = Body(None), ids: list[int] = Body(...)):
-    """Pone la familia a varios productos (o se la quita): la comparten sus variantes."""
-    return ejecutar(db, user, None, lambda: familias.asignar_productos(db, user, familia_id, ids))
-
-
-@router.post("/etiquetas/articulos/familia")
-def asignar_familia(db: Db, user: User, familia_id: int | None = Body(None), ids: list[int] | None = Body(None),
-                    filtro: dict[str, Any] | None = Body(None), clave: Clave = None):
-    """Pone la familia (o la quita, con familia_id vacío) a los productos de los artículos elegidos o del filtro."""
-    return ejecutar(db, user, clave, lambda: familias.asignar_articulos(db, user, familia_id, ids, filtro))
+def productos_familia(db: Db, user: User, q: str | None = None, familia_: str | None = Query(None, alias="familia"),
+                      page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200)):
+    """Productos con su familia y su categoría de etiquetado (familia=sin: los que no tienen)."""
+    return familia.productos(db, user, q, familia_, page, size)
 
 
 # ---- Plantillas y versiones ---------------------------------------------------------------

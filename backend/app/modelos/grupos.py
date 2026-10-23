@@ -53,21 +53,10 @@ class GrupoProducto(DeOrganizacion, Base):
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    # Días que sus productos necesitan además de los del transporte (inspección, etiquetado,
-    # permisos): se suman a la fecha estimada en tienda. Vacío: los de la familia que la contiene.
-    dias_extra: Mapped[int | None] = mapped_column(Integer)
 
     padre: Mapped["GrupoProducto | None"] = relationship(remote_side=lambda: GrupoProducto.id)
 
     __mapper_args__ = {"polymorphic_on": "clase", "polymorphic_abstract": True}
-
-    @property
-    def dias_extra_efectivos(self) -> int:
-        """Los días extra del nodo o, si no tiene, los de la familia más cercana que los tenga."""
-        for g in reversed(self.ruta()):
-            if g.dias_extra is not None:
-                return g.dias_extra
-        return 0
 
     def ruta(self) -> list["GrupoProducto"]:
         """El nodo y sus antecesores, de la raíz a él (sin repetir si hubiera un ciclo)."""

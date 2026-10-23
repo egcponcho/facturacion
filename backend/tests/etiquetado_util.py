@@ -10,6 +10,16 @@ from app.core.db import SessionLocal
 from app.core.organizacion import en_organizacion
 
 
+def nueva_familia(api, codigo, nombre, campos=None):
+    """Una familia del catálogo (el controlador único) y, si se dan, los campos de sus etiquetas
+    (su sección de etiquetado). Devuelve la respuesta de crearla."""
+    r = api.post("/grupos-producto", {"clase": "FAMILIA", "codigo": codigo, "nombre": nombre})
+    if r.status_code == 200 and campos is not None:
+        s = api.put(f"/grupos-producto/{r.json()['id']}/secciones/etiquetado", {"campos": campos})
+        assert s.status_code == 200, s.text
+    return r
+
+
 def tipo(api, codigo, sujeto="ARTICULO", cantidad="POR_LINEA", obligatoria=False, nombre=None):
     """Un tipo de etiqueta de la prueba (se crea una sola vez por código)."""
     for t in api.get("/etiquetas/tipos", params={"todos": True}).json():

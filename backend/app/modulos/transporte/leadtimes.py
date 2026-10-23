@@ -36,6 +36,7 @@ from app.modelos import (
 )
 from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
 from app.modulos.catalogo import servicio as catalogo
+from app.modulos.transporte import familia as familia_logistica
 from app.modulos.transporte import reglas_lt as rlt
 
 # Etapas medidas del lead time, en orden: de un hito al siguiente
@@ -120,7 +121,7 @@ class Estandares:
         self.puerto_pais = {p.codigo: p.pais for p in db.scalars(select(Puerto))}
         self.puerto_modo = {p.codigo: p.tipo for p in db.scalars(select(Puerto))}
         # Días extra de cada familia (o categoría): los suyos o los de la familia que la contiene
-        self.extra_familia = catalogo.dias_extra_familias(db)
+        self.extra_familia = familia_logistica.dias_extra(db)
         self._cache: dict = {}
         self._cadenas: dict = {}
 
