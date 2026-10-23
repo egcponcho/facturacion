@@ -1,0 +1,362 @@
+"""Lo que los demás módulos leen del catálogo.
+
+Compras, facturación, empaque, etiquetado, seguimiento, reportes… no tocan las
+tablas del catálogo: piden aquí fichas ya armadas (datos simples, no objetos de
+la base) y, para filtrar en SQL, consultas que devuelven ids de artículo. Así
+el catálogo puede cambiar por dentro sin que nada se desintegre: lo verifica
+tests/test_arquitectura.py.
+
+Las fichas se piden en lote (`articulos(db, ids)`) cuando se recorren líneas:
+una consulta para todas, no una por línea.
+"""
+from __future__ import annotations
+
+from collections.abc import Iterable
+from dataclasses import dataclass
+
+from sqlalchemy import Select, func, or_, select
+from sqlalchemy.orm import Session, selectinload
+
+from app.modelos import (
+    Articulo,
+    ArticuloAtributo,
+    ArticuloCodigo,
+    ArticuloComponente,
+    Atributo,
+    GrupoProducto,
+    Producto,
+    ProductoAtributo,
+)
+from app.modulos.catalogo import valores as val
+
+# Tipos de artículo: una variante (lo que distinguen sus valores) o un pack o kit (una caja con su contenido)
+TIPO_VARIANTE = "SOLIDO"
+TIPO_PACK = "PREPACK"
+TIPOS = (TIPO_VARIANTE, TIPO_PACK)
+
+
+# ---- Fichas -----------------------------------------------------------------------------------
+@dataclass(frozen=True, slots=True)
+class FichaFamilia:
+    """Una familia del árbol: su ruta va de la raíz a ella (ids, códigos y nombres)."""
+
+    id: int
+    codigo: str
+    nombre: str
+    ruta_ids: tuple[int, ...]
+    ruta_codigos: tuple[str, ...]
+    ruta_nombres: tuple[str, ...]
+
+    @property
+    def texto_ruta(self) -> str:
+        return " / ".join(self.ruta_nombres)
+
+
+@dataclass(frozen=True, slots=True)
+class Componente:
+    """Una variante dentro de un pack o un kit, con cuántas unidades lleva."""
+
+    articulo_id: int
+    codigo: str
+    cantidad: int
+    producto_id: int
+    valores: dict
+
+
+@dataclass(frozen=True, slots=True)
+class FichaArticulo:
+    """Un artículo (variante, pack o kit) con lo de su producto que necesita quien lo usa."""
+
+    id: int
+    codigo: str
+    tipo: str
+    activo: bool
+    unidad: str
+    peso: float | None
+    descripcion: str | None
+    producto_id: int
+    producto_codigo: str | None
+    producto_nombre: str | None
+    proveedor_id: int | None
+    grupo_id: int | None  # el nodo del árbol puesto en su producto (familia o categoría)
+    familia: FichaFamilia | None  # la familia de su producto
+    valores: dict  # sus valores de variante, en el orden de los atributos
+    datos: dict  # los atributos de su producto (marca, modelo…), en orden
+    marca: str | None  # código de la marca (el atributo de producto que apunta al catálogo de marcas)
+    codigo_barras: str | None
+    codigo_proveedor: str | None
+    codigo_pack: str | None
+    componentes: tuple[Componente, ...] = ()
+
+    @property
+    def es_pack(self) -> bool:
+        return self.tipo == TIPO_PACK
+
+    @property
+    def total_componentes(self) -> int:
+        return sum(c.cantidad for c in self.componentes)
+
+    @property
+    def es_kit(self) -> bool:
+        """Un kit junta variantes de varios productos; un pack, variantes de su propio producto."""
+        return any(c.producto_id != self.producto_id for c in self.componentes)
+
+    @property
+    def texto_variante(self) -> str | None:
+        """«BLACK · 9.5» o, en un pack, «pack AB12»."""
+        if self.es_pack:
+            return f"pack {self.codigo_pack}" if self.codigo_pack else None
+        return val.texto(self.valores) or None
+
+
+@dataclass(frozen=True, slots=True)
+class FichaProducto:
+    id: int
+    codigo: str | None
+    nombre: str | None
+    unidad: str | None
+    proveedor_id: int | None
+    grupo_id: int | None
+    familia: FichaFamilia | None
+    datos: dict
+    marca: str | None
+
+    @property
+    def nombre_o_codigo(self) -> str:
+        return self.nombre or self.codigo or str(self.id)
+
+
+# ---- Familias ---------------------------------------------------------------------------------
+def _ficha_familia(g: GrupoProducto | None) -> FichaFamilia | None:
+    if g is None:
+        return None
+    ruta = g.ruta()
+    return FichaFamilia(id=g.id, codigo=g.codigo, nombre=g.nombre, ruta_ids=tuple(x.id for x in ruta),
+                        ruta_codigos=tuple(x.codigo for x in ruta), ruta_nombres=tuple(x.nombre for x in ruta))
+
+
+def familia(db: Session, familia_id: int | None) -> FichaFamilia | None:
+    return _ficha_familia(db.get(GrupoProducto, familia_id)) if familia_id else None
+
+
+def ruta_reglas(db: Session, ficha: FichaArticulo | None, cache: dict | None = None) -> list[int]:
+    """Los nodos del árbol que recorren las reglas de empaque y de etiquetado para el artículo,
+    de lo más específico a lo más general: su categoría (puesta a mano o reconocida por sus
+    condiciones), su familia y las familias que la contienen."""
+    if ficha is None:
+        return []
+    from app.modulos.grupos import arbol
+
+    a = db.get(Articulo, ficha.id)
+    return [g.id for g in arbol.ruta_efectiva(db, a, {**ficha.datos, **ficha.valores}, cache)]
+
+
+def en_familia(ficha: FichaArticulo | None, familia_id: int) -> bool:
+    """El artículo es de la familia o de una de sus subfamilias."""
+    return ficha is not None and ficha.familia is not None and familia_id in ficha.familia.ruta_ids
+
+
+# ---- Artículos --------------------------------------------------------------------------------
+def _opciones():
+    return (selectinload(Articulo.producto).selectinload(Producto.atributos),
+            selectinload(Articulo.producto).selectinload(Producto.grupo_producto),
+            selectinload(Articulo.atributos), selectinload(Articulo.codigos),
+            selectinload(Articulo.componentes).selectinload(ArticuloComponente.componente)
+            .selectinload(Articulo.atributos))
+
+
+def _descripcion(a: Articulo) -> str | None:
+    """La suya o la del producto con los valores de la variante (en un pack, su identificador)."""
+    if a.descripcion:
+        return a.descripcion
+    prod = a.producto
+    base = (prod.descripcion_comercial or prod.nombre) if prod else None
+    valores = " · ".join(str(v) for v in a.variantes.values() if v not in (None, ""))
+    if a.tipo == TIPO_PACK and a.codigo_pack:
+        valores = f"pack {a.codigo_pack}"
+    return ", ".join(x for x in (base, valores) if x) or None
+
+
+def _ficha(db: Session, a: Articulo) -> FichaArticulo:
+    p = a.producto
+    datos = val.ordenar(db, p.valores if p is not None else {}, "PRODUCTO")
+    g = p.grupo_producto if p is not None else None
+    return FichaArticulo(
+        id=a.id, codigo=a.sku, tipo=a.tipo, activo=a.activo, unidad=a.unidad, peso=a.peso_unitario,
+        descripcion=_descripcion(a), producto_id=a.producto_id,
+        producto_codigo=p.codigo_generico if p else None, producto_nombre=p.nombre if p else None,
+        proveedor_id=p.proveedor_id if p else None, grupo_id=g.id if g is not None else None,
+        familia=_ficha_familia(g.familia if g is not None else None),
+        valores=val.ordenar(db, a.variantes), datos=datos, marca=val.de_catalogo(db, datos, "marcas"),
+        codigo_barras=a.codigo_barras, codigo_proveedor=a.codigo_proveedor, codigo_pack=a.codigo_pack,
+        componentes=tuple(Componente(articulo_id=c.componente_id, codigo=c.componente.sku, cantidad=c.cantidad,
+                                     producto_id=c.componente.producto_id, valores=val.ordenar(db, c.componente.variantes))
+                          for c in a.componentes))
+
+
+def articulos(db: Session, ids: Iterable[int | None]) -> dict[int, FichaArticulo]:
+    """{id: ficha} de esos artículos (los que no existen no aparecen)."""
+    ids = sorted({i for i in ids if i})
+    if not ids:
+        return {}
+    return {a.id: _ficha(db, a) for a in db.scalars(select(Articulo).where(Articulo.id.in_(ids)).options(*_opciones()))}
+
+
+def articulo(db: Session, articulo_id: int | None) -> FichaArticulo | None:
+    return articulos(db, [articulo_id]).get(articulo_id) if articulo_id else None
+
+
+def por_codigos(db: Session, codigos: Iterable[str | None]) -> dict[str, FichaArticulo]:
+    """{código: ficha} de los artículos con esos códigos (exactos)."""
+    codigos = sorted({str(c).strip() for c in codigos if c and str(c).strip()})
+    if not codigos:
+        return {}
+    return {a.sku: _ficha(db, a) for a in db.scalars(select(Articulo).where(Articulo.sku.in_(codigos)).options(*_opciones()))}
+
+
+def por_codigo(db: Session, codigo: str | None) -> FichaArticulo | None:
+    c = str(codigo or "").strip()
+    return por_codigos(db, [c]).get(c) if c else None
+
+
+def de_producto(db: Session, producto_id: int, solo_activos: bool = False) -> list[FichaArticulo]:
+    """Los artículos de un producto (variantes y packs), en orden de código."""
+    c = select(Articulo).where(Articulo.producto_id == producto_id)
+    if solo_activos:
+        c = c.where(Articulo.activo.is_(True))
+    return [_ficha(db, a) for a in db.scalars(c.options(*_opciones()).order_by(Articulo.sku))]
+
+
+def buscar(db: Session, texto: str | None = None, proveedor_id: int | None = None, solo_activos: bool = True,
+           limite: int = 300) -> list[FichaArticulo]:
+    """Artículos cuyo código, código de barras o del proveedor, valor de variante o producto
+    (código o nombre) contienen el texto; en orden de producto y código."""
+    c = ids(proveedor_id=proveedor_id, texto=texto, solo_activos=solo_activos)
+    consulta = (select(Articulo).join(Producto, Producto.id == Articulo.producto_id).where(Articulo.id.in_(c))
+                .options(*_opciones()).order_by(Producto.codigo_generico, Articulo.sku).limit(limite))
+    return [_ficha(db, a) for a in db.scalars(consulta)]
+
+
+# ---- Consultas de ids para filtrar en SQL ------------------------------------------------------
+def ids(*, marca: str | None = None, marcas: Iterable[str] | None = None, proveedor_id: int | None = None,
+        proveedores: Iterable[int] | None = None, familia_id: int | None = None, producto_id: int | None = None,
+        valores: dict[str, Iterable[str]] | None = None, texto: str | None = None, solo_activos: bool = False,
+        tipo: str | None = None) -> Select:
+    """`select(id)` de los artículos que cumplen todos los filtros dados. Se usa como
+    `Tabla.articulo_id.in_(catalogo.ids(...))`. Los valores de variante se comparan sin
+    distinguir mayúsculas; la familia incluye sus subfamilias y categorías."""
+    c = select(Articulo.id)
+    if solo_activos:
+        c = c.where(Articulo.activo.is_(True))
+    if tipo:
+        c = c.where(Articulo.tipo == tipo)
+    if producto_id is not None:
+        c = c.where(Articulo.producto_id == producto_id)
+    if proveedor_id is not None or proveedores is not None:
+        lista = [proveedor_id] if proveedor_id is not None else list(proveedores or [])
+        c = c.where(Articulo.producto_id.in_(select(Producto.id).where(Producto.proveedor_id.in_(lista))))
+    lista_marcas = [marca] if marca else list(marcas or [])
+    if lista_marcas:
+        c = c.where(Articulo.producto_id.in_(
+            select(ProductoAtributo.producto_id).join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
+            .where(Atributo.catalogo == "marcas", ProductoAtributo.valor.in_(lista_marcas))))
+    if familia_id is not None:
+        c = c.where(Articulo.producto_id.in_(select(Producto.id).where(Producto.grupo_producto_id.in_(_subarbol(familia_id)))))
+    for codigo, vs in (valores or {}).items():
+        vs = [str(v).upper() for v in vs if v not in (None, "")]
+        if vs:
+            c = c.where(Articulo.id.in_(
+                select(ArticuloAtributo.articulo_id).join(Atributo, Atributo.id == ArticuloAtributo.atributo_id)
+                .where(Atributo.codigo == codigo, func.upper(ArticuloAtributo.valor).in_(vs))))
+    if texto and texto.strip():
+        t = f"%{texto.strip()}%"
+        c = c.where(or_(
+            Articulo.sku.ilike(t),
+            Articulo.producto_id.in_(select(Producto.id).where(or_(Producto.nombre.ilike(t), Producto.codigo_generico.ilike(t)))),
+            Articulo.id.in_(select(ArticuloCodigo.articulo_id).where(ArticuloCodigo.valor.ilike(t))),
+            Articulo.id.in_(select(ArticuloAtributo.articulo_id).where(ArticuloAtributo.valor.ilike(t)))))
+    return c
+
+
+def _subarbol(familia_id: int) -> Select:
+    """`select(id)` del nodo y de todos los que cuelgan de él."""
+    nodos = select(GrupoProducto.id).where(GrupoProducto.id == familia_id).cte("subarbol", recursive=True)
+    nodos = nodos.union_all(select(GrupoProducto.id).join(nodos, GrupoProducto.padre_id == nodos.c.id))
+    return select(nodos.c.id)
+
+
+def marcas_de(db: Session, articulo_ids: Select | Iterable[int]) -> list[str]:
+    """Los códigos de marca distintos de esos artículos, en orden."""
+    return sorted({m for (m,) in db.execute(
+        select(ProductoAtributo.valor).join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
+        .join(Articulo, Articulo.producto_id == ProductoAtributo.producto_id)
+        .where(Atributo.catalogo == "marcas", Articulo.id.in_(articulo_ids)).distinct()) if m})
+
+
+# ---- Productos --------------------------------------------------------------------------------
+def _ficha_producto(db: Session, p: Producto) -> FichaProducto:
+    datos = val.ordenar(db, p.valores, "PRODUCTO")
+    g = p.grupo_producto
+    return FichaProducto(id=p.id, codigo=p.codigo_generico, nombre=p.nombre, unidad=p.unidad, proveedor_id=p.proveedor_id,
+                         grupo_id=g.id if g is not None else None, familia=_ficha_familia(g.familia if g is not None else None),
+                         datos=datos, marca=val.de_catalogo(db, datos, "marcas"))
+
+
+def productos(db: Session, ids_: Iterable[int | None]) -> dict[int, FichaProducto]:
+    lista = sorted({i for i in ids_ if i})
+    if not lista:
+        return {}
+    return {p.id: _ficha_producto(db, p) for p in db.scalars(
+        select(Producto).where(Producto.id.in_(lista)).options(selectinload(Producto.atributos),
+                                                                selectinload(Producto.grupo_producto)))}
+
+
+def producto(db: Session, producto_id: int | None) -> FichaProducto | None:
+    return productos(db, [producto_id]).get(producto_id) if producto_id else None
+
+
+def producto_por_codigo(db: Session, codigo: str | None) -> FichaProducto | None:
+    pid = db.scalar(select(Producto.id).where(Producto.codigo_generico == str(codigo).strip())) if codigo else None
+    return producto(db, pid)
+
+
+def ids_productos_con_articulos(articulo_ids: Select | Iterable[int]) -> Select:
+    """`select(producto_id)` de los productos de esos artículos."""
+    return select(Articulo.producto_id).where(Articulo.id.in_(articulo_ids)).distinct()
+
+
+# ---- Atributos y valores ----------------------------------------------------------------------
+def atributos(db: Session, nivel: str = "VARIANTE") -> list[dict]:
+    """Los atributos activos de ese nivel en su orden: [{codigo, nombre, tipo, catalogo, unidad, opciones}]."""
+    return [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo, "catalogo": a.catalogo, "unidad": a.unidad,
+             "opciones": [o.strip() for o in (a.opciones or "").split(",") if o.strip()]} for a in val.atributos(db, nivel)]
+
+
+def nombres_atributos(db: Session) -> dict[str, str]:
+    return val.nombres(db)
+
+
+def ordenar(db: Session | None, valores: dict | None, nivel: str = "VARIANTE") -> dict:
+    """Los valores en el orden de los atributos de ese nivel."""
+    return val.ordenar(db, valores, nivel)
+
+
+def texto(valores: dict | None) -> str | None:
+    """«BLACK · 9.5» (o None)."""
+    return val.texto(valores) or None
+
+
+def marca(db: Session | None, datos: dict | None) -> str | None:
+    """La marca dentro de los atributos de producto (guardados en una línea, por ejemplo)."""
+    return val.de_catalogo(db, datos, "marcas")
+
+
+def valores_distintos(db: Session, articulo_ids: Select | Iterable[int]) -> dict[str, list[str]]:
+    """{atributo de variante: valores distintos en su orden} de esos artículos."""
+    res: dict[str, list] = {}
+    for codigo, valor in db.execute(
+            select(Atributo.codigo, ArticuloAtributo.valor).join(Atributo, Atributo.id == ArticuloAtributo.atributo_id)
+            .where(ArticuloAtributo.articulo_id.in_(articulo_ids)).distinct()):
+        res.setdefault(codigo, []).append(valor)
+    orden = val.orden_de_valores(db)
+    return {k: val.ordenados(res[k], orden.get(k)) for k in val.ordenar(db, res)}
