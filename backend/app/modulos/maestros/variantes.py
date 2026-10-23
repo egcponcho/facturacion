@@ -90,15 +90,12 @@ def texto_linea(valores: dict | None) -> str | None:
     return texto(valores) or None
 
 
-ORDEN_LETRAS = ["XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL"]
-EQUIV_LETRAS = {"2XS": "XXS", "3XS": "XXXS", "2XL": "XXL", "3XL": "XXXL", "XXXXL": "4XL"}
-
-
-def rango(valores: list) -> str:
-    """Valores de un atributo en texto corto: tramos seguidos como «7–10» y
-    los saltos separados por comas («7–9, 11»). Sirve para números (tallas,
-    volúmenes, concentraciones), para la escala de letras S, M, L… y, si no es
-    ninguna de las dos, deja la lista sin repetidos."""
+def rango(valores: list, orden: list[str] | None = None) -> str:
+    """Valores de un atributo en texto corto: tramos seguidos como «7–10» y los
+    saltos separados por comas («7–9, 11»). Los números se ordenan como números;
+    los demás valores, en el orden que la empresa les dio (las opciones del
+    atributo o sus escalas de valores: S, M, L… o 250 ml, 500 ml, 1 L) y, si no
+    están ahí, en el orden en que aparecen."""
     ts = [str(t).strip().upper() for t in valores if str(t or "").strip()]
     if not ts:
         return ""
@@ -126,11 +123,27 @@ def rango(valores: list) -> str:
         return tramos(nums, paso, lambda n: str(int(n)) if n.is_integer() else str(n))
     except ValueError:
         pass
-    letras = [EQUIV_LETRAS.get(t, t) for t in ts]
-    if all(t in ORDEN_LETRAS for t in letras):
-        idx = sorted({ORDEN_LETRAS.index(t) for t in letras})
-        return tramos(idx, 1, lambda i: ORDEN_LETRAS[i])
+    lista = [str(x).strip().upper() for x in (orden or [])]
+    if lista and all(t in lista for t in ts):
+        idx = sorted({lista.index(t) for t in ts})
+        return tramos(idx, 1, lambda i: lista[i])
     return ", ".join(dict.fromkeys(ts))
+
+
+def orden_de_valores(db: Session) -> dict[str, list[str]]:
+    """{atributo: valores en orden}: sus opciones y los valores de sus escalas (una vez por sesión)."""
+    res = db.info.get("orden_valores")
+    if res is None:
+        from app.modelos import EscalaValores
+
+        res = {}
+        for a in atributos(db):
+            res[a.codigo] = [o.strip() for o in (a.opciones or "").split(",") if o.strip()]
+        for e in db.scalars(select(EscalaValores).where(EscalaValores.activo.is_(True)).order_by(EscalaValores.id)):
+            lista = res.setdefault(e.atributo, [])
+            lista += [x["valor"] for x in e.lista_valores or [] if x.get("valor") and x["valor"] not in lista]
+        db.info["orden_valores"] = res
+    return res
 
 
 def resumen(db: Session | None, articulos: list) -> str:
@@ -145,8 +158,8 @@ def resumen(db: Session | None, articulos: list) -> str:
             continue
         for k, v in de_articulo(db, a).items():
             por_atributo.setdefault(k, []).append(v)
-    nombres_atr = nombres(db)
-    return SEPARADOR.join(f"{nombres_atr.get(k, k)} {rango(vs)}" for k, vs in por_atributo.items())
+    nombres_atr, orden = nombres(db), orden_de_valores(db)
+    return SEPARADOR.join(f"{nombres_atr.get(k, k)} {rango(vs, orden.get(k))}" for k, vs in por_atributo.items())
 
 
 def de_catalogo(db: Session | None, valores: dict | None, catalogo: str) -> str | None:

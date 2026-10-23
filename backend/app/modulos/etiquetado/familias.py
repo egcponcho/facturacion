@@ -13,7 +13,6 @@ from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
     ArticuloCodigo,
-    Atributo,
     FamiliaEtiquetado,
     Marca,
     Producto,
@@ -194,7 +193,7 @@ def eliminar(db: Session, user: Usuario, familia_id: int) -> dict:
 
 
 # ---- Familia de cada artículo (la de su producto) ------------------------------------------
-def _consulta_articulos(user: Usuario, q=None, familia=None, marca_id=None, producto_id=None):
+def _consulta_articulos(user: Usuario, q=None, familia=None, producto_id=None):
     from app.modulos.acceso.permisos import proveedor_filtro
 
     c = select(Articulo).where(Articulo.activo.is_(True))
@@ -205,9 +204,6 @@ def _consulta_articulos(user: Usuario, q=None, familia=None, marca_id=None, prod
         c = c.where(familia_sql().is_(None))
     elif familia:
         c = c.where(familia_sql() == int(familia))
-    if marca_id:
-        c = c.where(Articulo.producto_id.in_(select(ProductoAtributo.producto_id).join(Atributo).where(
-            Atributo.catalogo == "marcas", ProductoAtributo.valor.in_(select(Marca.codigo).where(Marca.id == int(marca_id))))))
     if producto_id:
         c = c.where(Articulo.producto_id == producto_id)
     if q and q.strip():
@@ -218,12 +214,12 @@ def _consulta_articulos(user: Usuario, q=None, familia=None, marca_id=None, prod
     return c
 
 
-def articulos(db: Session, user: Usuario, q=None, familia=None, marca_id=None, producto_id=None,
+def articulos(db: Session, user: Usuario, q=None, familia=None, producto_id=None,
               page: int = 1, size: int = 50, ids: list[int] | None = None, solo_ids: bool = False) -> dict:
     from app.modulos.maestros import variantes
 
     exigir_alguno(user, "etiquetas.ver", "etiquetas.familias")
-    c = _consulta_articulos(user, q, familia, marca_id, producto_id)
+    c = _consulta_articulos(user, q, familia, producto_id)
     if ids:
         c = c.where(Articulo.id.in_(ids))
     if solo_ids:
@@ -253,7 +249,7 @@ def asignar_articulos(db: Session, user: Usuario, familia_id: int | None, ids: l
     if ids:
         c = _consulta_articulos(user).where(Articulo.id.in_(ids))
     elif filtro is not None:
-        permitidos = {"q", "familia", "marca_id", "producto_id"}
+        permitidos = {"q", "familia", "producto_id"}
         c = _consulta_articulos(user, **{k: v for k, v in filtro.items() if k in permitidos})
     else:
         raise ErrorNegocio("Choose the items.", 422, "validacion")

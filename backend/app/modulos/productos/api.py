@@ -13,12 +13,12 @@ router = APIRouter()
 
 
 @router.get("/productos")
-def listar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None, marca_id: str | None = None,
+def listar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None,
            estado: str | None = None, tipo: str | None = None, orden: str | None = None,
            familia: str | None = None,
            page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200), f: str | None = None):
     """Productos paginados con filtros (también `f` por columna) y orden, más los indicadores por estado."""
-    filtros = {"q": q, "proveedor_id": proveedor_id, "marca_id": marca_id, "estado": estado,
+    filtros = {"q": q, "proveedor_id": proveedor_id, "estado": estado,
                "tipo": tipo, "familia": familia}
     return svc.listar(db, user, filtros, page, size, orden, tabla.leer(f))
 
@@ -41,21 +41,21 @@ def resumen_productos(db: Db, user: User):
 
 @router.get("/productos/valores")
 def valores_columna(db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None,
-                    q: str | None = None, proveedor_id: int | None = None, marca_id: str | None = None,
+                    q: str | None = None, proveedor_id: int | None = None,
                     estado: str | None = None, tipo: str | None = None,
                     familia: str | None = None):
     """Valores únicos de una columna de la tabla de productos (con cuántos tienen cada uno) bajo los demás filtros."""
-    filtros = {"q": q, "proveedor_id": proveedor_id, "marca_id": marca_id, "estado": estado,
+    filtros = {"q": q, "proveedor_id": proveedor_id, "estado": estado,
                "tipo": tipo, "familia": familia}
     return svc.valores_productos(db, user, columna, buscar, tabla.leer(f), filtros)
 
 
 @router.get("/productos/exportar")
-def exportar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None, marca_id: str | None = None,
+def exportar(db: Db, user: User, q: str | None = None, proveedor_id: int | None = None,
              estado: str | None = None, tipo: str | None = None, orden: str | None = None, formato: Formato = "xlsx",
              f: str | None = None, familia: str | None = None):
     """Reporte de productos en PDF o Excel (composición y códigos nacionales) con los filtros de la lista."""
-    filtros = {"q": q, "proveedor_id": proveedor_id, "marca_id": marca_id, "estado": estado, "tipo": tipo, "familia": familia}
+    filtros = {"q": q, "proveedor_id": proveedor_id, "estado": estado, "tipo": tipo, "familia": familia}
     return descarga(svc.exportar_lista(db, user, filtros, orden, formato, tabla.leer(f)),
                     f"productos_{date.today():%Y%m%d}", formato)
 

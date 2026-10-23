@@ -132,7 +132,8 @@ class PlantillaIn(BaseModel):
     proveedor_id: int | None = None
     nombre: str = Field(min_length=1, max_length=100)
     cantidad_por_caja: Cantidad
-    unidad: str = Field("PAR", max_length=5)  # una de modulos/maestros/unidades.py (se valida al guardar)
+    # Una de modulos/maestros/unidades.py (se valida al guardar); sin unidad, la primera de los artículos
+    unidad: str | None = Field(None, max_length=5)
     largo: float | None = Field(default=None, ge=0)
     ancho: float | None = Field(default=None, ge=0)
     alto: float | None = Field(default=None, ge=0)

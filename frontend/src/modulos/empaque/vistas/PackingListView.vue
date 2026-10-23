@@ -23,7 +23,7 @@ import Pasos from '@/componentes/Pasos.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import { avisar, errorApi, guardando, textoDetalle } from '@/stores/ui'
 import { cantTxt, fmtNum, pct, plural, porUnidadTxt, textoArticulo, textoProducto, textoVariante, unidadTxt, useSeleccion } from '@/nucleo/utils'
-import { pasoCantidad } from '@/nucleo/unidades.js'
+import { nombresUnidad, pasoCantidad } from '@/nucleo/unidades.js'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import ResumenEtiquetas from '@/modulos/etiquetado/componentes/ResumenEtiquetas.vue'
 
@@ -144,7 +144,7 @@ const tiposEmpaque = computed(() => pl.value?.tipos_empaque || [])
 
 // Packing rule of the PO line: pack or kit (one per carton), exact casepack
 // or free; with an inner pack, cartons carry whole inner packs
-const REGLAS = { PREPACK: [t('Prepack'), 'acento'], CASEPACK: [t('Casepack'), 'info'], LIBRE: [t('Free'), ''] }
+const REGLAS = { PREPACK: [t('Pack or kit'), 'acento'], CASEPACK: [t('Casepack'), 'info'], LIBRE: [t('Free'), ''] }
 // La regla dice cómo se arma la caja; las cantidades van en columnas aparte
 // (por caja, por inner pack e inner packs por caja) para no leer "3x4" ambiguo
 const reglaTxt = (l) => (l.regla === 'PREPACK' ? t('Pack {0}', [l.codigo_pack || '']) : l.regla === 'CASEPACK' ? t('Casepack') : t('Free'))
@@ -892,10 +892,10 @@ const edicion = useEdicion('packing_list', () => Number(props.id), () => ({ edit
                :plantilla="url('/estructura/plantilla')" :ayuda="t('The columns are your packaging types. Leave empty the levels you do not use.')"
                @cerrar="modal = null" @cargado="modal = null; cargar(); tab = 'cajas'" />
   <Modal v-if="modal?.tipo === 'auto'" :titulo="t('Auto-pack')" ancho="1000px" @cerrar="modal = null">
-    <p class="ayuda">{{ t('Each row is packed into full cartons. If the PO line has a') }} <b>casepack</b>{{ t(', every carton carries exactly that quantity (no mixed sizes); a') }} <b>prepack</b> {{ t('goes one size run per master carton. Without a casepack, the template sets the quantity per carton. With an') }} <b>{{ t('inner pack') }}</b>{{ t(', cartons always carry whole inner packs. The template also adds dimensions and weights.') }}</p>
+    <p class="ayuda">{{ t('Each row is packed into full cartons. If the PO line has a') }} <b>casepack</b>{{ t(', every carton carries exactly that quantity of one item; a') }} <b>{{ t('pack or kit') }}</b> {{ t('goes one per master carton. Without a casepack, the template sets the quantity per carton. With an') }} <b>{{ t('inner pack') }}</b>{{ t(', cartons always carry whole inner packs. The template also adds dimensions and weights.') }}</p>
     <div class="fila-flex">
       <label v-for="u in unidadesAuto" :key="u" class="campo" style="min-width: 240px">
-        <span>{{ t('Template for all rows in {0}', [{ PAR: t('pairs'), UN: t('units'), CJ: t('prepack cartons') }[u]]) }}</span>
+        <span>{{ t('Template for all rows in {0}', [tx(nombresUnidad(u)[1])]) }}</span>
         <Seleccion @change="aplicarATodas(u, $event)">
           <option value="">{{ t('Choose template…') }}</option>
           <option v-for="txt in plantillasDe(u)" :key="txt.id" :value="txt.id">{{ t('{0} ({1} per carton)', [txt.nombre, txt.cantidad_por_caja]) }}</option>

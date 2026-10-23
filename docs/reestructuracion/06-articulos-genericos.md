@@ -123,3 +123,25 @@ campos propios de artículos (pasan a ser atributos de variante).
 - El motor de clasificación sigue leyendo un texto «estilo» de su entrada: es
   su vocabulario (texto de búsqueda), no una columna del artículo; la ficha
   le pasa el modelo.
+
+## 7. Revisión de lo que seguía fijo (migración 0093)
+
+Una segunda revisión del módulo buscó reglas, listas y textos que todavía
+suponían un rubro (calzado o ropa):
+
+| Lo que estaba fijo | Ahora |
+|---|---|
+| Sin escala, el código de la variante era siempre «valor × 10 en 3 dígitos» (la regla de las tallas de calzado) | Es una opción de la empresa: *Configuración de productos → Código de variante sin escala de valores* (valor × factor, consecutivo o el mismo valor, con sus dígitos). De fábrica, consecutivo de 3 dígitos. La migración **0093** guarda «× 10» en las empresas que ya tenían artículos, para que nada les cambie |
+| El resumen de variantes y los tramos «S-XL» usaban una lista fija de tallas de ropa (XS, S, M, L, XL…) | Se ordenan con las opciones del atributo y los valores de sus escalas; los números, como números; lo demás, en el orden en que viene |
+| La lista de productos tenía un filtro fijo de marca | Una columna filtrable por cada atributo de producto (marca, modelo, material…) y otra por familia. Se retiró el parámetro `marca_id` de las listas de productos, de la vista por producto y de los artículos del etiquetado |
+| La cabecera del producto mostraba solo la marca | Muestra la familia y todos los atributos del producto |
+| El resumen contaba siempre «variantes sin código de barras» | Solo cuando la empresa o alguna familia exige el código de barras |
+| La portada de configuración mostraba siempre *Marcas* | Solo si un atributo usa el catálogo de marcas o ya hay marcas |
+| La sugerencia de palabra clave descartaba géneros y colores en inglés | Descarta los conectores y los datos propios del producto (sus atributos y los valores de sus variantes) |
+| La plantilla de caja tomaba «PAR» si no se elegía unidad; la lista de empaque nombraba las unidades PAR, UN y CJ a mano; la pantalla tomaba «CJ» como la única unidad de packs | La primera unidad de artículos de la lista; el nombre de cada unidad sale de la lista de unidades; las unidades de packs y kits son las marcadas «solo para packs y kits» |
+
+Se mantuvo: el vocabulario interno del motor de clasificación (sus fuentes de
+texto «estilo» y «tallas» son nombres de sus reglas, configuradas como datos)
+y el tipo de atributo «registro de un catálogo», que por ahora apunta solo al
+catálogo de marcas (las listas propias se cubren con el tipo «una de las
+opciones»).

@@ -65,12 +65,17 @@ function elegirTipo(k) {
 }
 
 // ---- Enseñar una palabra clave cuando la categoría no se reconoció ----------------------
-const NO_FRASE = new Set('the m w u ua mn wm mens men womens women kids kid youth unisex black white grey gray blue red green brown size pack pk and with de del para'.split(' '))
+// No se sugieren los conectores ni los datos propios del producto (sus atributos y los valores de sus variantes):
+// la palabra clave dice qué es el producto, no su marca, su modelo ni su variante
+const CONECTORES = ['the', 'and', 'with', 'for', 'of', 'de', 'del', 'la', 'el', 'los', 'las', 'para', 'con', 'y']
+const NO_FRASE = computed(() => new Set([...CONECTORES,
+  ...Object.values(props.producto?.atributos || {}), ...(props.producto?.atributos_txt || []).map((a) => a.valor),
+  ...String(props.producto?.resumen_variantes || '').split(/[\s·,–]+/)].flatMap((v) => String(v || '').split(/[\s/,;()-]+/)).map(norm).filter(Boolean)))
 const frase = ref('')
 const soloMarca = ref(true)
 const ensenarCerrado = ref(false)
 const tipoDetectado = computed(() => props.r?.detectado?.categoria || '')
-const fraseSugerida = computed(() => String(f.nombre || '').split(/[\s/,;()-]+/).filter((w) => w && !/\d/.test(w) && w.length >= 2 && !NO_FRASE.has(norm(w))).slice(0, 2).join(' '))
+const fraseSugerida = computed(() => String(f.nombre || '').split(/[\s/,;()-]+/).filter((w) => w && !/\d/.test(w) && w.length >= 2 && !NO_FRASE.value.has(norm(w))).slice(0, 2).join(' '))
 const mostrarEnsenar = computed(() => props.editable && !ensenarCerrado.value && f.tipo && props.tocados.has('tipo') && tipoDetectado.value !== f.tipo && !!fraseSugerida.value)
 watch(fraseSugerida, (v) => (frase.value = v), { immediate: true })
 async function ensenarPalabra() {

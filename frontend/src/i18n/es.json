@@ -8070,5 +8070,22 @@
 "{0}: the sheet is not complete.": "{0}: la ficha no está completa.",
 "{0}: your company requires this data for every item.": "{0}: su empresa exige este dato en todos los artículos.",
 "{0}: {1} goes alone in its carton; it is not mixed with other items.": "{0}: {1} va solo en su caja; no se mezcla con otros artículos.",
-"attribute": "atributo"
+"attribute": "atributo",
+", every carton carries exactly that quantity of one item; a": ", cada caja lleva exactamente esa cantidad de un solo artículo; un",
+"Choose the code rule.": "Elija la regla del código.",
+"Example": "Ejemplo",
+"The code has between 1 and 10 digits.": "El código tiene entre 1 y 10 dígitos.",
+"The data of your products (brand, model, material…) and what tells their variants apart (a measure, a flavor, a concentration…).": "Los datos de sus productos (marca, modelo, material…) y lo que distingue a sus variantes (una medida, un sabor, una concentración…).",
+"The factor and the digits are whole numbers.": "El factor y los dígitos son números enteros.",
+"Unknown product setting.": "Opción de productos desconocida.",
+"Variant code rule saved.": "Regla del código de variante guardada.",
+"Variant code without a value scale": "Código de variante sin escala de valores",
+"When a variant does not come from a value scale and nobody types its item code, it is the product code plus this code. A value scale uses its own rule.": "Cuando una variante no sale de una escala de valores y nadie escribe su código de artículo, este es el código del producto más este código. Una escala de valores usa su propia regla.",
+"Your company or one of your families requires the barcode (GTIN, EAN or UPC).": "Su empresa o alguna de sus familias exige el código de barras (GTIN, EAN o UPC).",
+"first value": "primer valor",
+"goes one per master carton. Without a casepack, the template sets the quantity per carton. With an": "va uno por caja master. Sin casepack, la plantilla define la cantidad por caja. Con un",
+"pack carton": "caja de pack",
+"pack cartons": "cajas de pack",
+"product {0}": "producto {0}",
+"second value": "segundo valor"
 }

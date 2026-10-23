@@ -19,6 +19,7 @@ from app.core.errores import ErrorNegocio
 from app.modelos import Organizacion, ReglaAprobacionOC, Sociedad, Usuario
 from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, exigir
 from app.modulos.comun.historial import registrar
+from app.modulos.maestros import escalas
 
 
 def asegurar_principal(db: Session, nombre: str = "My company") -> Organizacion:
@@ -106,7 +107,14 @@ def _dict(o: Organizacion) -> dict:
         "aprobaciones_oc": reglas_aprobacion(object_session(o)),
         "obligatorios": {"orden": (conf.get("obligatorios") or {}).get("orden") or []},
         "campos_obligables": [{"clave": k, "texto": v} for k, v in CAMPOS_OBLIGABLES_OC.items()],
+        # Productos: la regla del código de las variantes sin escala de valores
+        "productos": {"codigo_variante": _codigo_variante(conf)},
+        "reglas_codigo": [{"clave": k, "texto": v} for k, v in escalas.REGLAS],
     }
+
+
+def _codigo_variante(conf: dict) -> dict:
+    return {**escalas.REGLA_FABRICA, **((conf.get("productos") or {}).get("codigo_variante") or {})}
 
 
 # Datos de la OC que la empresa puede volver obligatorios (además de los que
@@ -303,6 +311,13 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
         conf["documentos"] = _validar_seccion(DOCUMENTOS, {**conf.get("documentos", {}), **(datos["documentos"] or {})})
     if "textos" in datos:
         conf["textos"] = _validar_textos(datos["textos"] or {})
+    if "productos" in datos:
+        productos = datos["productos"] or {}
+        if not isinstance(productos, dict) or set(productos) - {"codigo_variante"}:
+            raise ErrorNegocio("Unknown product setting.", 422, "validacion")
+        conf["productos"] = {**(conf.get("productos") or {}),
+                             **({"codigo_variante": escalas.validar_regla(productos["codigo_variante"])}
+                                if "codigo_variante" in productos else {})}
     if "campos_propios" in datos:
         campos_propios.guardar(db, campos_propios.validar_definiciones(datos["campos_propios"] or {}))
     if "estados" in datos:
@@ -334,7 +349,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
     o.configuracion = conf
     registrar(db, user, "organizacion", o.id, "editar_organizacion",
               detalle={"antes": {k: antes[k] for k in ("nombre", "preferencias", "marca", "documentos", "aprobaciones_oc",
-                                                       "obligatorios")},
+                                                       "obligatorios", "productos")},
                        "reglas": conf.get("reglas", {})})
     db.flush()
     return _dict(o)

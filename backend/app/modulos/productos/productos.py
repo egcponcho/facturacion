@@ -24,9 +24,9 @@ from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
     ArticuloCodigo,
-    Atributo,
     ClasificacionProducto,
     ControlCapitulo,
+    GrupoProducto,
     Historial,
     IncisoNacional,
     Marca,
@@ -300,7 +300,8 @@ def _resumen(p: Producto, variantes: dict, ds: list[dict], marcas: dict | None =
         "atributos": var_svc.ordenar_producto(object_session(p), p.valores),
         "marca": marca, "marca_nombre": (marcas or {}).get(marca) if marcas is not None else (
             m.nombre if (m := marca_de(p)) else None),
-        "familia_id": p.grupo_producto_id, "tipo": p.tipo, "estado": p.estado,
+        "familia_id": p.grupo_producto_id, "familia": p.grupo_producto.nombre if p.grupo_producto else None,
+        "tipo": p.tipo, "estado": p.estado,
         "estado_txt": ESTADOS.get(p.estado, p.estado),
         "codigo": fmt_codigo(p.codigo) if p.codigo else None, "sugerido": fmt_codigo(p.sugerido) if p.sugerido else None,
         "sac_codigo": fmt_codigo(p.sac_codigo) if p.sac_codigo else None, "sac_sugerido": fmt_codigo(p.sac_sugerido) if p.sac_sugerido else None,
@@ -314,6 +315,16 @@ def _resumen(p: Producto, variantes: dict, ds: list[dict], marcas: dict | None =
         "unidad": t.get("unidad"), "descripcion_comercial": p.descripcion_comercial,
         "actualizado_en": p.actualizado_en, "version": p.version, "version_ficha": p.version_ficha,
     }
+
+
+def _atributos_txt(db: Session, p: Producto) -> list[dict]:
+    """[{codigo, nombre, valor}] de los atributos del producto, en su orden."""
+    nombres = var_svc.nombres(db)
+    marca = marca_de(p)
+    cat = {a.codigo: a.catalogo for a in var_svc.atributos(db, "PRODUCTO")}
+    return [{"codigo": k, "nombre": nombres.get(k, k),
+             "valor": marca.nombre if cat.get(k) == "marcas" and marca and marca.codigo == v else v}
+            for k, v in var_svc.ordenar_producto(db, p.valores).items()]
 
 
 def _variantes(db: Session, ids: list[int]) -> dict:
@@ -336,7 +347,7 @@ ORDEN = {"estado": Producto.estado, "actualizado": Producto.actualizado_en,
          # Columnas de la tabla de productos (TablaDatos)
          # El producto se reconoce por su nombre (o su código, si no tiene)
          "producto": func.coalesce(Producto.nombre, Producto.codigo_generico), "proveedor": Proveedor.nombre,
-         "generico": Producto.codigo_generico, "origen": Producto.pais_origen}
+         "generico": Producto.codigo_generico, "origen": Producto.pais_origen, "familia": GrupoProducto.nombre}
 
 # Columnas de la tabla de productos que se filtran por sus valores (app/modulos/comun/tabla.py).
 # El código es el aprobado o, mientras no lo hay, el sugerido (como se ve en la lista).
@@ -348,11 +359,16 @@ COLUMNAS_PRODUCTOS = {
 
 
 def _columnas_productos(db: Session, user: Usuario) -> dict:
-    """Columnas filtrables para el usuario: quien no ve la sugerencia del motor
-    filtra el código solo por el aprobado (sus valores no muestran la sugerencia)."""
-    if flujo.ve_sugerencia(db, user):
-        return COLUMNAS_PRODUCTOS
-    return {**COLUMNAS_PRODUCTOS, "codigo": Producto.codigo}
+    """Columnas filtrables para el usuario: las fijas, la familia y una por atributo de
+    producto («atr.<código>»: marca, modelo, material… los que defina la empresa).
+    Quien no ve la sugerencia del motor filtra el código solo por el aprobado."""
+    res = {**COLUMNAS_PRODUCTOS, "familia": GrupoProducto.nombre}
+    for a in var_svc.atributos(db, "PRODUCTO"):
+        res[f"atr.{a.codigo}"] = tabla.Relacion(ProductoAtributo.valor, ProductoAtributo.producto_id, Producto.id,
+                                                donde=ProductoAtributo.atributo_id == a.id)
+    if not flujo.ve_sugerencia(db, user):
+        res["codigo"] = Producto.codigo
+    return res
 
 
 def rama_de_grupos(db: Session, grupo_ids) -> set[int]:
@@ -373,19 +389,15 @@ def rama_de_grupos(db: Session, grupo_ids) -> set[int]:
 
 
 def _consulta_productos(db: Session, user: Usuario, filtros: dict):
-    """Productos visibles para el usuario con la búsqueda, la marca, el grupo y
-    la categoría elegidos (sin la vista de estado ni los filtros por columna).
+    """Productos visibles para el usuario con la búsqueda, la familia y la categoría
+    elegidas (sin la vista de estado ni los filtros por columna: ahí van los atributos).
     Devuelve la consulta y el alcance de proveedores."""
     exigir(user, "producto.ver")
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
-    base = select(Producto).outerjoin(Proveedor, Proveedor.id == Producto.proveedor_id)
+    base = (select(Producto).outerjoin(Proveedor, Proveedor.id == Producto.proveedor_id)
+            .outerjoin(GrupoProducto, GrupoProducto.id == Producto.grupo_producto_id))
     if prov:
         base = base.where(Producto.proveedor_id.in_(prov))
-    if filtros.get("marca_id"):
-        ids = [int(x) for x in str(filtros["marca_id"]).split(",") if x.strip().isdigit()]
-        codigos = select(Marca.codigo).where(Marca.id.in_(ids))
-        base = base.where(Producto.id.in_(select(ProductoAtributo.producto_id).join(Atributo).where(
-            Atributo.catalogo == "marcas", ProductoAtributo.valor.in_(codigos))))
     if filtros.get("tipo"):
         base = base.where(Producto.tipo.in_(str(filtros["tipo"]).split(",")))
     if filtros.get("familia"):
@@ -449,7 +461,8 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     base = base.order_by(campo.desc() if direccion == "desc" else campo.asc(), Producto.id)
     # Proveedor y atributos de toda la página en una consulta cada uno (no uno por producto)
     filas = db.scalars(base.options(selectinload(Producto.partidas), selectinload(Producto.fotos),
-                                    selectinload(Producto.proveedor), selectinload(Producto.atributos))
+                                    selectinload(Producto.proveedor), selectinload(Producto.atributos),
+                                    selectinload(Producto.grupo_producto))
                        .offset((page - 1) * size).limit(size)).all()
     variantes = _variantes(db, [p.id for p in filas])
     marcas = {m.codigo: m.nombre for m in db.scalars(select(Marca))}
@@ -497,6 +510,8 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "ficha": p.ficha or {}, "descripcion_aduana": p.descripcion_aduana, "pais_procedencia": p.pais_procedencia,
         "grupo_producto_id": p.grupo_producto_id,
         "familia": p.grupo_producto.nombre if p.grupo_producto is not None else None,
+        # Los atributos del producto para mostrar: su nombre y su valor (de un catálogo, el nombre del registro)
+        "atributos_txt": _atributos_txt(db, p),
         "analisis": p.analisis or {}, "alertas_ok": p.alertas_ok or [], "observaciones": p.observaciones,
         "resolucion": p.resolucion, "notas": p.notas, "opinion_ia": p.opinion_ia,
         "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
@@ -1144,6 +1159,8 @@ def opciones(db: Session, user: Usuario) -> dict:
     return {
         "proveedores": [{"id": x.id, "nombre": x.nombre} for x in provs if not prov or x.id in prov],
         "marcas": [{"id": m.id, "codigo": m.codigo, "nombre": m.nombre} for m in db.scalars(select(Marca).order_by(Marca.codigo))],
+        # Los atributos de producto de la empresa: una columna de la lista por cada uno
+        "atributos": [{"codigo": a.codigo, "nombre": a.nombre, "catalogo": a.catalogo} for a in var_svc.atributos(db, "PRODUCTO")],
         "estados": ESTADOS,
         "paises": [{"codigo": x.codigo, "nombre": x.nombre} for x in db.scalars(select(Pais).order_by(Pais.nombre))],
     }
@@ -1231,11 +1248,13 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     def codigos(p: Producto | None) -> dict:
         return {x.pais: fmt_codigo(x.codigo) for x in (p.partidas if p else []) if x.codigo}
 
-    nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "marca_id": "Brand",
+    nombres = {"q": "Search", "estado": "Status", "tipo": "Type", "proveedor_id": "Supplier", "familia": "Family",
                "producto": "Product", "generico": "Product code", "proveedor": "Supplier", "codigo": "HS code",
                "origen": "Origin"}
+    nombres.update({f"atr.{k}": v for k, v in var_svc.nombres(db).items()})
+    columnas_validas = _columnas_productos(db, user)
     de_columnas = [(c, ", ".join("—" if x == tabla.VACIO else x for x in v))
-                   for c, v in (por_columna or {}).items() if c in COLUMNAS_PRODUCTOS]
+                   for c, v in (por_columna or {}).items() if c in columnas_validas]
     texto = " · ".join(f"{nombres.get(c, c)}: {v}" for c, v in [*filtros.items(), *de_columnas] if v not in (None, ""))
     texto = f"Filters: {texto}" if texto else "No filters"
     titulo, sub = "Products and tariff classification", "Technical sheets, composition, HS codes and national codes by destination"

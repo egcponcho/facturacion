@@ -129,7 +129,7 @@ FABRICA: dict[str, list[dict]] = {
         _v("M2", "m²", nombre_plural="m²", alias="MT2,MTS2,METRO2,SQM", contable=False),
         _v("M3", "m³", nombre_plural="m³", alias="MT3,METRO3,CBM", contable=False),
         _v("ROL", "roll", nombre_plural="rolls", alias="ROLLO,ROLLOS,ROLL,ROLLS", contable=True),
-        _v("CJ", "prepack carton", nombre_plural="prepack cartons", alias="CAJA,CAJAS,CS,CTN", contable=True,
+        _v("CJ", "pack carton", nombre_plural="pack cartons", alias="CAJA,CAJAS,CS,CTN", contable=True,
            compuesto=True),
     ],
     "moneda": [

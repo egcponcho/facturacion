@@ -10,6 +10,10 @@ la regla de la escala:
 - CONSECUTIVO: 001, 002, 003… en el orden de la escala.
 - VALOR: el propio valor sin espacios ni signos (S, M, XL, 32X30).
 Si el código ya está usado en el producto, se toma el siguiente libre.
+
+Una variante sin escala usa la regla de la empresa (Configuración de productos →
+Código de variante; de fábrica, consecutivo de 3 dígitos): ningún rubro trae su
+regla fija en el código.
 """
 import re
 
@@ -18,6 +22,32 @@ from app.modulos.comun.normalizar import clave
 
 REGLAS = [["MULTIPLICAR", "Value × factor (7.5 × 10 → 075)"], ["CONSECUTIVO", "Consecutive (001, 002…)"],
           ["VALOR", "Same as the value (S, M, XL)"]]
+# La regla de fábrica para las variantes sin escala
+REGLA_FABRICA = {"regla": "CONSECUTIVO", "factor": None, "longitud": 3}
+
+
+def regla_empresa() -> dict:
+    """La regla de código de variante de la empresa ({regla, factor, longitud}) para las variantes sin escala."""
+    from app.core.empresa import configuracion_actual
+
+    propia = ((configuracion_actual().get("productos") or {}).get("codigo_variante")) or {}
+    return {**REGLA_FABRICA, **{k: propia[k] for k in REGLA_FABRICA if k in propia}}
+
+
+def validar_regla(datos) -> dict:
+    """La regla de código de variante que guarda la empresa, validada."""
+    if not isinstance(datos, dict) or datos.get("regla") not in {r for r, _ in REGLAS}:
+        raise ErrorNegocio("Choose the code rule.", 422, "validacion")
+    try:
+        factor = int(datos["factor"]) if datos.get("factor") not in (None, "") else None
+        longitud = int(datos["longitud"]) if datos.get("longitud") not in (None, "") else None
+    except (TypeError, ValueError):
+        raise ErrorNegocio("The factor and the digits are whole numbers.", 422, "validacion") from None
+    if datos["regla"] == "MULTIPLICAR" and not (factor and factor >= 1):
+        raise ErrorNegocio("Enter the factor for the rule Value × factor.", 422, "validacion")
+    if longitud is not None and not 1 <= longitud <= 10:
+        raise ErrorNegocio("The code has between 1 and 10 digits.", 422, "validacion")
+    return {"regla": datos["regla"], "factor": factor if datos["regla"] == "MULTIPLICAR" else None, "longitud": longitud}
 
 
 def _rango(a: str, b: str) -> list[str] | None:
@@ -78,12 +108,13 @@ def _por_regla(regla: str, valor: str, indice: int, factor: int | None, longitud
     return str(indice + 1).zfill(largo or 3)
 
 
-def codigo(escala, valor: str, usados: set[str]) -> str:
-    """Código de un valor según la escala (o la regla usual si no hay escala),
+def codigo(escala, valor: str, usados: set[str], regla_sin_escala: dict | None = None) -> str:
+    """Código de un valor según la escala (o, sin escala, la regla de la empresa),
     evitando los ya usados en el producto."""
     valor = (valor or "").strip().upper()
     if escala is None:
-        regla, factor, longitud, lista = "MULTIPLICAR", 10, 3, []
+        r = regla_sin_escala or regla_empresa()
+        regla, factor, longitud, lista = r["regla"], r.get("factor"), r.get("longitud"), []
     else:
         regla, factor, longitud, lista = escala.regla, escala.factor, escala.longitud, valores_de(escala.valores)
     escrito = next((c for t, c in lista if t == valor and c), None)

@@ -42,7 +42,8 @@ function clase(f) {
 }
 const usados = computed(() => new Set(props.filas.map((f) => norm(f.m).trim())))
 const sugerencias = computed(() => an.value.sugerencias.filter((x) => !usados.value.has(norm(x.m).trim())))
-const deUsadas = (u) => (u.de?.estilo ? t('model {0}{1}', [u.de.estilo, u.de.color ? `, ${u.de.color}` : '']) : `${u.de?.productos || ''} ${t('products')}${u.de?.marca ? t(' of {0}', [u.de.marca]) : ''}`)
+// De dónde sale una composición ya usada: el mismo producto (por su nombre) o cuántos productos la usan
+const deUsadas = (u) => (u.de?.estilo ? t('product {0}', [u.de.estilo]) : `${u.de?.productos || ''} ${t('products')}${u.de?.marca ? t(' of {0}', [u.de.marca]) : ''}`)
 
 function cambio() {
   emit('cambio', props.campo.codigo, texto.value)

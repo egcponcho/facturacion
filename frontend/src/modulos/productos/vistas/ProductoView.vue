@@ -654,7 +654,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         <div>
           <span class="doc-numero">{{ tx(p.nombre || p.codigo_generico) }}</span>
           <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Product code')">{{ p.codigo_generico }}</span>
-            {{ [p.descripcion_comercial, p.marca_nombre || p.marca, p.proveedor !== (p.marca_nombre || p.marca) ? p.proveedor : null].filter(Boolean).map(tx).join(' · ') }}</div>
+            {{ [p.descripcion_comercial, p.proveedor].filter(Boolean).map(tx).join(' · ') }}</div>
         </div>
         <template v-if="comex">
           <EstadoBadge :estado="p.estado" tipo="producto" />
@@ -676,6 +676,8 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         </div>
       </div>
       <div class="doc-meta">
+        <span>{{ t('Family') }} <b>{{ tx(p.familia || '—') }}</b></span>
+        <span v-for="a in p.atributos_txt || []" :key="a.codigo">{{ tx(a.nombre) }} <b>{{ tx(a.valor) }}</b></span>
         <span>{{ t('Variants') }} <b>{{ tx(p.resumen_variantes || '—') }}</b></span>
         <span>{{ t('SKUs') }} <b>{{ tx(p.skus) }}</b></span>
         <span v-if="comex">{{ t('Origin') }} <b>{{ tx(f.origen || '—') }}</b></span>

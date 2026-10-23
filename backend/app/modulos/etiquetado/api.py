@@ -287,12 +287,12 @@ def asignar_categoria_productos(db: Db, user: User, categoria_id: int | None = B
 
 
 @router.get("/etiquetas/articulos")
-def articulos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None, marca_id: int | None = None,
+def articulos_familia(db: Db, user: User, q: str | None = None, familia: str | None = None,
                       producto_id: int | None = None, ids: str | None = Query(None, pattern=r"^\d+(,\d+)*$"),
                       page: int = Query(1, ge=1), size: int = Query(50, ge=1, le=200), solo_ids: bool = False):
     """Artículos con la familia de su producto (familia=sin: los que no tienen; ids=1,2,3: solo esos;
     solo_ids: los números de todos los que cumplen el filtro, para elegirlos de una vez)."""
-    return familias.articulos(db, user, q, familia, marca_id, producto_id, page, size,
+    return familias.articulos(db, user, q, familia, producto_id, page, size,
                               [int(x) for x in ids.split(",")][:200] if ids else None, solo_ids)
 
 

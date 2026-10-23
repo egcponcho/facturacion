@@ -7,7 +7,6 @@ import { api } from '@/nucleo/api'
 import BarraSeleccion from '@/componentes/BarraSeleccion.vue'
 import CargaArticulos from '@/modulos/maestros/componentes/CargaArticulos.vue'
 import EstadoBadge from '@/componentes/EstadoBadge.vue'
-import FiltroMulti from '@/componentes/FiltroMulti.vue'
 import EstadoVacio from '@/componentes/EstadoVacio.vue'
 import Icono from '@/componentes/Icono.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
@@ -27,18 +26,17 @@ const interno = esInterno()
 const comex = comercioExterior()
 // Quien aprueba empieza por lo que espera revisión; quien llena la ficha, por lo que falta completar
 const revisa = puede('producto.clasificar')
-// Filtros de la pantalla: búsqueda, bandeja (vista de estado) y marca; el resto
-// (categoría, código, estado, proveedor…) va en el filtro de cada columna
+// Filtros de la pantalla: búsqueda y bandeja (vista de estado); el resto (familia,
+// cada atributo del producto, categoría, código, estado, proveedor…) va en el filtro de su columna
 const filtros = reactive({
   estado: route.query.estado ?? (!comex ? '' : revisa ? 'revision' : 'borradores'),
   q: route.query.q || '',
-  marcas: [],
 })
 const datos = ref({ items: [], total: 0, kpis: {} })
 // Sin pestaña pedida en la dirección, se abre la primera que tenga productos
 // (y no una vacía con «Nada pendiente aquí»)
 let elegirInicial = route.query.estado === undefined && comex
-const opciones = ref({ marcas: [], paises: [] })
+const opciones = ref({ marcas: [], paises: [], atributos: [] })
 const cargando = ref(false)
 const ocupado = ref(false)
 const seleccion = ref([])
@@ -88,6 +86,7 @@ function siguiente(p) {
 // Categorías (para el nombre en el filtro de su columna): las de la configuración
 const categorias = ref([])
 if (comex) cargarContexto().then((c) => (categorias.value = (c.categorias || []).map((x) => [x.codigo, x.nombre_corto || x.nombre]))).catch(() => {})
+const nombresMarca = computed(() => Object.fromEntries((opciones.value.marcas || []).map((m) => [m.codigo, m.nombre])))
 const nombresPais = computed(() => Object.fromEntries((opciones.value.paises || []).map((x) => [x.codigo, x.nombre])))
 const ESTADOS_PRODUCTO = ['borrador', 'sugerida', 'observado', 'revision', 'aprobado', 'corregido']
   .map((c) => [c, c === 'corregido' ? t('Corrected') : leerEstado(c, 'producto')[0]])
@@ -97,6 +96,11 @@ const columnas = computed(() => [
   { clave: 'producto', texto: t('Product'), fija: true, prioridad: 1 },
   { clave: 'generico', texto: t('Product code'), inicial: false, prioridad: 3 },
   ...(!sesion.proveedorId && interno ? [{ clave: 'proveedor', texto: t('Supplier'), prioridad: 2 }] : []),
+  { clave: 'familia', texto: t('Family'), prioridad: 2 },
+  // Una columna por atributo del producto (marca, modelo, material…): los que defina la empresa
+  ...(opciones.value.atributos || []).map((a, i) => ({ clave: `atr.${a.codigo}`, texto: a.nombre, prioridad: i < 2 ? 2 : 3,
+    inicial: i < 2, ordenable: false, valor: (p) => p.atributos?.[a.codigo],
+    textoValor: (v) => (a.catalogo === 'marcas' ? nombresMarca.value[v] || v : v) })),
   // La ficha técnica y la clasificación, solo con el complemento de comercio exterior
   ...(comex ? [
     { clave: 'tipo', texto: t('Category'), prioridad: 3, opciones: categorias.value },
@@ -117,7 +121,7 @@ function quitarFamilia() {
   router.replace({ query: { ...route.query, familia: undefined } })
   recargar()
 }
-const pantalla = () => ({ estado: filtros.estado, q: filtros.q, marca_id: filtros.marcas.join(','), proveedor_id: sesion.proveedorId || undefined,
+const pantalla = () => ({ estado: filtros.estado, q: filtros.q, proveedor_id: sesion.proveedorId || undefined,
   familia: familia.value || undefined })
 const filtrosColumna = (c) => (c && Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined)
 const valores = (columna, buscar, otros) => api.get('/productos/valores', { columna, buscar, f: JSON.stringify(otros), ...pantalla() })
@@ -168,22 +172,11 @@ function elegirVista(v) {
   recargar()
 }
 
-// Marca: filtro secundario («Más filtros»), con su chip
-const opcionesMarca = computed(() => opciones.value.marcas.map((m) => ({ valor: String(m.id), texto: m.nombre })))
-const chips = computed(() => (filtros.marcas.length
-  ? [{ clave: 'marcas', texto: `${t('Brand')}: ${filtros.marcas.map((v) => opcionesMarca.value.find((o) => o.valor === v)?.texto || v).join(', ')}` }]
-  : []))
-function quitarMarcas() {
-  if (!filtros.marcas.length) return
-  filtros.marcas = []
-  recargar()
-}
-// Vistas guardadas: también la bandeja, la búsqueda y la marca
-const externos = computed(() => ({ estado: filtros.estado, q: filtros.q, marcas: filtros.marcas.join(',') }))
+// Vistas guardadas: también la bandeja y la búsqueda
+const externos = computed(() => ({ estado: filtros.estado, q: filtros.q }))
 function aplicarVista(q) {
   filtros.estado = q.estado || ''
   filtros.q = q.q || ''
-  filtros.marcas = q.marcas ? q.marcas.split(',') : []
   elegirInicial = false
   recargar()
 }
@@ -279,10 +272,9 @@ alCambiar(() => consultar(), ['/productos'])
   </div>
 
   <TablaDatos ref="tabla" tabla="productos" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
-              :valores="valores" :externos="externos" :chips-externos="chips" :mas-filtros-activos="filtros.marcas.length ? 1 : 0"
+              :valores="valores" :externos="externos"
               seleccionable v-model:seleccion="seleccion" fila-clicable :etiqueta="t('Products')"
-              @consulta="consultar" @fila="(p) => router.push(`/productos/${p.id}`)" @vista="aplicarVista"
-              @quitar-externo="quitarMarcas" @limpiar-externos="quitarMarcas">
+              @consulta="consultar" @fila="(p) => router.push(`/productos/${p.id}`)" @vista="aplicarVista">
     <template #barra>
       <label class="buscador">
         <Icono nombre="buscar" :tam="16" />
@@ -293,9 +285,6 @@ alCambiar(() => consultar(), ['/productos'])
       <Segmentos v-if="comex" :model-value="filtros.estado" :opciones="VISTAS" :etiqueta="t('View')" @change="elegirVista" />
       <button v-if="familia" type="button" class="chip-filtro" :aria-label="t('Remove filter {0}', [tx(nombreFamilia || familia)])" @click="quitarFamilia">
         {{ t('Family: {0}', [tx(nombreFamilia || familia)]) }}<Icono nombre="cerrar" :tam="13" /></button>
-    </template>
-    <template v-if="opciones.marcas.length > 1 || filtros.marcas.length" #mas-filtros>
-      <FiltroMulti v-model="filtros.marcas" :etiqueta="t('Brand')" :opciones="opcionesMarca" @change="recargar" />
     </template>
 
     <template #celda-producto="{ fila: p }">
@@ -310,6 +299,10 @@ alCambiar(() => consultar(), ['/productos'])
         </span>
       </div>
     </template>
+    <template #celda-familia="{ fila: p }"><template v-if="p.familia">{{ tx(p.familia) }}</template><span v-else class="apagado">—</span></template>
+    <template v-for="a in opciones.atributos" :key="a.codigo" #[`celda-atr.${a.codigo}`]="{ fila: p }">
+      <template v-if="p.atributos?.[a.codigo]">{{ tx(a.catalogo === 'marcas' ? p.marca_nombre || p.atributos[a.codigo] : p.atributos[a.codigo]) }}</template>
+      <span v-else class="apagado">—</span></template>
     <template #celda-generico="{ fila: p }"><span class="codigo">{{ tx(p.codigo_generico || '—') }}</span></template>
     <template #celda-tipo="{ fila: p }">
       <template v-if="p.tipo">{{ tx(p.tipo_txt || p.tipo) }}</template>

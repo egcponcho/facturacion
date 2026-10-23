@@ -57,7 +57,7 @@ const pct = (n) => (r.value.total ? t('{0}% of the products', [Math.round((n / r
 const pendientes = computed(() => [
   { titulo: t('Without family'), n: r.value.sin_familia, texto: t('The family says which data they need, their variants, labels and packing.'), a: catalogo({ estado: '' }) },
   { titulo: t('Without variants'), n: r.value.sin_variantes, texto: t('A product needs at least one item to be ordered.'), a: catalogo({ estado: '' }) },
-  { titulo: t('Variants without barcode'), n: r.value.sin_codigo_barras, texto: t('Labels and receiving use the barcode (GTIN, EAN or UPC).'), a: '/mantenimiento?catalogo=articulos' },
+  ...(r.value.exige_codigo_barras ? [{ titulo: t('Variants without barcode'), n: r.value.sin_codigo_barras, texto: t('Your company or one of your families requires the barcode (GTIN, EAN or UPC).'), a: '/mantenimiento?catalogo=articulos' }] : []),
   ...(comex ? [{ titulo: t('Blocking invoices'), n: r.value.bloquean, texto: t('Without an approved HS code their invoices cannot be finalized.'), a: catalogo({ estado: 'bloquean' }), tono: 'error' }] : []),
 ])
 // Puesta en marcha: lo que hay que configurar antes de crear productos
@@ -65,7 +65,7 @@ const pasos = computed(() => {
   const c = r.value?.configuracion
   if (!c) return []
   return [
-    { titulo: t('Attributes'), texto: t('The data of your products (brand, model…) and what tells their variants apart (size, color…).'), hecho: c.atributos > 0, a: '/mantenimiento?catalogo=atributos' },
+    { titulo: t('Attributes'), texto: t('The data of your products (brand, model, material…) and what tells their variants apart (a measure, a flavor, a concentration…).'), hecho: c.atributos > 0, a: '/mantenimiento?catalogo=atributos' },
     { titulo: t('Product families'), texto: t('Each family says which data its products need and their variant attributes; labels and packing use it.'), hecho: c.familias > 0, a: '/grupos-producto' },
     { titulo: t('First product'), texto: t('Create it step by step with its variants.'), hecho: r.value.total > 0, a: '/productos/nuevo' },
   ]

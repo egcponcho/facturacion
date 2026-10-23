@@ -25,6 +25,15 @@ RECIENTES = 6
 FAMILIAS = 8
 
 
+def _exige_codigo_barras(db: Session) -> bool:
+    from app.modulos.maestros import gobierno
+
+    if "codigo_barras" in gobierno.obligatorios("articulos"):
+        return True
+    return any(c.get("campo") == "articulo.codigo_barras" and c.get("obligatorio")
+               for (campos,) in db.execute(select(GrupoProducto.campos)) for c in (campos or []) if isinstance(c, dict))
+
+
 def resumen(db: Session, user: Usuario) -> dict:
     base, prov = svc._consulta_productos(db, user, {})
     sub = base.subquery()
@@ -46,6 +55,8 @@ def resumen(db: Session, user: Usuario) -> dict:
     res = {
         "total": total, "variantes": variantes, "sin_variantes": sin_variantes, "sin_familia": sin_familia,
         "sin_codigo_barras": sin_codigo_barras,
+        # La cifra de código de barras solo importa si la empresa o alguna familia lo exige
+        "exige_codigo_barras": _exige_codigo_barras(db),
         "por_estado": {
             # Partición exacta (suma el total); «observado» es un borrador devuelto
             "borradores": sum(por_estado.get(e, 0) for e in svc.BORRADORES if e != "observado"),

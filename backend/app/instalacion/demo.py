@@ -149,6 +149,8 @@ MARCAS = [("TNF", "The North Face"), ("VANS", "Vans"), ("MERR", "Merrell"), ("CA
           ("HPU", "Hush Puppies"), ("CASA", "House brand")]
 # Atributos de esta empresa de ejemplo (cada empresa define los suyos en Datos maestros → Atributos):
 # código, nombre, nivel, tipo, catálogo, orden. La marca es la que apunta al catálogo de marcas.
+# La regla de código de variante de la empresa de ejemplo (Configuración de productos)
+REGLA_CODIGO = {"regla": "MULTIPLICAR", "factor": 10, "longitud": 3}
 ATRIBUTOS = [
     ("MARCA", "Brand", "PRODUCTO", "catalogo", "marcas", 1), ("MODELO", "Style", "PRODUCTO", "texto", None, 2),
     ("COLOR", "Color", "VARIANTE", "texto", None, 1), ("TALLA", "Size", "VARIANTE", "texto", None, 2),
@@ -382,7 +384,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
         productos[(estilo, color)], usados[(estilo, color)] = p, set()
         for talla in tallas:
             # Calzado: la talla por 10 (7 → 070, 10 → 100); letras: 001, 002…
-            suf = escalas.codigo(None, talla, usados[(estilo, color)])
+            suf = escalas.codigo(None, talla, usados[(estilo, color)], REGLA_CODIGO)
             usados[(estilo, color)].add(suf)
             sku = f"{gen}{suf}"
             a = Articulo(sku=sku, producto=p, descripcion=desc, unidad=unidad, tipo="SOLIDO", peso_unitario=peso)
@@ -398,7 +400,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict) -> dict:
     db.flush()
     for estilo, color, codigo, curva in PREPACKS:
         p, base = productos[(estilo, color)], arts[(estilo, color, next(iter(curva)))]
-        suf = escalas.codigo(None, codigo, usados[(estilo, color)])
+        suf = escalas.codigo(None, codigo, usados[(estilo, color)], REGLA_CODIGO)
         usados[(estilo, color)].add(suf)
         a = Articulo(sku=f"{p.codigo_generico}{suf}", producto=p, descripcion=f"{base.descripcion}, pack {codigo}",
                      unidad="CJ", tipo="PREPACK",
@@ -611,8 +613,10 @@ def seed(db: Session) -> None:
     db.merge(Meta(clave="demo", valor="1"))
     empresa.nombre, empresa.pais = "Distribuidora de Marcas", "SV"
     # La empresa de ejemplo completa sus partidas con el código nacional de El Salvador
+    # Sus códigos de variante sin escala: el valor × 10 en 3 dígitos (talla 7.5 → 075)
     empresa.configuracion = {"reglas": {"PAIS_BASE_CLASIF": "SV"},
-                             "preferencias": {"idioma": "es", "moneda": "USD", "zona_horaria": "America/El_Salvador"}}
+                             "preferencias": {"idioma": "es", "moneda": "USD", "zona_horaria": "America/El_Salvador"},
+                             "productos": {"codigo_variante": REGLA_CODIGO}}
     tnf = Proveedor(codigo="TNF", nombre="The North Face", razon_social="VF Outdoor Asia Sourcing Ltd.",
                     id_fiscal="HK-51902231", pais="VN", direccion="Lot C-5, Tan Thuan EPZ, Ho Chi Minh, Vietnam",
                     contacto="Linh Nguyen", correos="export.tnf@vf.demo", telefono="+84 28 3770 1234")

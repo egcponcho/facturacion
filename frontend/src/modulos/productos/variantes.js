@@ -11,17 +11,20 @@ import { avisar } from '@/stores/ui'
 
 export const MAX_COMBINACIONES = 500
 
-// "7-10, 12", "6.5-9.5", "S-XL" o "S, M, XL": tramos y valores sueltos
-const LETRAS = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
-export function expandir(texto) {
+// "7-10, 12", "6.5-9.5", "S-XL" o "S, M, XL": tramos y valores sueltos. Un
+// tramo de números va de uno en uno (o de medio en medio); uno de otros valores
+// sigue el orden que la empresa les dio (`orden`: las opciones del atributo y
+// los valores de sus escalas), sin ninguna lista fija de un rubro.
+export function expandir(texto, orden = []) {
   const lista = []
+  const ord = orden.map((x) => String(x).trim().toUpperCase())
   for (const tramo of String(texto || '').split(/[,;]+/).map((x) => x.trim()).filter(Boolean)) {
     const m = tramo.match(/^(\S+)\s*(?:-|to|a)\s*(\S+)$/i)
     const [a, b] = m ? [m[1].toUpperCase(), m[2].toUpperCase()] : []
     if (m && /^\d+(\.5)?$/.test(a) && /^\d+(\.5)?$/.test(b)) {
       const paso = tramo.includes('.5') ? 0.5 : 1
       for (let x = Number(a); x <= Number(b) + 1e-9; x += paso) lista.push(String(x))
-    } else if (m && LETRAS.includes(a) && LETRAS.includes(b)) lista.push(...LETRAS.slice(LETRAS.indexOf(a), LETRAS.indexOf(b) + 1))
+    } else if (m && ord.includes(a) && ord.includes(b) && ord.indexOf(a) <= ord.indexOf(b)) lista.push(...ord.slice(ord.indexOf(a), ord.indexOf(b) + 1))
     else lista.push(tramo)
   }
   return [...new Set(lista)]
@@ -81,7 +84,10 @@ export function useVariantes(g, info = ref(null)) {
   const clave = (v) => ejes.value.map((a) => String(v?.[a.codigo] ?? '').toUpperCase()).join('|')
   const nuevaFila = (vals = {}) => ({ valores: { ...vals }, sufijo: '', sku: '', codigo_barras: '', codigo_proveedor: '', peso: pesoTodas.value })
   const existentes = computed(() => new Set((info.value?.variantes || []).filter((x) => x.tipo === 'SOLIDO').map((x) => clave(x.valores))))
-  const listas = computed(() => ejes.value.map((a) => [a.codigo, expandir(valores[a.codigo])]).filter(([, l]) => l.length))
+  // El orden de los valores de un atributo: sus opciones y los de sus escalas
+  const ordenDe = (a) => [...new Set([...opcionesDe(a), ...escalasDe(a).flatMap((e) => String(e.valores || '').split(',')
+    .map((x) => x.split('=')[0].trim()).filter(Boolean))])]
+  const listas = computed(() => ejes.value.map((a) => [a.codigo, expandir(valores[a.codigo], ordenDe(a))]).filter(([, l]) => l.length))
   const totalCombinaciones = computed(() => (listas.value.length ? listas.value.reduce((n, [, l]) => n * l.length, 1) : 0))
 
   // Todas las combinaciones de los valores escritos (sin las que ya están en la tabla ni en el producto)

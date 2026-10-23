@@ -25,7 +25,6 @@ from app.core.errores import ErrorNegocio
 from app.modelos import (
     Articulo,
     ArticuloCodigo,
-    Atributo,
     EscalaValores,
     GrupoFamilia,
     Marca,
@@ -57,8 +56,8 @@ def _sufijos(db: Session, gen: str) -> set[str]:
 
 
 def siguiente_sufijo(db: Session, gen: str, usados: set[str] | None = None, valor: str | None = None, escala=None) -> str:
-    """Código de una variante nueva: el de su valor en la escala (o, sin escala, la regla
-    usual valor numérico × 10); si está usado, el siguiente libre."""
+    """Código de una variante nueva: el de su valor en la escala (o, sin escala, la regla de
+    la empresa); si está usado, el siguiente libre."""
     usados = usados if usados is not None else _sufijos(db, gen)
     return escalas.codigo(escala, valor, usados)
 
@@ -233,7 +232,7 @@ def agregar_variantes(db: Session, user: Usuario, gen: str, filas_in: list, esca
             if suf and (not re.fullmatch(r"[A-Z0-9._\-/]{1,20}", suf) or suf in usados):
                 errores.append({"campo": f"variantes.{i}", "mensaje": f"Row {i + 1}: code {suf} is taken or not valid."})
                 continue
-            # El código sale del valor del atributo de la escala (o del último eje de la familia, con la regla usual)
+            # El código sale del valor del atributo de la escala (o del último eje de la familia, con la regla de la empresa)
             base = valores.get(escala.atributo) if escala else next((valores[e] for e in reversed(ejes) if e in valores), "")
             suf = suf or siguiente_sufijo(db, gen, usados, base or "", escala if base else None)
             usados.add(suf)
@@ -308,10 +307,6 @@ def _consulta(db: Session, user: Usuario, filtros: dict):
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
     if prov:
         q = q.where(Producto.proveedor_id.in_(prov))
-    if filtros.get("marca_id"):
-        ids = [int(x) for x in str(filtros["marca_id"]).split(",") if x.strip().isdigit()]
-        q = q.where(Producto.id.in_(select(ProductoAtributo.producto_id).join(Atributo).where(
-            Atributo.catalogo == "marcas", ProductoAtributo.valor.in_(select(Marca.codigo).where(Marca.id.in_(ids))))))
     if filtros.get("familia"):
         from app.modulos.productos.productos import rama_de_grupos
 
