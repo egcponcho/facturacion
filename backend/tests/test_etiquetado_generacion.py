@@ -158,7 +158,7 @@ def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, ti
             from app.modelos import Articulo
 
             a = db.get(Articulo, articulo_id)
-            valor = (a.producto.ficha or {}).get("uso") if a.producto else None
+            valor = (a.producto.comex.ficha or {}).get("uso") if a.producto else None
         t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]],
                                     "posiciones": [linea["id"], oc["lineas"][1]["id"]]})
         r0, r1 = t["registros"]

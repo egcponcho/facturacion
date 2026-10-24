@@ -24,7 +24,9 @@ from app.modelos.facturacion import FacturaLinea
 from app.modelos.maestros import Articulo, ArticuloVersion, Atributo
 
 CAMPOS_ARTICULO = ("sku", "descripcion", "unidad", "peso_unitario", "tipo")
-CAMPOS_PRODUCTO = ("nombre", "codigo_generico", "descripcion_comercial", "pais_origen", "tipo", "version_ficha", "ficha")
+CAMPOS_PRODUCTO = ("nombre", "codigo_generico")
+# De su ficha de comercio exterior (producto_comex): la foto conserva las mismas claves
+CAMPOS_COMEX = ("descripcion_comercial", "pais_origen", "tipo", "version_ficha", "ficha")
 
 
 def foto(a: Articulo) -> dict:
@@ -38,6 +40,7 @@ def foto(a: Articulo) -> dict:
         "componentes": sorted(({"sku": c.componente.sku, "cantidad": c.cantidad} for c in a.componentes),
                               key=lambda x: x["sku"]),
         "producto": {"id": p.id, **{k: getattr(p, k) for k in CAMPOS_PRODUCTO},
+                     **{k: getattr(p.comex, k) for k in CAMPOS_COMEX},
                      "atributos": dict(sorted(p.valores.items()))} if p else None,
     }
 

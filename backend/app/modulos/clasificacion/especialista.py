@@ -58,8 +58,8 @@ def entrada(db: Session, p) -> dict:
     from app.modulos.clasificacion.motor_clasificacion import clasificar_producto
 
     r = clasificar_producto(db, productos.entrada_producto(p), paises=False)
-    lineas = [f"Category: {(r.get('categoria') or {}).get('nombre') or p.tipo or 'not chosen'}",
-              f"Product: {p.codigo_generico or ''} {p.nombre or ''}".strip(), f"Country of origin: {p.pais_origen or 'not given'}"]
+    lineas = [f"Category: {(r.get('categoria') or {}).get('nombre') or p.comex.tipo or 'not chosen'}",
+              f"Product: {p.codigo_generico or ''} {p.nombre or ''}".strip(), f"Country of origin: {p.comex.pais_origen or 'not given'}"]
     corregibles = []
     for c in r["campos"]:
         if c["tipo_dato"] == "composition":
@@ -74,8 +74,8 @@ def entrada(db: Session, p) -> dict:
     for c in r["campos"]:
         if c["tipo_dato"] == "composition" and c["codigo"].startswith("comp."):
             corregibles.append(f"- {c['codigo']} ({c['etiqueta']}): composition text, e.g. 60% cotton, 40% polyester")
-    if (p.ficha or {}).get("uso"):
-        lineas.append(f"What it is for: {p.ficha['uso']}")
+    if (p.comex.ficha or {}).get("uso"):
+        lineas.append(f"What it is for: {p.comex.ficha['uso']}")
     parecidos = [f"{x.get('nombre') or x.get('generico')}: {x['codigo_txt']}" for x in r.get("parecidos") or []]
     return {"ficha_texto": "\n".join(lineas), "sugerido": r.get("hs6_txt"), "confianza": r["confianza"], "razones": r["razones"][:30],
             "alertas": [a["msg"] for a in r["alertas"]][:30], "parecidos": parecidos[:10], "campos": "\n".join(corregibles)}

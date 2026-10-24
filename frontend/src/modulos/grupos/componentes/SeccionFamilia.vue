@@ -17,7 +17,7 @@ const borrador = ref(null)
 const guardando = ref(false)
 function copiar() {
   const d = props.seccion.datos || {}
-  borrador.value = { dias_extra: d.dias_extra ?? '', campos: (d.campos || []).map((c) => ({ ...c })) }
+  borrador.value = { dias_extra: d.dias_extra ?? '', categoria: d.categoria || '', campos: (d.campos || []).map((c) => ({ ...c })) }
 }
 watch(() => props.seccion, copiar, { immediate: true })
 
@@ -52,7 +52,7 @@ async function guardar() {
   const b = borrador.value
   const cuerpo = props.seccion.clave === 'logistica'
     ? { dias_extra: b.dias_extra === '' || b.dias_extra === null ? null : Number(b.dias_extra) }
-    : { campos: b.campos }
+    : props.seccion.clave === 'comex' ? { categoria: b.categoria || null } : { campos: b.campos }
   guardando.value = true
   try {
     const r = await api.put(`/grupos-producto/${props.familiaId}/secciones/${props.seccion.clave}`, cuerpo)
@@ -74,6 +74,19 @@ async function guardar() {
         <input v-model="borrador.dias_extra" type="number" min="0" max="365" class="ancho-s" :disabled="!seccion.editable" />
         <small class="ayuda">{{ t('Days its products add after the port (inspection, labeling…) when estimating the date in store. Empty: the ones of the parent family, or none.') }}
           {{ t('Today it uses {0}.', [seccion.datos.efectivos ?? 0]) }}</small></label>
+    </template>
+
+    <!-- Comercio exterior -->
+    <template v-else-if="seccion.clave === 'comex'">
+      <label class="campo"><span>{{ t('Customs category') }}</span>
+        <select v-model="borrador.categoria" :disabled="!seccion.editable">
+          <option value="">{{ t('The one of the parent family') }}</option>
+          <option v-for="c in seccion.datos.categorias" :key="c.codigo" :value="c.codigo">{{ tx(c.nombre) }}</option>
+        </select>
+        <small class="ayuda">{{ t('The technical sheets of its products start with this category (what the product is), and the classification engine uses it while a sheet has none.') }}
+          <template v-if="seccion.datos.efectiva">{{ t('Today it uses {0}.', [tx(seccion.datos.efectiva_nombre || seccion.datos.efectiva)]) }}</template></small></label>
+      <p v-if="seccion.datos.productos_sin_categoria" class="ayuda">
+        {{ t('{0} products of this family have no category in their sheet yet.', [seccion.datos.productos_sin_categoria]) }}</p>
     </template>
 
     <!-- Etiquetado -->

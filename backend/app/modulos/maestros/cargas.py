@@ -270,7 +270,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
         try:
             with db.begin_nested():
                 if not p:
-                    p = Producto(codigo_generico=gen, ficha={}, faltan=[], alertas_ok=[])
+                    p = Producto(codigo_generico=gen)
                     db.add(p)
                     creados += 1
                 else:
@@ -282,12 +282,12 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
                 atr_svc.poner(db, p, valores)
                 db.flush()
                 aviso = _ficha_desde_fila(p, {k: v for k, v in f.items() if k != "generico"}, paises, voc)
-                if not (p.ficha or {}).get("comManual"):
-                    p.descripcion_comercial = descripcion_comercial_simple(p)
+                if not (p.comex.ficha or {}).get("comManual"):
+                    p.comex.descripcion_comercial = descripcion_comercial_simple(p)
                 perfil.exigir_producto(db, p)
                 if aviso:
                     errores.append({"fila": donde, "mensaje": aviso})
-                productos[p.id] = p.estado
+                productos[p.id] = p.comex.estado
         except IntegrityError:
             errores.append({"fila": donde, "mensaje": f"Product {gen} could not be saved (duplicated data)."})
         except ErrorNegocio as e:
@@ -364,7 +364,7 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
                 var_act += 1
             else:
                 var_creadas += 1
-            productos[p.id] = p.estado
+            productos[p.id] = p.comex.estado
         except IntegrityError:
             errores.append({"fila": donde, "mensaje": "Duplicated item code or code."})
         except ErrorNegocio as e:
@@ -380,18 +380,19 @@ def importar_por_generico(db: Session, user: Usuario, nombre: str, contenido: by
 def _ficha_desde_fila(p, f: dict, paises: dict, voc: dict) -> str | None:
     """Pasa las columnas de la ficha al producto (solo lo que viene lleno y
     solo si la ficha no está aprobada). Devuelve un aviso si algo no se entendió."""
-    if p.estado in APROBADOS:
+    c = p.comex
+    if c.estado in APROBADOS:
         return None
-    ficha = dict(p.ficha or {})
+    ficha = dict(c.ficha or {})
     avisos = []
     if f.get("nombre"):
         p.nombre = f["nombre"][:200]
     if f.get("categoria"):
         k = categoria_de(object_session(p), f["categoria"])
         if k:
-            p.tipo = k
+            c.tipo = k
             ficha.pop("_categoria", None)
-        elif not p.tipo:
+        elif not c.tipo:
             ficha["_categoria"] = f["categoria"][:100]
     for k in ("uso", "tallas"):
         if f.get(k):
@@ -399,7 +400,7 @@ def _ficha_desde_fila(p, f: dict, paises: dict, voc: dict) -> str | None:
     if f.get("pais_origen"):
         iso = paises.get(norm(f["pais_origen"]))
         if iso:
-            p.pais_origen = iso
+            c.pais_origen = iso
         else:
             avisos.append(f"Country “{f['pais_origen']}” not in the countries catalog")
     comp = dict(ficha.get("comp") or {})
@@ -427,8 +428,8 @@ def _ficha_desde_fila(p, f: dict, paises: dict, voc: dict) -> str | None:
     if f.get("partida"):
         d = re.sub(r"\D", "", f["partida"])
         if len(d) >= 6:
-            p.propuesta = d[:14]
-    p.ficha = ficha
+            c.propuesta = d[:14]
+    c.ficha = ficha
     return ("Item loaded, but: " + "; ".join(avisos) + ".") if avisos else None
 
 

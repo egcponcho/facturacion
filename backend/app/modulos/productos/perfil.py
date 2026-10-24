@@ -148,8 +148,8 @@ def exigir_producto(db: Session, p: Producto) -> None:
     claves = [c for c in exigidos(p.grupo_producto, db) if c.startswith("producto.")]
     if not claves:
         return
-    valores = {"producto.nombre": p.nombre, "producto.descripcion_comercial": p.descripcion_comercial,
-               "producto.pais_origen": p.pais_origen, **{f"producto.dato.{k}": v for k, v in p.valores.items()}}
+    valores = {"producto.nombre": p.nombre, "producto.descripcion_comercial": p.comex.descripcion_comercial,
+               "producto.pais_origen": p.comex.pais_origen, **{f"producto.dato.{k}": v for k, v in p.valores.items()}}
     faltan = _faltan(valores, claves)
     if faltan:
         nombres = _etiquetas(db)

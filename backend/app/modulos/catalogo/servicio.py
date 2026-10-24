@@ -280,7 +280,7 @@ def _descripcion(a: Articulo) -> str | None:
     if a.descripcion:
         return a.descripcion
     prod = a.producto
-    base = (prod.descripcion_comercial or prod.nombre) if prod else None
+    base = (prod.comex.descripcion_comercial or prod.nombre) if prod else None
     valores = " · ".join(str(v) for v in a.variantes.values() if v not in (None, ""))
     if a.tipo == TIPO_PACK and a.codigo_pack:
         valores = f"pack {a.codigo_pack}"

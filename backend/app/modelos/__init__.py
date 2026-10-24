@@ -117,9 +117,11 @@ from app.modelos.maestros import (
 from app.modelos.numeracion import ContadorSerie, SerieDocumental
 from app.modelos.productos import (
     ClasificacionProducto,
+    FamiliaComex,
     PartidaPais,
     Producto,
     ProductoAtributo,
+    ProductoComex,
     ProductoDocumento,
     ProductoFoto,
     ProductoVersion,
@@ -148,6 +150,7 @@ _aplicar_referencias(_Base.metadata)
 __all__ = [
     "CampoEtiqueta",
     "EtiquetadoFamilia",
+    "FamiliaComex",
     "FamiliaLogistica",
     "GrupoCategoria",
     "GrupoFamilia",
@@ -236,6 +239,7 @@ __all__ = [
     "PosicionOC",
     "Producto",
     "ProductoAtributo",
+    "ProductoComex",
     "ProductoDocumento",
     "ProductoFoto",
     "ProductoVersion",

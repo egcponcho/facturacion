@@ -31,6 +31,7 @@ from app.modelos import (
     Pais,
     Producto,
     ProductoAtributo,
+    ProductoComex,
     Proveedor,
     Usuario,
 )
@@ -77,7 +78,7 @@ def detalle(db: Session, user: Usuario, gen: str) -> dict:
     arts = sorted(p.articulos, key=lambda a: a.sku)
     return {
         "generico": gen, "producto_id": p.id, "proveedor_id": p.proveedor_id, "unidad": p.unidad, "nombre": p.nombre,
-        "descripcion_comercial": p.descripcion_comercial, "grupo_producto_id": p.grupo_producto_id,
+        "descripcion_comercial": p.comex.descripcion_comercial, "grupo_producto_id": p.grupo_producto_id,
         "atributos": variantes.ordenar_producto(db, p.valores),
         "variantes": [_variante(db, a, gen) for a in arts],
         "siguiente": siguiente_sufijo(db, gen), "usados": sorted(a.sku[len(gen):] for a in arts if a.sku.startswith(gen)),
@@ -134,8 +135,9 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     nombre = (datos.nombre or "").strip()[:200] or gen
     descripcion = (getattr(datos, "descripcion_comercial", None) or "").strip()[:300] or None
     p = Producto(codigo_generico=gen, proveedor_id=prov.id if prov else None, unidad=normalizar(datos.unidad), nombre=nombre,
-                 pais_origen=pais, grupo_producto_id=familia.id if familia else None,
-                 ficha={"comManual": True} if descripcion else {}, faltan=[], alertas_ok=[])
+                 grupo_producto_id=familia.id if familia else None)
+    p.comex.pais_origen = pais
+    p.comex.ficha = {"comManual": True} if descripcion else {}
     db.add(p)
     atr_svc.poner(db, p, valores)
     try:
@@ -143,7 +145,7 @@ def crear(db: Session, user: Usuario, datos) -> dict:
     except IntegrityError:
         raise ErrorNegocio(f"Product {gen} already exists.", 409, "duplicado") from None
     # Escrita, se conserva; si no, se arma con la ficha
-    p.descripcion_comercial = descripcion or descripcion_comercial_simple(p)
+    p.comex.descripcion_comercial = descripcion or descripcion_comercial_simple(p)
     perfil.exigir_producto(db, p)
     registrar(db, user, "genericos", p.id, "crear", {"generico": gen, "atributos": {k: v for k, v in valores.items() if v}})
     combinar = getattr(datos, "combinar", None) or {}
@@ -273,15 +275,21 @@ def _exigidos_empresa(db: Session, a: Articulo) -> list[dict]:
     return errores
 
 
+def _de_comex(campo: str):
+    """Un dato de la ficha de comercio exterior del producto, para ordenar y filtrar la lista."""
+    c = getattr(ProductoComex, campo)
+    return select(c).where(ProductoComex.producto_id == Producto.id).correlate_except(ProductoComex).scalar_subquery()
+
+
 # Orden y filtro por columna (app/modulos/comun/tabla.py) de la vista por producto. Los atributos
 # del producto («atr.<código>») y los valores de sus variantes se filtran por sus filas.
 ORDEN = {"generico": Producto.codigo_generico, "nombre": Producto.nombre,
          "proveedor_id": select(Proveedor.nombre).where(Proveedor.id == Producto.proveedor_id).scalar_subquery(),
-         "unidad": Producto.unidad, "descripcion_comercial": Producto.descripcion_comercial, "codigo": Producto.codigo,
-         "estado": Producto.estado}
+         "unidad": Producto.unidad, "descripcion_comercial": _de_comex("descripcion_comercial"), "codigo": _de_comex("codigo"),
+         "estado": _de_comex("estado")}
 COLUMNAS = {"generico": Producto.codigo_generico, "nombre": Producto.nombre, "proveedor_id": Producto.proveedor_id,
-            "unidad": Producto.unidad, "descripcion_comercial": Producto.descripcion_comercial, "codigo": Producto.codigo,
-            "estado": Producto.estado}
+            "unidad": Producto.unidad, "descripcion_comercial": _de_comex("descripcion_comercial"), "codigo": _de_comex("codigo"),
+            "estado": _de_comex("estado")}
 
 
 def columnas(db: Session) -> dict:
@@ -360,8 +368,9 @@ def listar(db: Session, user: Usuario, filtros: dict, orden: str | None, page: i
             "grupo_producto_id": p.grupo_producto_id, "unidad": p.unidad,
             "resumen_variantes": variantes.resumen(db, simples), "variantes_atributos": variantes.por_atributo(db, simples),
             "n_variantes": len(simples), "n_compuestos": len(ls) - len(simples), "activos": sum(1 for a in ls if a.activo),
-            "descripcion_comercial": p.descripcion_comercial, "estado": p.estado, "estado_txt": ESTADOS.get(p.estado, p.estado),
-            "codigo": fmt_codigo(p.codigo) if p.codigo else None,
+            "descripcion_comercial": p.comex.descripcion_comercial, "estado": p.comex.estado,
+            "estado_txt": ESTADOS.get(p.comex.estado, p.comex.estado),
+            "codigo": fmt_codigo(p.comex.codigo) if p.comex.codigo else None,
         })
     return {"items": items, "total": total, "page": page, "size": size}
 
@@ -396,9 +405,9 @@ def editar(db: Session, user: Usuario, gen: str, datos) -> dict:
         if a.tipo == "SOLIDO":
             a.unidad = p.unidad
     db.flush()
-    if not (p.ficha or {}).get("comManual"):
+    if not (p.comex.ficha or {}).get("comManual"):
         db.refresh(p)
-        p.descripcion_comercial = descripcion_comercial_simple(p)
+        p.comex.descripcion_comercial = descripcion_comercial_simple(p)
     perfil.exigir_producto(db, p)
     perfil.exigir_variantes(db, [a for a in p.articulos if a.activo])
     registrar(db, user, "genericos", p.id, "editar", {"generico": gen, "antes": antes, "atributos": cambios})

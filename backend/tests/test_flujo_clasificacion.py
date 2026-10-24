@@ -74,8 +74,8 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
     assert all(x["codigo"].startswith(sugerido) for x in p["partidas"].values())
     with SessionLocal() as db:
         x = db.get(Producto, p["id"])
-        ev = x.evidencia
-        assert x.version_arancel_id and ev["version"]["codigo"] and ev["hechos"]["categoria"] == "calzado"
+        ev = x.comex.evidencia
+        assert x.comex.version_arancel_id and ev["version"]["codigo"] and ev["hechos"]["categoria"] == "calzado"
         assert ev["aprobacion"]["hs6"] == sugerido and ev["aprobacion"]["sugerido"] == sugerido
         aplicadas = [t for t in ev["reglas"] if t.get("aplicada")]
         assert aplicadas and all(t["firma"] and t["revision"] for t in aplicadas)

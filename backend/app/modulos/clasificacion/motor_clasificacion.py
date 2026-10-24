@@ -52,6 +52,7 @@ from app.modelos import (
     NodoArancel,
     PaisArancel,
     Producto,
+    ProductoComex,
     ReglaClasificacion,
     VersionDataset,
 )
@@ -841,12 +842,13 @@ def _historial_composicion(db: Session, categoria, pid) -> list[dict]:
         return []
     from app.modulos.productos.productos import marca_de
 
-    q = select(Producto).where(Producto.tipo == categoria, Producto.id != (pid or 0)).order_by(Producto.id.desc()).limit(400)
+    q = (select(Producto).join(ProductoComex, ProductoComex.producto_id == Producto.id)
+         .where(ProductoComex.tipo == categoria, Producto.id != (pid or 0)).order_by(Producto.id.desc()).limit(400))
     res = []
     for x in db.scalars(q):
         marca = marca_de(x)
         res.append({"estilo": x.nombre or x.codigo_generico, "color": None, "marca": marca.nombre if marca else None,
-                    "comp": (x.ficha or {}).get("comp") or {}})
+                    "comp": (x.comex.ficha or {}).get("comp") or {}})
     return res
 
 
@@ -858,10 +860,11 @@ def _historial(db: Session, entrada: dict, categoria, perfil: str) -> dict:
     if not categoria:
         return out
     pid = entrada.get("producto_id")
-    q = select(Producto.id, Producto.codigo_generico, Producto.codigo,
-               ClasificacionProducto.perfil, Producto.tipo, Producto.nombre, Producto.descripcion_aduana, Producto.sac_codigo) \
+    q = select(Producto.id, Producto.codigo_generico, ProductoComex.codigo, ClasificacionProducto.perfil, ProductoComex.tipo,
+               Producto.nombre, ProductoComex.descripcion_aduana, ProductoComex.sac_codigo) \
+        .join(ProductoComex, ProductoComex.producto_id == Producto.id) \
         .outerjoin(ClasificacionProducto, ClasificacionProducto.producto_id == Producto.id) \
-        .where(Producto.estado.in_(APROBADOS), Producto.codigo.is_not(None))
+        .where(ProductoComex.estado.in_(APROBADOS), ProductoComex.codigo.is_not(None))
     # Mismo perfil, o el mismo código de producto si la entrada lo trae
     cond = [ClasificacionProducto.perfil == perfil]
     if entrada.get("generico"):

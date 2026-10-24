@@ -33,7 +33,7 @@ PENDIENTES = {
 # Relaciones de modelos de otros módulos hacia el catálogo: se navegarían sin pasar por el
 # servicio (`posicion.articulo.producto…`). Guardan el id; la lista solo puede achicarse
 RELACIONES_PENDIENTES = {"FacturaLinea.articulo_version", "PosicionOC.articulo", "PosicionOC.articulo_version"}
-MODELOS_COMEX = {"ClasificacionProducto", "PartidaPais", "ProductoFoto", "ProductoDocumento", "ProductoVersion"}
+MODELOS_COMEX = {"ClasificacionProducto", "FamiliaComex", "PartidaPais", "ProductoComex", "ProductoFoto", "ProductoDocumento", "ProductoVersion"}
 
 
 def _usos(archivo: Path) -> list[str]:

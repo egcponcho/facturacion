@@ -70,6 +70,7 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "eventos_embarque": [("embarque_id", "embarques"), ("unidad_carga_id", "unidades_carga")],
     "tercero_roles": [("tercero_id", "terceros")],
     "clasificaciones_producto": [("producto_id", "productos")],
+    "producto_comex": [("producto_id", "productos")],
     "articulo_atributos": [("articulo_id", "articulos"), ("atributo_id", "atributos")],
     "articulos": [("producto_id", "productos")],
     "articulo_codigos": [("articulo_id", "articulos"), ("proveedor_id", "proveedores")],

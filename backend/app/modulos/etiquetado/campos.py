@@ -220,7 +220,7 @@ def _dinamicos(db: Session) -> list[Campo]:
     res += [Campo(f"producto.dato.{a['codigo']}", a["nombre"], "numero" if a["tipo"] == "numero" else "texto",
                   origen_propio=f"producto_atributos.valor[{a['codigo']}]") for a in catalogo_svc.atributos(db, "PRODUCTO")]
     res += [Campo(f"producto.atributo.{k}", d["etiqueta"] + (f" ({d['unidad']})" if d["unidad"] else ""),
-                  "numero" if d["tipo"] == "number" else "texto", origen_propio=f"productos.ficha[{k}]")
+                  "numero" if d["tipo"] == "number" else "texto", origen_propio=f"producto_comex.ficha[{k}]")
             for k, d in comex.defs_ficha(db).items()]
     for entidad, grupo in (("ordenes", "oc"),):
         for d in campos_propios.definiciones(entidad):

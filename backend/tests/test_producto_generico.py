@@ -78,13 +78,13 @@ def test_atributos_de_la_ficha_en_las_etiquetas(interno):
     with SessionLocal() as db:
         defs = comex.defs_ficha(db)
         a = next(x for x in db.scalars(select(Articulo).where(Articulo.producto_id.is_not(None)))
-                 if x.producto.ficha and set(x.producto.ficha) & set(defs))
+                 if x.producto.comex.ficha and set(x.producto.comex.ficha) & set(defs))
         v = campos.valores_articulo(db, catalogo.articulo(db, a.id))
-        clave = next(k for k in a.producto.ficha if k in defs and a.producto.ficha[k] not in (None, "", [], {}))
+        clave = next(k for k in a.producto.comex.ficha if k in defs and a.producto.comex.ficha[k] not in (None, "", [], {}))
         d = defs[clave]
-        assert v[f"producto.atributo.{clave}"] == comex.texto_ficha(d, a.producto.ficha[clave])
+        assert v[f"producto.atributo.{clave}"] == comex.texto_ficha(d, a.producto.comex.ficha[clave])
         if d["tipo"] == "select":
-            assert v[f"producto.atributo.{clave}"] == d["opciones"].get(a.producto.ficha[clave], a.producto.ficha[clave])
+            assert v[f"producto.atributo.{clave}"] == d["opciones"].get(a.producto.comex.ficha[clave], a.producto.comex.ficha[clave])
     claves = {c["clave"] for c in interno.get("/etiquetas/campos", params={"sujeto": "ARTICULO"}).json()["campos"]}
     assert f"producto.atributo.{clave}" in claves
     assert comex.texto_ficha({"tipo": "multi_select", "opciones": {"a": "Alpha"}}, ["a", "b"]) == "Alpha, b"

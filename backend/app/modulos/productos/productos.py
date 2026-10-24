@@ -36,6 +36,7 @@ from app.modelos import (
     PartidaPais,
     Producto,
     ProductoAtributo,
+    ProductoComex,
     ProductoDocumento,
     ProductoFoto,
     ProductoVersion,
@@ -136,16 +137,16 @@ def asegurar_producto(db: Session, a: Articulo, generico: str | None = None,
         or (a.sku or "").strip().upper()
     p = a.producto if a.producto is not None and a.producto.codigo_generico == gen else producto_por_generico(db, gen)
     if p is None:
-        p = Producto(proveedor_id=proveedor_id, unidad=a.unidad if a.tipo == "SOLIDO" else None, ficha={}, faltan=[],
-                     alertas_ok=[], codigo_generico=gen, nombre=a.descripcion or gen)
+        p = Producto(proveedor_id=proveedor_id, unidad=a.unidad if a.tipo == "SOLIDO" else None,
+                     codigo_generico=gen, nombre=a.descripcion or gen)
         db.add(p)
     if proveedor_id and not p.proveedor_id:
         p.proveedor_id = proveedor_id
     if a.tipo == "SOLIDO" and not p.unidad:
         p.unidad = a.unidad
     a.producto = p
-    if not p.descripcion_comercial and not (p.ficha or {}).get("comManual"):
-        p.descripcion_comercial = descripcion_comercial_simple(p)
+    if not p.comex.descripcion_comercial and not (p.comex.ficha or {}).get("comManual"):
+        p.comex.descripcion_comercial = descripcion_comercial_simple(p)
     return p
 
 
@@ -170,13 +171,13 @@ def descripcion_comercial_simple(p: Producto) -> str | None:
     from app.modulos.productos.ficha import catalogo
 
     db = object_session(p)
-    if not p.tipo or db is None:
+    if not p.comex.tipo or db is None:
         return None
     cat = catalogo(db)
-    c = cat.categorias.get(p.tipo)
+    c = cat.categorias.get(p.comex.tipo)
     if not c:
         return None
-    s = cat.hechos_base(dict(p.ficha or {}), p.tipo, c.dominio)
+    s = cat.hechos_base(dict(p.comex.ficha or {}), p.comex.tipo, c.dominio)
     cat.normalizar(s)
     marca = marca_de(p)
     return descripcion_comercial(cat, s, c, marca.nombre if marca else None)[:300] or None
@@ -184,12 +185,12 @@ def descripcion_comercial_simple(p: Producto) -> str | None:
 
 def partida_para(p: Producto | None) -> str | None:
     """Código que va en la OC y la factura: la subpartida de 6 dígitos aprobada (comex/servicio.py)."""
-    return comex._ficha(p).partida if p is not None else None
+    return comex._ficha(p.comex).partida if p is not None else None
 
 
 def clasificacion_txt(p: Producto | None) -> dict:
     """Resumen corto para mostrar junto al artículo en la OC o la factura."""
-    return comex._ficha(p).resumen() if p is not None else dict(comex.SIN_PRODUCTO)
+    return comex._ficha(p.comex).resumen() if p is not None else dict(comex.SIN_PRODUCTO)
 
 
 # ---- Códigos nacionales en el servidor (base cargada y aprobaciones en lote) ---
@@ -253,21 +254,21 @@ def _resumen(p: Producto, variantes: dict, ds: list[dict], marcas: dict | None =
         "marca": marca, "marca_nombre": (marcas or {}).get(marca) if marcas is not None else (
             m.nombre if (m := marca_de(p)) else None),
         "familia_id": p.grupo_producto_id, "familia": p.grupo_producto.nombre if p.grupo_producto else None,
-        "tipo": p.tipo, "estado": p.estado,
-        "estado_txt": ESTADOS.get(p.estado, p.estado),
-        "codigo": fmt_codigo(p.codigo) if p.codigo else None, "sugerido": fmt_codigo(p.sugerido) if p.sugerido else None,
-        "sac_codigo": fmt_codigo(p.sac_codigo) if p.sac_codigo else None, "sac_sugerido": fmt_codigo(p.sac_sugerido) if p.sac_sugerido else None,
-        "propuesta": fmt_codigo(p.propuesta) if p.propuesta else None,
-        "confianza": p.confianza, "ficha_completa": p.ficha_completa, "faltan": p.faltan or [],
-        "paises_ok": ok, "paises_total": total, "foto_id": foto, "pais_origen": p.pais_origen,
+        "tipo": p.comex.tipo, "estado": p.comex.estado,
+        "estado_txt": ESTADOS.get(p.comex.estado, p.comex.estado),
+        "codigo": fmt_codigo(p.comex.codigo) if p.comex.codigo else None, "sugerido": fmt_codigo(p.comex.sugerido) if p.comex.sugerido else None,
+        "sac_codigo": fmt_codigo(p.comex.sac_codigo) if p.comex.sac_codigo else None, "sac_sugerido": fmt_codigo(p.comex.sac_sugerido) if p.comex.sac_sugerido else None,
+        "propuesta": fmt_codigo(p.comex.propuesta) if p.comex.propuesta else None,
+        "confianza": p.comex.confianza, "ficha_completa": p.comex.ficha_completa, "faltan": p.comex.faltan or [],
+        "paises_ok": ok, "paises_total": total, "foto_id": foto, "pais_origen": p.comex.pais_origen,
         "skus": t.get("skus", 0),
         # Las variantes por atributo de la familia («Size 7–12 · Color BLACK, WHITE»), para cualquier producto
         "resumen_variantes": var_svc.resumen(object_session(p), t.get("articulos", [])),
         # Lo mismo por atributo ([{codigo, nombre, valores, texto}]), para mostrarlo como datos
         "variantes_atributos": var_svc.por_atributo(object_session(p), t.get("articulos", [])),
         "n_compuestos": t.get("compuestos", 0),
-        "unidad": t.get("unidad"), "descripcion_comercial": p.descripcion_comercial,
-        "actualizado_en": p.actualizado_en, "version": p.version, "version_ficha": p.version_ficha,
+        "unidad": t.get("unidad"), "descripcion_comercial": p.comex.descripcion_comercial,
+        "actualizado_en": p.actualizado_en, "version": p.version, "version_ficha": p.comex.version_ficha,
     }
 
 
@@ -311,19 +312,19 @@ def _variantes(db: Session, ids: list[int]) -> dict:
     return out
 
 
-ORDEN = {"estado": Producto.estado, "actualizado": Producto.actualizado_en,
-         "codigo": Producto.codigo, "tipo": Producto.tipo,
+ORDEN = {"estado": ProductoComex.estado, "actualizado": Producto.actualizado_en,
+         "codigo": ProductoComex.codigo, "tipo": ProductoComex.tipo,
          # Columnas de la tabla de productos (TablaDatos)
          # El producto se reconoce por su nombre (o su código, si no tiene)
          "producto": func.coalesce(Producto.nombre, Producto.codigo_generico), "proveedor": Proveedor.nombre,
-         "generico": Producto.codigo_generico, "origen": Producto.pais_origen, "familia": GrupoProducto.nombre}
+         "generico": Producto.codigo_generico, "origen": ProductoComex.pais_origen, "familia": GrupoProducto.nombre}
 
 # Columnas de la tabla de productos que se filtran por sus valores (app/modulos/comun/tabla.py).
 # El código es el aprobado o, mientras no lo hay, el sugerido (como se ve en la lista).
 COLUMNAS_PRODUCTOS = {
     "producto": func.coalesce(Producto.nombre, Producto.codigo_generico), "generico": Producto.codigo_generico,
-    "proveedor": Proveedor.nombre, "tipo": Producto.tipo, "codigo": func.coalesce(Producto.codigo, Producto.sugerido),
-    "estado": Producto.estado, "origen": Producto.pais_origen,
+    "proveedor": Proveedor.nombre, "tipo": ProductoComex.tipo, "codigo": func.coalesce(ProductoComex.codigo, ProductoComex.sugerido),
+    "estado": ProductoComex.estado, "origen": ProductoComex.pais_origen,
 }
 
 
@@ -336,7 +337,7 @@ def _columnas_productos(db: Session, user: Usuario) -> dict:
         res[f"atr.{a.codigo}"] = tabla.Relacion(ProductoAtributo.valor, ProductoAtributo.producto_id, Producto.id,
                                                 donde=ProductoAtributo.atributo_id == a.id)
     if not flujo.ve_sugerencia(db, user):
-        res["codigo"] = Producto.codigo
+        res["codigo"] = ProductoComex.codigo
     return res
 
 
@@ -363,17 +364,18 @@ def _consulta_productos(db: Session, user: Usuario, filtros: dict):
     Devuelve la consulta y el alcance de proveedores."""
     exigir(user, "producto.ver")
     prov = proveedor_filtro(user, filtros.get("proveedor_id"))
-    base = (select(Producto).outerjoin(Proveedor, Proveedor.id == Producto.proveedor_id)
+    base = (select(Producto).join(ProductoComex, ProductoComex.producto_id == Producto.id)
+            .outerjoin(Proveedor, Proveedor.id == Producto.proveedor_id)
             .outerjoin(GrupoProducto, GrupoProducto.id == Producto.grupo_producto_id))
     if prov:
         base = base.where(Producto.proveedor_id.in_(prov))
     if filtros.get("tipo"):
-        base = base.where(Producto.tipo.in_(str(filtros["tipo"]).split(",")))
+        base = base.where(ProductoComex.tipo.in_(str(filtros["tipo"]).split(",")))
     if filtros.get("familia"):
         base = base.where(Producto.grupo_producto_id.in_(rama_de_grupos(db, filtros["familia"])))
     if filtros.get("q"):
         base = base.where(filtro_texto(filtros["q"], lambda p: [
-            Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p), Producto.codigo.ilike(p.replace(".", "")),
+            Producto.nombre.ilike(p), Producto.codigo_generico.ilike(p), ProductoComex.codigo.ilike(p.replace(".", "")),
             Producto.id.in_(select(ProductoAtributo.producto_id).where(ProductoAtributo.valor.ilike(p))),
             Producto.id.in_(select(Articulo.producto_id).where(Articulo.sku.ilike(p))),
             Producto.id.in_(select(Articulo.producto_id).join(ArticuloCodigo).where(ArticuloCodigo.valor.ilike(p)))]))
@@ -386,16 +388,16 @@ def _vista_estado(db: Session, user: Usuario, base, estado: str | None, prov, bl
     if estado == "bloquean":
         return base.where(Producto.id.in_(bloquean if bloquean is not None else ids_bloquean_facturas(db, prov)))
     if estado == "pendientes":
-        return base.where(Producto.estado.in_(PENDIENTES))
+        return base.where(ProductoComex.estado.in_(PENDIENTES))
     if estado == "borradores":
-        return base.where(Producto.estado.in_(BORRADORES))
+        return base.where(ProductoComex.estado.in_(BORRADORES))
     if estado == "aprobados":
-        return base.where(Producto.estado.in_(APROBADOS))
+        return base.where(ProductoComex.estado.in_(APROBADOS))
     # Baja confianza: no aplica si el proveedor no ve la sugerencia
     if estado == "baja_confianza" and flujo.ve_sugerencia(db, user):
-        return base.where(Producto.estado.in_(PENDIENTES), Producto.confianza == "low")
+        return base.where(ProductoComex.estado.in_(PENDIENTES), ProductoComex.confianza == "low")
     if estado:
-        return base.where(Producto.estado == estado)
+        return base.where(ProductoComex.estado == estado)
     return base
 
 
@@ -415,7 +417,7 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     base, prov = _consulta_productos(db, user, filtros)
     base = tabla.aplicar(base, _columnas_productos(db, user), por_columna or {})
     # Indicadores por estado con los mismos filtros (menos el de estado)
-    sub = base.subquery()
+    sub = base.add_columns(ProductoComex.estado.label("estado")).subquery()
     conteo = {e: n for e, n in db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all()}
     # Baja confianza legal: lo que el especialista debe mirar primero (no aplica si el proveedor no ve la sugerencia)
     baja = (db.scalar(select(func.count()).select_from(sub)
@@ -450,13 +452,13 @@ def listar(db: Session, user: Usuario, filtros: dict, page: int, size: int, orde
     from app.modulos.clasificacion.aranceles import textos_sac
     from app.modulos.productos.ficha import catalogo
 
-    textos = textos_sac(db, list({digitos(p.codigo or p.sugerido)[:6] for p in filas if p.codigo or p.sugerido}))
+    textos = textos_sac(db, list({digitos(p.comex.codigo or p.comex.sugerido)[:6] for p in filas if p.comex.codigo or p.comex.sugerido}))
     cats = catalogo(db).categorias
     for x, p in zip(items, filas, strict=False):
-        x["codigo_desc"] = textos.get(digitos(p.codigo or p.sugerido or "")[:6])
-        c = cats.get(p.tipo or "")
-        x["tipo_txt"] = (c.nombre_corto or c.nombre) if c else p.tipo
-        if not flujo.ve_sugerencia(db, user) and not p.aprobado:
+        x["codigo_desc"] = textos.get(digitos(p.comex.codigo or p.comex.sugerido or "")[:6])
+        c = cats.get(p.comex.tipo or "")
+        x["tipo_txt"] = (c.nombre_corto or c.nombre) if c else p.comex.tipo
+        if not flujo.ve_sugerencia(db, user) and not p.comex.aprobado:
             flujo.ocultar_resumen(x)
     return {"items": items, "total": total, "page": page, "size": size, "kpis": kpis}
 
@@ -476,7 +478,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
     dig = {d["iso"]: d["digitos"] for d in ds}
     r = _resumen(p, _variantes(db, [p.id]), ds)
     r.update({
-        "ficha": p.ficha or {}, "descripcion_aduana": p.descripcion_aduana, "pais_procedencia": p.pais_procedencia,
+        "ficha": p.comex.ficha or {}, "descripcion_aduana": p.comex.descripcion_aduana, "pais_procedencia": p.comex.pais_procedencia,
         "grupo_producto_id": p.grupo_producto_id,
         "familia": p.grupo_producto.nombre if p.grupo_producto is not None else None,
         # Los atributos del producto para mostrar: su nombre y su valor (de un catálogo, el nombre del registro)
@@ -484,11 +486,11 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         # Los atributos que lleva su familia (con valor o sin él) y los ejes de sus variantes con sus valores
         "atributos_familia": _atributos_familia(db, p),
         "ejes": var_svc.por_atributo(db, arts, var_svc.ejes_de_grupo(db, p.grupo_producto)),
-        "analisis": p.analisis or {}, "alertas_ok": p.alertas_ok or [], "observaciones": p.observaciones,
-        "resolucion": p.resolucion, "notas": p.notas, "opinion_ia": p.opinion_ia,
-        "revisado_por": p.revisado_por.nombre if p.revisado_por else None, "revisado_en": p.revisado_en,
-        "vigente_desde": p.vigente_desde, "creado_en": p.creado_en,
-        "evidencia": p.evidencia,
+        "analisis": p.comex.analisis or {}, "alertas_ok": p.comex.alertas_ok or [], "observaciones": p.comex.observaciones,
+        "resolucion": p.comex.resolucion, "notas": p.comex.notas, "opinion_ia": p.comex.opinion_ia,
+        "revisado_por": p.comex.revisado_por.nombre if p.comex.revisado_por else None, "revisado_en": p.comex.revisado_en,
+        "vigente_desde": p.comex.vigente_desde, "creado_en": p.creado_en,
+        "evidencia": p.comex.evidencia,
         "partidas": {x.pais: {"codigo": x.codigo, "dai": "" if x.dai is None else x.dai, "estado": x.estado, "fuente": x.fuente,
                               "sugerido": x.sugerido, "motivo": x.motivo, "inciso_id": x.inciso_id, "evidencia": x.evidencia,
                               "aprobado_en": x.aprobado_en,
@@ -517,7 +519,7 @@ def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
         "enviado_por_mi": flujo.quien_envio(db, p.id) == user.id,
         "edicion": ajeno_edicion(db, user, "producto", p.id),
     })
-    if not flujo.ve_sugerencia(db, user) and not p.aprobado:
+    if not flujo.ve_sugerencia(db, user) and not p.comex.aprobado:
         flujo.ocultar_resumen(r)
     return r
 
@@ -543,14 +545,22 @@ def contexto(db: Session, user: Usuario, proveedor_id: int | None = None) -> dic
 CAMPOS_TEXTO = {"nombre": 200, "notas": 1000}  # el genérico sale del código de artículo
 
 
+def _categoria_de_familia(p: Producto) -> str | None:
+    """Sin categoría en su ficha, la que eligió su familia (sección de comercio exterior)."""
+    from app.modulos.comex import familia
+
+    db = object_session(p)
+    return familia.categoria_de(db, p.grupo_producto_id) if db is not None and p.grupo_producto_id else None
+
+
 def entrada_producto(p: Producto, extra: dict | None = None) -> dict:
     """La ficha natural del producto para el motor único (la misma para la
     pantalla, el guardado, la aprobación y el lote)."""
-    f = dict(p.ficha or {})
+    f = dict(p.comex.ficha or {})
     marca = marca_de(p)
-    return {"categoria": p.tipo, "ficha": f, "nombre": p.nombre, "uso": f.get("uso"), "tallas": f.get("tallas"),
+    return {"categoria": p.comex.tipo or _categoria_de_familia(p), "ficha": f, "nombre": p.nombre, "uso": f.get("uso"), "tallas": f.get("tallas"),
             "marca": marca.nombre if marca else None, "proveedor": p.proveedor.nombre if p.proveedor else None,
-            "origen": p.pais_origen, "generico": p.codigo_generico, "producto_id": p.id, "alertas_ok": p.alertas_ok or [],
+            "origen": p.comex.pais_origen, "generico": p.codigo_generico, "producto_id": p.id, "alertas_ok": p.comex.alertas_ok or [],
             "partidas": {x.pais: {"codigo": x.codigo, "manual": True} for x in p.partidas if x.manual}, "detectar": False, **(extra or {})}
 
 
@@ -574,36 +584,36 @@ def _fuente_motor(r: dict) -> str:
 def _aplicar_motor(p: Producto, r: dict) -> None:
     """Guarda lo que calculó el motor único (sin aprobar nada)."""
     if r.get("categoria"):
-        p.tipo = r["categoria"]["codigo"][:30]
-    p.ficha = r["ficha"]
+        p.comex.tipo = r["categoria"]["codigo"][:30]
+    p.comex.ficha = r["ficha"]
     hs6, sac = r.get("hs6"), r["clasificacion"]["sac"]["codigo"]
-    p.sugerido, p.sac_sugerido = hs6, sac
-    p.confianza = r["confianza"]
-    p.fuente = _fuente_motor(r) if hs6 else None
-    p.perfil = (r.get("perfil") or "")[:200] or None
+    p.comex.sugerido, p.comex.sac_sugerido = hs6, sac
+    p.comex.confianza = r["confianza"]
+    p.comex.fuente = _fuente_motor(r) if hs6 else None
+    p.comex.perfil = (r.get("perfil") or "")[:200] or None
     legibles = [[c["etiqueta"], _valor_legible(c)] for c in r["campos"]
                 if c["seccion"] in ("producto", "caracteristicas", "composicion", "nacional") and c["tipo_dato"] != "composition"
                 and c.get("valor") not in (None, "", [], False)]
-    p.analisis = {"razones": r["razones"], "alternativas": r["alternativas"][:20], "avisos": [a["texto"] for a in r["avisos"]][:20],
+    p.comex.analisis = {"razones": r["razones"], "alternativas": r["alternativas"][:20], "avisos": [a["texto"] for a in r["avisos"]][:20],
                   "faltantes": [f["etiqueta"] for f in r["faltantes"]][:20], "alertas": r["alertas"][:60], "revision_por": r["revision_por"][:20],
                   "requiere_revision": r["requiere_revision"], "atributos": legibles[:60],
                   "tipo_txt": (r.get("categoria") or {}).get("nombre"), "version": r.get("version")}
-    if not (p.ficha or {}).get("descManual"):
-        p.descripcion_aduana = (r["descripciones"]["aduana"] or "")[:400] or None
-    if not (p.ficha or {}).get("comManual"):
-        p.descripcion_comercial = (r["descripciones"]["comercial"] or "")[:300] or descripcion_comercial_simple(p)
+    if not (p.comex.ficha or {}).get("descManual"):
+        p.comex.descripcion_aduana = (r["descripciones"]["aduana"] or "")[:400] or None
+    if not (p.comex.ficha or {}).get("comManual"):
+        p.comex.descripcion_comercial = (r["descripciones"]["comercial"] or "")[:300] or descripcion_comercial_simple(p)
     faltan = [f["etiqueta"] for f in r["faltantes"]]
-    if not p.tipo:
+    if not p.comex.tipo:
         faltan.insert(0, "Product type")
     if not hs6:
         faltan.append("Data for the code")
-    p.ficha_completa = not faltan
-    p.faltan = [str(x)[:120] for x in faltan][:20]
-    if p.estado not in APROBADOS:
+    p.comex.ficha_completa = not faltan
+    p.comex.faltan = [str(x)[:120] for x in faltan][:20]
+    if p.comex.estado not in APROBADOS:
         _guardar_partidas(p, {x["pais"]: {"codigo": x["codigo"], "dai": x["dai"], "estado": x["estado"], "fuente": x["fuente"],
                                           "manual": x["manual"]} for x in r["clasificacion"]["paises"]})
-        if p.estado != "revision":
-            p.estado = "sugerida" if p.ficha_completa and p.sugerido else "borrador"
+        if p.comex.estado != "revision":
+            p.comex.estado = "sugerida" if p.comex.ficha_completa and p.comex.sugerido else "borrador"
 
 
 def clasificar_y_guardar(db: Session, p: Producto, extra: dict | None = None, catalogo=None) -> dict:
@@ -618,22 +628,22 @@ def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     exigir(user, "producto.ficha")
     p = _producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
-    if p.estado in APROBADOS:
+    if p.comex.estado in APROBADOS:
         raise ErrorNegocio("The technical sheet is approved. Create a new version to change it.", 409, "ficha_aprobada")
-    if p.estado == "revision" and not tiene(user, "producto.clasificar"):
+    if p.comex.estado == "revision" and not tiene(user, "producto.clasificar"):
         raise ErrorNegocio("The technical sheet was sent to review. Take it back to draft to change it.", 409, "en_revision")
-    antes = {"tipo": p.tipo, "ficha": p.ficha, "estado": p.estado}
-    p.tipo = (datos.tipo or None) and datos.tipo[:30]
-    p.ficha = datos.ficha or {}
+    antes = {"tipo": p.comex.tipo, "ficha": p.comex.ficha, "estado": p.comex.estado}
+    p.comex.tipo = (datos.tipo or None) and datos.tipo[:30]
+    p.comex.ficha = datos.ficha or {}
     for campo, largo in CAMPOS_TEXTO.items():
         v = getattr(datos, campo, None)
         if v is not None:
-            setattr(p, campo, str(v).strip()[:largo] or None)
+            setattr(p if campo == "nombre" else p.comex, campo, str(v).strip()[:largo] or None)
     if datos.pais_origen is not None:
-        p.pais_origen = (datos.pais_origen or "").upper()[:2] or None
+        p.comex.pais_origen = (datos.pais_origen or "").upper()[:2] or None
     if datos.pais_procedencia is not None:
-        p.pais_procedencia = (datos.pais_procedencia or "").upper()[:2] or None
-    p.alertas_ok = list(datos.alertas_ok or [])[:100]
+        p.comex.pais_procedencia = (datos.pais_procedencia or "").upper()[:2] or None
+    p.comex.alertas_ok = list(datos.alertas_ok or [])[:100]
     # Códigos nacionales escritos a mano (se validan en el motor: existen o tienen una longitud válida)
     manuales = {iso: x for iso, x in (datos.partidas or {}).items() if isinstance(x, dict) and x.get("manual") and digitos(x.get("codigo"))}
     for x in list(p.partidas):
@@ -641,16 +651,16 @@ def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
             p.partidas.remove(x)
     _guardar_partidas(p, {**{x.pais: {"codigo": x.codigo, "dai": x.dai, "estado": x.estado, "fuente": x.fuente, "manual": x.manual}
                              for x in p.partidas}, **{iso: {**x, "estado": "manual"} for iso, x in manuales.items()}})
-    devuelto = p.estado == "observado"
+    devuelto = p.comex.estado == "observado"
     clasificar_y_guardar(db, p, {"tocados": list(datos.tocados or [])})
-    if datos.descripcion_aduana is not None and (p.ficha or {}).get("descManual"):
-        p.descripcion_aduana = datos.descripcion_aduana.strip()[:400] or None
-    if datos.descripcion_comercial is not None and (p.ficha or {}).get("comManual"):
-        p.descripcion_comercial = datos.descripcion_comercial.strip()[:300] or None
+    if datos.descripcion_aduana is not None and (p.comex.ficha or {}).get("descManual"):
+        p.comex.descripcion_aduana = datos.descripcion_aduana.strip()[:400] or None
+    if datos.descripcion_comercial is not None and (p.comex.ficha or {}).get("comManual"):
+        p.comex.descripcion_comercial = datos.descripcion_comercial.strip()[:300] or None
     tocar(p)
-    cambios = [k for k in ("tipo", "ficha") if antes[k] != getattr(p, k)]
+    cambios = [k for k in ("tipo", "ficha") if antes[k] != getattr(p.comex, k)]
     registrar(db, user, "producto", p.id, "ficha_guardada",
-              {"cambios": cambios, "estado": [antes["estado"], p.estado], "sugerido": fmt_codigo(p.sugerido) or None,
+              {"cambios": cambios, "estado": [antes["estado"], p.comex.estado], "sugerido": fmt_codigo(p.comex.sugerido) or None,
                "devuelto": devuelto})
     return detalle(db, user, p.id)
 
@@ -665,13 +675,13 @@ def clasificar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
     hechos, omitidos = 0, []
     for pid in ids:
         p = _producto(db, user, pid)
-        if p.estado in APROBADOS:
+        if p.comex.estado in APROBADOS:
             omitidos.append({"id": p.id, "mensaje": f"{nombre_producto(p)} is already approved."})
             continue
-        antes = p.estado
+        antes = p.comex.estado
         clasificar_y_guardar(db, p, {"detectar": True}, catalogo=cat)
         tocar(p)
-        registrar(db, user, "producto", p.id, "clasificado", {"estado": [antes, p.estado], "sugerido": fmt_codigo(p.sugerido) or None})
+        registrar(db, user, "producto", p.id, "clasificado", {"estado": [antes, p.comex.estado], "sugerido": fmt_codigo(p.comex.sugerido) or None})
         hechos += 1
     return {"clasificados": hechos, "omitidos": omitidos}
 
@@ -683,7 +693,7 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
     de la versión vigente del país. Guarda la evidencia completa."""
     from app.modulos.clasificacion.motor_clasificacion import clasificar_producto
 
-    oficial = digitos(codigo or p.propuesta or p.sac_sugerido or p.sugerido)
+    oficial = digitos(codigo or p.comex.propuesta or p.comex.sac_sugerido or p.comex.sugerido)
     if len(oficial) < 6:
         raise ErrorNegocio(f"{nombre_producto(p)}: there is no HS code to approve.", 422, "sin_partida")
     if len(oficial) > 14:
@@ -713,15 +723,15 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
     # Las líneas nacionales son referencia (la OC y la factura llevan la subpartida de 6 dígitos):
     # aprobar no las exige. Una que solo el historial prefiere o que falta elegir queda pendiente
     # de confirmar por una persona (confirmar_partida), nunca se da por confirmada.
-    sug = digitos(p.sugerido)
-    p.estado = "aprobado" if not sug or sug[:6] == oficial[:6] else "corregido"
-    p.codigo = oficial[:6]
-    p.sac_codigo = oficial if len(oficial) > 6 else r["sac"]
-    p.propuesta = None
-    p.version_arancel_id = r["version"]["id"] if r.get("version") else None
+    sug = digitos(p.comex.sugerido)
+    p.comex.estado = "aprobado" if not sug or sug[:6] == oficial[:6] else "corregido"
+    p.comex.codigo = oficial[:6]
+    p.comex.sac_codigo = oficial if len(oficial) > 6 else r["sac"]
+    p.comex.propuesta = None
+    p.comex.version_arancel_id = r["version"]["id"] if r.get("version") else None
     ahora_ = ahora()
-    p.evidencia = {**r["evidencia"], "aprobacion": {"fecha": ahora_.isoformat(), "usuario": user.nombre if user else None, "hs6": p.codigo,
-                                                    "sac": p.sac_codigo, "sugerido": sug or None, "confianza": r["confianza"],
+    p.comex.evidencia = {**r["evidencia"], "aprobacion": {"fecha": ahora_.isoformat(), "usuario": user.nombre if user else None, "hs6": p.comex.codigo,
+                                                    "sac": p.comex.sac_codigo, "sugerido": sug or None, "confianza": r["confianza"],
                                                     "requiere_revision": r["requiere_revision"], "revision_por": r["revision_por"],
                                                     "razones": r["razones"], "alternativas": r["alternativas"][:10]},
                    "paises": [{k: x.get(k) for k in ("pais", "estado", "codigo", "dai", "inciso_id", "regla", "version", "fuente", "fuente_oficial",
@@ -745,22 +755,22 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
                           "regulaciones": [{k: g.get(k) for k in ("codigo", "tipo", "nombre", "autoridad", "base_legal")} for g in x.get("regulaciones") or []]}
         confirmada = x.get("estado") == "ok"
         fila.aprobado_por_id, fila.aprobado_en = ((user.id if user else None), ahora_) if confirmada else (None, None)
-    p.revisado_por_id = user.id if user else None
-    p.revisado_en = ahora_
+    p.comex.revisado_por_id = user.id if user else None
+    p.comex.revisado_en = ahora_
     # La decisión queda como conocimiento de la empresa (nunca como dato oficial):
     # el HS6 con la categoría y, por país, la línea oficial con los datos que la eligieron
     from app.modulos.clasificacion.conocimiento import registrar_decision
 
-    origen = "APROBACION" if p.estado == "aprobado" else "CORRECCION"
+    origen = "APROBACION" if p.comex.estado == "aprobado" else "CORRECCION"
     hechos = r.get("hechos") or {}
-    registrar_decision(db, pais=None, codigo=p.sac_codigo or p.codigo, condiciones={}, origen=origen, categoria=p.tipo, producto_id=p.id, usuario=user)
+    registrar_decision(db, pais=None, codigo=p.comex.sac_codigo or p.comex.codigo, condiciones={}, origen=origen, categoria=p.comex.tipo, producto_id=p.id, usuario=user)
     for x in paises:
         if x.get("estado") == "ok" and x.get("inciso_id") and x.get("codigo"):  # solo lo confirmado es conocimiento
             claves = {k for o in x.get("opciones") or [] for k in (o.get("cond") or {})} | set(x.get("faltan") or [])
             registrar_decision(db, pais=x["pais"], codigo=x["codigo"], condiciones={k: hechos.get(k) for k in claves if hechos.get(k) is not None},
-                               origen=origen, categoria=p.tipo, producto_id=p.id, usuario=user)
+                               origen=origen, categoria=p.comex.tipo, producto_id=p.id, usuario=user)
     tocar(p)
-    registrar(db, user, "producto", p.id, "aprobado" if p.estado == "aprobado" else "corregido",
+    registrar(db, user, "producto", p.id, "aprobado" if p.comex.estado == "aprobado" else "corregido",
               {"codigo": fmt_codigo(oficial), "sugerido": fmt_codigo(sug) or None,
                "paises": {x["pais"]: fmt_codigo(x["codigo"]) for x in paises if x.get("codigo")}})
 
@@ -769,9 +779,9 @@ def _pais_aprobado(db: Session, user: Usuario, producto_id: int, pais: str, codi
     from app.modulos.clasificacion.motor_clasificacion import clasificar_producto
 
     p = _producto(db, user, producto_id)
-    if p.estado not in APROBADOS or not p.codigo:
+    if p.comex.estado not in APROBADOS or not p.comex.codigo:
         raise ErrorNegocio("Approve the product first: the national codes hang from its approved subheading.", 422, "no_aprobado")
-    extra = {"codigo_final": p.sac_codigo or p.codigo}
+    extra = {"codigo_final": p.comex.sac_codigo or p.comex.codigo}
     if codigo is not None:
         extra["partidas"] = {pais: {"codigo": digitos(codigo)}}
     r = clasificar_producto(db, entrada_producto(p, extra))
@@ -819,7 +829,7 @@ def confirmar_partida(db: Session, user: Usuario, producto_id: int, pais: str, c
     hechos = r.get("hechos") or {}
     claves = {k for o in x.get("opciones") or [] for k in (o.get("cond") or {})} | set(x.get("faltan") or [])
     registrar_decision(db, pais=pais, codigo=x["codigo"], condiciones={k: hechos.get(k) for k in claves if hechos.get(k) is not None},
-                       origen="APROBACION", categoria=p.tipo, producto_id=p.id, usuario=user)
+                       origen="APROBACION", categoria=p.comex.tipo, producto_id=p.id, usuario=user)
     tocar(p)
     registrar(db, user, "producto", p.id, "partida_confirmada", {"pais": pais, "codigo": [fmt_codigo(antes) or None, fmt_codigo(x["codigo"])]})
     return detalle(db, user, p.id)
@@ -830,9 +840,9 @@ def aprobar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     p = _producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
     flujo.exigir_aprobacion(db, user, p)
-    if not p.ficha_completa and not datos.forzar:
-        raise ErrorNegocio("The technical sheet is incomplete: " + ", ".join(p.faltan[:4]) + ".", 422, "ficha_incompleta",
-                           [{"mensaje": x} for x in p.faltan])
+    if not p.comex.ficha_completa and not datos.forzar:
+        raise ErrorNegocio("The technical sheet is incomplete: " + ", ".join(p.comex.faltan[:4]) + ".", 422, "ficha_incompleta",
+                           [{"mensaje": x} for x in p.comex.faltan])
     _aprobar(db, user, p, datos.codigo, datos.partidas)
     return detalle(db, user, p.id)
 
@@ -846,9 +856,9 @@ def aprobar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
     ok, errores = 0, []
     for pid in ids:
         p = _producto(db, user, pid)
-        if p.estado in APROBADOS:
+        if p.comex.estado in APROBADOS:
             continue
-        if p.estado not in ("sugerida", "revision") or not p.ficha_completa:
+        if p.comex.estado not in ("sugerida", "revision") or not p.comex.ficha_completa:
             errores.append({"id": p.id, "mensaje": f"{nombre_producto(p)}: the sheet is not complete."})
             continue
         try:
@@ -868,17 +878,17 @@ def observar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     exigir(user, "producto.clasificar")
     p = _producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
-    p.observaciones = (datos.observaciones or "").strip()[:2000] or None
-    p.resolucion = (datos.resolucion or "").strip()[:200] or None
+    p.comex.observaciones = (datos.observaciones or "").strip()[:2000] or None
+    p.comex.resolucion = (datos.resolucion or "").strip()[:200] or None
     if datos.devolver:
-        if p.estado in APROBADOS:
+        if p.comex.estado in APROBADOS:
             raise ErrorNegocio("An approved sheet cannot be returned; create a new version.", 409, "ficha_aprobada")
-        if not p.observaciones:
+        if not p.comex.observaciones:
             raise ErrorNegocio("Write what the supplier has to fix.", 422, "motivo_requerido")
-        p.estado = "observado"
+        p.comex.estado = "observado"
     tocar(p)
     registrar(db, user, "producto", p.id, "devuelto" if datos.devolver else "observacion",
-              {"observaciones": p.observaciones, "resolucion": p.resolucion})
+              {"observaciones": p.comex.observaciones, "resolucion": p.comex.resolucion})
     return detalle(db, user, p.id)
 
 
@@ -889,17 +899,17 @@ def enviar_revision(db: Session, user: Usuario, ids: list[int]) -> dict:
     for pid in ids:
         p = _producto(db, user, pid)
         nombre = nombre_producto(p)
-        if p.estado not in BORRADORES:
-            errores.append({"id": p.id, "mensaje": f"{nombre} is {ESTADOS.get(p.estado, p.estado).lower()}."})
+        if p.comex.estado not in BORRADORES:
+            errores.append({"id": p.id, "mensaje": f"{nombre} is {ESTADOS.get(p.comex.estado, p.comex.estado).lower()}."})
             continue
-        if not p.ficha_completa or not p.sugerido:
-            falta = ", ".join((p.faltan or [])[:4]) or "the HS code"
+        if not p.comex.ficha_completa or not p.comex.sugerido:
+            falta = ", ".join((p.comex.faltan or [])[:4]) or "the HS code"
             errores.append({"id": p.id, "mensaje": f"{nombre}: complete the sheet first ({falta})."})
             continue
-        antes = p.estado
-        p.estado = "revision"
+        antes = p.comex.estado
+        p.comex.estado = "revision"
         tocar(p)
-        registrar(db, user, "producto", p.id, "enviado", {"estado": [antes, p.estado]})
+        registrar(db, user, "producto", p.id, "enviado", {"estado": [antes, p.comex.estado]})
         ok += 1
     if len(ids) == 1 and errores:
         raise ErrorNegocio(errores[0]["mensaje"], 422, "no_enviado", errores)
@@ -910,11 +920,11 @@ def retirar_revision(db: Session, user: Usuario, producto_id: int) -> dict:
     """Vuelve a borrador una ficha enviada (para corregirla antes de que la revisen)."""
     exigir(user, "producto.ficha")
     p = _producto(db, user, producto_id)
-    if p.estado != "revision":
+    if p.comex.estado != "revision":
         raise ErrorNegocio("Only a sheet in review can go back to draft.", 409, "estado")
-    p.estado = "sugerida" if p.ficha_completa and p.sugerido else "borrador"
+    p.comex.estado = "sugerida" if p.comex.ficha_completa and p.comex.sugerido else "borrador"
     tocar(p)
-    registrar(db, user, "producto", p.id, "retirado", {"estado": ["revision", p.estado]})
+    registrar(db, user, "producto", p.id, "retirado", {"estado": ["revision", p.comex.estado]})
     return detalle(db, user, p.id)
 
 
@@ -924,42 +934,42 @@ def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     p = _producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
     desde = datos.desde or date.today()
-    inicio = p.vigente_desde or (p.creado_en.date() if p.creado_en else desde)
+    inicio = p.comex.vigente_desde or (p.creado_en.date() if p.creado_en else desde)
     if desde <= inicio and p.versiones:
         raise ErrorNegocio("The new version must start after the current one.", 422, "validacion")
     db.add(ProductoVersion(
-        producto=p, version=p.version_ficha, desde=inicio, hasta=desde - timedelta(days=1), motivo=(datos.motivo or "")[:300] or None,
+        producto=p, version=p.comex.version_ficha, desde=inicio, hasta=desde - timedelta(days=1), motivo=(datos.motivo or "")[:300] or None,
         # Autosuficiente para auditoría: ficha, clasificación, versión arancelaria,
         # evidencia (reglas con su foto, hechos, notas, overrides) y países con su línea
-        datos={"tipo": p.tipo, "ficha": p.ficha, "nombre": p.nombre, "codigo": p.codigo, "sac_codigo": p.sac_codigo, "sugerido": p.sugerido,
-               "sac_sugerido": p.sac_sugerido, "estado": p.estado, "descripcion_aduana": p.descripcion_aduana,
-               "descripcion_comercial": p.descripcion_comercial, "pais_origen": p.pais_origen, "pais_procedencia": p.pais_procedencia,
-               "analisis": p.analisis, "confianza": p.confianza, "fuente": p.fuente, "perfil": p.perfil,
-               "version_arancel": ({"id": p.version_arancel_id, **((p.evidencia or {}).get("version") or {})} if p.version_arancel_id else None),
-               "evidencia": p.evidencia, "observaciones": p.observaciones, "resolucion": p.resolucion,
+        datos={"tipo": p.comex.tipo, "ficha": p.comex.ficha, "nombre": p.nombre, "codigo": p.comex.codigo, "sac_codigo": p.comex.sac_codigo, "sugerido": p.comex.sugerido,
+               "sac_sugerido": p.comex.sac_sugerido, "estado": p.comex.estado, "descripcion_aduana": p.comex.descripcion_aduana,
+               "descripcion_comercial": p.comex.descripcion_comercial, "pais_origen": p.comex.pais_origen, "pais_procedencia": p.comex.pais_procedencia,
+               "analisis": p.comex.analisis, "confianza": p.comex.confianza, "fuente": p.comex.fuente, "perfil": p.comex.perfil,
+               "version_arancel": ({"id": p.comex.version_arancel_id, **((p.comex.evidencia or {}).get("version") or {})} if p.comex.version_arancel_id else None),
+               "evidencia": p.comex.evidencia, "observaciones": p.comex.observaciones, "resolucion": p.comex.resolucion,
                "partidas": {x.pais: {"codigo": x.codigo, "dai": x.dai, "estado": x.estado, "fuente": x.fuente, "manual": x.manual,
                                      "sugerido": x.sugerido, "motivo": x.motivo, "inciso_id": x.inciso_id, "version_id": x.version_id,
                                      "evidencia": x.evidencia, "aprobado_en": x.aprobado_en.isoformat() if x.aprobado_en else None}
                             for x in p.partidas},
-               "revisado_por": p.revisado_por.nombre if p.revisado_por else None,
-               "revisado_en": p.revisado_en.isoformat() if p.revisado_en else None},
+               "revisado_por": p.comex.revisado_por.nombre if p.comex.revisado_por else None,
+               "revisado_en": p.comex.revisado_en.isoformat() if p.comex.revisado_en else None},
         cerrado_por=user.id))
-    p.version_ficha += 1
-    p.vigente_desde = desde
-    p.estado = "borrador"
-    p.codigo = None
-    p.revisado_por_id = None
-    p.revisado_en = None
+    p.comex.version_ficha += 1
+    p.comex.vigente_desde = desde
+    p.comex.estado = "borrador"
+    p.comex.codigo = None
+    p.comex.revisado_por_id = None
+    p.comex.revisado_en = None
     p.partidas.clear()
     tocar(p)
     registrar(db, user, "producto", p.id, "nueva_version",
-              {"version": p.version_ficha, "desde": desde.isoformat()}, motivo=datos.motivo)
+              {"version": p.comex.version_ficha, "desde": desde.isoformat()}, motivo=datos.motivo)
     return detalle(db, user, p.id)
 
 
 def guardar_opinion(db: Session, user: Usuario, producto_id: int, opinion: dict) -> None:
     p = _producto(db, user, producto_id)
-    p.opinion_ia = opinion
+    p.comex.opinion_ia = opinion
 
 
 # ---- Fotos ---------------------------------------------------------------------
@@ -1215,7 +1225,7 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     nombre_parte = etiquetas_ficha(db)["partes"]
 
     def comp(p: Producto | None) -> str:
-        c = ((p.ficha or {}).get("comp") or {}) if p else {}
+        c = ((p.comex.ficha or {}).get("comp") or {}) if p else {}
         return " · ".join(f"{nombre_parte.get(k) or documentos._legible(k)}: {v}" for k, v in c.items() if v) if isinstance(c, dict) else ""
 
     def codigos(p: Producto | None) -> dict:
@@ -1251,11 +1261,11 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
         pr = prods.get(p["id"])
         cods = codigos(pr)
         filas.append([p["codigo_generico"] or "—", p["nombre"] or "—", var_svc.texto(p["atributos"]) or "—", p["proveedor"] or "—",
-                      p["tipo"] or "—", p["estado_txt"], pr.version_ficha if pr else 1, p["codigo"] or "—",
-                      p["sugerido"] or "—", p["pais_origen"] or "—", (pr.descripcion_aduana if pr else None) or "—",
+                      p["tipo"] or "—", p["estado_txt"], pr.comex.version_ficha if pr else 1, p["codigo"] or "—",
+                      p["sugerido"] or "—", p["pais_origen"] or "—", (pr.comex.descripcion_aduana if pr else None) or "—",
                       p.get("descripcion_comercial") or "—", comp(pr) or "—"]
                      + [cods.get(iso, "—") for iso in paises] + [p["skus"]])
-        c = ((pr.ficha or {}).get("comp") or {}) if pr else {}
+        c = ((pr.comex.ficha or {}).get("comp") or {}) if pr else {}
         for parte, materiales in (c.items() if isinstance(c, dict) else []):
             if materiales:
                 partes.append([p["codigo_generico"] or "—", p["nombre"] or "—", nombre_parte.get(parte) or documentos._legible(parte),

@@ -117,7 +117,7 @@ def test_migration_removes_duplicates_and_keeps_captured_values():
         assert r.returncode == 0, r.stderr
         con = sqlite3.connect(f"{tmp}/m.db")
         assert not con.execute("SELECT 1 FROM atributos_def").fetchall()
-        assert json.loads(con.execute("SELECT ficha FROM productos WHERE id = 1").fetchone()[0]) == ficha
+        assert json.loads(con.execute("SELECT ficha FROM producto_comex WHERE producto_id = 1").fetchone()[0]) == ficha
 
 
 def test_engine_code_names_no_family():

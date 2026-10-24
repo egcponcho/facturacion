@@ -15,6 +15,7 @@ from app.modelos import (
     GrupoProducto,
     Marca,
     Producto,
+    ProductoComex,
     Proveedor,
     Usuario,
 )
@@ -36,7 +37,7 @@ def _exige_codigo_barras(db: Session) -> bool:
 
 def resumen(db: Session, user: Usuario) -> dict:
     base, prov = svc._consulta_productos(db, user, {})
-    sub = base.subquery()
+    sub = base.add_columns(ProductoComex.estado.label("estado")).subquery()
     ids = select(sub.c.id)
     total = db.scalar(select(func.count()).select_from(sub)) or 0
     por_estado = dict(db.execute(select(sub.c.estado, func.count()).group_by(sub.c.estado)).all())
@@ -67,8 +68,8 @@ def resumen(db: Session, user: Usuario) -> dict:
         "bloquean": len(svc.ids_bloquean_facturas(db, prov)),
         "por_familia": [{"id": i, "codigo": c, "nombre": n, "productos": k} for i, c, n, k in familias[:FAMILIAS]],
         "otras_familias": sum(k for *_, k in familias[FAMILIAS:]),
-        "recientes": [{"id": p.id, "codigo": p.codigo_generico, "nombre": p.nombre or p.descripcion_comercial,
-                       "estado": p.estado, "actualizado_en": p.actualizado_en,
+        "recientes": [{"id": p.id, "codigo": p.codigo_generico, "nombre": p.nombre or p.comex.descripcion_comercial,
+                       "estado": p.comex.estado, "actualizado_en": p.actualizado_en,
                        "familia": p.grupo_producto.nombre if p.grupo_producto else None} for p in recientes],
         "configuracion": None,
     }

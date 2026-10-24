@@ -722,8 +722,8 @@ def _fila(cat: dict, obj, refs: dict) -> dict:
         fila["descripcion_txt"] = descripcion_articulo(obj)
         fila["variante"] = " · ".join(str(v) for v in obj.variantes.values() if v not in (None, "")) or None
         fila["codigo_pack"] = obj.codigo_pack
-        fila["partida_txt"] = fmt_codigo(prod.codigo) if prod and prod.codigo else None
-        fila["clasificacion"] = prod.estado if prod else None
+        fila["partida_txt"] = fmt_codigo(prod.comex.codigo) if prod and prod.comex.codigo else None
+        fila["clasificacion"] = prod.comex.estado if prod else None
         if obj.tipo == "PREPACK":
             fila["total"] = obj.total_componentes
             fila["componentes"] = len(obj.componentes)
@@ -910,7 +910,7 @@ def descripcion_articulo(a: Articulo) -> str | None:
     if a.descripcion:
         return a.descripcion
     prod = a.producto
-    base = (prod.descripcion_comercial or prod.nombre) if prod else None
+    base = (prod.comex.descripcion_comercial or prod.nombre) if prod else None
     valores = " · ".join(str(v) for v in a.variantes.values() if v not in (None, ""))
     if a.tipo == "PREPACK" and a.codigo_pack:
         valores = f"pack {a.codigo_pack}"

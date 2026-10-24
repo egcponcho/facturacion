@@ -205,8 +205,8 @@ def test_articulos_del_asistente_y_datos_de_aduana(interno):
     with SessionLocal() as db:
         prov = db.scalar(select(Proveedor).where(Proveedor.codigo == "VANS"))
         art = next(a for a in db.scalars(select(Articulo).where(Articulo.proveedor_id == prov.id, Articulo.activo.is_(True))
-                                         .order_by(Articulo.id)) if a.producto and a.producto.pais_origen)
-        sku, producto_id, origen = art.sku, art.producto_id, art.producto.pais_origen
+                                         .order_by(Articulo.id)) if a.producto and a.producto.comex.pais_origen)
+        sku, producto_id, origen = art.sku, art.producto_id, art.producto.comex.pais_origen
     lineas = [{"codigo_articulo": sku, "cantidad": 1}]
     cab = {k: v for k, v in _cabecera("ADU-1").items() if k != "pais_origen"}
 
@@ -217,7 +217,7 @@ def test_articulos_del_asistente_y_datos_de_aduana(interno):
     assert not errores_origen("logistica", cab)
     # Sin él en la ficha, la OC tiene que traerlo (en logística, no en los pasos anteriores)
     with SessionLocal() as db:
-        db.get(Producto, producto_id).pais_origen = None
+        db.get(Producto, producto_id).comex.pais_origen = None
         db.commit()
     try:
         assert errores_origen("logistica", cab)
@@ -226,5 +226,5 @@ def test_articulos_del_asistente_y_datos_de_aduana(interno):
             assert not errores_origen(paso, cab)
     finally:
         with SessionLocal() as db:
-            db.get(Producto, producto_id).pais_origen = origen
+            db.get(Producto, producto_id).comex.pais_origen = origen
             db.commit()

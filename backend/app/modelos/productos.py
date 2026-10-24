@@ -11,9 +11,11 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     String,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -52,36 +54,14 @@ class Producto(DeOrganizacion, Base):
     codigo_generico: Mapped[str | None] = mapped_column(String(40), index=True)
     unidad: Mapped[str | None] = mapped_column(String(5))  # unidad de sus variantes simples (lista «unidad»)
     nombre: Mapped[str | None] = mapped_column(String(200))  # nombre comercial
-    # Ficha técnica: tipo de producto del clasificador, atributos, composición
-    # por parte, uso, tallas, usuario y datos que piden los aranceles nacionales
-    tipo: Mapped[str | None] = mapped_column(String(30))
-    ficha: Mapped[dict] = mapped_column(JSON, default=dict)
-    # Dos descripciones que se arman solas con la ficha (se pueden editar):
-    # la técnica en español para la DUCA y la comercial para catálogos y documentos
-    descripcion_aduana: Mapped[str | None] = mapped_column(String(400))
-    descripcion_comercial: Mapped[str | None] = mapped_column(String(300))
-    pais_origen: Mapped[str | None] = mapped_column(String(2))
-    pais_procedencia: Mapped[str | None] = mapped_column(String(2))
-    ficha_completa: Mapped[bool] = mapped_column(Boolean, default=False)
-    faltan: Mapped[list] = mapped_column(JSON, default=list)
-    # Versión de la ficha: al cambiar una ficha aprobada se cierra y se abre otra
-    version_ficha: Mapped[int] = mapped_column(Integer, default=1)
-    vigente_desde: Mapped[date | None] = mapped_column(Date)
-    # borrador | sugerida (borrador completo) | revision (enviada) | aprobado | corregido | observado
-    estado: Mapped[str] = mapped_column(String(12), default="borrador", index=True)
-    # Clasificación genérica aprobada: el HS6 (estable, internacional) y la
-    # línea regional SAC. Cada país tiene su propia clasificación (PartidaPais);
-    # un código nacional nunca se guarda como código del producto. El trabajo
-    # de clasificar (sugerencias, evidencia, análisis, revisión) vive aparte,
-    # en ClasificacionProducto.
-    codigo: Mapped[str | None] = mapped_column(String(14))  # HS6 aprobado
-    sac_codigo: Mapped[str | None] = mapped_column(String(10))  # línea SAC regional aprobada
-    notas: Mapped[str | None] = mapped_column(String(1000))
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)  # control de concurrencia
 
     proveedor: Mapped["Proveedor | None"] = relationship()
+    # Su ficha de comercio exterior (1:1, siempre existe): tabla producto_comex
+    comex: Mapped["ProductoComex"] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", uselist=False, lazy="joined")
     atributos: Mapped[list["ProductoAtributo"]] = relationship(
         back_populates="producto", cascade="all, delete-orphan", lazy="selectin", order_by="ProductoAtributo.id")
     clasificacion: Mapped["ClasificacionProducto | None"] = relationship(
@@ -173,13 +153,77 @@ class Producto(DeOrganizacion, Base):
     def marca_codigo(self) -> str | None:
         return self.valor_de_catalogo("marcas")
 
+
+class ProductoComex(DeOrganizacion, Base):
+    """La ficha de comercio exterior de un producto (1:1): su ficha técnica, sus
+    descripciones, origen, estado de revisión y la clasificación aprobada. Es del
+    complemento de comercio exterior; el producto del catálogo no guarda nada de esto."""
+
+    __tablename__ = "producto_comex"
+    producto_id: Mapped[int] = mapped_column(
+        ForeignKey("productos.id", ondelete="CASCADE", name="fk_producto_comex_producto_id"), primary_key=True,
+        autoincrement=False)
+    # Ficha técnica: tipo de producto del clasificador, atributos, composición
+    # por parte, uso, tallas, usuario y datos que piden los aranceles nacionales
+    tipo: Mapped[str | None] = mapped_column(String(30))
+    ficha: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Dos descripciones que se arman solas con la ficha (se pueden editar):
+    # la técnica en español para la DUCA y la comercial para catálogos y documentos
+    descripcion_aduana: Mapped[str | None] = mapped_column(String(400))
+    descripcion_comercial: Mapped[str | None] = mapped_column(String(300))
+    pais_origen: Mapped[str | None] = mapped_column(String(2))
+    pais_procedencia: Mapped[str | None] = mapped_column(String(2))
+    ficha_completa: Mapped[bool] = mapped_column(Boolean, default=False)
+    faltan: Mapped[list] = mapped_column(JSON, default=list)
+    # Versión de la ficha: al cambiar una ficha aprobada se cierra y se abre otra
+    version_ficha: Mapped[int] = mapped_column(Integer, default=1)
+    vigente_desde: Mapped[date | None] = mapped_column(Date)
+    # borrador | sugerida (borrador completo) | revision (enviada) | aprobado | corregido | observado
+    estado: Mapped[str] = mapped_column(String(12), default="borrador", index=True)
+    # Clasificación genérica aprobada: el HS6 (estable, internacional) y la
+    # línea regional SAC. Cada país tiene su propia clasificación (PartidaPais);
+    # un código nacional nunca se guarda como código del producto. El trabajo
+    # de clasificar (sugerencias, evidencia, análisis, revisión) vive aparte,
+    # en ClasificacionProducto.
+    codigo: Mapped[str | None] = mapped_column(String(14))  # HS6 aprobado
+    sac_codigo: Mapped[str | None] = mapped_column(String(10))  # línea SAC regional aprobada
+    notas: Mapped[str | None] = mapped_column(String(1000))
+
+    producto: Mapped[Producto] = relationship(back_populates="comex")
+
+    @property
+    def clasificacion(self) -> "ClasificacionProducto | None":
+        return self.producto.clasificacion if self.producto is not None else None
+
     @property
     def aprobado(self) -> bool:
         return self.estado in ("aprobado", "corregido") and bool(self.codigo)
 
     @property
     def revisado_por(self) -> "Usuario | None":
-        return self.clasificacion.revisado_por if self.clasificacion else None
+        c = self.clasificacion
+        return c.revisado_por if c else None
+
+
+class FamiliaComex(DeOrganizacion, Base):
+    """La sección de comercio exterior de una familia del catálogo (grupos_producto): la
+    categoría aduanera con que empiezan las fichas de sus productos. Vacía: la de la
+    familia que la contiene. La categoría es del conocimiento del arancel; la familia la elige."""
+
+    __tablename__ = "familia_comex"
+    __table_args__ = (ForeignKeyConstraint(["familia_id", "organizacion_id"], ["grupos_producto.id", "grupos_producto.organizacion_id"],
+                                           ondelete="CASCADE", name="fk_familia_comex_familia_org"),)
+
+    familia_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    categoria: Mapped[str | None] = mapped_column(String(40), ForeignKey(
+        "categorias_producto.codigo", name="fk_familia_comex_categoria", onupdate="CASCADE", ondelete="SET NULL"))
+
+
+@event.listens_for(Producto, "init")
+def _con_comex(producto: Producto, args, kwargs) -> None:
+    """Todo producto tiene su ficha de comercio exterior (vacía al crearlo)."""
+    if kwargs.get("comex") is None:
+        producto.comex = ProductoComex(estado="borrador", ficha={}, faltan=[], ficha_completa=False, version_ficha=1)
 
 
 class ProductoAtributo(DeOrganizacion, Base):
@@ -199,7 +243,7 @@ class ProductoAtributo(DeOrganizacion, Base):
 class ClasificacionProducto(DeOrganizacion, Base):
     """Trabajo de clasificación de un producto (1:1): lo que sugirió el motor
     o trajo el proveedor, la evidencia y el análisis, y quién lo revisó. El
-    resultado aprobado (HS6 y línea SAC) queda en el producto."""
+    resultado aprobado (HS6 y línea SAC) queda en su ficha de comercio exterior."""
 
     __tablename__ = "clasificaciones_producto"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -240,13 +284,13 @@ def _de_clasificacion(campo: str, vacio=None):
         if self.clasificacion is None:
             if valor is None:
                 return
-            self.clasificacion = ClasificacionProducto()
+            self.producto.clasificacion = ClasificacionProducto()
         setattr(self.clasificacion, campo, valor)
 
     def expresion(cls):
         from sqlalchemy import select
 
-        return (select(getattr(ClasificacionProducto, campo)).where(ClasificacionProducto.producto_id == cls.id)
+        return (select(getattr(ClasificacionProducto, campo)).where(ClasificacionProducto.producto_id == cls.producto_id)
                 .correlate_except(ClasificacionProducto).scalar_subquery())
 
     return hybrid_property(leer, escribir, expr=expresion)
@@ -256,7 +300,7 @@ CAMPOS_CLASIFICACION = ("sugerido", "propuesta", "sac_sugerido", "version_arance
                         "perfil", "analisis", "alertas_ok", "observaciones", "resolucion", "opinion_ia", "revisado_por_id",
                         "revisado_en")
 for _campo in CAMPOS_CLASIFICACION:
-    setattr(Producto, _campo, _de_clasificacion(_campo, list if _campo == "alertas_ok" else None))
+    setattr(ProductoComex, _campo, _de_clasificacion(_campo, list if _campo == "alertas_ok" else None))
 
 
 class PartidaPais(DeOrganizacion, Base):

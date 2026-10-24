@@ -104,7 +104,7 @@ def exigir_aprobacion(db: Session, user: Usuario, p, lote: bool = False) -> None
     v = valores(db)
     if lote and not v["aprobacion_lote"]:
         raise ErrorNegocio("Bulk approval is turned off: approve each sheet on its own page.", 422, "lote_apagado")
-    if v["revision_obligatoria"] and p.estado != "revision":
+    if v["revision_obligatoria"] and p.comex.estado != "revision":
         raise ErrorNegocio(f"{p.nombre or p.codigo_generico}: send the sheet to review before approving it.", 422,
                           "requiere_envio")
     if v["cuatro_ojos"] and quien_envio(db, p.id) == user.id:

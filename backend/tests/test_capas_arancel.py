@@ -407,9 +407,9 @@ def test_documents_use_six_digits_never_the_projected_destination(interno):
     from app.modulos.productos.productos import partida_para
 
     with SessionLocal() as db:
-        p = next(x for x in db.scalars(select(Producto)) if x.aprobado and x.partidas)
-        assert partida_para(p) == f"{p.codigo[:4]}.{p.codigo[4:6]}"
-        no_aprobado = next((x for x in db.scalars(select(Producto)) if not x.aprobado), None)
+        p = next(x for x in db.scalars(select(Producto)) if x.comex.aprobado and x.partidas)
+        assert partida_para(p) == f"{p.comex.codigo[:4]}.{p.comex.codigo[4:6]}"
+        no_aprobado = next((x for x in db.scalars(select(Producto)) if not x.comex.aprobado), None)
         if no_aprobado:
             assert partida_para(no_aprobado) is None
         for l in db.scalars(select(FacturaLinea).where(FacturaLinea.partida_arancelaria.is_not(None))):

@@ -232,6 +232,7 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
 
 
 # Cada módulo registra la sección que guarda de las familias del catálogo (catalogo/secciones.py)
+from app.modulos.comex import familia as _seccion_comex  # noqa: E402, F401
 from app.modulos.empaque import familia as _seccion_empaque  # noqa: E402, F401
 from app.modulos.etiquetado import familia as _seccion_etiquetado  # noqa: E402, F401
 from app.modulos.transporte import familia as _seccion_logistica  # noqa: E402, F401

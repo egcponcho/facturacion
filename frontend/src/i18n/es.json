@@ -8157,5 +8157,11 @@
 "Packing rules that choose the packing recipe of its products.": "Reglas de empaque que eligen la receta de empaque de sus productos.",
 "Saved.": "Guardado.",
 "Search a field (barcode, weight, brand…)": "Buscar un campo (código de barras, peso, marca…)",
-"Today it uses {0}.": "Hoy usa {0}."
+"Today it uses {0}.": "Hoy usa {0}.",
+"Customs category": "Categoría aduanera",
+"The one of the parent family": "La de la familia que la contiene",
+"The technical sheets of its products start with this category (what the product is), and the classification engine uses it while a sheet has none.": "Las fichas técnicas de sus productos empiezan con esta categoría (qué es el producto), y el motor de clasificación la usa mientras una ficha no tenga la suya.",
+"{0} products of this family have no category in their sheet yet.": "{0} productos de esta familia aún no tienen categoría en su ficha.",
+"Foreign trade": "Comercio exterior",
+"Check the customs category.": "Revise la categoría aduanera."
 }

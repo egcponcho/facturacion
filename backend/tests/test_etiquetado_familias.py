@@ -61,7 +61,7 @@ def test_asignar_familia_por_articulos_la_pone_a_su_producto(interno):
     arts = interno.get("/etiquetas/articulos", params={"producto_id": p["id"], "size": 200}).json()["items"]
     elegidos = [a["id"] for a in arts[:2]]
     with SessionLocal() as db, en_organizacion(1):
-        clasif = db.get(Articulo, elegidos[0]).producto.codigo
+        clasif = db.get(Articulo, elegidos[0]).producto.comex.codigo
     r = interno.post("/grupos-producto/articulos/familia", {"familia_id": ropa["id"], "ids": elegidos})
     assert r.status_code == 200 and r.json()["productos"] == 1 and r.json()["cambiados"] == 1, r.text
     con = interno.get("/etiquetas/articulos", params={"familia": ropa["id"], "size": 200}).json()
@@ -83,7 +83,7 @@ def test_asignar_familia_por_articulos_la_pone_a_su_producto(interno):
     assert r.status_code == 200 and r.json()["cambiados"] >= 1
     with SessionLocal() as db, en_organizacion(1):
         a = db.get(Articulo, elegidos[0])
-        assert a.producto.familia_etiquetado_id == acc["id"] and a.producto.codigo == clasif
+        assert a.producto.familia_etiquetado_id == acc["id"] and a.producto.comex.codigo == clasif
     # Se deja como estaba
     for x in interno.get("/etiquetas/productos", params={"familia": acc["id"], "size": 200}).json()["items"]:
         interno.post("/grupos-producto/productos/familia", {"familia_id": antes.get(x["id"]), "ids": [x["id"]]})

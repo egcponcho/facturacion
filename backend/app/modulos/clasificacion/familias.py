@@ -17,7 +17,7 @@ from app.modelos import (
     ClasificacionProducto,
     ControlCapitulo,
     DominioClasificacion,
-    Producto,
+    ProductoComex,
     ReglaClasificacion,
     Usuario,
 )
@@ -41,9 +41,9 @@ def resumen(db: Session, user: Usuario) -> list[dict]:
                         .where(ReglaClasificacion.activo.is_(True), ReglaClasificacion.tipo_regla != "NATIONAL_SELECT",
                                ReglaClasificacion.tipo_ambito.in_(("DOMAIN", "CATEGORY")))).all()
     por_tipo = {(t, e, conf): n for t, e, conf, n in db.execute(
-        select(Producto.tipo, Producto.estado, ClasificacionProducto.confianza, func.count())
-        .outerjoin(ClasificacionProducto, ClasificacionProducto.producto_id == Producto.id)
-        .group_by(Producto.tipo, Producto.estado, ClasificacionProducto.confianza))}
+        select(ProductoComex.tipo, ProductoComex.estado, ClasificacionProducto.confianza, func.count())
+        .outerjoin(ClasificacionProducto, ClasificacionProducto.producto_id == ProductoComex.producto_id)
+        .group_by(ProductoComex.tipo, ProductoComex.estado, ClasificacionProducto.confianza))}
     out = []
     for d in db.scalars(select(DominioClasificacion).options(selectinload(DominioClasificacion.capitulos))
                         .order_by(DominioClasificacion.orden, DominioClasificacion.codigo)):

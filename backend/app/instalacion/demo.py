@@ -465,23 +465,24 @@ def _productos(db, productos, arts) -> None:
     for (estilo, color), x in FICHAS.items():
         a = next(v for k, v in arts.items() if k[0] == estilo and k[1] == color)
         p = productos[(estilo, color)]
-        p.nombre, p.tipo, p.ficha = x["nombre"], x["tipo"], x["ficha"]
-        p.pais_origen = p.pais_procedencia = a.origen_demo
-        p.descripcion_aduana = x.get("desc")
-        p.faltan = x.get("faltan", [])
-        p.ficha_completa = not p.faltan
-        p.observaciones = x.get("observaciones")
-        p.vigente_desde = date.today() - timedelta(days=200)
-        p.descripcion_comercial = descripcion_comercial_simple(p)
+        c = p.comex
+        p.nombre, c.tipo, c.ficha = x["nombre"], x["tipo"], x["ficha"]
+        c.pais_origen = c.pais_procedencia = a.origen_demo
+        c.descripcion_aduana = x.get("desc")
+        c.faltan = x.get("faltan", [])
+        c.ficha_completa = not c.faltan
+        c.observaciones = x.get("observaciones")
+        c.vigente_desde = date.today() - timedelta(days=200)
+        c.descripcion_comercial = descripcion_comercial_simple(p)
         # La clasificación sale del motor único, como en la pantalla
-        p.estado = x["estado"] if x["estado"] != "aprobado" else "sugerida"
+        c.estado = x["estado"] if x["estado"] != "aprobado" else "sugerida"
         db.flush()
         clasificar_y_guardar(db, p)
         if x["estado"] == "observado":
-            p.estado = "observado"
+            c.estado = "observado"
         if x.get("codigo"):
             _aprobar(db, interno, p, x["codigo"], None)
-            p.revisado_en = ahora() - timedelta(days=150)
+            c.revisado_en = ahora() - timedelta(days=150)
 
 
 def _oc(db, prov, arts, numero, fecha, lineas, sociedad="8000", centro="8010", almacen="BF19", destino="2220",
@@ -540,7 +541,7 @@ def _factura_historica(db, usuario, oc, numero, fecha, plantillas, unidad=None, 
                              unidades_por_caja=p.unidades_por_caja,
                              casepack=p.casepack, inner_pack=p.inner_pack, centro_destino=oc.centro_destino, pais_origen=p.pais_origen,
                              partida_arancelaria=partida_para(p.articulo.producto) or _seis(p.articulo.partida_demo),
-                             descripcion_comercial=p.articulo.producto.descripcion_aduana or p.descripcion)
+                             descripcion_comercial=p.articulo.producto.comex.descripcion_aduana or p.descripcion)
         f.lineas.append(linea)
         pll = PLLinea(factura_linea=linea, cantidad=p.cantidad)
         pl.lineas.append(pll)

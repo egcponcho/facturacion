@@ -108,16 +108,19 @@ def test_clasificacion_del_producto_en_su_tabla():
     """El trabajo de clasificar (sugerencia, evidencia, revisión) vive en
     clasificaciones_producto, 1:1 con el producto y de su misma organización;
     el producto conserva su ficha y el resultado aprobado."""
-    from app.modelos import ClasificacionProducto, Producto
+    from app.modelos import ClasificacionProducto, Producto, ProductoComex
 
-    cols = {c.name for c in Producto.__table__.columns}
+    cols = {c.name for c in ProductoComex.__table__.columns}
     assert {"codigo", "sac_codigo", "ficha", "estado"} <= cols
     assert not {"sugerido", "evidencia", "analisis", "revisado_en", "opinion_ia"} & cols
+    # El producto del catálogo no guarda nada de comercio exterior (tabla producto_comex)
+    assert not {"codigo", "sac_codigo", "ficha", "estado", "tipo", "pais_origen"} & {c.name for c in Producto.__table__.columns}
     with SessionLocal() as db:
         p = db.scalar(select(Producto).where(Producto.clasificacion.has(ClasificacionProducto.sugerido.is_not(None))))
-        assert p is not None and p.sugerido == p.clasificacion.sugerido
-        # Las consultas sobre el producto leen el dato de su clasificación
-        assert db.scalar(select(Producto.id).where(Producto.id == p.id, Producto.sugerido == p.sugerido)) == p.id
+        assert p is not None and p.comex.sugerido == p.clasificacion.sugerido
+        # Las consultas sobre la ficha leen el dato de su clasificación
+        assert db.scalar(select(ProductoComex.producto_id).where(ProductoComex.producto_id == p.id,
+                                                                 ProductoComex.sugerido == p.comex.sugerido)) == p.id
         with pytest.raises(IntegrityError):
             db.execute(text("INSERT INTO clasificaciones_producto (producto_id, organizacion_id, alertas_ok) "
                             "VALUES (:p, :o, '[]')"), {"p": p.id, "o": p.organizacion_id})

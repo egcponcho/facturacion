@@ -14,7 +14,7 @@ from datetime import datetime
 from sqlalchemy import Select, false, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.modelos import ClasificacionProducto, Producto
+from app.modelos import ClasificacionProducto, Producto, ProductoComex
 
 # Estados de la ficha técnica: borrador (incompleto o completo) → enviada a revisión → aprobada o devuelta
 ESTADOS = {"borrador": "Draft", "sugerida": "Draft · complete", "revision": "In review", "aprobado": "Approved",
@@ -75,12 +75,12 @@ class FichaComex:
 SIN_PRODUCTO = {"estado": None, "texto": "No product"}
 
 
-def _ficha(p: Producto) -> FichaComex:
-    c = p.clasificacion
-    return FichaComex(producto_id=p.id, estado=p.estado, aprobado=p.aprobado, codigo=p.codigo,
-                      sugerido=c.sugerido if c is not None else None, pais_origen=p.pais_origen,
-                      pais_procedencia=p.pais_procedencia, descripcion_aduana=p.descripcion_aduana,
-                      descripcion_comercial=p.descripcion_comercial, revisado_en=c.revisado_en if c is not None else None)
+def _ficha(x: ProductoComex) -> FichaComex:
+    c = x.clasificacion
+    return FichaComex(producto_id=x.producto_id, estado=x.estado, aprobado=x.aprobado, codigo=x.codigo,
+                      sugerido=c.sugerido if c is not None else None, pais_origen=x.pais_origen,
+                      pais_procedencia=x.pais_procedencia, descripcion_aduana=x.descripcion_aduana,
+                      descripcion_comercial=x.descripcion_comercial, revisado_en=c.revisado_en if c is not None else None)
 
 
 def fichas(db: Session, producto_ids: Iterable[int | None]) -> dict[int, FichaComex]:
@@ -88,8 +88,9 @@ def fichas(db: Session, producto_ids: Iterable[int | None]) -> dict[int, FichaCo
     ids = sorted({i for i in producto_ids if i})
     if not ids:
         return {}
-    return {p.id: _ficha(p) for p in db.scalars(select(Producto).where(Producto.id.in_(ids))
-                                                 .options(selectinload(Producto.clasificacion)))}
+    return {x.producto_id: _ficha(x) for x in db.scalars(
+        select(ProductoComex).where(ProductoComex.producto_id.in_(ids))
+        .options(selectinload(ProductoComex.producto).selectinload(Producto.clasificacion)))}
 
 
 def ficha(db: Session, producto_id: int | None) -> FichaComex | None:
@@ -107,21 +108,26 @@ def de_articulos(db: Session, articulo_ids: Iterable[int | None]) -> dict[int, F
 
 def _de_proveedores(c, proveedores):
     """Sin lista (None), de todos; con lista (aunque esté vacía), solo de esos proveedores."""
-    return c if proveedores is None else c.where(Producto.proveedor_id.in_(list(proveedores)))
+    from app.modulos.catalogo import servicio as catalogo
+
+    if proveedores is None:
+        return c
+    return c.where(ProductoComex.producto_id.in_(catalogo.ids_productos(proveedores=list(proveedores))))
 
 
 def contar_por_estado(db: Session, proveedores: Iterable[int] | None = None) -> dict[str, int]:
     """{estado de la ficha: cuántos productos} (de esos proveedores, si se da la lista)."""
-    return dict(db.execute(_de_proveedores(select(Producto.estado, func.count()), proveedores)
-                           .group_by(Producto.estado)).all())
+    return dict(db.execute(_de_proveedores(select(ProductoComex.estado, func.count()), proveedores)
+                           .group_by(ProductoComex.estado)).all())
 
 
 def contar(db: Session, estados: Iterable[str], proveedores: Iterable[int] | None = None,
            revisado_desde: datetime | None = None, revisado_hasta: datetime | None = None) -> int:
     """Cuántas fichas están en esos estados (y, si se dan, revisadas en ese periodo)."""
-    c = _de_proveedores(select(func.count()).select_from(Producto).where(Producto.estado.in_(list(estados))), proveedores)
+    c = _de_proveedores(select(func.count()).select_from(ProductoComex).where(ProductoComex.estado.in_(list(estados))),
+                        proveedores)
     if revisado_desde is not None or revisado_hasta is not None:
-        c = c.join(ClasificacionProducto, ClasificacionProducto.producto_id == Producto.id)
+        c = c.join(ClasificacionProducto, ClasificacionProducto.producto_id == ProductoComex.producto_id)
         if revisado_desde is not None:
             c = c.where(ClasificacionProducto.revisado_en >= revisado_desde)
         if revisado_hasta is not None:
@@ -132,12 +138,12 @@ def contar(db: Session, estados: Iterable[str], proveedores: Iterable[int] | Non
 def ids_productos(*, estados: Iterable[str] | None = None, codigo: str | None = None,
                   proveedores: Iterable[int] | None = None) -> Select:
     """`select(id)` de productos por estado de su ficha o por su partida aprobada (contiene esos dígitos)."""
-    c = _de_proveedores(select(Producto.id), proveedores)
+    c = _de_proveedores(select(ProductoComex.producto_id), proveedores)
     if estados is not None:
-        c = c.where(Producto.estado.in_(list(estados)))
+        c = c.where(ProductoComex.estado.in_(list(estados)))
     if codigo is not None:
         d = digitos(codigo)
-        c = c.where(Producto.codigo.like(f"%{d}%")) if d else c.where(false())
+        c = c.where(ProductoComex.codigo.like(f"%{d}%")) if d else c.where(false())
     return c
 
 
@@ -147,8 +153,11 @@ def buscar_documentos(db: Session, q: str, proveedores: Iterable[int] | None = N
     from app.modulos.comun.texto import filtro_texto
 
     c = filtro_texto(q, lambda p: [Adjunto.nombre.ilike(p), ProductoDocumento.tipo.ilike(p)])
-    cons = _de_proveedores(select(ProductoDocumento).join(Producto).join(Adjunto, Adjunto.id == ProductoDocumento.adjunto_id)
-                           .where(c), proveedores)
+    cons = select(ProductoDocumento).join(Adjunto, Adjunto.id == ProductoDocumento.adjunto_id).where(c)
+    if proveedores is not None:
+        from app.modulos.catalogo import servicio as catalogo
+
+        cons = cons.where(ProductoDocumento.producto_id.in_(catalogo.ids_productos(proveedores=list(proveedores))))
     return [{"id": d.id, "nombre": d.nombre, "tipo": d.tipo, "producto_id": d.producto_id}
             for d in db.scalars(cons.limit(limite)).unique()]
 
@@ -157,11 +166,11 @@ def sql_ficha(producto_id) -> dict:
     """Expresiones de la ficha del producto cuyo id es `producto_id` (una columna): estado, tipo de
     producto, país de origen y fecha de revisión, para reportes."""
     def de(col):
-        return select(col).where(Producto.id == producto_id).scalar_subquery()
+        return select(col).where(ProductoComex.producto_id == producto_id).scalar_subquery()
 
     revisado = (select(ClasificacionProducto.revisado_en).where(ClasificacionProducto.producto_id == producto_id)
                 .scalar_subquery())
-    return {"estado": de(Producto.estado), "tipo": de(Producto.tipo), "pais_origen": de(Producto.pais_origen),
+    return {"estado": de(ProductoComex.estado), "tipo": de(ProductoComex.tipo), "pais_origen": de(ProductoComex.pais_origen),
             "revisado_en": revisado}
 
 
@@ -224,10 +233,10 @@ def valores_etiqueta(db: Session, producto_ids: Iterable[int | None]) -> dict[in
         return {}
     defs = defs_ficha(db)
     res = {}
-    for p in db.scalars(select(Producto).where(Producto.id.in_(ids))):
+    for p in db.scalars(select(ProductoComex).where(ProductoComex.producto_id.in_(ids))):
         ficha_ = p.ficha or {}
         v = {"producto.descripcion_comercial": p.descripcion_comercial, "producto.pais_origen": p.pais_origen,
              "producto.composicion": composicion(ficha_), "producto.uso": ficha_.get("uso")}
         v.update({f"producto.atributo.{k}": texto_ficha(defs[k], x) for k, x in ficha_.items() if k in defs})
-        res[p.id] = v
+        res[p.producto_id] = v
     return res
