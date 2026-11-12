@@ -78,7 +78,7 @@ def _sugerencias(db: Session, pl: PackingList) -> dict[int, int]:
 
 def detalle_pl(db: Session, user: Usuario, pl_id: int) -> dict:
     permisos = permisos_de(user)
-    from app.modulos.facturacion.facturas import info_transporte
+    from app.modulos.facturacion.consulta import info_transporte
 
     pl = cargar_pl(db, user, pl_id)
     f = pl.factura
