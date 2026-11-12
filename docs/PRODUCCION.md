@@ -34,6 +34,17 @@ Plantilla con todas las variables comentadas: `backend/.env.example`.
 | `DOS_PASOS` | `1` | Déjela activa |
 | `ANTHROPIC_API_KEY` | vacía | Opcional: opinión del especialista con Claude en la clasificación |
 
+### Ajuste fino (rara vez hace falta)
+
+| Variable | Por defecto | Qué hace |
+|---|---|---|
+| `CODIGO_VALIDEZ_MIN` / `CODIGO_REENVIO_SEG` | `5` / `30` | Minutos que vale el código de verificación y segundos antes de poder reenviarlo |
+| `CLAUDE_MODELO` | `claude-opus-5-5` | Modelo de la opinión del especialista (solo con `ANTHROPIC_API_KEY`) |
+| `CAMBIOS_INTERVALO_SEG` | `2` | Cada cuántos segundos se revisa si cambiaron datos para avisar a los navegadores |
+| `ETIQUETAS_ARRIENDO_SEG` / `ETIQUETAS_RECUPERAR_SEG` / `ETIQUETAS_MAX_INTENTOS` | `120` / `30` / `5` | Trabajos de etiquetado: cuánto dura el arriendo de quien los genera, cada cuánto se buscan los abandonados (`0` = no se buscan) y cuántas veces se reintenta uno |
+| `FRONTEND_DIST` | `../frontend/dist` (`/frontend/dist` en Docker) | Carpeta de la interfaz compilada que sirve la API |
+| `DIAS_ALERTA_BORRADOR`, `PAIS_BASE_CLASIF` | `7`, vacío | Solo valores de fábrica: cada empresa los cambia en Configuración → Empresa |
+
 ## 3. Lo que NO va en variables de entorno
 
 Se configura dentro de la aplicación y se guarda en la base de datos:
@@ -86,6 +97,14 @@ Antes de actualizar:
 3. Revise el registro del arranque: una migración que no puede aplicarse
    detiene el arranque sin cambiar nada (por ejemplo, la 0037 se detiene si
    la base tuviera datos de más de una empresa).
+
+**Despliegue siempre desde la misma rama.** Una base que ya aplicó las
+migraciones de una versión no arranca con una versión anterior: Alembic
+responde `No such revision or branch '00NN'` y el servidor no levanta. Pasa si
+se despliega una rama de trabajo y después vuelve a desplegarse `main` sin
+esas migraciones. La salida es desplegar una versión que las tenga (unir la
+rama a `main`), no borrar la revisión de la base. El servicio de `render.yaml`
+despliega `main`.
 
 ## 6. Seguridad ya incluida (no requiere cambios)
 

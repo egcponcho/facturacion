@@ -1,4 +1,4 @@
-"""Rendimiento de las listas principales (docs/DIAGNOSTICO.md §7): cuántas
+"""Rendimiento de las listas principales: cuántas
 consultas a la base hace cada una. Una lista que hace una consulta por fila
 (N+1) se delata porque sus consultas crecen con el tamaño de la página; aquí se
 compara la misma lista con 1 y con 25 filas."""

@@ -3,13 +3,8 @@
 Diseño, versionado, aprobación y generación de etiquetas con datos reales de
 artículos, órdenes de compra, listas de empaque y bultos. Este documento es
 el manual del módulo tal como está hoy: conceptos, base de datos, pantallas,
-endpoints, cómo se elige el diseño, versiones, formatos, pruebas ejecutadas y
+endpoints, cómo se elige el diseño, versiones, formatos, pruebas y
 limitaciones.
-
-La propuesta que llevó a este modelo y su registro de errores corregidos está
-en `docs/ETIQUETADO_EVALUACION.md` (revisión 2, §7 y §17).
-`docs/ETIQUETADO_REDISENO.md` describe la etapa anterior (reglas con
-prioridad numérica) y queda como historial.
 
 ## 1. Conceptos
 
@@ -311,10 +306,9 @@ especial) y un uso dado de baja con su historial; y cinco trabajos de
 ejemplo (desde una OC ya generado, artículos sueltos en prueba, una lista de
 empaque validada, una familia en borrador y uno con un dato pendiente).
 
-## 9. Pruebas ejecutadas
+## 9. Pruebas
 
-Ver la sección de entrega en `docs/ETIQUETADO_EVALUACION.md` (§17) con los
-comandos y resultados reales de esta versión. Archivos del módulo:
+Archivos del módulo:
 `test_etiquetado_reglas.py` (escalera, celda con firma, simulación, lote,
 matriz, tipos, patrones), `_generacion`, `_trabajos` (incluye la migración
 0075 → 0076 → 0075 → 0076 con datos), `_contenido`, `_durable`, `_familias`,
@@ -322,9 +316,6 @@ matriz, tipos, patrones), `_generacion`, `_trabajos` (incluye la migración
 `frontend/e2e/etiquetado.mjs` y el recorrido general `frontend/e2e/recorrido.mjs`.
 
 ## 10. Limitaciones conocidas
-
-La lista completa de deficiencias y sugerencias, con prioridad, está en
-`docs/ETIQUETADO_EVALUACION.md` §18.
 
 - **Escrituras**: sin coreano, hebreo ni tailandés; el orden bidireccional
   es básico (sin espejar paréntesis); no se suben fuentes propias.
@@ -338,9 +329,9 @@ La lista completa de deficiencias y sugerencias, con prioridad, está en
 - **Borradores**: son personales; otra persona no ve ni continúa el borrador
   de una familia.
 
-## 11. Niveles de empaque: análisis y propuesta
+## 11. Niveles de empaque
 
-**Cómo está hoy.** La lista de empaque es un árbol de empaques de tipos que
+La lista de empaque es un árbol de empaques de tipos que
 define cada empresa (`TipoEmpaque`: inner, caja, pallet, bolsa, tambor…, con
 nivel, prefijo, `cuenta_como` BULTO/INTERIOR/SOPORTE e identificador
 SERIAL/SSCC). Las etiquetas de sujeto **Bulto** se resuelven con la fila del
@@ -349,8 +340,6 @@ con la de toda la empresa. Los datos de la OC y de la lista (número de PL,
 caja n de N, contenedor, pesos, medidas, contenido, mixto/parcial) ya están
 como campos `bulto.*`, `oc.*` y `linea.*`; lo específico de una OC se cubre
 con excepciones por OC, cliente o destino.
-
-**Lo que se hizo.**
 
 - Un trabajo puede imprimir **varios niveles a la vez** (cajas + pallets + inners).
 - Cada tipo de etiqueta de bulto dice **en qué empaques va** («Va en», tabla

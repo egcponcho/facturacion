@@ -1,9 +1,8 @@
 # Arquitectura
 
 Guía para quien mantiene o extiende el sistema. Para instalarlo vea el
-[README](../README.md); para producción, [PRODUCCION.md](PRODUCCION.md); el
-motor de clasificación arancelaria tiene su propio documento en
-[clasificacion/arquitectura.md](clasificacion/arquitectura.md).
+[README](../README.md); para producción, [PRODUCCION.md](PRODUCCION.md); la
+lista de módulos con lo que hace cada uno está en [MODULOS.md](MODULOS.md).
 
 ## Principios
 
@@ -16,27 +15,76 @@ motor de clasificación arancelaria tiene su propio documento en
 - **El servidor decide.** Permisos, alcance de los datos, validaciones,
   cálculos y el motor de clasificación viven en el servidor; la interfaz solo
   muestra y edita. Lo que un rol no ve se quita de las respuestas antes de
-  enviarlas (`RespuestaJSON` en `app/main.py`).
-- **Módulos por dominio.** Cada dominio (compras, facturación, empaque,
-  transporte…) tiene su paquete en el servidor y su carpeta en la interfaz,
-  con la misma división.
+  enviarlas (`RespuestaJSON` en `core/respuestas.py`).
+- **Módulos independientes.** Cada dominio (compras, facturación, empaque,
+  transporte…) es un módulo con su contrato. La aplicación solo conoce los
+  contratos, y un módulo se conecta con otro inscribiéndose en sus registros,
+  no importándolo (ver «Módulos»).
 - **Inglés como clave de texto.** Todos los textos se escriben en inglés en el
   código y se traducen al español en `es.json` (servidor e interfaz).
 
 ## Servidor (`backend/app`)
 
 ```
-core/          Núcleo transversal. No importa nada de modulos/ ni de web/.
+main.py        Arma la API con los contratos de los módulos. No nombra ningún módulo.
+core/          Núcleo: configuración, base de datos, contrato de módulos, registros,
+               reglas de la empresa, listas de valores, numeración, estados.
+               No importa nada de afuera de core/.
+modelos/       Tablas SQLAlchemy, un archivo por dominio. Solo usa core/.
+esquemas/      Cuerpos de las peticiones (pydantic), uno por dominio.
 web/           Capa HTTP compartida (usuario de la petición, piezas de rutas).
-modelos/       Tablas SQLAlchemy, un archivo por dominio.
-esquemas/      Contratos de entrada de la API (pydantic), uno por dominio.
-modulos/<d>/   Servicios del dominio + api.py (y api_*.py) con sus rutas.
+modulos/<m>/   Un módulo: modulo.py (su contrato), sus servicios y api.py
+               (y api_*.py) con sus rutas.
+modulos/comun/ Piezas que usan todos: historial, edición exclusiva, bitácora,
+               filtros de tabla, normalización. No conoce módulos de negocio.
 instalacion/   Migraciones al arrancar, datos incluidos, primer admin, demo.
 i18n/          Textos del servidor (claves.json) y su traducción (es.json).
+data/          Datos incluidos: arancel oficial, motor de clasificación, demo.
 ```
 
-Dependencias permitidas: `modulos → web → core`, `modulos → modelos/esquemas`,
-y entre módulos solo a través de sus servicios (nunca de su `api.py`).
+### Módulos
+
+Un módulo es una carpeta `app/modulos/<clave>/` con un `modulo.py` que expone
+`MODULO = Modulo(...)` (`core/modulos.py`):
+
+```python
+MODULO = Modulo(
+    clave="empaque", nombre="Listas de empaque",
+    descripcion="Listas de empaque con su estructura de cajas…",
+    rutas=lambda: [api.router, api_plantillas.router],   # todas bajo /api
+    al_cargar=_al_cargar,                               # se inscribe en registros de otros
+    tareas=(),                                          # corrutinas mientras corre el servidor
+)
+```
+
+`main.py` recorre las carpetas (`modulos.cargar()`), corre el `al_cargar` de
+cada una, monta sus rutas con la sección de la documentación que les toca y
+arranca sus tareas de fondo. `GET /api/modulos` lista los módulos instalados.
+
+**Registros.** Cuando un módulo necesita algo de otros, publica un registro y
+los otros se inscriben desde su `modulo.py`. Quien publica no importa a nadie:
+
+| Registro | Qué se inscribe | Quién lo usa |
+|---|---|---|
+| `core/respuestas.registrar_filtro` | Un filtro que quita datos de cada respuesta | `acceso` (datos visibles por rol) |
+| `core/cambios.registrar_identificador` | Cómo reconocer al usuario de una petición | `acceso` |
+| `comun/edicion.registrar_documento` | Un documento que se edita en exclusiva, con sus partes | factura, lista de empaque, embarque, OC, producto |
+| `comun/auditoria.registrar_entidades` | Los nombres legibles de sus registros en la bitácora | `maestros` |
+| `catalogo/secciones.registrar_seccion_familia` | Su sección en la ficha de una familia del catálogo | comex, empaque, etiquetado, transporte |
+
+**Reglas de dependencias** (`tests/test_dependencias.py`, leyendo el código):
+
+1. `core` no importa nada de afuera de `core`.
+2. `modelos` solo usa `core`.
+3. `comun` no conoce ningún módulo de negocio (salvo `acceso`).
+4. `main.py` no nombra ningún módulo.
+5. Cada módulo tiene su `modulo.py`.
+
+Lo que todavía no cumple el ideal está anotado en la misma prueba como deuda
+que solo puede achicarse: qué módulo importa a cuál, ciclos, imports dentro de
+funciones y archivos de más de 500 líneas. Una dependencia nueva hace fallar
+la prueba; para conectar dos módulos sin agregarla, use un registro.
+[MODULOS.md](MODULOS.md) muestra hoy qué usa cada módulo.
 
 ### Una petición
 
@@ -50,13 +98,14 @@ y entre módulos solo a través de sus servicios (nunca de su `api.py`).
 3. La ruta del módulo exige su permiso (`acceso/permisos.exigir`) y llama al
    servicio. Los errores de negocio se lanzan como `ErrorNegocio(mensaje,
    status, codigo, detalle)` y se responden como `{mensaje, codigo, detalle}`.
-4. `RespuestaJSON` quita los datos que el rol no ve (`acceso/visibilidad.py`).
+4. `RespuestaJSON` (`core/respuestas.py`) pasa la respuesta por los filtros
+   inscritos; el de `acceso/visibilidad.py` quita los datos que el rol no ve.
 
 ### Organizaciones (multiempresa)
 
 `app/core/organizacion.py` y la migración 0047:
 
-1. **Tablas por organización.** Las 48 tablas de negocio, configuración,
+1. **Tablas por organización.** Las tablas de negocio, configuración,
    usuarios y roles heredan `DeOrganizacion` (columna `organizacion_id`). Un
    registro nuevo toma la organización de la sesión; guardar uno de otra
    organización se rechaza.
@@ -142,7 +191,7 @@ falta tocar la interfaz.
 ### Datos maestros y su gobierno
 
 Cada dato maestro se mantiene en un solo lugar: Datos maestros
-(`maestros/catalogos.py`). El catálogo se describe una vez (campos, tipos,
+(`maestros/definiciones.py` y `definiciones_logistica.py`). El catálogo se describe una vez (campos, tipos,
 obligatorios, sección del formulario) y de esa descripción salen la tabla, los
 filtros, el formulario, la carga desde Excel y la exportación. Otras pantallas
 solo los consultan (p. ej. Usuarios y accesos muestra los proveedores para dar
@@ -154,11 +203,11 @@ acceso, pero no los edita).
   la pantalla recibe `puede` por catálogo y muestra solo lo permitido.
 - **Obligatorios de la empresa:** además de los que el sistema exige, la
   administración elige qué datos de cada catálogo son obligatorios; valen en el
-  formulario y en la carga masiva (`catalogos._limpiar`).
+  formulario y en la carga masiva (`maestros/validacion.limpiar_datos`).
 - **Historial por registro:** cada alta y cambio queda en `historial` (quién,
   cuándo, antes → después) y se ve en la ficha de solo lectura del registro.
 - **Borrado:** un registro que otros registros usan por llave foránea, o cuyo
-  código guardan los documentos (`gobierno.USOS_CODIGO`, `USOS_LISTA`), no se
+  código guardan los documentos (`gobierno.USOS_CODIGO`), no se
   borra: se desactiva.
 - **Cargas:** crean con `catalogos.crear`; una fila que cambia un registro que
   ya existe requiere `catalogos.editar`.
@@ -259,13 +308,15 @@ Las pantallas no vuelven a consultar lo que no cambió:
 
 - Cambios hechos fuera de la aplicación (SQL directo en la base sin pasar por su motor, otra aplicación) no suben versiones. Después de una carga así, `UPDATE versiones_datos SET version = version + 1;` hace que todos vuelvan a pedir sus datos (reiniciar el servidor no basta).
 - Las tablas técnicas que cambian solas (`sesiones`, `desafios_dos_pasos`, `idempotencia`, `ediciones`) y la columna `usuarios.ultimo_acceso` no cuentan.
-- Una respuesta que dependa del reloj con más detalle que el día debe ir en `SIN_ETAG` de `cambios.py`. Hoy solo la edición exclusiva.
+- Una respuesta que dependa del reloj con más detalle que el día debe ir en `SIN_ETAG` de `cambios.py` (hoy: sesión, edición exclusiva, el propio canal de cambios y la salud del servidor).
 
 ## Cómo agregar…
 
-**Un módulo de dominio**
-1. `backend/app/modulos/<dominio>/` con sus servicios y `api.py`
-   (`router = APIRouter()`); regístrelo en `RUTAS` de `app/main.py`.
+**Un módulo**
+1. `backend/app/modulos/<clave>/` con sus servicios, `api.py`
+   (`router = APIRouter()`) y `modulo.py` con su `MODULO`. No hace falta tocar
+   `main.py`: lo encuentra solo. Si necesita algo de otro módulo, inscríbase en
+   su registro desde `al_cargar` en lugar de importarlo.
 2. Modelos en `app/modelos/<dominio>.py` (reexportados en `__init__.py`) y la
    migración con `alembic revision --autogenerate`. Una tabla de datos de la
    empresa hereda `DeOrganizacion` (y en PostgreSQL su migración le agrega la
@@ -274,7 +325,8 @@ Las pantallas no vuelven a consultar lo que no cambió:
    agréguelo a `MODULOS_ACTIVABLES`.
 4. Pantallas en `frontend/src/modulos/<dominio>/vistas/` y sus rutas en
    `router.js` con el permiso que exigen.
-5. Pruebas en `backend/tests/test_<dominio>.py`.
+5. Pruebas en `backend/tests/test_<clave>.py`, y regenere
+   [MODULOS.md](MODULOS.md) con `python scripts/documentar_modulos.py`.
 
 **Una lista de valores**: agréguela a `LISTAS` en `core/listas.py` con sus
 valores de fábrica; aparece en Datos maestros → Listas y se usa con
@@ -287,7 +339,7 @@ respetando `glosario.json`. `test_i18n.py` falla si falta alguno.
 ## Calidad
 
 ```bash
-cd backend && ruff check app tests && pytest && alembic check
+cd backend && ruff check . && pytest && alembic check   # alembic check compara los modelos con una base ya migrada
 TEST_DATABASE_URL=postgresql+psycopg://usuario:clave@localhost/pruebas pytest   # la misma suite en PostgreSQL (RLS incluida)
 cd frontend && npm run lint && npm run build
 npm run e2e   # con la demostración corriendo: recorre todas las pantallas en el navegador
@@ -295,6 +347,9 @@ npm run e2e   # con la demostración corriendo: recorre todas las pantallas en e
 
 - `backend/ruff.toml`: errores, sintaxis, orden de imports y errores frecuentes (bugbear).
 - `frontend/eslint.config.js`: reglas esenciales de Vue, variables sin uso o sin definir.
+- `tests/test_dependencias.py`: reglas de dependencias y deudas que solo pueden achicarse (ver «Módulos»).
+- `tests/test_modulos.py`: contratos válidos y ninguna ruta de un módulo tapa a la de otro.
+- `tests/test_documentacion.py`: docs/MODULOS.md al día y los documentos citados en el código existen.
 - `tests/test_api_docs.py`: cada ruta con docstring, etiqueta de su módulo y resumen (docs/API.md).
 - `tests/test_rendimiento.py`: las listas principales no hacen una consulta por fila (se comparan
   con 1 y con 25 filas).

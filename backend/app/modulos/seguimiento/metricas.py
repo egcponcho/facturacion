@@ -1,5 +1,5 @@
 """Métricas compartidas: una sola definición de cada concepto para Inicio,
-Indicadores, Seguimiento y Reportes (docs/AUDITORIA_KPIS.md §5.1).
+Indicadores, Seguimiento y Reportes.
 
 Reglas que valen para todas:
 - Los importes nunca se suman entre monedas: se devuelven por moneda y la
