@@ -9,7 +9,10 @@ su servicio. Ver docs/FLUJOS.md.
 """
 from dataclasses import dataclass, field
 
+from sqlalchemy import delete, select
+
 from app.core.errores import ErrorNegocio
+from app.core.tablas import EstadoDocumento
 
 
 @dataclass(frozen=True)
@@ -129,10 +132,6 @@ PERSONALIZABLES: dict[str, tuple[str, tuple[str, ...]]] = {
 
 def personalizados(db) -> dict:
     """{documento: {código: {etiqueta, tono, orden}}} de la organización de la sesión."""
-    from sqlalchemy import select
-
-    from app.modelos import EstadoDocumento
-
     res: dict[str, dict] = {}
     for e in db.scalars(select(EstadoDocumento)):
         res.setdefault(e.documento, {})[e.codigo] = {"etiqueta": e.etiqueta, "tono": e.tono, "orden": e.orden}
@@ -143,10 +142,6 @@ def guardar_personalizados(db, datos) -> None:
     """Reemplaza la personalización de los documentos indicados:
     {documento: [{codigo, etiqueta?, tono?}] en el orden deseado}. Un estado
     sin etiqueta ni tono propio y en su lugar de fábrica no guarda fila."""
-    from sqlalchemy import delete
-
-    from app.modelos import EstadoDocumento
-
     if not isinstance(datos, dict) or set(datos) - set(PERSONALIZABLES):
         raise ErrorNegocio("Statuses go by document.", 422, "validacion")
     for documento, filas in datos.items():

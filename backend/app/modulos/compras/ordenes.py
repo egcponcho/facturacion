@@ -1,8 +1,7 @@
 import csv
 import io
 import re
-import unicodedata
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import Session
@@ -44,6 +43,7 @@ from app.modulos.comex import servicio as comex
 from app.modulos.compras import liberaciones, perfiles
 from app.modulos.comun import tabla as tabla_datos
 from app.modulos.comun.historial import registrar
+from app.modulos.comun.normalizar import celda, encabezado
 from app.modulos.comun.texto import filtro_texto
 from app.modulos.empaque import recetas
 from app.modulos.facturacion.cantidades import facturado_por_posicion, facturas_por_posicion
@@ -481,23 +481,6 @@ CAMPOS_POSICION = [
 ]
 
 
-def _norm(texto: str) -> str:
-    t = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode().lower()
-    return "_".join("".join(c if c.isalnum() else " " for c in t).split())
-
-
-def _texto(v) -> str:
-    if v is None:
-        return ""
-    if isinstance(v, float) and v.is_integer():
-        return str(int(v))
-    if isinstance(v, datetime):
-        return v.date().isoformat()
-    if isinstance(v, date):
-        return v.isoformat()
-    return str(v).strip()
-
-
 def _leer_archivo(nombre: str, contenido: bytes, perfil=None) -> list[dict]:
     """Filas del archivo como {campo: texto}. Con un perfil de importación, sus
     nombres de columna mandan, los encabezados van en su fila, las fechas se
@@ -509,8 +492,8 @@ def _leer_archivo(nombre: str, contenido: bytes, perfil=None) -> list[dict]:
         filas = list(ws.iter_rows(values_only=True))[inicio:]
         if not filas:
             return []
-        encabezados = [_texto(h) for h in filas[0]]
-        datos = [[_texto(v) for v in fila] for fila in filas[1:]]
+        encabezados = [celda(h) for h in filas[0]]
+        datos = [[celda(v) for v in fila] for fila in filas[1:]]
     else:
         texto = contenido.decode("utf-8-sig", errors="replace")
         muestra = texto[:2000]
@@ -521,10 +504,10 @@ def _leer_archivo(nombre: str, contenido: bytes, perfil=None) -> list[dict]:
         encabezados = lector[0]
         datos = [[v.strip() for v in fila] for fila in lector[1:]]
 
-    propios = {c: [_norm(x) for x in str(v).split(",") if x.strip()] for c, v in ((perfil.columnas or {}) if perfil else {}).items()}
-    normalizados = [_norm(h) for h in encabezados]
+    propios = {c: [encabezado(x) for x in str(v).split(",") if x.strip()] for c, v in ((perfil.columnas or {}) if perfil else {}).items()}
+    normalizados = [encabezado(h) for h in encabezados]
     # Campos propios de las OCs: se reconocen por su nombre o su clave
-    extra = {f"extra.{c['clave']}": [_norm(c["etiqueta"]), _norm(c["clave"])] for c in campos_propios.definiciones("ordenes")}
+    extra = {f"extra.{c['clave']}": [encabezado(c["etiqueta"]), encabezado(c["clave"])] for c in campos_propios.definiciones("ordenes")}
     mapa = {}
     for fuente in (propios, ALIAS, extra):  # primero los nombres del perfil
         for campo, nombres in fuente.items():
@@ -1013,7 +996,7 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
     from app.modulos.compras import flujo_oc
 
     exigir(user, "oc.editar")
-    cab = {k: _texto(v) for k, v in (datos.get("cabecera") or {}).items() if k in CAMPOS_FORM_CAB}
+    cab = {k: celda(v) for k, v in (datos.get("cabecera") or {}).items() if k in CAMPOS_FORM_CAB}
     permitidos = proveedores_de(user)
     if permitidos is not None:  # solo OCs de los proveedores de su alcance
         prov = db.scalar(select(Proveedor).where(Proveedor.codigo == str(cab.get("proveedor") or "").upper()))
@@ -1021,12 +1004,12 @@ def crear_oc(db: Session, user: Usuario, datos: dict) -> dict:
             unico = un_proveedor(permitidos)
             prov = db.get(Proveedor, unico) if unico else None
         cab["proveedor"] = prov.codigo if prov else ""
-    lineas = [x for x in (datos.get("lineas") or []) if any(_texto(v) for v in x.values())]
+    lineas = [x for x in (datos.get("lineas") or []) if any(celda(v) for v in x.values())]
     if not lineas:
         raise ErrorNegocio("Add at least one line.", 422, "validacion", [{"campo": "lineas", "mensaje": "Add at least one line."}])
     filas = []
     for i, linea in enumerate(lineas, start=1):
-        fila = {**cab, **{k: _texto(v) for k, v in linea.items() if k in CAMPOS_FORM_LINEA}, "_fila": i}
+        fila = {**cab, **{k: celda(v) for k, v in linea.items() if k in CAMPOS_FORM_LINEA}, "_fila": i}
         fila["posicion"] = fila.get("posicion") or str(i * 10)
         filas.append(fila)
     m = Maestros(db)

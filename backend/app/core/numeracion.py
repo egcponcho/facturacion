@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.modelos.numeracion import ContadorSerie, SerieDocumental
+from app.core.tablas import ContadorSerie, SerieDocumental
 
 
 def formato(serie: SerieDocumental, n: int, fecha: date) -> str:

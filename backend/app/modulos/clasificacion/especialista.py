@@ -106,7 +106,7 @@ def _prompt(d: dict, notas: list | None = None) -> str:
 
 def analizar(db: Session, user: Usuario, producto_id: int, d) -> dict:
     exigir(user, "producto.clasificar")
-    p = productos._producto(db, user, producto_id)
+    p = productos.ver_producto(db, user, producto_id)
     if not disponible():
         raise ErrorNegocio("The specialist opinion is not configured (ANTHROPIC_API_KEY).", 409, "sin_especialista")
     import anthropic  # solo se carga si la opción está configurada

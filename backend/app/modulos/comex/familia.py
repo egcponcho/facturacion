@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.errores import ErrorNegocio
 from app.modelos import CategoriaProducto, FamiliaComex, ProductoComex, Usuario
 from app.modulos.catalogo import servicio as catalogo
-from app.modulos.catalogo.secciones import SeccionFamilia, registrar_seccion_familia
+from app.modulos.catalogo.secciones import SeccionFamilia
 from app.modulos.comun.historial import registrar
 
 CACHE = "comex_categorias_familia"
@@ -71,6 +71,7 @@ def _guardar(db: Session, user: Usuario, familia_id: int, datos: dict) -> dict:
     return _leer(db, familia_id)
 
 
-registrar_seccion_familia(SeccionFamilia(
+# Lo que este módulo guarda de cada familia; se inscribe en catalogo/secciones.py desde modulo.py
+SECCION = SeccionFamilia(
     clave="comex", nombre="Foreign trade", orden=20, leer=_leer, guardar=_guardar,
-    permisos_ver=("clasificacion.ver",), permisos_editar=("clasificacion.configurar",)))
+    permisos_ver=("clasificacion.ver",), permisos_editar=("clasificacion.configurar",))

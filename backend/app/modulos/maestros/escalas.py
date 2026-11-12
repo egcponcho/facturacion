@@ -18,6 +18,7 @@ regla fija en el código.
 import re
 
 from app.core.errores import ErrorNegocio
+from app.modelos.maestros import valores_de
 from app.modulos.comun.normalizar import clave
 
 REGLAS = [["MULTIPLICAR", "Value × factor (7.5 × 10 → 075)"], ["CONSECUTIVO", "Consecutive (001, 002…)"],
@@ -48,36 +49,6 @@ def validar_regla(datos) -> dict:
     if longitud is not None and not 1 <= longitud <= 10:
         raise ErrorNegocio("The code has between 1 and 10 digits.", 422, "validacion")
     return {"regla": datos["regla"], "factor": factor if datos["regla"] == "MULTIPLICAR" else None, "longitud": longitud}
-
-
-def _rango(a: str, b: str) -> list[str] | None:
-    try:
-        x, y = float(a), float(b)
-    except ValueError:
-        return None
-    paso = 0.5 if (".5" in a or ".5" in b) else 1
-    out, v = [], x
-    while v <= y + 1e-9:
-        out.append(str(int(v)) if float(v).is_integer() else str(v))
-        v += paso
-    return out
-
-
-def valores_de(texto: str) -> list[tuple[str, str | None]]:
-    """[(valor, código escrito o None)] en el orden de la escala."""
-    res: list[tuple[str, str | None]] = []
-    for parte in re.split(r"[,;\n]+", texto or ""):
-        parte = parte.strip()
-        if not parte:
-            continue
-        valor, _, cod = parte.partition("=")
-        valor, cod = valor.strip().upper(), (cod.strip().upper() or None)
-        m = re.fullmatch(r"(\d+(?:\.5)?)\s*(?:-|TO|A)\s*(\d+(?:\.5)?)", valor)
-        lista = _rango(m.group(1), m.group(2)) if m and not cod else None
-        for t in (lista or [valor]):
-            if t not in {x for x, _ in res}:
-                res.append((t, cod if not lista else None))
-    return res
 
 
 def validar(texto: str) -> list[str]:

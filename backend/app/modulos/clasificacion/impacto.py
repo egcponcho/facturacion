@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.core.errores import ErrorNegocio
 from app.modelos import CategoriaProducto, Producto, ProductoComex, ReglaClasificacion, Usuario
 from app.modulos.acceso.permisos import exigir
-from app.modulos.productos.productos import APROBADOS, _producto, entrada_producto, fmt_codigo
+from app.modulos.productos.productos import APROBADOS, entrada_producto, fmt_codigo, ver_producto
 
 LIMITE = 120  # artículos que se vuelven a clasificar en una simulación (los más recientes)
 
@@ -74,7 +74,7 @@ def desde_producto(db, user: Usuario, producto_id: int) -> dict:
     from app.modulos.productos.ficha import catalogo
 
     exigir(user, "clasificacion.configurar")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     c = p.comex
     hs6 = "".join(ch for ch in str(c.codigo or "") if ch.isdigit())[:6]
     if c.estado not in APROBADOS or len(hs6) < 6 or not c.tipo:

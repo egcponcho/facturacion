@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modelos import RecetaEmpaque, ReglaEmpaque
-from app.modulos.catalogo.secciones import SeccionFamilia, registrar_seccion_familia
+from app.modulos.catalogo.secciones import SeccionFamilia
 
 
 def _leer(db: Session, familia_id: int) -> dict:
@@ -29,6 +29,7 @@ def _usos(db: Session) -> dict[int, dict[str, int]]:
     return res
 
 
-registrar_seccion_familia(SeccionFamilia(
+# Lo que este módulo guarda de cada familia; se inscribe en catalogo/secciones.py desde modulo.py
+SECCION = SeccionFamilia(
     clave="empaque", nombre="Packing", orden=50, leer=_leer, usos=_usos,
-    permisos_ver=("catalogos.ver", "oc.empaque")))
+    permisos_ver=("catalogos.ver", "oc.empaque"))

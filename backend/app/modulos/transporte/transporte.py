@@ -37,7 +37,7 @@ ESTADO_POR_EVENTO = {
 }
 
 
-def _embarque(db: Session, user: Usuario, embarque_id: int) -> Embarque:
+def cargar_embarque(db: Session, user: Usuario, embarque_id: int) -> Embarque:
     exigir(user, "transporte.gestionar")
     e = db.get(Embarque, embarque_id)
     if not e or not en_alcance(db, user, e):
@@ -332,7 +332,7 @@ def crear_embarque(db: Session, user: Usuario, datos) -> dict:
 
 
 def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     campos = datos.model_dump(exclude_unset=True)
     motivo = campos.pop("motivo", None)
     if "tipo_transporte" in campos and e.unidades:
@@ -377,7 +377,7 @@ def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> 
 def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
     from app.modelos import Historial
 
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     historial = db.scalars(
         select(Historial).where(Historial.entidad == "embarque", Historial.entidad_id == e.id)
         .order_by(Historial.fecha.desc())
@@ -449,7 +449,7 @@ def _con_carga(e: Embarque) -> list[UnidadCarga]:
 
 
 def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     if datos.tipo not in eventos_permitidos(e.estado):
         nombre = listas.nombre("evento_embarque", datos.tipo) or datos.tipo
         raise ErrorNegocio(f"{nombre} cannot be recorded with the shipment in status "
@@ -528,7 +528,7 @@ def cancelar(db: Session, user: Usuario, embarque_id: int, motivo: str | None) -
     """Anula un embarque que no salió: su carga vuelve a estar disponible."""
     exigir(user, "transporte.gestionar")
     motivo = requerir_motivo(motivo, "call off the shipment")
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     EMBARQUE.exigir("cancelar", e.estado)
     for u in e.unidades:
         for pl in list(u.packing_lists):
@@ -553,7 +553,7 @@ def _validar_tipo(db: Session, e: Embarque, codigo: str) -> TipoUnidad:
 
 
 def agregar_unidad(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     _exigir_planificado(e, "add containers")
     _validar_tipo(db, e, datos.tipo)
     n = sum(1 for u in e.unidades if u.tipo == datos.tipo) + 1

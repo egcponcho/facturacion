@@ -837,4 +837,7 @@ def reiniciar_demo() -> None:
 
 if __name__ == "__main__":
     # python -m app.instalacion.demo  → reinicia la demostración (SEED_DEMO=1)
+    from app.core.modulos import cargar
+
+    cargar()  # los módulos se inscriben en sus registros, como al arrancar el servidor
     reiniciar_demo()

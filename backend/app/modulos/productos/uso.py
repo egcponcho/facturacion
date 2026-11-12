@@ -27,13 +27,13 @@ from app.modelos import (
 )
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.facturacion.cantidades import nombre_factura
-from app.modulos.productos.productos import _producto
+from app.modulos.productos.productos import ver_producto
 
 MAX_FILAS = 50  # por sección; el total se informa aparte
 
 
 def uso(db: Session, user: Usuario, producto_id: int) -> dict:
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     ids_art = [a.id for a in p.articulos]
     res: dict = {"ordenes": None, "facturas": None, "embarques": None}
     if not ids_art:
@@ -90,7 +90,7 @@ def uso(db: Session, user: Usuario, producto_id: int) -> dict:
 def empaque(db: Session, user: Usuario, producto_id: int) -> dict:
     from app.modulos.empaque import recetas
 
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     exigir(user, "catalogos.ver")  # las reglas de empaque son configuración interna
     motor = recetas.Motor(db)
     candidatas = []
