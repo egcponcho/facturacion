@@ -318,7 +318,7 @@ def _consulta(db: Session, user: Usuario, filtros: dict):
     if prov:
         q = q.where(Producto.proveedor_id.in_(prov))
     if filtros.get("familia"):
-        from app.modulos.productos.productos import rama_de_grupos
+        from app.modulos.productos.consulta import rama_de_grupos
 
         q = q.where(Producto.grupo_producto_id.in_(rama_de_grupos(db, filtros["familia"])))
     if filtros.get("unidad"):

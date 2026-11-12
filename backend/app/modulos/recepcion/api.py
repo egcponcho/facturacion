@@ -41,6 +41,6 @@ def existencias(db: Db, user: User, centro: str | None = None, q: str | None = N
 
 
 @router.get("/existencias/movimientos")
-def movimientos(centro: str, codigo: str, db: Db, user: User, talla: str | None = None, almacen: str | None = None):
+def movimientos(centro: str, codigo: str, db: Db, user: User, almacen: str | None = None):
     """Ingresos de un artículo en una bodega (kardex): fecha, contenedor, embarque, PL y cantidades."""
-    return inv.movimientos(db, user, centro, codigo, talla, almacen)
+    return inv.movimientos(db, user, centro, codigo, almacen)

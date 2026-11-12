@@ -49,12 +49,8 @@ from app.modulos.acceso.roles import crear_roles_fabrica, crear_roles_sugeridos
 from app.modulos.comun.historial import registrar
 from app.modulos.empaque import empaques
 from app.modulos.maestros import escalas
-from app.modulos.productos.productos import (
-    _aprobar,
-    clasificar_y_guardar,
-    descripcion_comercial_simple,
-    partida_para,
-)
+from app.modulos.productos.flujo_ficha import _aprobar, clasificar_y_guardar
+from app.modulos.productos.productos import descripcion_comercial_simple, partida_para
 from app.modulos.transporte import reglas_lt as rlt
 
 PAISES = [
@@ -402,7 +398,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict, admin: Usuario, famili
     variante simple con su código de barras y el del proveedor. Los packs son compuestos del mismo
     producto con su contenido."""
     from app.esquemas.productos import GenericoIn, VarianteIn
-    from app.modulos.maestros import catalogos, genericos
+    from app.modulos.maestros import compuestos, genericos
 
     arts = {}
     # Datos de ejemplo: el código de artículo de esta empresa demo es el del producto más el código
@@ -435,7 +431,7 @@ def _articulos(db: Session, cat: dict, proveedores: dict, admin: Usuario, famili
         gen = p.codigo_generico
         suf = escalas.codigo(None, codigo, usados[gen], REGLA_CODIGO)
         usados[gen].add(suf)
-        catalogos.crear_compuesto(db, admin, {
+        compuestos.crear_compuesto(db, admin, {
             "sku": f"{gen}{suf}", "codigo": codigo, "tipo": "PACK", "unidad": "CJ",
             "componentes": [{"articulo_id": arts[(estilo, color, t)].id, "cantidad": c} for t, c in curva.items()]})
         a = db.scalar(select(Articulo).where(Articulo.sku == f"{gen}{suf}"))

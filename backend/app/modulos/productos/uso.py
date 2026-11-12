@@ -27,7 +27,7 @@ from app.modelos import (
 )
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.facturacion.cantidades import nombre_factura
-from app.modulos.productos.productos import ver_producto
+from app.modulos.productos.consulta import ver_producto
 
 MAX_FILAS = 50  # por sección; el total se informa aparte
 

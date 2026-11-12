@@ -14,9 +14,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errores import ErrorNegocio
-from app.modelos import Usuario
+from app.modelos import Usuario, ahora
 from app.modulos.acceso.permisos import exigir
-from app.modulos.productos import productos
+from app.modulos.comun.historial import registrar
+from app.modulos.productos import consulta, flujo_ficha, productos
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ def entrada(db: Session, p) -> dict:
     """Lo que ve el especialista, armado con el motor único de clasificación."""
     from app.modulos.clasificacion.motor_clasificacion import clasificar_producto
 
-    r = clasificar_producto(db, productos.entrada_producto(p), paises=False)
+    r = clasificar_producto(db, flujo_ficha.entrada_producto(p), paises=False)
     lineas = [f"Category: {(r.get('categoria') or {}).get('nombre') or p.comex.tipo or 'not chosen'}",
               f"Product: {p.codigo_generico or ''} {p.nombre or ''}".strip(), f"Country of origin: {p.comex.pais_origen or 'not given'}"]
     corregibles = []
@@ -67,7 +68,7 @@ def entrada(db: Session, p) -> dict:
                 lineas.append(f"{c['etiqueta']}: {c['valor']}")
             continue
         if c.get("valor") not in (None, "", [], False) or (c["tipo_dato"] == "boolean" and c.get("respondida")):
-            lineas.append(f"{c['etiqueta']}: {productos._valor_legible(c)}")
+            lineas.append(f"{c['etiqueta']}: {flujo_ficha._valor_legible(c)}")
         if c["tipo_dato"] in ("select", "boolean") and c["seccion"] != "derivado":
             ops = "Yes / No (true / false)" if c["tipo_dato"] == "boolean" else ", ".join(f"{o['codigo']} = {o['etiqueta']}" for o in c["opciones"])
             corregibles.append(f"- {c['codigo']} ({c['etiqueta']}): {ops}")
@@ -106,7 +107,7 @@ def _prompt(d: dict, notas: list | None = None) -> str:
 
 def analizar(db: Session, user: Usuario, producto_id: int, d) -> dict:
     exigir(user, "producto.clasificar")
-    p = productos.ver_producto(db, user, producto_id)
+    p = consulta.ver_producto(db, user, producto_id)
     if not disponible():
         raise ErrorNegocio("The specialist opinion is not configured (ANTHROPIC_API_KEY).", 409, "sin_especialista")
     import anthropic  # solo se carga si la opción está configurada
@@ -157,8 +158,8 @@ def analizar(db: Session, user: Usuario, producto_id: int, d) -> dict:
         raise ErrorNegocio("The specialist answer could not be read.", 502, "respuesta_invalida") from None
     op["codigo"] = productos.digitos(op.get("codigo"))[:6]
     op["con_fotos"] = sum(1 for b in contenido if b["type"] == "image")
-    op["fecha"] = productos.ahora().isoformat()
-    productos.guardar_opinion(db, user, producto_id, op)
-    productos.registrar(db, user, "producto", p.id, "opinion_especialista",
+    op["fecha"] = ahora().isoformat()
+    flujo_ficha.guardar_opinion(db, user, producto_id, op)
+    registrar(db, user, "producto", p.id, "opinion_especialista",
                         {"codigo": productos.fmt_codigo(op["codigo"]), "confianza": op.get("confianza")})
     return op

@@ -20,6 +20,7 @@ from app.modelos import (
     Usuario,
 )
 from app.modulos.acceso.permisos import tiene
+from app.modulos.productos import consulta
 from app.modulos.productos import productos as svc
 
 RECIENTES = 6
@@ -36,7 +37,7 @@ def _exige_codigo_barras(db: Session) -> bool:
 
 
 def resumen(db: Session, user: Usuario) -> dict:
-    base, prov = svc._consulta_productos(db, user, {})
+    base, prov = consulta._consulta_productos(db, user, {})
     sub = base.add_columns(ProductoComex.estado.label("estado")).subquery()
     ids = select(sub.c.id)
     total = db.scalar(select(func.count()).select_from(sub)) or 0

@@ -99,8 +99,7 @@ def _variantes(db: Session, codigos: set[str]) -> dict[str, str]:
     return {c: catalogo.texto(f.valores) or "" for c, f in catalogo.por_codigos(db, codigos).items()}
 
 
-def movimientos(db: Session, user: Usuario, centro: str, codigo: str, talla: str | None = None,
-                almacen: str | None = None) -> list[dict]:
+def movimientos(db: Session, user: Usuario, centro: str, codigo: str, almacen: str | None = None) -> list[dict]:
     """Kardex de ingresos de un artículo en una bodega."""
     consulta = _base(db, user, centro, None, None).add_columns(
         RecepcionRegistro.fecha, RecepcionRegistro.tipo, RecepcionRegistro.observacion, RecepcionRegistro.usuario_id,
@@ -112,7 +111,6 @@ def movimientos(db: Session, user: Usuario, centro: str, codigo: str, talla: str
         .join(PackingList, PackingList.id == PLLinea.pl_id) \
         .where(FacturaLinea.codigo_articulo == codigo) \
         .order_by(RecepcionRegistro.fecha.desc(), RecepcionRegistro.id.desc())
-    # `talla` queda por compatibilidad: el código del artículo ya distingue la variante
     if almacen:
         consulta = consulta.where(FacturaLinea.almacen == almacen)
     filas = db.execute(consulta.limit(500)).all()

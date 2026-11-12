@@ -797,7 +797,7 @@ def valores_documentos(db: Session, user: Usuario, columna: str, q: str | None, 
 
 def _filas_documentos(db: Session, user: Usuario, proveedor_id: int | None, filtros: dict | None) -> tuple[list, dict]:
     """Las filas de documentos con los filtros de la pantalla y las opciones de los filtros."""
-    from app.modulos.empaque.packing import validar_pl
+    from app.modulos.empaque.estados_pl import validar_pl
     from app.modulos.facturacion.cantidades import totales_pl
     from app.modulos.facturacion.estados import EDITABLE_PL
     from app.modulos.facturacion.facturas import validar_factura

@@ -31,7 +31,7 @@ EMBARQUE_FINAL = ("RECIBIDO", "CANCELADO")
 
 def moneda_principal(valores: dict) -> str | None:
     """La moneda de la empresa si está entre los importes; si no, la de mayor importe."""
-    from app.modulos.compras.ordenes import moneda_base
+    from app.modulos.compras.importacion import moneda_base
 
     base = moneda_base()
     if not valores:

@@ -6,7 +6,7 @@ una OC que entra por una integración pasa por las mismas validaciones,
 deduplicación y reglas de liberación que la que se carga a mano.
 
 - ENTRADA `ordenes_compra`: filas de líneas de OC → vista previa
-  (ordenes._clasificar) y aplicación (ordenes.aplicar_importacion). Su
+  (compras/importacion._clasificar) y aplicación (aplicar_importacion). Su
   referencia externa es «proveedor/número de OC».
 - SALIDA `facturas`: una fila por línea de factura finalizada. Su referencia
   externa es el número de la factura; con «solo nuevas» no se reenvía una
@@ -31,23 +31,23 @@ def campos_ordenes() -> list[dict]:
 def previa_ordenes(db: Session, user: Usuario, filas: list[dict], archivo: str) -> dict:
     """Clasifica las filas como la carga de OCs (nuevo, cambio, sin cambio,
     conflicto, error) sin aplicar nada. Devuelve la importación creada."""
-    from app.modulos.compras import ordenes
+    from app.modulos.compras import importacion
 
     imp = ImportacionOC(usuario_id=user.id, nombre_archivo=archivo[:300], filas=filas)
     db.add(imp)
     db.flush()
-    clasificadas = ordenes._clasificar(db, filas)
-    return {"importacion_oc_id": imp.id, "resumen": ordenes._resumen(clasificadas),
+    clasificadas = importacion._clasificar(db, filas)
+    return {"importacion_oc_id": imp.id, "resumen": importacion._resumen(clasificadas),
             "filas": [{k: v for k, v in c.items() if k != "datos"} for c in clasificadas]}
 
 
 def aplicar_ordenes(db: Session, user: Usuario, importacion_oc_id: int) -> dict:
-    from app.modulos.compras import ordenes
+    from app.modulos.compras import importacion
 
     imp = db.get(ImportacionOC, importacion_oc_id)
     if imp is None:
         raise ErrorNegocio("The import does not exist.", 404, "no_encontrado")
-    res = ordenes.aplicar_importacion(db, user, imp)
+    res = importacion.aplicar_importacion(db, user, imp)
     referencias = [(oc["id"], f"{oc['proveedor']}/{oc['numero']}") for oc in res.get("ocs", [])]
     return {**res, "referencias": referencias}
 

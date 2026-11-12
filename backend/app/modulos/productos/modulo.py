@@ -3,7 +3,7 @@ from app.core.modulos import Modulo
 from app.modelos import PartidaPais, Producto, ProductoDocumento, ProductoFoto
 from app.modulos.comun import edicion
 from app.modulos.productos import api, api_flujo
-from app.modulos.productos.productos import ver_producto
+from app.modulos.productos.consulta import ver_producto
 
 
 def _al_cargar() -> None:

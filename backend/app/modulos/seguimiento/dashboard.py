@@ -16,10 +16,11 @@ from app.modelos import Alerta, Embarque, Factura, PackingList, Proveedor, Unida
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import es_interno, proveedor_filtro, sociedad_filtro, tiene
 from app.modulos.comex import servicio as comex
-from app.modulos.empaque.packing import validar_pl
+from app.modulos.empaque.estados_pl import validar_pl
 from app.modulos.facturacion.cantidades import cubierto_por_ids, nombre_factura, totales_pl
+from app.modulos.facturacion.consulta import _lista_para_transporte, resumen_distribucion
 from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL
-from app.modulos.facturacion.facturas import _lista_para_transporte, resumen_distribucion, validar_factura
+from app.modulos.facturacion.facturas import validar_factura
 from app.modulos.seguimiento import metricas
 from app.modulos.seguimiento.alertas import listar_alertas
 from app.modulos.transporte.transporte import resumen_unidad

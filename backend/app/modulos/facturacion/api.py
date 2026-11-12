@@ -16,6 +16,7 @@ from app.esquemas import (
 from app.modulos.comun import tabla
 from app.modulos.documentos import documentos, exportar
 from app.modulos.empaque import packing
+from app.modulos.facturacion import consulta, lineas
 from app.modulos.facturacion import facturas as svc
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida
 
@@ -38,14 +39,14 @@ def listar(
     hasta: date | None = None,
 ):
     """Facturas visibles, paginadas y filtrables (estado, texto, vista y `f` por columna), con su avance en listas de empaque."""
-    return svc.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size, orden, tabla.leer(f), desde, hasta)
+    return consulta.listar_facturas(db, user, proveedor_id, estado, q, vista, page, size, orden, tabla.leer(f), desde, hasta)
 
 
 @router.get("/facturas/valores")
 def valores_columna(db: Db, user: User, columna: str, buscar: str | None = None, f: str | None = None,
                     proveedor_id: int | None = None, estado: str | None = None, q: str | None = None, vista: str | None = None):
     """Valores únicos de una columna de la tabla de facturas (con cuántas tienen cada uno) bajo los demás filtros."""
-    return svc.valores_facturas(db, user, columna, buscar, tabla.leer(f), proveedor_id, estado, q, vista)
+    return consulta.valores_facturas(db, user, columna, buscar, tabla.leer(f), proveedor_id, estado, q, vista)
 
 
 @router.post("/facturas")
@@ -57,13 +58,13 @@ def crear(datos: FacturaCrear, db: Db, user: User, clave: Clave = None):
 @router.get("/facturas/{factura_id}")
 def detalle(factura_id: int, db: Db, user: User):
     """Detalle de la factura: líneas, cantidades en PL, datos pendientes y acciones permitidas al usuario."""
-    return svc.detalle_factura(db, user, factura_id)
+    return consulta.detalle_factura(db, user, factura_id)
 
 
 @router.patch("/facturas/{factura_id}")
 def cabecera(factura_id: int, datos: FacturaCabecera, db: Db, user: User, clave: Clave = None):
     """Modifica la cabecera de una factura en borrador o en corrección (número, fecha, incoterm…)."""
-    return ejecutar(db, user, clave, lambda: svc.actualizar_cabecera(db, user, factura_id, datos))
+    return ejecutar(db, user, clave, lambda: lineas.actualizar_cabecera(db, user, factura_id, datos))
 
 
 @router.post("/facturas/{factura_id}/lineas")
@@ -75,13 +76,13 @@ def agregar(factura_id: int, datos: FacturaAgregar, db: Db, user: User, clave: C
 @router.patch("/facturas/{factura_id}/lineas")
 def editar(factura_id: int, datos: FacturaEditarLineas, db: Db, user: User, clave: Clave = None):
     """Edita cantidad, precio (con motivo), origen o descripción de líneas de una factura editable."""
-    return ejecutar(db, user, clave, lambda: svc.editar_lineas(db, user, factura_id, datos))
+    return ejecutar(db, user, clave, lambda: lineas.editar_lineas(db, user, factura_id, datos))
 
 
 @router.post("/facturas/{factura_id}/lineas/eliminar")
 def eliminar(factura_id: int, datos: FacturaEliminarLineas, db: Db, user: User, clave: Clave = None):
     """Quita líneas de una factura editable; si están en PL, pide confirmación y también las quita de ahí."""
-    return ejecutar(db, user, clave, lambda: svc.eliminar_lineas(db, user, factura_id, datos))
+    return ejecutar(db, user, clave, lambda: lineas.eliminar_lineas(db, user, factura_id, datos))
 
 
 @router.post("/facturas/{factura_id}/finalizar")
@@ -106,13 +107,13 @@ def cancelar(factura_id: int, datos: ConMotivo, db: Db, user: User, clave: Clave
 @router.get("/facturas/{factura_id}/historial")
 def historial(factura_id: int, db: Db, user: User):
     """Historial de la factura y de sus listas de empaque, del más reciente al más antiguo."""
-    return svc.historial_factura(db, user, factura_id)
+    return consulta.historial_factura(db, user, factura_id)
 
 
 @router.get("/facturas/{factura_id}/archivos")
 def archivos(factura_id: int, db: Db, user: User):
     """Archivos adjuntos de la factura (la factura oficial y otros documentos)."""
-    return svc.listar_archivos(db, user, factura_id)
+    return consulta.listar_archivos(db, user, factura_id)
 
 
 @router.post("/facturas/{factura_id}/archivos")
@@ -120,7 +121,7 @@ async def subir(factura_id: int, db: Db, user: User, archivo: UploadFile = File(
                 tipo: str = Form("FACTURA_OFICIAL")):
     """Adjunta a la factura su factura oficial u otro documento; no se admite en facturas canceladas."""
     contenido = await leer_subida(archivo)
-    res = svc.subir_archivo(db, user, factura_id, archivo.filename or "archivo", contenido, tipo)
+    res = consulta.subir_archivo(db, user, factura_id, archivo.filename or "archivo", contenido, tipo)
     db.commit()
     return res
 
@@ -128,7 +129,7 @@ async def subir(factura_id: int, db: Db, user: User, archivo: UploadFile = File(
 @router.get("/archivos/{archivo_id}")
 def descargar(archivo_id: int, db: Db, user: User):
     """Descarga un archivo adjunto a una factura."""
-    a = svc.obtener_archivo(db, user, archivo_id)
+    a = consulta.obtener_archivo(db, user, archivo_id)
     return FileResponse(a.ruta, filename=a.nombre)
 
 

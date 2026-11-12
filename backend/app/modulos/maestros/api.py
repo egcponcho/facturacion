@@ -2,7 +2,7 @@ from fastapi import APIRouter, Body, File, Query, Request, UploadFile
 
 from app import esquemas as s
 from app.modulos.comun import tabla
-from app.modulos.maestros import cargas, genericos, versiones
+from app.modulos.maestros import cargas, compuestos, genericos, guardar, listado, versiones
 from app.modulos.maestros import catalogos as svc
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
@@ -109,13 +109,13 @@ def exportar(tipo: str, request: Request, db: Db, user: User, q: str | None = No
 @router.post("/compuestos")
 def crear_compuesto(db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
     """Pack o kit nuevo: su código de artículo y su contenido (variantes y cantidades), que ya no cambia."""
-    return ejecutar(db, user, clave, lambda: svc.crear_compuesto(db, user, datos))
+    return ejecutar(db, user, clave, lambda: compuestos.crear_compuesto(db, user, datos))
 
 
 @router.get("/compuestos/{articulo_id}/componentes")
 def componentes(articulo_id: int, db: Db, user: User):
     """Contenido de un pack o un kit (variante y cantidad) con su total."""
-    return svc.componentes(db, user, articulo_id)
+    return compuestos.componentes(db, user, articulo_id)
 
 
 @router.get("/articulos/{articulo_id}/versiones")
@@ -127,45 +127,45 @@ def versiones_articulo(articulo_id: int, db: Db, user: User):
 @router.get("/explosion/{sku}")
 def explosion(sku: str, db: Db, user: User):
     """Contenido de un pack o un kit, de solo lectura. Requiere el permiso oc.ver."""
-    return svc.explosion(db, user, sku)
+    return compuestos.explosion(db, user, sku)
 
 
 @router.get("/{tipo}/valores")
 def valores(tipo: str, request: Request, db: Db, user: User, columna: str, buscar: str | None = None, q: str | None = None,
             f: str | None = None):
     """Valores únicos de una columna de un catálogo (con cuántos registros tienen cada uno) bajo los demás filtros."""
-    return svc.valores(db, user, tipo, columna, buscar, tabla.leer(f), q, _filtros(request))
+    return listado.valores(db, user, tipo, columna, buscar, tabla.leer(f), q, _filtros(request))
 
 
 @router.get("/{tipo}/opciones")
 def opciones(tipo: str, db: Db, user: User):
     """Lista corta (id, código, texto) de un catálogo para selects y filtros."""
-    return svc.opciones(db, user, tipo)
+    return listado.opciones(db, user, tipo)
 
 
 @router.get("/{tipo}")
 def listar(tipo: str, request: Request, db: Db, user: User, q: str | None = None, orden: str | None = None,
            page: int = Query(1, ge=1), size: int = Query(25, ge=1, le=200), f: str | None = None):
     """Registros de un catálogo con búsqueda, filtros por campo y por columna, orden y paginación."""
-    return svc.listar(db, user, tipo, q, _filtros(request), orden, page, size, tabla.leer(f))
+    return listado.listar(db, user, tipo, q, _filtros(request), orden, page, size, tabla.leer(f))
 
 
 @router.post("/{tipo}")
 def crear(tipo: str, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
     """Crea un registro del catálogo; si tiene responsables, solo ellos o la administración pueden hacerlo."""
-    return ejecutar(db, user, clave, lambda: svc.crear(db, user, tipo, datos))
+    return ejecutar(db, user, clave, lambda: guardar.crear(db, user, tipo, datos))
 
 
 @router.patch("/{tipo}/{obj_id}")
 def actualizar(tipo: str, obj_id: int, db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
     """Cambia un registro del catálogo y deja en su historial qué cambió."""
-    return ejecutar(db, user, clave, lambda: svc.actualizar(db, user, tipo, obj_id, datos))
+    return ejecutar(db, user, clave, lambda: guardar.actualizar(db, user, tipo, obj_id, datos))
 
 
 @router.delete("/{tipo}/{obj_id}")
 def eliminar(tipo: str, obj_id: int, db: Db, user: User, clave: Clave = None):
     """Elimina un registro que ningún documento usa; si está en uso, se debe desactivar."""
-    return ejecutar(db, user, clave, lambda: svc.eliminar(db, user, tipo, obj_id))
+    return ejecutar(db, user, clave, lambda: guardar.eliminar(db, user, tipo, obj_id))
 
 
 @router.get("/{tipo}/{obj_id}/historial")

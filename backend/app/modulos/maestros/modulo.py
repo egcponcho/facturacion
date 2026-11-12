@@ -2,7 +2,7 @@
 from app.core.modulos import Modulo
 from app.modulos.comun import auditoria
 from app.modulos.maestros import api, api_listas
-from app.modulos.maestros.catalogos import CATALOGOS
+from app.modulos.maestros.definiciones import CATALOGOS
 
 
 def _al_cargar() -> None:

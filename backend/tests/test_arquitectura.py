@@ -26,7 +26,8 @@ PENDIENTES = {
     "modulos/clasificacion/aranceles.py", "modulos/clasificacion/especialista.py",
     "modulos/clasificacion/familias.py", "modulos/clasificacion/impacto.py", "modulos/clasificacion/meta.py",
     "modulos/clasificacion/motor_clasificacion.py", "modulos/maestros/api.py", "modulos/maestros/cargas.py",
-    "modulos/maestros/catalogos.py",
+    "modulos/maestros/compuestos.py", "modulos/maestros/definiciones.py", "modulos/maestros/guardar.py",
+    "modulos/maestros/catalogos.py", "modulos/maestros/listado.py", "modulos/maestros/validacion.py",
 }
 
 

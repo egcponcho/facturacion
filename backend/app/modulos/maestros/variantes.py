@@ -43,16 +43,6 @@ def de_linea(linea, db: Session | None = None) -> dict:
     return ordenar(db, linea.variante)
 
 
-def de_producto_linea(linea, db: Session | None = None) -> dict:
-    """La foto de los atributos del producto guardada en una línea (marca, modelo…), en orden."""
-    return ordenar_producto(db or object_session(linea), getattr(linea, "atributos", None))
-
-
-def texto_linea(valores: dict | None) -> str | None:
-    """El texto de la variante guardada en una línea de documento (o None)."""
-    return texto(valores) or None
-
-
 def _simples(articulos: list) -> list[dict]:
     return [a.variantes for a in articulos if getattr(a, "tipo", "SOLIDO") != "PREPACK"]
 

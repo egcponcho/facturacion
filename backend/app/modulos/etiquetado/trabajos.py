@@ -495,7 +495,7 @@ MAX_COMPLETAR = 200
 def completar(db: Session, user: Usuario, trabajo_id: int, campo: str, valores: dict) -> dict:
     """Escribe en el maestro de artículos el dato que falta ({articulo_id: valor}: cada artículo el suyo), con
     las mismas validaciones, permisos e historial que Datos maestros, y vuelve a revisar el trabajo."""
-    from app.modulos.maestros import catalogos
+    from app.modulos.maestros import guardar
 
     t = cargar(db, user, trabajo_id, bloquear=True)
     if t.estado in ("EN_PROCESO", "CANCELADO", "GENERADO"):
@@ -521,7 +521,7 @@ def completar(db: Session, user: Usuario, trabajo_id: int, campo: str, valores: 
         if valor in (None, ""):
             continue
         try:
-            catalogos.actualizar(db, user, "articulos", aid, {columna: valor})
+            guardar.actualizar(db, user, "articulos", aid, {columna: valor})
         except ErrorNegocio as e:  # qué artículo, en el detalle (el mensaje se traduce tal cual)
             from app.modulos.catalogo import servicio as catalogo
 

@@ -85,7 +85,7 @@ def _rango(desde: date, hasta: date) -> tuple[datetime, datetime]:
 
 
 def _moneda_base() -> str | None:
-    from app.modulos.compras.ordenes import moneda_base
+    from app.modulos.compras.importacion import moneda_base
 
     return moneda_base()
 

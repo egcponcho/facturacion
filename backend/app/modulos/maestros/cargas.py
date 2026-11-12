@@ -26,7 +26,7 @@ from app.modulos.documentos import documentos, exportar
 from app.modulos.documentos.plantillas import hojas, leer, norm, plantilla, plantilla_hojas, si_no
 from app.modulos.maestros import atributos as atr_svc
 from app.modulos.maestros import catalogos as cat_svc
-from app.modulos.maestros import gobierno, variantes
+from app.modulos.maestros import compuestos, gobierno, listado, validacion, variantes
 from app.modulos.maestros.unidades import de_articulo, normalizar
 from app.modulos.productos import perfil
 from app.modulos.productos.productos import (
@@ -435,7 +435,7 @@ def _ficha_desde_fila(p, f: dict, paises: dict, voc: dict) -> str | None:
 
 # ---- Cualquier catálogo de datos maestros ------------------------------------------------
 def _cols_catalogo(db: Session, tipo: str) -> list[dict]:
-    c = cat_svc._cat(tipo)
+    c = cat_svc.catalogo_de(tipo)
     cols = []
     for x in cat_svc.campos_con_opciones(c):
         col = {"campo": x, "nombre": x["etiqueta"], "req": x["obligatorio"], "ayuda": x.get("ayuda") or ""}
@@ -472,7 +472,7 @@ def plantilla_catalogo(db: Session, user: Usuario, tipo: str) -> bytes:
             {"nombre": "Quantity", "req": True, "ayuda": "Units of that item in one pack or kit.", "ancho": 10},
         ], None, ["One row per item of the contents: the rows with the same pack item code make one pack or kit.",
                   "A pack or kit that already exists does not change."])
-    c = cat_svc._cat(tipo)
+    c = cat_svc.catalogo_de(tipo)
     cols = _cols_catalogo(db, tipo)
     return plantilla(c["titulo"], [{k: v for k, v in x.items() if k != "campo"} for x in cols], None, [
         c.get("ayuda") or "",
@@ -485,13 +485,13 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
     exigir(user, "catalogos.crear")
     if tipo == "compuestos":
         gobierno.exigir_responsable(db, user, "articulos")
-        return cat_svc.importar_compuestos(db, user, nombre, contenido)
+        return compuestos.importar_compuestos(db, user, nombre, contenido)
     exigir_compartido(user, tipo)
     cat_svc.exigir_editable(tipo)
     gobierno.exigir_responsable(db, user, tipo)
     if tipo == "articulos":
         return importar_articulos(db, user, nombre, contenido)
-    c = cat_svc._cat(tipo)
+    c = cat_svc.catalogo_de(tipo)
     cols = _cols_catalogo(db, tipo)
     alias = {}
     for x in cols:
@@ -541,11 +541,11 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
         try:
             with db.begin_nested():
                 if actual:
-                    for k, v in cat_svc._limpiar(db, c, datos, parcial=True, actual=actual).items():
+                    for k, v in validacion.limpiar_datos(db, c, datos, parcial=True, actual=actual).items():
                         setattr(actual, k, v)
                     actualizados += 1
                 else:
-                    limpio = cat_svc._limpiar(db, c, datos, parcial=False)
+                    limpio = validacion.limpiar_datos(db, c, datos, parcial=False)
                     for x in c["campos"]:
                         if x["tipo"] == "bool" and x["nombre"] not in datos:
                             limpio[x["nombre"]] = True
@@ -562,8 +562,8 @@ def importar_catalogo(db: Session, user: Usuario, tipo: str, nombre: str, conten
 
 def exportar_catalogo(db: Session, user: Usuario, tipo: str, q: str | None, filtros: dict, orden: str | None,
                       formato: str, filtros_columna: dict | None = None) -> bytes:
-    c = cat_svc._cat(tipo)
-    r = cat_svc.listar(db, user, tipo, q, filtros, orden, 1, 100_000, filtros_columna)
+    c = cat_svc.catalogo_de(tipo)
+    r = listado.listar(db, user, tipo, q, filtros, orden, 1, 100_000, filtros_columna)
     campos = cat_svc.campos_con_opciones(c)
     extra = [("descripcion", "Description"), ("partida_txt", "HS code")] if tipo == "articulos" else []
     columnas = [(x["etiqueta"], 1.2 if x["tipo"] not in ("correos",) else 2, x["tipo"] in ("entero", "numero"))
@@ -599,12 +599,12 @@ def exportar_catalogo(db: Session, user: Usuario, tipo: str, q: str | None, filt
             return dict(x["opciones"]).get(v, v)
         if x["tipo"] in ("ref", "multi") and v.isdigit():
             obj = db.get(cat_svc.CATALOGOS[x["catalogo"]]["modelo"], int(v))
-            return cat_svc._mostrar(obj) if obj else v
+            return cat_svc.texto_registro(obj) if obj else v
         return v
 
     partes = ([f"Search: {q}"] if q else []) + [f"{etiquetas.get(k, k)}: {v}" for k, v in filtros.items() if v not in (None, "")]
     partes += [f"{etiquetas.get(k, 'Item code' if k == 'sku' else k)}: {', '.join(texto_filtro(k, v) for v in vals)}"
-               for k, vals in (filtros_columna or {}).items() if k in cat_svc.columnas_tabla(c)]
+               for k, vals in (filtros_columna or {}).items() if k in listado.columnas_tabla(c)]
     texto = "Filters: " + " · ".join(partes) if partes else "No filters"
     ind = [(c["titulo"], f"{r['total']:,}")]
     if formato == "pdf":

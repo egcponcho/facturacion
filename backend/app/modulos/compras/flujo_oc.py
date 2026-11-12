@@ -346,7 +346,7 @@ def iniciar_aprobacion(db: Session, user: Usuario | None, oc: OrdenCompra) -> No
 def enviar(db: Session, user: Usuario, oc_id: int, version: int | None) -> dict:
     """Valida todo el borrador, guarda sus líneas con el mismo proceso que una
     carga del ERP y la envía a aprobación (o la aprueba si ninguna regla aplica)."""
-    from app.modulos.compras.ordenes import _clasificar, aplicar_importacion
+    from app.modulos.compras.importacion import _clasificar, aplicar_importacion
 
     exigir(user, "oc.editar")
     oc = cargar(db, user, oc_id)
