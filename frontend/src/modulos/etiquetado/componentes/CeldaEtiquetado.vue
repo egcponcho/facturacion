@@ -291,19 +291,19 @@ const autor = (x) => [x.creado_por, x.creado_en && fmtFecha(x.creado_en)].filter
 <style scoped>
 .celda-panel { display: flex; flex-direction: column; gap: 16px; }
 .celda-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--linea); padding-bottom: 12px; }
-.celda-titulo h3 { flex: 1; margin: 0; font-size: 1.05rem; min-width: 200px; }
+.celda-titulo h3 { flex: 1; margin: 0; font-size: var(--t-md); min-width: 200px; }
 .celda-acciones, .celda-pie { display: flex; gap: 8px; }
 .celda-pie { justify-content: flex-end; border-top: 1px solid var(--linea); padding-top: 12px; }
 .celda { display: flex; flex-direction: column; gap: 18px; }
-.celda h4 { margin: 0 0 8px; font-size: 0.92rem; }
+.celda h4 { margin: 0 0 8px; font-size: var(--t-base); }
 .celda-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .celda-cabeza h4 { margin: 0; }
 .excepciones { margin: 8px 0 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 8px; }
 .excepcion { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-.excepcion-texto { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 0.9rem; }
+.excepcion-texto { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: var(--t-base); }
 .excepcion-texto small { flex-basis: 100%; }
 .excepcion-acciones { display: flex; gap: 2px; flex: none; }
 .no-lleva { color: var(--tinta-3); font-style: italic; }
 .propios { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.propios li { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid var(--linea); border-radius: 8px; padding: 6px 10px; font-size: 0.88rem; }
+.propios li { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid var(--linea); border-radius: 8px; padding: 6px 10px; font-size: var(--t-sm); }
 </style>

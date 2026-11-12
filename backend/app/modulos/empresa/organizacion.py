@@ -18,6 +18,7 @@ from app.core.empresa import CAMPOS_COMPATIBILIDAD, REGLAS
 from app.core.errores import ErrorNegocio
 from app.modelos import Organizacion, ReglaAprobacionOC, Sociedad, Usuario
 from app.modulos.acceso.permisos import MODULOS_ACTIVABLES, exigir
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.historial import registrar
 
 
@@ -41,19 +42,22 @@ def configuracion(db: Session) -> dict:
     varias = (db.scalar(select(func.count()).select_from(Organizacion).where(Organizacion.activa.is_(True))) or 0) > 1
     return {**(o.configuracion or {}), "empresa": {"id": o.id, "nombre": o.nombre, "logo": o.logo},
             "varias_organizaciones": varias, "campos_propios": campos_propios.cargar(db),
-            "atributos_variante": atributos_variante(db)}
+            "atributos": atributos(db)}
 
 
 # ---- Configuración ------------------------------------------------------------
 PREFERENCIAS = {"idioma": "es", "moneda": "USD", "zona_horaria": "UTC", "formato_fecha": "MM/DD/YYYY"}
 # Marca: color de la interfaz y de los documentos, nombre del sistema y textos
 # de la pantalla de ingreso. Un texto vacío usa el de fábrica (traducido).
-MARCA = {"color": "", "titulo": "", "ingreso_titulo": "", "ingreso_texto": "", "ingreso_ayuda": ""}
+MARCA = {"color": "", "paleta": "", "titulo": "", "ingreso_titulo": "", "ingreso_texto": "", "ingreso_ayuda": ""}
+# Paletas de la interfaz (frontend/src/estilos/tokens.css): acento y barra lateral. Vacío = la de fábrica
+# («operacion»). «indigo» era el nombre anterior de la de fábrica y se guarda como vacío.
+PALETAS = ("operacion", "esmeralda", "terracota", "marino")
 # Documentos (PDF): tamaño del papel, declaraciones legales de la factura y de
 # la lista de empaque y si los reportes llevan el logo de la empresa.
 DOCUMENTOS = {"papel": "LETTER", "declaracion_factura": "", "declaracion_packing": "", "logo_en_reportes": True,
-              # Datos del artículo en las líneas de factura y lista de empaque: variante, estilo, UPC, atributo.<código>
-              "columnas_linea": ",".join(("estilo", "variante"))}
+              # Datos del artículo en las líneas de factura y lista de empaque: variante, codigo_barras, atributo.<código>
+              "columnas_linea": "variante"}
 PAPELES = ("LETTER", "A4")
 # Textos propios: la empresa reemplaza cualquier texto del sistema (pantallas y
 # documentos) por su propia terminología, en cada idioma: {"es": {original: texto}}
@@ -68,14 +72,10 @@ def _reglas_de(o: Organizacion) -> dict:
     return {k: propias.get(k, getattr(settings, k)) for k in REGLAS}
 
 
-def atributos_variante(db: Session) -> list[dict]:
-    """Atributos de variante propios y activos (los de sistema son columnas del artículo)."""
-    from app.modelos import AtributoVariante
-
-    return [{"codigo": a.codigo, "nombre": a.nombre, "tipo": a.tipo or "texto", "opciones": a.opciones, "unidad": a.unidad}
-            for a in db.scalars(
-        select(AtributoVariante).where(AtributoVariante.columna.is_(None), AtributoVariante.activo.is_(True))
-        .order_by(AtributoVariante.orden, AtributoVariante.codigo))]
+def atributos(db: Session) -> list[dict]:
+    """Atributos activos de la empresa, de producto y de variante, en su orden."""
+    return [{**a, "opciones": ", ".join(a["opciones"]) or None}
+            for a in (*catalogo.atributos(db, "PRODUCTO"), *catalogo.atributos(db, "VARIANTE"))]
 
 
 def _definiciones(o: Organizacion) -> dict:
@@ -107,7 +107,14 @@ def _dict(o: Organizacion) -> dict:
         "aprobaciones_oc": reglas_aprobacion(object_session(o)),
         "obligatorios": {"orden": (conf.get("obligatorios") or {}).get("orden") or []},
         "campos_obligables": [{"clave": k, "texto": v} for k, v in CAMPOS_OBLIGABLES_OC.items()],
+        # Productos: la regla del código de las variantes sin escala de valores
+        "productos": {"codigo_variante": _codigo_variante(conf)},
+        "reglas_codigo": [{"clave": k, "texto": v} for k, v in catalogo.regla_codigo_variante()[0]],
     }
+
+
+def _codigo_variante(conf: dict) -> dict:
+    return {**catalogo.regla_codigo_variante()[1], **((conf.get("productos") or {}).get("codigo_variante") or {})}
 
 
 # Datos de la OC que la empresa puede volver obligatorios (además de los que
@@ -251,14 +258,18 @@ def _validar_seccion(base: dict, valores: dict) -> dict:
             v = str(v or "").strip()
             if k == "color" and v and not re.fullmatch(r"#[0-9a-fA-F]{6}", v):
                 raise ErrorNegocio("Enter the color as #RRGGBB, for example #3355E0.", 422, "validacion")
+            if k == "paleta" and v == "indigo":
+                v = ""
+            if k == "paleta" and v and v not in PALETAS:
+                raise ErrorNegocio(f"The palette must be one of {', '.join(PALETAS)}.", 422, "validacion")
             if k == "papel" and v not in PAPELES:
                 raise ErrorNegocio(f"The paper size must be one of {', '.join(PAPELES)}.", 422, "validacion")
             if k == "columnas_linea":
                 v = ",".join(x.strip() for x in v.split(",") if x.strip())
-                malos = [x for x in v.split(",") if x and x not in ("estilo", "variante", "upc")
+                malos = [x for x in v.split(",") if x and x not in ("variante", "codigo_barras")
                          and not re.fullmatch(r"atributo\.[A-Z][A-Z0-9_]{0,19}", x)]
                 if malos:
-                    raise ErrorNegocio(f"{malos[0]} is not a line column (variante, estilo, upc or atributo.<code>).",
+                    raise ErrorNegocio(f"{malos[0]} is not a line column (variante, codigo_barras or atributo.<code>).",
                                        422, "validacion")
             if k in LARGOS and len(v) > LARGOS[k]:
                 raise ErrorNegocio(f"The text is too long ({LARGOS[k]} characters maximum).", 422, "validacion")
@@ -304,6 +315,13 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
         conf["documentos"] = _validar_seccion(DOCUMENTOS, {**conf.get("documentos", {}), **(datos["documentos"] or {})})
     if "textos" in datos:
         conf["textos"] = _validar_textos(datos["textos"] or {})
+    if "productos" in datos:
+        productos = datos["productos"] or {}
+        if not isinstance(productos, dict) or set(productos) - {"codigo_variante"}:
+            raise ErrorNegocio("Unknown product setting.", 422, "validacion")
+        conf["productos"] = {**(conf.get("productos") or {}),
+                             **({"codigo_variante": catalogo.regla_codigo_variante()[2](productos["codigo_variante"])}
+                                if "codigo_variante" in productos else {})}
     if "campos_propios" in datos:
         campos_propios.guardar(db, campos_propios.validar_definiciones(datos["campos_propios"] or {}))
     if "estados" in datos:
@@ -335,7 +353,7 @@ def actualizar(db: Session, user: Usuario, datos: dict) -> dict:
     o.configuracion = conf
     registrar(db, user, "organizacion", o.id, "editar_organizacion",
               detalle={"antes": {k: antes[k] for k in ("nombre", "preferencias", "marca", "documentos", "aprobaciones_oc",
-                                                       "obligatorios")},
+                                                       "obligatorios", "productos")},
                        "reglas": conf.get("reglas", {})})
     db.flush()
     return _dict(o)

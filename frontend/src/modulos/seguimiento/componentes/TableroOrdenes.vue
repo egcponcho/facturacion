@@ -5,7 +5,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { api } from '@/nucleo/api'
 import { esInterno, sesion, ve } from '@/stores/sesion'
 import { errorApi } from '@/stores/ui'
-import { cantTxt, diasTxt, fmtFecha, fmtNum, porUnidadTxt, textoVariante, TIEMPO } from '@/nucleo/utils'
+import { cantTxt, diasTxt, fmtFecha, fmtNum, porUnidadTxt, textoProducto, textoVariante, TIEMPO } from '@/nucleo/utils'
 import ExplosionPrepack from '@/componentes/ExplosionPrepack.vue'
 import Icono from '@/componentes/Icono.vue'
 import Kpi from '@/componentes/Kpi.vue'
@@ -57,7 +57,7 @@ const columnas = computed(() => [
 const columnasLineas = computed(() => [
   { clave: 'posicion', texto: t('Line'), fija: true, prioridad: 1 },
   { clave: 'sku', texto: 'SKU', prioridad: 1 },
-  { clave: 'estilo', texto: t('Brand · style · color'), prioridad: 2 },
+  { clave: 'producto', texto: t('Brand · product'), valor: (l) => [l.marca, textoProducto(l)].filter(Boolean).join(' · '), prioridad: 2 },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
   { clave: 'almacen', texto: t('Warehouse'), grupo: 'codigos_internos', prioridad: 3 },
   { clave: 'cantidad', texto: t('Quantity'), num: true, prioridad: 2 },
@@ -160,7 +160,7 @@ watch(() => [props.filtros, sesion.proveedorId], () => {
                   :etiqueta="t('See the SKU detail of {0}', [o.oc])">
         <template #celda-posicion="{ fila: l }"><span class="codigo">{{ tx(l.posicion) }}</span></template>
         <template #celda-sku="{ fila: l }"><span class="codigo">{{ tx(l.sku) }}</span></template>
-        <template #celda-estilo="{ fila: l }">{{ tx(l.marca) }} {{ tx(l.estilo) }}<span class="sub">{{ tx(l.grupo) }}</span></template>
+        <template #celda-producto="{ fila: l }">{{ tx(l.marca) }} {{ tx(textoProducto(l)) }}<span class="sub">{{ tx(l.familia) }}</span></template>
         <template #celda-variante="{ fila: l }">
           <b>{{ tx(textoVariante(l) || '—') }}</b>
           <button v-if="l.tipo_empaque === 'PREPACK'" type="button" class="etiqueta acento btn-explosion" :title="t('See the pack breakdown')"

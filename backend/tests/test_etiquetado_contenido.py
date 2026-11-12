@@ -45,14 +45,14 @@ def limpiar(interno):
 # ---- Tablas (motor de dibujo) ------------------------------------------------------------------
 def _tabla(**kw):
     e = {"id": "t", "tipo": "tabla", "ajustar": "no", "coleccion": "bulto.lineas", "x": 2, "y": 2, "w": 90, "h": 30, "alto_fila": 5,
-         "columnas": [{"campo": "sku", "titulo": "SKU", "ancho": 3}, {"campo": "talla", "titulo": "Size"},
+         "columnas": [{"campo": "sku", "titulo": "SKU", "ancho": 3}, {"campo": "atributo.TALLA", "titulo": "Size"},
                       {"campo": "cantidad", "titulo": "Qty", "alin": "der"}],
          "totales": ["cantidad"], "estilo": {"tam": 8, "tam_min": 6}, **kw}
     return diseno.validar({"ancho": 100, "alto": 40, "elementos": [e]})
 
 
 def _filas(n):
-    return [{"sku": f"SKU{i:03d}", "talla": str(30 + i), "cantidad": 2} for i in range(n)]
+    return [{"sku": f"SKU{i:03d}", "atributo.TALLA": str(30 + i), "cantidad": 2} for i in range(n)]
 
 
 def _textos(lz):
@@ -77,7 +77,7 @@ def test_tabla_columnas_totales_y_desborde():
     lz = render.componer(_tabla(desborde="reducir"), {"bulto.lineas": _filas(40)}, {})
     assert [p["codigo"] for p in lz.errores] == ["tabla_desborda"]
     # Un total con una fila sin número no se inventa
-    filas = _filas(2) + [{"sku": "X", "talla": "1", "cantidad": None}]
+    filas = _filas(2) + [{"sku": "X", "atributo.TALLA": "1", "cantidad": None}]
     lz = render.componer(d, {"bulto.lineas": filas}, {})
     assert "total_incompleto" in [p["codigo"] for p in lz.advertencias]
     # Lista vacía: aviso (o error si el diseño lo exige)
@@ -95,19 +95,19 @@ def test_condicion_de_visibilidad_con_los_operadores_de_las_reglas():
         {"id": "a", "tipo": "texto", "contenido": "BIG", "x": 1, "y": 1, "w": 40, "h": 6,
          "condicion": {"campo": "linea.cantidad", "op": "mayor", "valor": 100}},
         {"id": "b", "tipo": "texto", "contenido": "BRAND", "x": 1, "y": 8, "w": 40, "h": 6,
-         "condicion": {"campo": "articulo.marca_codigo", "op": "en", "valor": ["TNF", "VANS"]}}]})
-    assert _textos(render.componer(d, {"linea.cantidad": 120, "articulo.marca_codigo": "vans"}, {})) == ["BIG", "BRAND"]
-    assert _textos(render.componer(d, {"linea.cantidad": 5, "articulo.marca_codigo": "OTRA"}, {})) == []
+         "condicion": {"campo": "producto.dato.MARCA", "op": "en", "valor": ["TNF", "VANS"]}}]})
+    assert _textos(render.componer(d, {"linea.cantidad": 120, "producto.dato.MARCA": "vans"}, {})) == ["BIG", "BRAND"]
+    assert _textos(render.componer(d, {"linea.cantidad": 5, "producto.dato.MARCA": "OTRA"}, {})) == []
 
 
 # ---- Códigos compuestos ----------------------------------------------------------------------------
 def test_codigo_compuesto_con_separador_y_transformaciones_se_lee():
     e = {"id": "c", "tipo": "codigo", "simbologia": "code128", "x": 2, "y": 2, "w": 96, "h": 26, "margen": 2,
          "partes": [{"tipo": "fijo", "texto": "po"}, {"campo": "oc.numero", "transformar": ["solo_digitos"], "rellenar": 10},
-                    {"campo": "articulo.talla", "transformar": ["mayus", "sin_espacios"]}],
+                    {"campo": "articulo.atributo.TALLA", "transformar": ["mayus", "sin_espacios"]}],
          "separador": "|"}
     d = diseno.validar({"ancho": 100, "alto": 30, "elementos": [e]})
-    valores = {"oc.numero": "PO-4512", "articulo.talla": "x l"}
+    valores = {"oc.numero": "PO-4512", "articulo.atributo.TALLA": "x l"}
     assert render.valor_codigo(d["elementos"][0], valores, {})[0] == "po|0000004512|XL"
     lz = render.componer(d, valores, {})
     assert not lz.errores
@@ -130,25 +130,25 @@ def test_campos_logicos_precedencia_politica_y_procedencia(interno, admin, linea
     from app.modelos import GeneracionItem, PosicionOC
 
     r = interno.post("/etiquetas/campos-logicos", {"clave": "upc_etq", "etiqueta": "Label UPC",
-                                                   "fuentes": ["linea.upc", "articulo.upc"], "politica": "ADVERTIR"})
+                                                   "fuentes": ["linea.codigo_barras", "articulo.codigo_barras"], "politica": "ADVERTIR"})
     assert r.status_code == 200, r.text
     campo = r.json()
     limpiar.append(campo["id"])
     # Validación: fuentes que no existen, clave inválida, repetida
     assert interno.post("/etiquetas/campos-logicos", {"clave": "x", "etiqueta": "X", "fuentes": ["no.existe"]}).status_code == 422
-    assert interno.post("/etiquetas/campos-logicos", {"clave": "Mal Clave", "etiqueta": "X", "fuentes": ["articulo.upc"]}).status_code == 422
-    assert interno.post("/etiquetas/campos-logicos", {"clave": "upc_etq", "etiqueta": "X", "fuentes": ["articulo.upc"]}).status_code == 422
+    assert interno.post("/etiquetas/campos-logicos", {"clave": "Mal Clave", "etiqueta": "X", "fuentes": ["articulo.codigo_barras"]}).status_code == 422
+    assert interno.post("/etiquetas/campos-logicos", {"clave": "upc_etq", "etiqueta": "X", "fuentes": ["articulo.codigo_barras"]}).status_code == 422
     # Está en el catálogo de campos de las etiquetas de artículo
     catalogo = {c["clave"]: c for c in interno.get("/etiquetas/campos", params={"sujeto": "ARTICULO"}).json()["campos"]}
-    assert "logico.upc_etq" in catalogo and "linea.upc → articulo.upc" in catalogo["logico.upc_etq"]["origen"]
+    assert "logico.upc_etq" in catalogo and "linea.codigo_barras → articulo.codigo_barras" in catalogo["logico.upc_etq"]["origen"]
 
     with SessionLocal() as db, en_organizacion(1):
         p = db.get(PosicionOC, linea["id"])
-        antes = p.upc
-        art_upc = p.articulo.upc or "000000000000"
-        if not p.articulo.upc:
-            p.articulo.upc = art_upc
-        p.upc = None
+        antes = p.codigo_barras
+        art_upc = p.articulo.codigo_barras or "000000000000"
+        if not p.articulo.codigo_barras:
+            p.articulo.poner_codigo("BARRAS", art_upc)
+        p.codigo_barras = None
         db.commit()
     try:
         texto = [{"id": "u", "tipo": "texto", "contenido": "UPC {{logico.upc_etq}}", "x": 2, "y": 2, "w": 90, "h": 8}]
@@ -163,13 +163,13 @@ def test_campos_logicos_precedencia_politica_y_procedencia(interno, admin, linea
 
         # Sin UPC en la línea sale del artículo, y se dice de dónde
         _, r, pv = registro()
-        assert r["plantilla"] == "Logical field design" and pv["procedencia"]["logico.upc_etq"] == "articulo.upc"
+        assert r["plantilla"] == "Logical field design" and pv["procedencia"]["logico.upc_etq"] == "articulo.codigo_barras"
         # Fuentes con valores distintos: ADVERTIR avisa, BLOQUEAR impide generar
         with SessionLocal() as db, en_organizacion(1):
-            db.get(PosicionOC, linea["id"]).upc = "999999999999"
+            db.get(PosicionOC, linea["id"]).codigo_barras = "999999999999"
             db.commit()
         _, r, pv = registro()
-        assert pv["procedencia"]["logico.upc_etq"] == "linea.upc"
+        assert pv["procedencia"]["logico.upc_etq"] == "linea.codigo_barras"
         aviso = [x for x in r["problemas"] if x["codigo"] == "fuentes_distintas"]
         assert aviso and aviso[0]["nivel"] == "advertencia" and aviso[0]["categoria"] == "conflicto"
         r = interno.patch(f"/etiquetas/campos-logicos/{campo['id']}", {"politica": "BLOQUEAR", "version": campo["version"]})
@@ -183,14 +183,14 @@ def test_campos_logicos_precedencia_politica_y_procedencia(interno, admin, linea
         gen = generado(interno, t)["ejecuciones"][0]
         with SessionLocal() as db, en_organizacion(1):
             it = db.scalars(select(GeneracionItem).where(GeneracionItem.generacion_id == gen["id"])).one()
-            assert it.valores["logico.upc_etq"] == "999999999999" and it.valores["_procedencia"] == {"logico.upc_etq": "linea.upc"}
+            assert it.valores["logico.upc_etq"] == "999999999999" and it.valores["_procedencia"] == {"logico.upc_etq": "linea.codigo_barras"}
         # Un campo que usa un diseño no se borra
         assert interno.c.delete(f"/api/etiquetas/campos-logicos/{campo['id']}", headers=interno.h).status_code == 409
         interno.patch(f"/etiquetas/campos-logicos/{campo['id']}", {"activo": False})
         limpiar.remove(campo["id"])
     finally:
         with SessionLocal() as db, en_organizacion(1):
-            db.get(PosicionOC, linea["id"]).upc = antes
+            db.get(PosicionOC, linea["id"]).codigo_barras = antes
             db.commit()
 
 
@@ -231,7 +231,7 @@ def test_serie_controlada_sin_repetir_y_reproducible(interno, admin, linea):
 
 # ---- Bulto: contenido, componentes y planificado vs declarado ---------------------------------------
 def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin):
-    from app.modelos import Articulo, GrupoCajas, PackingList, PosicionOC, Prepack, PrepackComponente
+    from app.modelos import Articulo, ArticuloComponente, GrupoCajas, PackingList, PosicionOC
 
     pls = interno.get("/etiquetas/packing").json()
     con = [x for x in pls if x["etiquetas_reales"] and interno.get(f"/etiquetas/packing/{x['id']}").json()["superiores"]]
@@ -252,17 +252,14 @@ def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin):
         pos.casepack = int(q) + 1  # la OC planifica otra cantidad por caja
         caja.es_parcial = False
         art = pos.articulo
-        prepack_antes = art.prepack_id
-        # Un prepack con dos componentes para ver el reparto por talla
-        otros = db.scalars(select(Articulo).where(Articulo.id != art.id).limit(2)).all()
-        pp = Prepack(tipo="KIT", codigo="TKIT", estilo=art.estilo, descripcion="Test kit")
-        db.add(pp)
-        db.flush()
-        db.add_all([PrepackComponente(prepack_id=pp.id, articulo_id=otros[0].id, cantidad=2),
-                    PrepackComponente(prepack_id=pp.id, articulo_id=otros[1].id, cantidad=3)])
-        art.prepack_id = pp.id
+        tipo_antes = art.tipo
+        # El artículo de la línea pasa a ser un kit con dos componentes para ver el reparto
+        otros = db.scalars(select(Articulo).where(Articulo.id != art.id, Articulo.tipo == "SOLIDO").limit(2)).all()
+        art.tipo = "PREPACK"
+        art.componentes.extend([ArticuloComponente(componente=otros[0], cantidad=2, organizacion_id=art.organizacion_id),
+                                ArticuloComponente(componente=otros[1], cantidad=3, organizacion_id=art.organizacion_id)])
         db.commit()
-        pp_id, comp = pp.id, [otros[0].sku, otros[1].sku]
+        art_id, comp = art.id, [otros[0].sku, otros[1].sku]
         posicion = pos.posicion
     try:
         tabla = {"id": "t", "tipo": "tabla", "coleccion": "bulto.componentes", "x": 2, "y": 2, "w": 96, "h": 50, "alto_fila": 5,
@@ -289,9 +286,9 @@ def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin):
             filas = {f["sku"]: f["cantidad"] for f in u.valores["bulto.componentes"]}
             assert filas[comp[0]] == 2 * q and filas[comp[1]] == 3 * q
             assert sum(f["cantidad"] for f in u.valores["bulto.lineas"] if f["linea"] == posicion) == q
-        # Un prepack sin componentes no se reparte: se avisa
+        # Un pack sin contenido no se reparte: se avisa
         with SessionLocal() as db, en_organizacion(1):
-            for c in db.scalars(select(PrepackComponente).where(PrepackComponente.prepack_id == pp_id)):
+            for c in list(db.get(Articulo, art_id).componentes):
                 db.delete(c)
             db.commit()
         plan = trabajo(interno, "PACKING", pedido)
@@ -301,9 +298,8 @@ def test_bulto_contenido_componentes_y_empaque_planificado(interno, admin):
             p = db.scalars(select(PosicionOC).where(PosicionOC.posicion == posicion, PosicionOC.id == pos.id)).one()
             p.casepack = antes[0]
             db.get(GrupoCajas, caja.id).es_parcial = antes[1]
-            db.get(Articulo, art.id).prepack_id = prepack_antes
-            db.flush()
-            for c in db.scalars(select(PrepackComponente).where(PrepackComponente.prepack_id == pp_id)):
+            a = db.get(Articulo, art_id)
+            for c in list(a.componentes):
                 db.delete(c)
-            db.delete(db.get(Prepack, pp_id))
+            a.tipo = tipo_antes
             db.commit()

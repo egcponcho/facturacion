@@ -29,9 +29,9 @@ ISO = Path(__file__).resolve().parents[2] / "app" / "data" / "referencia" / "pai
 
 
 def _tallas(texto: str) -> list[dict]:
-    from app.modulos.maestros.tallas import tallas_de
+    from app.modulos.maestros.escalas import valores_de
 
-    return [{"talla": t, "codigo": c} for t, c in tallas_de(texto)]
+    return [{"talla": t, "codigo": c} for t, c in valores_de(texto)]
 
 
 def _pasos(texto) -> dict:

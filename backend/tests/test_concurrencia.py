@@ -18,7 +18,7 @@ from app.modulos.facturacion.facturas import crear_factura
 def test_mismo_saldo_en_paralelo(client):
     with SessionLocal() as db:
         oc = db.scalar(select(OrdenCompra).where(OrdenCompra.numero == "4400003902"))
-        pos = next(p for p in oc.posiciones if p.talla == "10")
+        pos = next(p for p in oc.posiciones if (p.variante or {}).get("TALLA") == "10")
         pid, cantidad = pos.id, pos.cantidad
         uid = db.scalar(select(Usuario.id).where(Usuario.email == "vans@demo.com"))
 

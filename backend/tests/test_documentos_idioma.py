@@ -48,3 +48,29 @@ def test_montos_en_letras():
     assert letras.monto_en_letras(1, "XYZ") == "UN XYZ CON 00/100"
     idioma_doc.usar("en")
     assert letras.monto_en_letras(4850, "USD") == "FOUR THOUSAND EIGHT HUNDRED FIFTY US DOLLARS AND 00/100"
+
+
+def test_nombres_aduaneros_del_pais_de_destino(admin, interno):
+    """La nomenclatura y la identificación fiscal que se leen en la factura son
+    datos del país (Arancel → país; catálogo de países), no textos fijos."""
+    # Los países de la demostración (los que otras pruebas agregan no traen estos nombres)
+    paises = [p for p in admin.get("/aranceles/paises").json() if p["iso"] in {"GT", "SV", "HN", "NI", "CR", "PA"}]
+    assert {p["nomenclatura"] for p in paises} == {"SAC"} and {p["nombre_derecho"] for p in paises} == {"DAI"}
+    fid = interno.get("/facturas").json()["items"][0]["id"]
+    en = _textos(interno.get(f"/facturas/{fid}/exportar", params={"idioma": "en"}).content)
+    assert "HS code (SAC)" in en
+    # Otro nombre en todos los países: la factura lo toma, sin cambiar el código
+    for p in paises:
+        cuerpo = {k: p[k] for k in ("iso", "nombre", "digitos", "mcca", "impuesto", "nota", "base_legal", "activo",
+                                     "nivel_base", "modelo_arancel", "contexto")}
+        assert admin.put(f"/aranceles/paises/{p['id']}", {**cuerpo, "nomenclatura": "XYZ", "nombre_derecho": "IMP"}).status_code == 200
+    try:
+        en = _textos(interno.get(f"/facturas/{fid}/exportar", params={"idioma": "en"}).content)
+        assert "HS code (XYZ)" in en and "HS code (SAC)" not in en
+    finally:
+        for p in paises:
+            cuerpo = {k: p[k] for k in ("iso", "nombre", "digitos", "mcca", "impuesto", "nota", "base_legal", "activo",
+                                         "nivel_base", "modelo_arancel", "contexto", "nomenclatura", "nombre_derecho")}
+            admin.put(f"/aranceles/paises/{p['id']}", cuerpo)
+    # La identificación fiscal se nombra como en el país del exportador o del importador
+    assert any(x in en for x in ("Tax ID (NIT)", "Tax ID (RUC)", "Tax ID (RTN)", "Tax ID:"))

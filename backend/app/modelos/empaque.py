@@ -29,9 +29,6 @@ from app.modelos.base import Cantidad, ahora, cant
 
 if TYPE_CHECKING:
     from app.modelos.facturacion import Factura, FacturaLinea
-    from app.modelos.grupos import GrupoProducto
-    from app.modelos.maestros import Articulo
-    from app.modelos.productos import Producto
     from app.modelos.transporte import UnidadCarga
 
 
@@ -273,10 +270,8 @@ class ReglaEmpaque(DeOrganizacion, Base):
     eliminada_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
+    # El destino se lee por el servicio del catálogo (nombre, ruta): aquí solo sus ids
     receta: Mapped[RecetaEmpaque] = relationship()
-    grupo: Mapped["GrupoProducto | None"] = relationship()
-    producto: Mapped["Producto | None"] = relationship()
-    articulo: Mapped["Articulo | None"] = relationship()
 
 
 class PlantillaCaja(DeOrganizacion, Base):

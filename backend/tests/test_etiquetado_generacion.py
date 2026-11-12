@@ -9,15 +9,18 @@ import zipfile
 
 import pdfplumber
 import pytest
+from conftest import con_atributos, familia_de
 from etiquetado_util import (
     aprobada,
     articulo_de,
     cambiar,
     generado,
     generar,
+    nueva_familia,
     oc_con_articulos,
     pdf,
     problemas,
+    producto_de,
     tipo,
     trabajo,
     uso,
@@ -33,7 +36,7 @@ COMBINADA = [
     {"id": "oc", "tipo": "campo", "campo": "oc.numero", "prefijo": "PO ", "x": 3, "y": 3, "w": 50, "h": 7, "estilo": {"tam": 10, "negrita": True}},
     {"id": "prov", "tipo": "campo", "campo": "oc.proveedor", "x": 55, "y": 3, "w": 42, "h": 7, "estilo": {"tam": 8, "alin": "der"}},
     {"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 3, "y": 12, "w": 60, "h": 7, "estilo": {"tam": 11}},
-    {"id": "talla", "tipo": "texto", "contenido": "Size {{articulo.talla}}", "x": 65, "y": 12, "w": 32, "h": 7},
+    {"id": "talla", "tipo": "texto", "contenido": "Size {{articulo.atributo.TALLA}}", "x": 65, "y": 12, "w": 32, "h": 7},
     {"id": "n", "tipo": "texto", "contenido": "{{etiqueta.numero}}/{{etiqueta.total}}", "x": 75, "y": 40, "w": 22, "h": 6,
      "estilo": {"tam": 8, "alin": "der"}},
     {"id": "bc", "tipo": "codigo", "simbologia": "code128", "valor": "{{articulo.sku}}", "x": 3, "y": 21, "w": 70, "h": 18,
@@ -140,12 +143,14 @@ def test_hoja_que_no_cabe_se_rechaza(interno, oc, tipos, combinada):
 def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, tipos, combinada):
     linea = oc["lineas"][0]
     articulo_id = articulo_de(linea["id"])
-    fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
-                                               "campos": [{"campo": "articulo.extra.no_existe_aun", "obligatorio": True}]})
-    assert fam.status_code == 422  # un campo que no existe no se acepta
-    fam = interno.post("/etiquetas/familias", {"codigo": "GENFAM", "nombre": "Generation family",
-                                               "campos": [{"campo": "producto.uso", "obligatorio": True}]}).json()
-    assert interno.post("/etiquetas/articulos/familia", {"familia_id": fam["id"], "ids": [articulo_id]}).status_code == 200
+    fam = nueva_familia(interno, "GENFAM", "Generation family").json()
+    seccion = f"/grupos-producto/{fam['id']}/secciones/etiquetado"
+    # Un campo que no existe no se acepta en los campos de sus etiquetas
+    assert interno.put(seccion, {"campos": [{"campo": "articulo.extra.no_existe_aun", "obligatorio": True}]}).status_code == 422
+    assert interno.put(seccion, {"campos": [{"campo": "producto.uso", "obligatorio": True}]}).status_code == 200
+    con_atributos(interno, fam["id"])
+    antes = familia_de(articulo_id)
+    assert interno.post("/grupos-producto/articulos/familia", {"familia_id": fam["id"], "ids": [articulo_id]}).status_code == 200
     de_familia = aprobada(interno, admin, "Generation family label", tipos["linea"]["id"], [c for c in COMBINADA if c["id"] != "talla"])
     uso(interno, tipos["linea"]["id"], de_familia["id"], "FAMILIA", fam["id"])
     try:
@@ -153,17 +158,18 @@ def test_familia_con_dato_obligatorio_y_diseno_de_familia(interno, admin, oc, ti
             from app.modelos import Articulo
 
             a = db.get(Articulo, articulo_id)
-            valor = (a.producto.ficha or {}).get("uso") if a.producto else None
+            valor = (a.producto.comex.ficha or {}).get("uso") if a.producto else None
         t = trabajo(interno, "OC", {"oc_ids": [oc["oc"]["id"]], "tipos": [tipos["linea"]["id"]],
                                     "posiciones": [linea["id"], oc["lineas"][1]["id"]]})
         r0, r1 = t["registros"]
         assert r0["plantilla"] == "Generation family label" and r0["motivo"] == "Labeling family Generation family."
-        assert r1["plantilla"] == "Combined PO and item label linea" or articulo_de(oc["lineas"][1]["id"]) == articulo_id
+        # La familia es del producto: la otra línea la toma si es del mismo producto
+        assert r1["plantilla"] == "Combined PO and item label linea" or producto_de(oc["lineas"][1]["id"]) == producto_de(linea["id"])
         if not valor:
             assert "dato_familia" in problemas(r0)
     finally:
         # Se deja todo como estaba para las demás pruebas
-        interno.post("/etiquetas/articulos/familia", {"familia_id": None, "ids": [articulo_id]})
+        interno.post("/grupos-producto/articulos/familia", {"familia_id": antes, "ids": [articulo_id]})
 
 
 def test_advertencias_y_duplicados_piden_confirmar(interno, oc, tipos, combinada):
@@ -246,7 +252,8 @@ def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admi
         from app.modelos import Articulo
 
         a = db.get(Articulo, articulo_id)
-        talla_antes, a.talla = a.talla, "ZZ"
+        talla_antes = a.variantes.get("TALLA")
+        a.variantes = {**a.variantes, "TALLA": "ZZ"}
         db.commit()
     try:
         r = interno.get(f"/etiquetas/generaciones/{gen['id']}/archivo")
@@ -254,7 +261,7 @@ def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admi
         texto = pdf(r.content)[0][2]
         assert f"PO {oc['oc']['numero']}" in texto and "ORDER" not in texto and "ZZ" not in texto
         detalle = interno.get(f"/etiquetas/generaciones/{gen['id']}").json()
-        assert detalle["versiones"][0]["version"] == 1 and detalle["items"][0]["valores"]["articulo.talla"] == talla_antes
+        assert detalle["versiones"][0]["version"] == 1 and detalle["items"][0]["valores"]["articulo.atributo.TALLA"] == talla_antes
         # Un trabajo nuevo usa la versión 2 y los datos actuales
         nueva = generado(interno, trabajo(interno, "OC", pedido))["ejecuciones"][0]
         assert interno.get(f"/etiquetas/generaciones/{nueva['id']}").json()["versiones"][0]["version"] == 2
@@ -262,7 +269,8 @@ def test_reproducir_un_lote_historico_sin_cambiar_version_ni_datos(interno, admi
         assert "ORDER" in texto and "Size ZZ" in texto
     finally:
         with SessionLocal() as db, en_organizacion(1):
-            db.get(Articulo, articulo_id).talla = talla_antes
+            a = db.get(Articulo, articulo_id)
+            a.variantes = {**a.variantes, "TALLA": talla_antes}
             db.commit()
     # Historial con filtros
     h = interno.get("/etiquetas/generaciones", params={"oc_id": oc["oc"]["id"], "version_id": disenio["vigente"]["id"]}).json()

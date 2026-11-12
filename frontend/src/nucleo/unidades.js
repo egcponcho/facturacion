@@ -2,11 +2,10 @@ import { tx } from '@/i18n/index.js'
 import { valor, valores } from './listas.js'
 
 // Unidades de medida de los artículos: la lista «unidad» de la empresa
-// (Datos maestros → Listas de valores). La caja de prepack (CJ) es la única
-// que no es la unidad de un artículo sólido.
-const PREPACK = 'CJ'
+// (Datos maestros → Listas de valores). Las marcadas «solo para packs y kits»
+// (compuesto) no son la unidad de un artículo simple.
 export const codigosUnidad = () => valores('unidad').map((u) => u.codigo)
-export const unidadesArticulo = () => codigosUnidad().filter((k) => k !== PREPACK)
+export const unidadesArticulo = () => valores('unidad').filter((u) => !u.compuesto).map((u) => u.codigo)
 export const nombresUnidad = (k) => {
   const u = valor('unidad', k)
   return u ? [tx(u.nombre), tx(u.nombre_plural || u.nombre)] : [k, k]

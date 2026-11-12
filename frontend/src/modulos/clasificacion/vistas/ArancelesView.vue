@@ -336,7 +336,8 @@ async function guardarPais() {
     // Longitudes válidas del código nacional (p. ej. 10, 12): el código se valida contra ellas y nunca se recorta
     const longitudes = String(m.longitudes_txt || '').split(/[\s,;]+/).filter(Boolean).map(Number)
     const cuerpo = { iso: m.iso, nombre: m.nombre, digitos: Number(m.digitos), mcca: !!m.mcca, impuesto: m.impuesto, nota: m.nota, base_legal: m.base_legal || null,
-      activo: m.activo, longitudes, nivel_base: m.nivel_base || null, modelo_arancel: m.modelo_arancel || null, contexto: m.contexto || null, fuente: m.fuente || null }
+      activo: m.activo, longitudes, nivel_base: m.nivel_base || null, modelo_arancel: m.modelo_arancel || null, contexto: m.contexto || null, fuente: m.fuente || null,
+      nomenclatura: m.nomenclatura || null, nombre_derecho: m.nombre_derecho || null }
     if (m.id) await api.put(`/aranceles/paises/${m.id}`, cuerpo)
     else await api.post('/aranceles/paises', cuerpo)
     modal.value = null
@@ -409,7 +410,6 @@ onMounted(async () => {
   <div class="pagina-cabeza">
     <div>
       <div class="pestanas-pildora sub-mod">
-        <router-link to="/productos" class="pildora">{{ t('Products') }}</router-link>
         <router-link v-if="puede('clasificacion.ver')" to="/familias" class="pildora">{{ t('Product families') }}</router-link>
         <span class="pildora" aria-current="page" aria-pressed="true">{{ t('Tariff schedule') }}</span>
       </div>
@@ -425,7 +425,7 @@ onMounted(async () => {
       <span class="iso">{{ tx(p.iso) }}</span>
       <span class="pt-datos"><b>{{ tx(p.nombre) }}</b><small>{{ t('{0} digits{1} · {2} codes', [p.digitos, p.mcca ? ' · CACM' : '', fmtNum(p.codigos)]) }}</small></span>
     </button>
-    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', base_legal: '', activo: true, longitudes_txt: '', nivel_base: '', modelo_arancel: '', contexto: '', fuente: '' }">
+    <button v-if="edita" type="button" class="pais-tarjeta nuevo" @click="modal = { tipo: 'pais', id: null, iso: '', nombre: '', digitos: 10, mcca: false, impuesto: '', nota: '', base_legal: '', activo: true, longitudes_txt: '', nivel_base: '', modelo_arancel: '', contexto: '', fuente: '', nomenclatura: '', nombre_derecho: '' }">
       <Icono nombre="mas" :tam="16" /> {{ t('Add country') }}
     </button>
   </div>
@@ -689,6 +689,9 @@ onMounted(async () => {
         <Seleccion v-model="modal.nivel_base" class="entrada"><option value="">—</option><option value="HS6">{{ t('HS6 (6 digits)') }}</option><option value="SAC8">{{ t('Regional SAC (8 digits)') }}</option></Seleccion></label>
       <label class="campo"><span>{{ t('Tariff model') }}</span><input v-model="modal.modelo_arancel" class="entrada" maxlength="120" :placeholder="t('E.g. regional SAC + national precision')" /></label>
       <label class="campo"><span>{{ t('Context') }}</span><input v-model="modal.contexto" class="entrada" maxlength="120" /></label>
+      <!-- Cómo leen los documentos el código y el derecho de este país -->
+      <label class="campo"><span>{{ t('Nomenclature name') }}</span><input v-model="modal.nomenclatura" class="entrada" maxlength="20" placeholder="SAC, HTS, TARIC…" :title="t('Documents show «HS code (name)» for this country.')" /></label>
+      <label class="campo"><span>{{ t('Import duty name') }}</span><input v-model="modal.nombre_derecho" class="entrada" maxlength="20" placeholder="DAI, Duty, IGI…" /></label>
       <label class="campo"><span>{{ t('Official source') }}</span>
         <Seleccion v-model="modal.fuente" class="entrada"><option value="">—</option><option v-for="f in meta.fuentes_oficiales || []" :key="f.codigo" :value="f.codigo">{{ tx(f.texto) }}</option></Seleccion></label>
       <label class="campo col-completa"><span>{{ t('Legal basis') }}</span><input v-model="modal.base_legal" class="entrada" maxlength="300" :placeholder="t('Tariff and rule that puts it in force')" /></label>
@@ -728,16 +731,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.oficial-txt { font-size: 0.8rem; color: var(--tinta-3); margin-top: 4px; }
+.oficial-txt { font-size: var(--t-xs); color: var(--tinta-3); margin-top: 4px; }
 .oficial-txt summary { cursor: pointer; }
-.oficial-fijo { margin: 0; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); font-size: 0.88rem; }
-.enlace-motor { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.88rem; font-weight: 600; color: var(--acento-texto); text-decoration: none; }
+.oficial-fijo { margin: 0; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); font-size: var(--t-sm); }
+.enlace-motor { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: var(--t-sm); font-weight: 600; color: var(--acento-texto); text-decoration: none; }
 .enlace-motor:hover { text-decoration: underline; }
 .sub-mod { margin-bottom: 10px; }
-.hermanos { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px; margin: 8px 0 12px; background: var(--superficie-2); font-size: 0.84rem; }
+.hermanos { border: 1px solid var(--linea); border-radius: var(--radio); padding: 10px 12px; margin: 8px 0 12px; background: var(--superficie-2); font-size: var(--t-sm); }
 .hermanos ul { margin: 6px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 3px; }
 .hermanos li.actual { font-weight: 650; }
-.conds .campo > span .etiqueta { margin-inline-start: 6px; font-size: 0.66rem; }
+.conds .campo > span .etiqueta { margin-inline-start: 6px; font-size: var(--t-2xs); }
 .sub-mod .pildora { text-decoration: none; }
 .paises-resumen { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
 .pais-tarjeta { display: flex; align-items: center; gap: 10px; border: 1px solid var(--linea); background: var(--superficie); border-radius: 10px; padding: 8px 12px; cursor: pointer; font: inherit; text-align: start; color: var(--tinta); }
@@ -745,9 +748,9 @@ onMounted(async () => {
 .pais-tarjeta.elegido { border-color: var(--acento); background: var(--acento-claro); }
 .pais-tarjeta.inactivo { opacity: 0.55; }
 .pais-tarjeta.nuevo { border-style: dashed; color: var(--acento-texto); font-weight: 600; }
-.pais-tarjeta .iso { font-weight: 800; font-stretch: 115%; font-size: 1.05rem; color: var(--acento-texto); }
-.pt-datos b { display: block; font-size: 0.86rem; }
-.pt-datos small { color: var(--tinta-3); font-size: 0.76rem; }
+.pais-tarjeta .iso { font-weight: 800; font-stretch: 115%; font-size: var(--t-md); color: var(--acento-texto); }
+.pt-datos b { display: block; font-size: var(--t-sm); }
+.pt-datos small { color: var(--tinta-3); font-size: var(--t-xs); }
 .tabla :deep(.celda)::placeholder { color: var(--tinta-3); font-weight: 400; }
 .cond { display: block; font-size: var(--td-sub); color: var(--tinta-2); min-width: 200px; white-space: normal; }
 .desc-codigo { min-width: 220px; white-space: normal; }

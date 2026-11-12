@@ -5,10 +5,11 @@ from __future__ import annotations
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
-from app.modelos import Articulo, GeneracionEtiquetas, OrdenCompra, PosicionOC, Usuario
+from app.modelos import GeneracionEtiquetas, OrdenCompra, PosicionOC, Usuario
 from app.modulos.acceso.permisos import exigir, proveedor_filtro
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.comun.texto import filtro_texto
-from app.modulos.etiquetado import campos, familias, generacion
+from app.modulos.etiquetado import campos, familia, generacion
 
 MAX_ORDENES = 200
 
@@ -20,10 +21,10 @@ def ordenes_familia(db: Session, user: Usuario, familia_id: int | None = None, q
     generaron etiquetas para ellas."""
     exigir(user, "etiquetas.generar")
     lineas = select(PosicionOC.oc_id, func.count(PosicionOC.id).label("lineas"),
-                    func.count(distinct(PosicionOC.articulo_id)).label("articulos")).join(Articulo, Articulo.id == PosicionOC.articulo_id)
+                    func.count(distinct(PosicionOC.articulo_id)).label("articulos")).where(PosicionOC.articulo_id.is_not(None))
     if familia_id:
-        familias.cargar(db, familia_id)
-        lineas = lineas.where(familias.familia_sql() == familia_id)
+        familia.cargar(db, familia_id)
+        lineas = lineas.where(PosicionOC.articulo_id.in_(catalogo.ids(familia_id=familia_id)))
     sub = lineas.group_by(PosicionOC.oc_id).subquery()
     c = select(OrdenCompra, sub.c.lineas, sub.c.articulos).join(sub, sub.c.oc_id == OrdenCompra.id)
     prov = proveedor_filtro(user)
@@ -42,7 +43,8 @@ def ordenes_familia(db: Session, user: Usuario, familia_id: int | None = None, q
                        .offset((page - 1) * size).limit(size)).all()
     ids = [o.id for o, _, _ in filas]
     hechas = dict(db.execute(select(GeneracionEtiquetas.oc_id, func.count()).where(
-        GeneracionEtiquetas.oc_id.in_(ids), GeneracionEtiquetas.estado == "GENERADA").group_by(GeneracionEtiquetas.oc_id)).all())
+        GeneracionEtiquetas.oc_id.in_(ids), GeneracionEtiquetas.estado == "GENERADA",
+        GeneracionEtiquetas.anulada_en.is_(None)).group_by(GeneracionEtiquetas.oc_id)).all())
     return {"total": total, "items": [{
         "id": o.id, "numero": o.numero, "proveedor": o.proveedor.nombre if o.proveedor else None, "estado": o.estado,
         "fecha": o.fecha, "lineas": lineas_, "articulos": articulos_, "generaciones": hechas.get(o.id, 0),

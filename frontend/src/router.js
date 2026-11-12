@@ -17,10 +17,16 @@ const routes = [
   { path: '/facturas', component: () => import('@/modulos/facturacion/vistas/FacturasView.vue'), meta: { permiso: 'factura.ver' } },
   { path: '/facturas/:id', component: () => import('@/modulos/facturacion/vistas/FacturaView.vue'), props: true, meta: { permiso: 'factura.ver' } },
   { path: '/packing-lists/:id', component: () => import('@/modulos/empaque/vistas/PackingListView.vue'), props: true, meta: { permiso: ['factura.ver', 'recepcion.registrar'] } },
-  { path: '/productos', component: () => import('@/modulos/productos/vistas/ProductosView.vue'), meta: { permiso: 'producto.ver' } },
+  // Productos: un solo módulo (resumen, catálogo, nuevo producto, ficha y configuración). Los enlaces
+  // de antes a /productos?estado=… abren el catálogo con ese filtro.
+  { path: '/productos', component: () => import('@/modulos/productos/vistas/ResumenProductosView.vue'), meta: { permiso: 'producto.ver' },
+    beforeEnter: (to) => (Object.keys(to.query).length ? { path: '/productos/catalogo', query: to.query } : true) },
+  { path: '/productos/catalogo', component: () => import('@/modulos/productos/vistas/ProductosView.vue'), meta: { permiso: 'producto.ver' } },
+  { path: '/productos/nuevo', component: () => import('@/modulos/productos/vistas/NuevoProductoView.vue'), meta: { permiso: 'catalogos.crear' } },
+  { path: '/productos/configuracion', component: () => import('@/modulos/productos/vistas/ConfiguracionProductosView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/aranceles', component: () => import('@/modulos/clasificacion/vistas/ArancelesView.vue'), meta: { permiso: 'aranceles.ver' } },
   { path: '/familias', component: () => import('@/modulos/clasificacion/vistas/FamiliasView.vue'), meta: { permiso: 'clasificacion.ver' } },
-  { path: '/productos/:id', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
+  { path: '/productos/:id(\\d+)', component: () => import('@/modulos/productos/vistas/ProductoView.vue'), props: true, meta: { permiso: 'producto.ver' } },
   // Etiquetado: Imprimir (trabajos), Diseños y Configuración (qué diseño lleva cada cosa, tipos, familias, campos, historial).
   // Las direcciones con ?vista= de la pantalla anterior de 7 pestañas llevan a su lugar nuevo.
   { path: '/etiquetas', component: () => import('@/modulos/etiquetado/vistas/ImprimirView.vue'), meta: { permiso: 'etiquetas.ver' },
@@ -59,12 +65,20 @@ const routes = [
   { path: '/mantenimiento', component: () => import('@/modulos/maestros/vistas/MantenimientoView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/leadtimes', component: () => import('@/modulos/transporte/vistas/LeadTimeView.vue'), meta: { permiso: 'catalogos.ver' } },
   { path: '/reportes', component: () => import('@/modulos/seguimiento/vistas/ReportesView.vue') },
+  // El resumen de cada módulo es su tablero de indicadores; Análisis conserva el general y el de productos
+  // (con el mismo permiso que su pestaña en nucleo/modulos.js: sin él, el servidor respondería 403)
+  ...Object.entries({ compras: 'oc.ver', facturacion: 'factura.ver', logistica: ['transporte.gestionar', 'seguimiento.ver'] }).flatMap(([m, permiso]) => [
+    { path: `/${m}/resumen`, component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: { modulo: m, incrustado: true }, meta: { permiso } },
+    { path: `/tableros/${m}`, redirect: (to) => ({ path: `/${m}/resumen`, query: to.query }) },
+  ]),
   { path: '/tableros/:modulo?', component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: true },
   { path: '/seguimiento', component: () => import('@/modulos/seguimiento/vistas/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
   { path: '/perfil', component: () => import('@/modulos/acceso/vistas/PerfilView.vue') },
   { path: '/bienvenida', name: 'bienvenida', component: () => import('@/modulos/acceso/vistas/BienvenidaView.vue'), meta: { sinMarco: true } },
   { path: '/admin', component: () => import('@/modulos/acceso/vistas/AdminView.vue'), meta: { permiso: 'admin' } },
+  { path: '/configuracion', component: () => import('@/modulos/configuracion/vistas/ConfiguracionView.vue'), meta: { permiso: ['admin', 'integraciones.ver', 'catalogos.ver'] } },
   { path: '/empresa', component: () => import('@/modulos/empresa/vistas/EmpresaView.vue'), meta: { permiso: 'admin' } },
+  { path: '/integraciones', component: () => import('@/modulos/integraciones/vistas/IntegracionesView.vue'), meta: { permiso: 'integraciones.ver' } },
   { path: '/plataforma', component: () => import('@/modulos/plataforma/vistas/OrganizacionesView.vue'), meta: { plataforma: true } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

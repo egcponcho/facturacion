@@ -129,22 +129,19 @@ class PosicionOC(DeOrganizacion, Base):
     almacen: Mapped[str | None] = mapped_column(String(10))  # cada posición va a su almacén
     articulo_id: Mapped[int | None] = mapped_column(ForeignKey("articulos.id"), index=True)
     codigo_articulo: Mapped[str] = mapped_column(String(40))  # SKU; texto: conserva ceros iniciales
-    upc: Mapped[str | None] = mapped_column(String(40))
-    estilo: Mapped[str | None] = mapped_column(String(40))
-    color: Mapped[str | None] = mapped_column(String(60))
-    talla: Mapped[str | None] = mapped_column(String(20))
+    codigo_barras: Mapped[str | None] = mapped_column(String(40))
     descripcion: Mapped[str | None] = mapped_column(String(300))
-    marca: Mapped[str | None] = mapped_column(String(10))
-    grupo: Mapped[str | None] = mapped_column(String(15))
-    categoria: Mapped[str | None] = mapped_column(String(10))
+    # Foto de los atributos del producto al crear la línea ({"MARCA": "TNF", "MODELO": "SUMMIT"}):
+    # lo que la OC muestra y filtra aunque el producto cambie después
+    atributos: Mapped[dict | None] = mapped_column(JSON)
     tipo_empaque: Mapped[str] = mapped_column(String(10), default="SOLIDO")  # SOLIDO | PREPACK
     # Empaque de la compra (dato de la posición, no del artículo): casepack =
     # unidades exactas por caja master; inner_pack = unidades por paquete
     # interno (todos iguales). Con ambos, el casepack es múltiplo del inner.
     casepack: Mapped[int | None] = mapped_column(Integer)
     inner_pack: Mapped[int | None] = mapped_column(Integer)
-    prepack: Mapped[str | None] = mapped_column(String(30))
-    unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total de la curva
+    codigo_pack: Mapped[str | None] = mapped_column(String(30))  # identificador del pack o kit (AB12)
+    unidades_por_caja: Mapped[int | None] = mapped_column(Integer)  # total del contenido del pack
     # Receta de empaque (empaque/recetas.py): elegida a mano, por una regla o
     # desde el casepack. `receta_foto` congela sus niveles: cambiar la receta
     # después no altera esta posición. casepack e inner_pack se calculan de ella.

@@ -199,7 +199,8 @@
 },
 {
 "codigo": "CR",
-"nombre": "Costa Rica"
+"nombre": "Costa Rica",
+"id_fiscal": "Cédula jurídica"
 },
 {
 "codigo": "CU",
@@ -363,7 +364,8 @@
 },
 {
 "codigo": "GT",
-"nombre": "Guatemala"
+"nombre": "Guatemala",
+"id_fiscal": "NIT"
 },
 {
 "codigo": "GU",
@@ -387,7 +389,8 @@
 },
 {
 "codigo": "HN",
-"nombre": "Honduras"
+"nombre": "Honduras",
+"id_fiscal": "RTN"
 },
 {
 "codigo": "HR",
@@ -659,7 +662,8 @@
 },
 {
 "codigo": "NI",
-"nombre": "Nicaragua"
+"nombre": "Nicaragua",
+"id_fiscal": "RUC"
 },
 {
 "codigo": "NL",
@@ -691,7 +695,8 @@
 },
 {
 "codigo": "PA",
-"nombre": "Panama"
+"nombre": "Panama",
+"id_fiscal": "RUC"
 },
 {
 "codigo": "PE",
@@ -839,7 +844,8 @@
 },
 {
 "codigo": "SV",
-"nombre": "El Salvador"
+"nombre": "El Salvador",
+"id_fiscal": "NIT"
 },
 {
 "codigo": "SX",

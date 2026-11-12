@@ -29,7 +29,7 @@ const props = defineProps({
 
 <style scoped>
 .estado-vacio { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 28px 16px; max-width: 560px; margin: 0 auto; white-space: normal; }
-.estado-vacio h3 { margin: 4px 0 0; font-size: 1.05rem; }
+.estado-vacio h3 { margin: 4px 0 0; font-size: var(--t-md); }
 .estado-vacio p { margin: 0; color: var(--tinta-3); line-height: 1.5; }
 .estado-vacio-icono { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--acento-claro); color: var(--acento-texto); }
 .estado-vacio-sub { font-weight: 600; color: inherit !important; margin-top: 6px !important; }

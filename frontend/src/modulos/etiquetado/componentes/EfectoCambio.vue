@@ -48,8 +48,8 @@ const verArticulos = ref(false)
 
 <style scoped>
 .efecto { border: 1px solid var(--linea); border-radius: 10px; padding: 10px 14px; background: var(--superficie-2); display: flex; flex-direction: column; gap: 4px; }
-.efecto h4 { margin: 0 0 4px; font-size: 0.88rem; display: flex; gap: 6px; align-items: center; }
-.efecto p { margin: 0; font-size: 0.86rem; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.efecto h4 { margin: 0 0 4px; font-size: var(--t-sm); display: flex; gap: 6px; align-items: center; }
+.efecto p { margin: 0; font-size: var(--t-sm); display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
 .efecto .btn { align-self: flex-start; margin-top: 4px; }
 .aviso-txt { color: var(--aviso); }
 </style>

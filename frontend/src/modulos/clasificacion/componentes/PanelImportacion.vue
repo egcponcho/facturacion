@@ -177,20 +177,20 @@ const columnasH = computed(() => [
 .paquetes { display: grid; gap: 10px; }
 .paquete { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
 .num { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--acento-claro); color: var(--acento-texto); font-weight: 800; }
-.cuerpo h3 { margin: 0; font-size: 1rem; }
+.cuerpo h3 { margin: 0; font-size: var(--t-md); }
 .cuerpo p { margin: 2px 0 0; }
 .acciones { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .previa-cab { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
-.previa-cab h3 { margin: 0; font-size: 1.05rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.previa-cab h3 { margin: 0; font-size: var(--t-md); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0; }
-.errores { border: 1px solid var(--error); background: var(--error-fondo); border-radius: var(--radio); padding: 8px 12px; margin-bottom: 10px; font-size: 0.86rem; }
+.errores { border: 1px solid var(--error); background: var(--error-fondo); border-radius: var(--radio); padding: 8px 12px; margin-bottom: 10px; font-size: var(--t-sm); }
 .errores ul { margin: 6px 0 0; padding-inline-start: 18px; max-height: 200px; overflow: auto; }
 .diff { min-width: 280px; max-width: 560px; white-space: normal; }
 .campo-diff { font-size: var(--td-sub); }
 .campo-diff .k { color: var(--tinta-3); margin-inline-end: 6px; }
 del { color: var(--error); }
 ins { color: var(--ok); text-decoration: none; font-weight: 600; }
-.aviso { display: flex; gap: 5px; align-items: center; margin: 4px 0 0; font-size: 0.8rem; color: var(--aviso, var(--tinta-2)); }
-.titulo-hist { margin: 0 0 8px; font-size: 1rem; }
+.aviso { display: flex; gap: 5px; align-items: center; margin: 4px 0 0; font-size: var(--t-xs); color: var(--aviso, var(--tinta-2)); }
+.titulo-hist { margin: 0 0 8px; font-size: var(--t-md); }
 @media (max-width: 600px) { .paquete { grid-template-columns: auto 1fr; } .acciones { grid-column: 1 / -1; justify-content: flex-start; } }
 </style>

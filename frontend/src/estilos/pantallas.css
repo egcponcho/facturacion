@@ -1,0 +1,104 @@
+/*
+  Estilos propios de pantallas: listas de empaque, avisos, transporte e ingreso.
+*/
+/* ---- Empaque (packing list) ------------------------------------------- */
+.empaque-resumen { display: grid; grid-template-columns: minmax(220px, 1.1fr) repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--linea-suave); align-items: center; }
+.anillo { display: flex; align-items: center; gap: 14px; }
+.anillo svg { width: 64px; height: 64px; }
+.anillo-texto b { font-size: var(--t-xl); display: block; line-height: 1.1; }
+.anillo-texto span { font-size: var(--t-sm); color: var(--tinta-3); }
+.cifra { display: flex; flex-direction: column; gap: 2px; }
+.cifra span { font-size: var(--t-xs); color: var(--tinta-3); font-weight: 580; }
+.cifra b { font-size: var(--t-lg); font-weight: 680; font-variant-numeric: tabular-nums; }
+
+.opciones-empaque { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.opcion {
+  text-align: start; border: 1px solid var(--linea); background: var(--superficie); border-radius: var(--radio-panel); padding: 16px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--sombra); transition: border-color 0.12s, box-shadow 0.12s;
+}
+.opcion:hover:not(:disabled) { border-color: var(--acento); box-shadow: var(--sombra-media); }
+.opcion:disabled { opacity: 0.55; cursor: not-allowed; }
+.opcion.recomendada { border-color: var(--acento-medio); background: linear-gradient(180deg, var(--acento-claro), var(--superficie) 70%); }
+.opcion-icono { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--acento-claro); color: var(--acento-texto); }
+.opcion b { font-size: var(--t-md); }
+.opcion span { font-size: var(--t-sm); color: var(--tinta-2); }
+
+.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.checklist li { display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--linea); border-radius: var(--radio); }
+.checklist li.ok { border-color: var(--ok-borde); background: var(--ok-suave); }
+.checklist li.falta { border-color: var(--aviso-borde); background: var(--aviso-suave); }
+.checklist .marca { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; }
+.checklist li.ok .marca { background: var(--ok); color: var(--sobre-estado); }
+.checklist li.falta .marca { background: var(--aviso-fondo); color: var(--aviso); }
+
+.caja-items { display: flex; flex-direction: column; gap: 2px; }
+.caja-items div { font-size: var(--t-sm); }
+
+/* ---- Avisos ----------------------------------------------------------- */
+.avisos { position: fixed; inset-inline-end: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 60; width: min(420px, calc(100vw - 32px)); }
+.aviso-toast { --tono: var(--ok); background: var(--superficie); color: var(--tinta); border: 1px solid var(--linea); border-inline-start: 4px solid var(--tono);
+  border-radius: 12px; padding: 12px 12px 12px 14px; box-shadow: var(--sombra-flotante); display: flex; gap: 12px; align-items: flex-start;
+  font-size: var(--t-sm); animation: subir 0.16s ease-out; }
+.aviso-toast.error { --tono: var(--error); }
+.aviso-toast.aviso { --tono: var(--aviso); }
+.aviso-toast.info { --tono: var(--azul); }
+.aviso-icono { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--tono);
+  background: color-mix(in srgb, var(--tono) 14%, transparent); }
+.aviso-cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.aviso-cuerpo b { font-size: var(--t-sm); }
+.aviso-cuerpo span { color: var(--tinta-2); overflow-wrap: anywhere; }
+.aviso-toast ul { margin: 6px 0 0; padding-inline-start: 18px; font-size: var(--t-sm); color: var(--tinta-2); max-height: 160px; overflow-y: auto; }
+.aviso-toast button { background: none; border: 0; color: var(--tinta-3); cursor: pointer; display: grid; place-items: center; padding: 2px; border-radius: 6px; }
+.aviso-toast button:hover { background: var(--superficie-2); color: var(--tinta); }
+
+/* ---- Transporte ------------------------------------------------------- */
+.unidades-pestanas { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.unidad-pestana {
+  text-align: start; min-width: 210px; border: 1px solid var(--linea); background: var(--superficie); border-radius: var(--radio-panel);
+  padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--sombra);
+}
+.unidad-pestana:hover { border-color: var(--borde-hover); }
+.unidad-pestana[aria-selected='true'] { border-color: var(--acento); box-shadow: 0 0 0 3px var(--foco); }
+.unidad-pestana.agregar { align-items: center; justify-content: center; color: var(--tinta-2); border-style: dashed; box-shadow: none; min-width: 170px; }
+.unidad-nombre { font-stretch: 118%; font-weight: 740; font-size: var(--t-md); }
+.linea-tiempo { list-style: none; padding: 0; margin: 0; }
+.linea-tiempo li { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--linea-suave); font-size: var(--t-base); }
+.linea-tiempo li:last-child { border-bottom: 0; }
+@media (max-width: 600px) { .linea-tiempo li { grid-template-columns: 1fr; gap: 2px; } }
+
+.hitos { display: flex; gap: 0; list-style: none; padding: 0; margin: 16px 0 0; overflow-x: auto; }
+.hito { flex: 1; min-width: 96px; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; font-size: var(--t-xs); color: var(--tinta-3); text-align: center; }
+.hito::before { content: ''; position: absolute; top: 10px; inset-inline-start: -50%; inset-inline-end: 50%; height: 2px; background: var(--linea); }
+.hito:first-child::before { display: none; }
+.hito-punto { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--linea); background: var(--superficie); z-index: 1; display: grid; place-items: center; }
+.hito.hecho { color: var(--tinta); }
+.hito.hecho::before { background: var(--ok); }
+.hito.hecho .hito-punto { background: var(--ok); border-color: var(--ok); color: var(--sobre-estado); }
+.hito.actual .hito-punto { border-color: var(--azul); background: var(--azul-claro); }
+.hito.actual { color: var(--azul-oscuro); font-weight: 620; }
+
+/* ---- Login ------------------------------------------------------------ */
+.login { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--papel); }
+.login-arte {
+  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--marca-1) 45%, transparent) 0, transparent 55%), linear-gradient(160deg, var(--marino) 0%, color-mix(in srgb, var(--marino) 70%, black) 100%);
+  color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; position: relative; overflow: hidden;
+}
+.login-arte h1 { font-stretch: 120%; font-size: var(--t-3xl); line-height: 1.08; max-width: 14ch; }
+.login-arte p { color: #b3c6d4; max-width: 44ch; margin-top: 14px; font-size: var(--t-md); }
+.login-pasos { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.login-pasos li { display: flex; align-items: center; gap: 12px; color: #dce7ef; }
+.login-pasos span { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.08); color: #e7b77f; }
+.login-lado { display: grid; place-items: center; padding: 28px 20px; }
+.login-caja { background: var(--superficie); border: 1px solid var(--linea); border-radius: 16px; padding: 30px; width: min(420px, 100%); display: flex; flex-direction: column; gap: 16px; box-shadow: var(--sombra-media); }
+.login-titulo { font-size: var(--t-xl); font-weight: 720; }
+.demo { font-size: var(--t-sm); color: var(--tinta-2); background: var(--superficie-2); border: 1px solid var(--linea-suave); border-radius: var(--radio); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.demo-cuentas { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.demo button { text-align: start; border: 1px solid var(--linea); background: var(--superficie); border-radius: 7px; padding: 7px 9px; cursor: pointer; font-size: var(--t-sm); line-height: 1.25; }
+.demo button:hover { border-color: var(--acento); }
+.demo button b { display: block; font-size: var(--t-sm); }
+@media (max-width: 900px) {
+  .login { grid-template-columns: 1fr; }
+  .login-arte { padding: 28px 22px; }
+  .login-arte h1 { font-size: var(--t-2xl); }
+  .login-pasos { display: none; }
+}

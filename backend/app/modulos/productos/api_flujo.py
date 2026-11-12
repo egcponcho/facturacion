@@ -2,7 +2,7 @@
 """
 from fastapi import APIRouter
 
-from app.modulos.productos import flujo
+from app.modulos.comex import flujo
 from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()

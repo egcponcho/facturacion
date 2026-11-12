@@ -2,25 +2,29 @@
 que usa la pantalla: crear el producto → abrir la ficha → el motor pregunta →
 se responde → sugiere → se guarda → se envía a revisión → se aprueba → el
 producto guarda HS6, línea SAC, código de cada país y la evidencia completa."""
+from conftest import familia_demo
+
 from app.core.db import SessionLocal
 from app.modelos import Producto
 
 
 def _producto_nuevo(api):
-    m = {x["codigo"]: x["id"] for x in api.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
-    g = {x["codigo"]: x["id"] for x in api.get("/catalogos/grupos").json()["items"]}
     pv = {x["codigo"]: x["id"] for x in api.get("/catalogos/proveedores").json()["items"]}
-    r = api.post("/catalogos/genericos", {"generico": "30077701", "estilo": "VN0E2E01", "color": "Black", "marca_id": m["VANS"],
-                                          "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather skate shoe",
-                                          "tallas": [{"talla": "8"}, {"talla": "9"}]})
+    r = api.post("/catalogos/genericos", {"generico": "30077701", "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": "VN0E2E01"},
+                                          "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather skate shoe",
+                                          "variantes": [{"valores": {"COLOR": "Black", "TALLA": "8"}},
+                                                        {"valores": {"COLOR": "Black", "TALLA": "9"}}]})
     assert r.status_code == 200, r.text
-    p = next(x for x in api.get("/productos", params={"q": "VN0E2E01"}).json()["items"] if x["estilo"] == "VN0E2E01")
+    p = next(x for x in api.get("/productos", params={"q": "VN0E2E01"}).json()["items"] if x["codigo_generico"] == "30077701")
+    assert p["atributos"]["MODELO"] == "VN0E2E01" and p["marca"] == "VANS"
     return api.get(f"/productos/{p['id']}").json()
 
 
 def _entrada(p, ficha, **extra):
-    return {"categoria": ficha.get("_tipo"), "ficha": {k: v for k, v in ficha.items() if k != "_tipo"}, "estilo": p["estilo"],
-            "nombre": p["nombre"], "producto_id": p["id"], "marca": p.get("marca_nombre"), **extra}
+    # El motor lee el modelo como texto de búsqueda (su campo «estilo»)
+    return {"categoria": ficha.get("_tipo"), "ficha": {k: v for k, v in ficha.items() if k != "_tipo"},
+            "estilo": (p.get("atributos") or {}).get("MODELO"), "nombre": p["nombre"], "producto_id": p["id"],
+            "marca": p.get("marca_nombre"), **extra}
 
 
 def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
@@ -70,8 +74,8 @@ def test_flujo_completo_de_la_ficha_a_la_aprobacion(interno):
     assert all(x["codigo"].startswith(sugerido) for x in p["partidas"].values())
     with SessionLocal() as db:
         x = db.get(Producto, p["id"])
-        ev = x.evidencia
-        assert x.version_arancel_id and ev["version"]["codigo"] and ev["hechos"]["categoria"] == "calzado"
+        ev = x.comex.evidencia
+        assert x.comex.version_arancel_id and ev["version"]["codigo"] and ev["hechos"]["categoria"] == "calzado"
         assert ev["aprobacion"]["hs6"] == sugerido and ev["aprobacion"]["sugerido"] == sugerido
         aplicadas = [t for t in ev["reglas"] if t.get("aplicada")]
         assert aplicadas and all(t["firma"] and t["revision"] for t in aplicadas)

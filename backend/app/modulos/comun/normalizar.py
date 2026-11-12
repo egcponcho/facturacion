@@ -14,6 +14,7 @@
 """
 import re
 import unicodedata
+from datetime import date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -30,6 +31,26 @@ def clave(v) -> str:
     """Forma comparable: sin acentos, mayúsculas ni separadores."""
     t = unicodedata.normalize("NFKD", str(v or "")).encode("ascii", "ignore").decode()
     return re.sub(r"[^A-Za-z0-9]", "", t).upper()
+
+
+def encabezado(texto: str) -> str:
+    """Encabezado de una columna de archivo como clave: sin acentos, en minúsculas
+    y con guion bajo entre palabras («País de origen» → «pais_de_origen»)."""
+    t = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode().lower()
+    return "_".join("".join(c if c.isalnum() else " " for c in t).split())
+
+
+def celda(v) -> str:
+    """Valor de una celda de Excel o CSV como texto: 7.0 → «7», una fecha en ISO, sin espacios a los lados."""
+    if v is None:
+        return ""
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    if isinstance(v, datetime):
+        return v.date().isoformat()
+    if isinstance(v, date):
+        return v.isoformat()
+    return str(v).strip()
 
 
 def nombre(v) -> str:

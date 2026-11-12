@@ -338,10 +338,11 @@ def _nombre(db: Session, origen: str, p: dict) -> str:
         from app.modelos import PackingList
 
         return f"{db.get(PackingList, p['pl_id']).numero} · {fecha}"
-    from app.modelos import Articulo
+    from app.modulos.catalogo import servicio as catalogo
 
     arts = p.get("articulos") or []
-    return f"{varios([db.get(Articulo, a['articulo_id']).sku for a in arts[:2]], len(arts))} · {fecha}"
+    fichas = catalogo.articulos(db, [a["articulo_id"] for a in arts[:2]])
+    return f"{varios([fichas[a['articulo_id']].codigo for a in arts[:2] if a['articulo_id'] in fichas], len(arts))} · {fecha}"
 
 
 def actualizar(db: Session, user: Usuario, trabajo_id: int, datos_: dict) -> dict:
@@ -484,17 +485,17 @@ def validar(db: Session, user: Usuario, trabajo_id: int) -> dict:
     return detalle(db, user, t.id)
 
 
-# Datos del artículo que se pueden completar desde el trabajo (columna del maestro de artículos).
-# Los que identifican al artículo (SKU, estilo, color, talla) no: se corrigen en su ficha.
-COMPLETABLES = {"articulo.upc": "upc", "articulo.sku_proveedor": "sku_proveedor", "articulo.peso_unitario": "peso_unitario",
-                "articulo.unidad": "unidad"}
+# Datos del artículo que se pueden completar desde el trabajo (campo del maestro de artículos).
+# Los que identifican al artículo (SKU, valores de variante) no: se corrigen en su ficha.
+COMPLETABLES = {"articulo.codigo_barras": "codigo_barras", "articulo.codigo_proveedor": "codigo_proveedor",
+                "articulo.peso_unitario": "peso_unitario", "articulo.unidad": "unidad"}
 MAX_COMPLETAR = 200
 
 
 def completar(db: Session, user: Usuario, trabajo_id: int, campo: str, valores: dict) -> dict:
     """Escribe en el maestro de artículos el dato que falta ({articulo_id: valor}: cada artículo el suyo), con
     las mismas validaciones, permisos e historial que Datos maestros, y vuelve a revisar el trabajo."""
-    from app.modulos.maestros import catalogos
+    from app.modulos.maestros import guardar
 
     t = cargar(db, user, trabajo_id, bloquear=True)
     if t.estado in ("EN_PROCESO", "CANCELADO", "GENERADO"):
@@ -520,13 +521,13 @@ def completar(db: Session, user: Usuario, trabajo_id: int, campo: str, valores: 
         if valor in (None, ""):
             continue
         try:
-            catalogos.actualizar(db, user, "articulos", aid, {columna: valor})
+            guardar.actualizar(db, user, "articulos", aid, {columna: valor})
         except ErrorNegocio as e:  # qué artículo, en el detalle (el mensaje se traduce tal cual)
-            from app.modelos import Articulo
+            from app.modulos.catalogo import servicio as catalogo
 
-            a = db.get(Articulo, aid)
+            a = catalogo.articulo(db, aid)
             raise ErrorNegocio(e.mensaje, e.status, e.codigo,
-                               [*(e.detalle if isinstance(e.detalle, list) else []), {"campo": "articulo", "mensaje": a.sku if a else str(aid)}]) from None
+                               [*(e.detalle if isinstance(e.detalle, list) else []), {"campo": "articulo", "mensaje": a.codigo if a else str(aid)}]) from None
     _validar(db, user, t)
     t.version += 1
     db.flush()
@@ -575,6 +576,7 @@ def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
     grupos de cada parte para generarlos sin volver a calcular."""
     anteriores = {r.clave: r for r in t.registros}
     generales, nuevos, vistas, grupos_por_parte, variables = [], {}, set(), {}, {}
+    bultos_vistos: set = set()  # (tipo, bulto) ya en otra parte del trabajo
     partes = _partes(db, t)
     if not partes:
         generales.append({"nivel": "error", "codigo": "sin_registros", "categoria": "configuracion",
@@ -588,7 +590,19 @@ def _validar(db: Session, user: Usuario, t: TrabajoEtiquetas) -> dict:
                               "mensaje": f"{f'PO {oc.numero}: ' if oc else ''}{e.mensaje}"})
             continue
         generales += [{**x, "parte": prefijo} for x in r["problemas"]]
-        grupos = r["_grupos"]
+        # Una caja con líneas de varias OCs del trabajo aparece en la parte de cada OC: es una
+        # sola caja física y lleva una sola etiqueta (la primera parte la genera)
+        grupos = []
+        for g in r["_grupos"]:
+            if g.bulto is not None:
+                identidad = (g.tipo.id, g.bulto.clave)
+                if identidad in bultos_vistos:
+                    generales.append({"nivel": "info", "codigo": "bulto_compartido", "categoria": "empaque", "parte": prefijo,
+                                      "mensaje": f"{g.referencia}: the package also holds lines of another PO of this job; "
+                                                 "it gets one label."})
+                    continue
+                bultos_vistos.add(identidad)
+            grupos.append(g)
         _muestras(db, grupos, vistas)
         grupos_por_parte[prefijo] = grupos
         for g in grupos:
@@ -725,11 +739,6 @@ def _renovar(db: Session, trabajo_id: int, ficha: str) -> bool:
     r = db.execute(update(T).where(T.c.id == trabajo_id, T.c.ejecutor == ficha, T.c.estado == "EN_PROCESO")
                    .values(arriendo_hasta=ahora + _arriendo(), latido_en=ahora))
     return r.rowcount == 1
-
-
-def _soltar(db: Session, trabajo_id: int, ficha: str) -> None:
-    db.execute(update(T).where(T.c.id == trabajo_id, T.c.ejecutor == ficha).values(ejecutor=None, arriendo_hasta=None))
-    db.commit()
 
 
 class _Latido:

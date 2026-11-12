@@ -79,8 +79,8 @@ const columnas = computed(() => [
 <style scoped>
 .kpis-integridad { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
 .kpi-i { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border: 1px solid var(--linea); border-radius: 10px; min-width: 120px; background: var(--superficie); }
-.kpi-i span { font-size: 0.78rem; color: var(--tinta-3); }
-.kpi-i b { font-size: 1.15rem; }
+.kpi-i span { font-size: var(--t-xs); color: var(--tinta-3); }
+.kpi-i b { font-size: var(--t-lg); }
 .kpi-i.ok b { color: var(--ok); }
 .kpi-i.aviso b { color: var(--aviso, #b45309); }
 .kpi-i.error b { color: var(--error); }

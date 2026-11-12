@@ -1,8 +1,8 @@
 from fastapi import APIRouter, File, Form, Query, UploadFile
 from pydantic import BaseModel, Field
 
+from app.modulos.compras import importacion, perfiles
 from app.modulos.compras import ordenes as svc
-from app.modulos.compras import perfiles
 from app.modulos.comun import tabla
 from app.web.rutas import Clave, Db, User, ejecutar, leer_subida
 
@@ -85,7 +85,7 @@ def plantilla_oc(db: Db, user: User):
     """Plantilla Excel para cargar OCs, con las fechas de ejemplo en el formato del usuario."""
     from fastapi import Response
 
-    contenido = svc.plantilla_oc(db, user)
+    contenido = importacion.plantilla_oc(db, user)
     return Response(contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": 'attachment; filename="purchase_orders_template.xlsx"'})
 
@@ -93,26 +93,26 @@ def plantilla_oc(db: Db, user: User):
 @router.get("/ordenes/formulario")
 def formulario(db: Db, user: User):
     """Listas para el formulario y el asistente de OC (proveedores, sociedades, centros, monedas…)."""
-    return svc.opciones_formulario(db, user)
+    return importacion.opciones_formulario(db, user)
 
 
 @router.get("/ordenes/formulario/articulos")
 def formulario_articulos(db: Db, user: User, proveedor: str = "", q: str = ""):
     """Artículos activos del proveedor (por su código) para las líneas de la OC, buscando por `q`."""
-    return svc.articulos_formulario(db, user, proveedor, q)
+    return importacion.articulos_formulario(db, user, proveedor, q)
 
 
 @router.post("/ordenes")
 def crear(datos: OrdenNueva, db: Db, user: User, clave: Clave = None):
     """Crea una OC completa desde el formulario (sin borrador) y la pasa por las reglas de aprobación."""
-    return ejecutar(db, user, clave, lambda: svc.crear_oc(db, user, datos.model_dump()))
+    return ejecutar(db, user, clave, lambda: importacion.crear_oc(db, user, datos.model_dump()))
 
 
 @router.post("/ordenes/importar/previa")
 async def importar_previa(db: Db, user: User, archivo: UploadFile = File(...), perfil_id: int | None = Form(None)):
     """Vista previa de una carga de OCs (Excel o CSV): clasifica cada fila sin aplicar nada."""
     contenido = await leer_subida(archivo)
-    res = svc.importar_previa(db, user, archivo.filename or "archivo.csv", contenido, perfil_id)
+    res = importacion.importar_previa(db, user, archivo.filename or "archivo.csv", contenido, perfil_id)
     db.commit()
     return res
 
@@ -145,4 +145,4 @@ def eliminar_perfil(perfil_id: int, db: Db, user: User, clave: Clave = None):
 @router.post("/ordenes/importar/{importacion_id}/aplicar")
 def importar_aplicar(importacion_id: int, db: Db, user: User, clave: Clave = None):
     """Aplica una carga previsualizada: crea o actualiza OCs y alerta conflictos; no se aplica dos veces."""
-    return ejecutar(db, user, clave, lambda: svc.importar_aplicar(db, user, importacion_id))
+    return ejecutar(db, user, clave, lambda: importacion.importar_aplicar(db, user, importacion_id))

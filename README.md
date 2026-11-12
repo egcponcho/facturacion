@@ -4,7 +4,7 @@ Un sistema donde cada proveedor (y el equipo interno) arma sus facturas a partir
 
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL (SQLite para desarrollo rápido).
 - **Frontend:** Vue 3 + Vite, sin librerías de componentes ni de gráficas (íconos y gráficas SVG propios).
-- **Varias organizaciones (multiempresa):** una instalación sirve a varias empresas cliente con sus datos aislados (filtro en la capa de datos y, en PostgreSQL, seguridad por fila). Cada organización tiene su ficha (nombre, logo, país, idioma, moneda, zona horaria, formato de fecha), su **marca** (color de las pantallas y documentos, nombre del sistema y textos de la pantalla de ingreso), sus **documentos** (papel carta o A4, declaraciones de la factura y la lista de empaque y logo en los reportes), su **terminología** (cualquier texto del sistema reemplazado por las palabras de la empresa, en español e inglés, en pantallas y documentos), sus usuarios, roles y reglas de negocio, que se editan en *Configuración → Empresa*. La administración de la plataforma crea organizaciones y entra a cualquiera para dar soporte (*Configuración → Plataforma*). Las cuentas de ejemplo de la pantalla de ingreso solo aparecen en la demostración (`SEED_DEMO=1`).
+- **Varias organizaciones (multiempresa):** una instalación sirve a varias empresas cliente con sus datos aislados (filtro en la capa de datos y, en PostgreSQL, seguridad por fila). Cada organización tiene su ficha (nombre, logo, país, idioma, moneda, zona horaria, formato de fecha), su **marca** (paleta de la interfaz —Índigo, Esmeralda, Terracota o Marino, cada una en tema claro y oscuro—, color de acento opcional para pantallas y documentos, nombre del sistema y textos de la pantalla de ingreso), sus **documentos** (papel carta o A4, declaraciones de la factura y la lista de empaque y logo en los reportes), su **terminología** (cualquier texto del sistema reemplazado por las palabras de la empresa, en español e inglés, en pantallas y documentos), sus usuarios, roles y reglas de negocio, que se editan en *Configuración → Empresa*. La administración de la plataforma crea organizaciones y entra a cualquiera para dar soporte (*Configuración → Plataforma*). Las cuentas de ejemplo de la pantalla de ingreso solo aparecen en la demostración (`SEED_DEMO=1`).
 - **Idiomas:** la interfaz, los mensajes y los documentos (PDF/Excel) están en español e inglés. Los identificadores y comentarios del código están en español.
 - **Pruebas:** más de 440 pruebas automatizadas (`backend/tests`); en SQLite se omiten las de bloqueo de filas y seguridad por fila, que necesitan PostgreSQL.
 
@@ -82,6 +82,18 @@ La demostración no envía SMS reales: la pantalla de ingreso muestra el código
 
 Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM`. Con el proveedor `consola` (el valor por defecto) el mensaje va al registro del servidor, y solo en modo demostración (`SEED_DEMO=1`) el código también se muestra en pantalla.
 
+## Menú por módulos
+
+El menú lateral tiene una sola entrada por módulo: **Inicio, Compras, Facturación, Logística, Productos, Etiquetas, Análisis y Configuración**. Cada módulo abre con una barra de pestañas con sus apartados y su acción principal (*Nueva OC*, *Producto nuevo*…), como en el ERP. Los catálogos de datos maestros ya no forman un módulo aparte: cada uno vive en el módulo que lo usa (proveedores en Compras; centros, almacenes, puertos, transportistas y lead times en Logística; artículos, marcas, atributos de variante, escalas, packs y kits en Productos…) y la pantalla de catálogos muestra solo los del módulo. Compras, Facturación y Logística abren en su **Resumen**: los indicadores del módulo con periodo, metas y tendencia (`/compras/resumen`, `/facturacion/resumen`, `/logistica/resumen`; los de Productos están en su propio resumen). Análisis queda para los cruces entre módulos y los reportes. **Configuración** abre en una portada con todo lo que se ajusta: la empresa, usuarios, roles, bitácora, países, integraciones y un acceso a la configuración de cada módulo, cada tarjeta con el permiso de su pantalla y cuántos registros tiene. La definición está en `frontend/src/nucleo/modulos.js`; el diseño (colores, tipografía Plus Jakarta Sans con una escala de nueve tamaños `--t-2xs` … `--t-3xl`, espaciado) en `design-system/facturacion/MASTER.md` y `docs/DISENO.md`.
+
+### Módulo de Productos
+
+- **Resumen** (`/productos`): cuántos productos y variantes hay, en qué estado están, cómo se reparten por familia, qué falta completar (sin familia, sin variantes, variantes sin código de barras, los que bloquean facturas), lo último modificado y la puesta en marcha (proveedores y marcas → atributos de variante → familias → primer producto). Cada cifra abre el catálogo con ese filtro (`GET /api/productos/resumen`).
+- **Catálogo** (`/productos/catalogo`): la bandeja de productos con su ficha técnica y clasificación; acepta `?familia=<id>` (incluye sus subfamilias).
+- **Producto nuevo** (`/productos/nuevo`): asistente de cuatro pasos para cualquier tipo de producto — tipo (la familia, que define qué datos pide y qué atributos distinguen sus variantes), datos generales (siempre código, nombre y unidad; lo demás —proveedor, marca, grupo, modelo, código de barras, peso…— solo si la empresa o la familia lo exigen, si no queda en *Más datos (opcionales)*), variantes (valores escritos, tramos como `7-10` o `S-XL`, escalas y combinaciones) y revisar. Guarda borrador en el servidor y al crear abre la página del producto. Detalle en `docs/reestructuracion/05-productos-generico.md`.
+- **Página del producto**: la cabecera muestra la familia, los **datos del producto** que pide su familia (una tarjeta por atributo; los vacíos, punteados y contados) y sus **variantes por atributo** (fichas por eje). La pestaña *Variantes y packs* muestra las variantes en **matriz** (un eje en columnas, los demás en filas) o en **lista** con una columna por atributo, y los packs y kits como tarjetas; las pestañas de consulta (acuerdos, versiones, historial) están en *Más*. Detalle y auditoría en `docs/reestructuracion/07-productos-ux.md`. Además de la ficha y sus variantes, la pestaña **Uso** muestra en qué OCs, facturas y embarques aparece (solo lo que el rol y el alcance del usuario permiten ver) y **Empaque**, las reglas de empaque que pueden aplicarle, en el orden en que compiten, y las recetas con que realmente se pidió.
+- **Clasificación** y **Configuración**: arancel y familias de clasificación; y la portada con todo lo que se configura una vez (familias, atributos de variante, escalas, packs y kits, artículos, marcas, grupos, listas, acuerdos y dominios), cada uno con cuántos registros tiene.
+
 ## Módulos y campos propios
 
 - **Módulos** (*Configuración → Empresa → Módulos*): la empresa apaga lo que no usa — embarques y recepción, clasificación arancelaria (arancel y familias de producto), seguimiento y lead times. Sus permisos dejan de darse a todos, así desaparecen las pantallas y el servidor rechaza sus rutas; al encenderlo vuelve todo, sin perder datos.
@@ -135,20 +147,20 @@ Los datos de la demostración ya tienen historia: facturas de meses anteriores, 
 
 | Artículo (dato maestro, *Datos maestros → Artículos*) | Línea de OC (dato de compra, viene en el archivo de la OC) |
 |---|---|
-| SKU, estilo, color, talla / ID del prepack, descripción | Número de OC y línea, sociedad, centro, almacén |
-| Marca, grupo (categoría → regla de empaque), proveedor | Centro de destino (país), puerto de carga, países de origen y de procedencia |
-| Tipo (sólido o prepack), unidad de medida (PAR, UN, CJ) | Cantidad, precio unitario, moneda, incoterm |
-| Código de artículo (alfanumérico libre) y SKU del proveedor | Fechas XF, fecha en tienda, liberación comercial y logística |
-| UPC | |
-| Desglose del prepack (curva de tallas por caja master) | **Casepack** para sólidos (opcional; el inner pack normalmente se define después, en la lista de empaque) |
+| Código de artículo (alfanumérico libre), producto, descripción | Número de OC y línea, sociedad, centro, almacén |
+| Atributos del producto (marca, modelo…) y de la variante (talla, color, sabor…), los que defina la empresa | Centro de destino (país), puerto de carga, países de origen y de procedencia |
+| Tipo (simple, o pack o kit), unidad de medida (PAR, UN, CJ), peso | Cantidad, precio unitario, moneda, incoterm |
+| Códigos: de barras (uno o varios), del proveedor, identificador del pack | Fechas XF, fecha en tienda, liberación comercial y logística |
+| Familia y proveedor (del producto) | |
+| Contenido del pack o kit (variantes y cantidades) | **Casepack** para artículos simples (opcional; el inner pack normalmente se define después, en la lista de empaque) |
 
 El artículo no tiene casepack: se define en cada línea de OC, porque el mismo artículo se puede comprar en empaques distintos. En *Órdenes* la tabla de líneas agrupa las columnas como “Artículo · datos maestros” y “Línea de OC · datos de compra”, y el equipo interno puede editar el casepack y el inner pack de una línea mientras no esté facturada.
 
-La partida arancelaria, el país de origen, el tipo de producto y la descripción no se escriben en el artículo: vienen de la **ficha técnica del producto** (siguiente sección), compartida por todas sus tallas. El grupo del artículo define la regla de empaque; no define el tipo de producto. Las categorías de los grupos (y de las escalas de tallas) son un catálogo: *Datos maestros → Categorías de artículo* (de fábrica: calzado, ropa, accesorios y otro).
+La partida arancelaria, el país de origen, el tipo de producto y la descripción no se escriben en el artículo: vienen de la **ficha técnica del producto** (siguiente sección), compartida por todas sus variantes. La **familia** del producto es su única clasificación: define sus atributos (con los de variante se distinguen sus variantes), los datos que exige, la regla de empaque y los días extra de lead time. Cada línea de OC y de factura guarda la foto de los atributos del producto y de la variante al crearse (vea `docs/reestructuracion/06-articulos-genericos.md`).
 
 ## Productos: ficha técnica y clasificación arancelaria
 
-El **código de artículo** es libre: cualquier código numérico o alfanumérico de hasta 40 caracteres (letras, dígitos, `.`, `_`, `-`, `/`), sin largo ni prefijo fijo. Cada artículo pertenece a un **genérico** (el estilo-color, hasta 40 caracteres); cuando el archivo o el formulario no lo trae, se deriva como `STYLE-COLOR`. Un **producto** es un genérico: sus tallas y prepacks comparten una ficha técnica y una clasificación. Un genérico se crea una vez con sus datos maestros (*Datos maestros → Artículos → Nuevo genérico*) y después solo se agregan tallas, cada una con su propio código de artículo (escrito completo, o genérico + código de talla), UPC y SKU del proveedor. Las tallas se pueden ingresar como rangos con saltos (p. ej. `7-10, 12, 14`). *Datos maestros → Artículos* muestra por defecto una fila por genérico (**Compacta**), expandible a sus tallas y prepacks; **Lista** muestra una fila por código de artículo. Un prepack tiene su propio código y conserva el genérico de sus sólidos.
+El **código de artículo** es libre: cualquier código numérico o alfanumérico de hasta 40 caracteres (letras, dígitos, `.`, `_`, `-`, `/`), sin largo ni prefijo fijo. Cada artículo (variante) pertenece a un **producto** con su propio código; sus variantes, packs y kits comparten sus datos y, con el complemento de comercio exterior, una ficha técnica y una clasificación. Un producto se crea una vez con su núcleo (código, nombre, unidad) y lo que exijan la empresa (*Datos maestros → Artículos → datos obligatorios*) o su familia (*Familias → Datos que exige a sus productos*); el proveedor y la familia son opcionales, y marca, modelo, talla, color o cualquier otro dato son **atributos** que la empresa define en *Datos maestros → Atributos* con su nivel (del producto o de la variante) y su tipo de valor (migración 0092). Cada atributo vale en las familias que tiene (y en sus subfamilias) o en todas si es general: un producto solo lleva los atributos de su familia (migración 0094). Después solo se agregan variantes, cada una con su código de artículo (escrito completo, o código del producto + código de variante), código de barras y código del proveedor. *Datos maestros → Artículos* muestra por defecto una fila por producto (**Compacta**), expandible a sus variantes y packs; **Lista** muestra una fila por código de artículo. Sin el módulo *Comercio exterior* (Configuración → Empresa → Módulos) la página del producto oculta la ficha aduanera, la clasificación, los acuerdos y las versiones, y nada espera una partida arancelaria.
 
 - **Ficha técnica**: tipo de producto, género, para quién es, uso, rango de tallas, país de origen, composición por parte (tela exterior, forro, corte, suela…), las características que cambian el código (solo se preguntan esas), fotos y la descripción aduanal en español (armada desde la ficha o escrita a mano): completa —qué es el producto, sus partes (corte y suela), altura, tela, relleno, uso y para quién es— pero con cada material dicho solo por su categoría: **CUERO, TEXTIL o SINTÉTICO** (caucho, plásticos y cuero artificial), sin porcentajes ni fibras y sin la marca (tiene su propio campo), p. ej. *TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO, SIN CUBRIR EL TOBILLO, PARA DEPORTE O ENTRENAMIENTO, UNISEX*.
 - **Motor de clasificación**: corre en el servidor (vea *Un solo motor de clasificación*) mientras se edita la ficha. Aplica las reglas del Sistema Armonizado 2022 (RGI, notas de sección y de capítulo) para ropa, calzado, bolsos y accesorios, aprende de lo ya aprobado y devuelve la subpartida SAC de 6 dígitos, su confianza, el razonamiento, alternativas e inconsistencias por revisar.
@@ -161,7 +173,7 @@ El **código de artículo** es libre: cualquier código numérico o alfanuméric
 - **Dónde se usa**: cada línea de OC muestra el código de su país de destino; las líneas de factura toman el código, el origen y la descripción aduanal de la ficha aprobada (no se escriben en la factura). Una factura no se puede finalizar mientras un producto no esté clasificado; el mensaje enlaza a su ficha.
 - **Opinión del especialista (opcional)**: con `ANTHROPIC_API_KEY`, el equipo interno puede pedirle a Claude una segunda opinión con la ficha y hasta dos fotos. Nunca aprueba nada.
 - **Dos descripciones**, ambas armadas desde la ficha y editables: la aduanal en español y una comercial sencilla —tipo de producto y marca, p. ej. *CALZADO VANS* o *CHAQUETA THE NORTH FACE*— que se usa en la factura y la lista de empaque.
-- **Los prepacks no se clasifican**: se arman con sólidos y toman el producto y la partida de sus sólidos.
+- **Los packs no se clasifican**: se arman con variantes del producto y toman su partida; un kit (artículos de varios productos) es su propio producto.
 - La ficha se descarga en **PDF o Excel** (el Excel agrega una hoja para la composición, los códigos nacionales y las tallas). El reporte de la lista de productos se descarga en Excel o PDF con la composición, la descripción aduanal y el código nacional guardado para cada país de destino; el Excel además tiene una fila por parte de la composición y una por código de país.
 
 **Soporte de clasificación.** La página del producto tiene un panel *Soporte de clasificación* ligado a la subpartida de la ficha y a los códigos nacionales de destino: **Notas legales** (reglas y notas del SAC que aplican), **notas explicativas** y **Base legal** (las líneas arancelarias nacionales con sus condiciones). Es material de referencia para la clasificación y la revisión, no una adaptación automática de la ficha a todo el SAC.
@@ -221,8 +233,8 @@ El esquema de la base de datos se maneja con Alembic (`backend/alembic`). Las mi
 
 ## Cargas masivas y exportaciones
 
-- **Artículos por genérico, con su ficha técnica** (*Datos maestros → Artículos* o *Productos*): una plantilla de Excel con dos hojas. *Genéricos*: una fila por genérico con sus datos maestros (estilo, color, marca, grupo, proveedor, unidad) y las columnas de la ficha (categoría, género, edad, uso, tallas, origen, composición por parte y las características que cambian el código). *Tallas*: una fila por talla con su código de talla (o el siguiente libre), UPC y SKU del proveedor. Después de la carga, el motor completa cada genérico y sugiere su partida automáticamente. También se acepta una sola hoja con una fila por código de artículo. Cada ventana de carga tiene una **Vista previa** de la plantilla (hojas, columnas, obligatorias, filas de ejemplo y qué va en cada columna) además de la descarga en Excel.
-- **Cada catálogo de datos maestros** (marcas, grupos, categorías de artículo, estados de liberación, proveedores, sociedades, centros, contactos, almacenes, transportistas, tipos de unidad, países, puertos…) tiene su propia plantilla de Excel, carga (crea o actualiza por código) y exportación a Excel/PDF con los filtros de la pantalla.
+- **Productos con sus variantes** (*Datos maestros → Artículos* o *Productos*): una plantilla de Excel con dos hojas. *Products*: una fila por producto con su código, nombre y unidad (obligatorios), proveedor, marca, grupo y modelo (opcionales) y, si se usan, las columnas de la ficha técnica. *Variants*: una fila por variante con una columna por atributo de variante, su código de artículo (o el siguiente libre), código de barras, código del proveedor y peso. Cada variante pasa por los datos que exige su familia. Se siguen leyendo las hojas *Generics* y *Sizes* de plantillas anteriores, y una sola hoja con una fila por código de artículo. Cada ventana de carga tiene una **Vista previa** de la plantilla además de la descarga en Excel.
+- **Cada catálogo de datos maestros** (marcas, atributos, escalas de valores, estados de liberación, proveedores, sociedades, centros, contactos, almacenes, transportistas, tipos de unidad, países, puertos…) tiene su propia plantilla de Excel, carga (crea o actualiza por código) y exportación a Excel/PDF con los filtros de la pantalla.
 - **Los reportes** siguen los filtros elegidos en pantalla; los filtros de dimensión aceptan uno o varios valores. No incluyen las columnas que el rol tiene ocultas (vea *Datos visibles por rol*).
 - **Generador de reportes** (*Reportes*): cada persona arma sus propios reportes sobre órdenes, líneas de OC, facturas, embarques o productos. Los **operativos** listan registros (columnas, filtros por campo y orden); los **analíticos** totalizan por grupo (conteo, suma, promedio, mínimo, máximo). Se ve una vista previa mientras se arma, se guarda la definición (no los datos) y se descarga en CSV, Excel o PDF. El equipo interno puede compartir un reporte con su organización; cada quien lo ve con su propio alcance de datos y sin los campos que su rol tiene ocultos.
 
@@ -234,12 +246,12 @@ El panel *Desempeño* del tablero muestra lo que pasó en el periodo (valor fact
 
 Todas las opciones de empaque que necesita el proveedor están disponibles y el servidor las hace cumplir:
 
-- **Sólido con casepack:** cada caja lleva exactamente el casepack, mismo estilo, color y talla; las tallas nunca se mezclan. Solo la última caja puede ser parcial, y se marca para confirmarla con el Commercial Brand Manager.
-- **Prepack:** un surtido por caja master, con distribución de tallas fija; el prepack ya es una caja definida, así que no lleva casepack ni inner pack.
+- **Sólido con casepack:** cada caja lleva exactamente el casepack, misma variante; las variantes nunca se mezclan. Solo la última caja puede ser parcial, y se marca para confirmarla con el Commercial Brand Manager.
+- **Pack o kit:** un surtido por caja master con contenido fijo (p. ej. una curva de tallas); ya es una caja definida, así que no lleva casepack ni inner pack.
 - **Sólido sin casepack (ropa, accesorios):** la cantidad por caja viene de una plantilla o se ingresa libremente, y las cajas se pueden mezclar.
 - **Inner packs:** cuando la línea de OC tiene inner pack, todos sus inner packs llevan la misma cantidad de unidades o pares, y toda cantidad (línea de OC, línea de factura, movimiento de la lista de empaque, contenido de la caja, plantillas que usa el empaque automático) debe ser un número entero de inner packs. Con casepack, el casepack debe ser múltiplo del inner pack (p. ej. casepack 20 = 4 inner packs de 5); sin casepack, las cajas se empacan en múltiplos del inner pack. Cada inner pack lleva una etiqueta que identifica el producto y la cantidad total que contiene, y cada unidad o par dentro conserva su etiqueta individual; la lista de empaque muestra los inner packs por caja.
 - **Por país de destino:** una caja nunca mezcla mercancía para centros de destino distintos. La lista de empaque muestra qué va a cada destino (cantidades y cajas) para que el proveedor empaque y etiquete cada uno por separado; el documento muestra el destino final, o “según caja” cuando hay varios.
-- **Etiqueta:** *estándar* si la caja lleva una sola OC, estilo, color y talla; *consolidada* en otro caso.
+- **Etiqueta:** *estándar* si la caja lleva una sola OC y una sola variante; *consolidada* en otro caso.
 - **Pallets:** las cajas se pueden paletizar (medidas del pallet y tara); el volumen usa las medidas del pallet y el peso bruto suma la tara.
 
 ### Sugerencia de unidades de carga
@@ -255,24 +267,26 @@ La opción recomendada (menos unidades completas, luego menos capacidad sobrante
 
 ## Datos maestros
 
-Un solo lugar con crear, editar, eliminar y filtros con búsqueda para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **grupos de artículos**, **categorías de artículo**, **escalas de tallas**, **proveedores**, **artículos**, **prepacks**, **tipos de empaque**, **transportistas**, **tipos de unidad**, **estados de liberación**, **acuerdos comerciales**, **regiones**, **pasos de lead time**, **reglas de lead time** y **listas de valores**. Los registros en uso no se pueden eliminar.
+Un solo lugar con crear, editar, eliminar y filtros con búsqueda para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **atributos**, **escalas de valores**, **proveedores**, **artículos** (con sus packs y kits), **tipos de empaque**, **transportistas**, **tipos de unidad**, **estados de liberación**, **acuerdos comerciales**, **regiones**, **pasos de lead time**, **reglas de lead time** y **listas de valores**. Los registros en uso no se pueden eliminar.
 
 - **Proveedores:** código, nombre, razón social, NIT, país, dirección y contacto (aparecen como exportador en la factura y la lista de empaque). Cada proveedor tiene **sus marcas**, **las sociedades con las que trabaja** y sus propios **artículos**; la marca de un artículo debe ser una de las de su proveedor.
 - **Transportistas:** código (SCAC o IATA), nombre, tipo (un modo de transporte o multimodal) y las sociedades con las que trabajan.
 - **Tipos de unidad:** modo, **servicio** (una modalidad de ese modo: FCL, LCL, aéreo, FTL, LTL…), capacidad en m³ y kg y si exige marchamo.
 - **Puertos:** puerto marítimo, aeropuerto o frontera terrestre. Un **centro** tiene un puerto principal de llegada y otros puertos de llegada.
 - **Sociedades y centros:** la sociedad de la OC es la **facturada**; su centro es el **notify party** con su país y puerto de llegada. El **centro de destino** de la OC (p. ej. 2220) dice a qué país llega finalmente la mercancía.
-- **Artículos:** código de artículo (numérico o alfanumérico), genérico (opcional), estilo, color y talla (opcional), marca, grupo y **unidad de medida**. Los sólidos se crean aquí, a mano o con `plantilla_articulos.csv`.
-- **Prepacks:** un artículo con su propio código de producto, un **ID del prepack** (su talla, p. ej. `AB12`) y un **desglose** fijo armado solo con sólidos del mismo estilo y color. El desglose se puede ver en todas partes pero nunca cambiar. Carga masiva con `plantilla_prepacks.csv`.
-- **Categorías de artículo:** el catálogo de categorías de los grupos de artículos y de las escalas de tallas (de fábrica: `CALZADO`, `ROPA`, `ACCESORIO`, `OTRO`).
+- **Atributos:** los datos que la empresa registra de sus productos. Los del **producto** (marca, modelo, material, número ONU…) los comparten todas sus variantes; los de la **variante** (talla, color, sabor, presentación, concentración…) las distinguen. Cada uno tiene su tipo de valor: texto, número (con su unidad), una de sus opciones, fecha, sí/no o un registro de un catálogo (la marca apunta a *Marcas* y solo acepta las de su proveedor). Ninguno viene de fábrica.
+- **Artículos:** cada variante de un producto con su código de artículo, sus valores de variante, su peso y sus códigos (de barras, del proveedor). Los productos y sus variantes se crean aquí o en *Productos → Nuevo producto*, a mano o con la plantilla que arma el sistema con los atributos de la empresa (hojas *Products* y *Variants*).
+- **Packs y kits** (*Artículos → Nuevo pack o kit*): un artículo con su propio código, un **identificador** (p. ej. `AB12`) y un **contenido** fijo: un pack junta variantes de un mismo producto, un kit artículos de cualquier producto. El contenido se puede ver en todas partes pero nunca cambiar. Carga masiva con la plantilla de packs y kits.
+- **Escalas de valores:** valores ordenados de un atributo de variante (tallas, presentaciones, concentraciones…) con la regla de su código.
+- **Código de variante sin escala:** cuando una variante no sale de una escala y nadie escribe su código de artículo, el código es el del producto más un código armado con la regla de la empresa (*Configuración de productos*: valor × factor, consecutivo o el mismo valor; de fábrica, consecutivo de 3 dígitos).
 - **Estados de liberación:** los códigos que manda el ERP de la empresa para la liberación comercial y la logística (vea *Órdenes de compra*).
-- **Listas de valores:** los valores que ofrecen los formularios y que se aceptan en los archivos, sin nada fijo en el código: **unidades de medida** (nombre, plural, otros nombres en los archivos y si se cuentan en enteros), **monedas** (símbolo, decimales y monto en letras en inglés y español), **incoterms**, **modos de transporte** (cómo se sugieren sus unidades de carga: por volumen o por peso cobrable con su factor; ícono y cómo se llaman su documento, sus puertos, sus transportistas y sus unidades), **modalidades de transporte** (de qué modo son y si son consolidadas, como LCL y LTL) y los tipos de **centro**, **almacén**, **contacto**, **impuesto** y **documento técnico**. Los valores de fábrica son los de una instalación nueva; los de sistema (la caja de prepack `CJ`) se pueden renombrar, pero no borrar ni desactivar. Definición: `backend/app/core/listas.py`.
+- **Listas de valores:** los valores que ofrecen los formularios y que se aceptan en los archivos, sin nada fijo en el código: **unidades de medida** (nombre, plural, otros nombres en los archivos y si se cuentan en enteros), **monedas** (símbolo, decimales y monto en letras en inglés y español), **incoterms**, **modos de transporte** (cómo se sugieren sus unidades de carga: por volumen o por peso cobrable con su factor; ícono y cómo se llaman su documento, sus puertos, sus transportistas y sus unidades), **modalidades de transporte** (de qué modo son y si son consolidadas, como LCL y LTL) y los tipos de **centro**, **almacén**, **contacto**, **impuesto** y **documento técnico**. Los valores de fábrica son los de una instalación nueva; los de sistema (la caja de pack `CJ`) se pueden renombrar, pero no borrar ni desactivar. Definición: `backend/app/core/listas.py`.
 
 ## Órdenes de compra
 
 - Número de OC libre (hasta 40 caracteres) y número de línea libre (alfanumérico, hasta 10).
 - **Obligatorio vs. opcional:** solo proveedor, número de OC, línea, artículo y cantidad son obligatorios. Sociedad (facturar a), moneda y precio se pueden completar después; son obligatorios **para facturar**, y mientras tanto los cálculos de valor los muestran como pendientes. Un precio exige moneda; una cantidad debe ser mayor que 0.
-- **Empaque en la OC:** un prepack trae su curva de tallas; un sólido puede traer su casepack. El inner pack normalmente se define después en la lista de empaque (columna *Por inner pack*, editable mientras la línea no tenga cajas y la OC no lo haya definido).
+- **Empaque en la OC:** un pack o kit trae su contenido; un artículo simple puede traer su casepack. El inner pack normalmente se define después en la lista de empaque (columna *Por inner pack*, editable mientras la línea no tenga cajas y la OC no lo haya definido).
 - El **SKU** de cada línea debe existir en el maestro de artículos y pertenecer al proveedor de la OC, y el proveedor debe trabajar con la sociedad de la OC.
 - **Almacén por línea:** la misma OC puede enviar cada línea a un almacén distinto de la misma sociedad.
 - **Liberaciones (dos equipos):** cada OC tiene una liberación **comercial** y una **logística**. Sus estados son datos, no código: se definen en *Datos maestros → Estados de liberación* con los códigos que manda el ERP de la empresa, cada uno con su nombre y sus marcas: `libera` (con este estado la liberación está dada), `con_cambios` (estado logístico de una OC liberada que cambió después), `predeterminado` (el que se usa cuando el archivo no trae el dato) y `alias` (otras palabras que acepta el importador). Los estados de fábrica son los de SAP (comercial `C` liberada / `P` pendiente; logística `300` liberada, `301` liberada con cambios posteriores, `304` no liberada), pero cada empresa los cambia por los suyos. Las reglas del flujo son las mismas para cualquier empresa: solo se factura con las dos liberaciones dadas, sin liberación comercial no hay liberación logística y una OC con liberación logística dada que cambia pasa al estado «con cambios».
@@ -325,9 +339,9 @@ Los lead times son reglas configurables con herencia por nivel geográfico (`bac
 
 Para el equipo interno: el rol de proveedor no lo incluye (se puede otorgar en su rol).
 
-Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, estilo, color, talla, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegada tardía y rangos de ETA, XF y fecha en tienda), cada uno descargable en **PDF o Excel**:
+Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, **un filtro por cada atributo de variante del catálogo** —talla y color en ropa, concentración o envase en químicos—, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegada tardía y rangos de ETA, XF y fecha en tienda), cada uno descargable en **PDF o Excel**:
 
-- **Órdenes de compra:** liberaciones, estado, avance, XF vencida y holgura frente a la fecha límite en puerto; cada OC se abre en su **detalle por SKU**.
+- **Órdenes de compra:** liberaciones (las opciones del filtro son los estados de liberación del catálogo, con los códigos que manda el ERP de la empresa), estado, avance, XF vencida y holgura frente a la fecha límite en puerto; cada OC se abre en su **detalle por SKU**.
 - **Embarques y unidades de carga:** una fila por embarque y documento de transporte, que se abre en unidades y en lo que lleva cada unidad por OC.
 - **Facturación y listas de empaque:** en qué paso está cada documento y qué falta.
 - **Lead times:** promedio de días de cada etapa **por país de origen** (OC creada → liberación comercial → liberación logística → producción y recolección → salida → tránsito al puerto de destino → puerto a bodega → ingreso a bodega), el porcentaje de liberaciones logísticas a tiempo frente a su meta antes de la XF, la recolección frente a la XF y la holgura en puerto. Cada OC se abre en sus **hitos**, cada uno con su meta, su fecha real o estimada y cuántos días de adelanto o atraso tiene. Filtros: periodo (OCs creadas; últimos 12 meses por defecto), origen, región y proveedor.
@@ -340,13 +354,17 @@ Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, estilo, color
 
 Cada factura y lista de empaque se descarga en **PDF** (lista para imprimir y firmar) o **Excel**, siguiendo los requisitos aduaneros centroamericanos (CAUCA/RECAUCA y DUCA):
 
-- **Partes:** exportador/vendedor, importador/facturar a (sociedad con NIT) y consignatario/notify party.
+- **Partes:** exportador/vendedor, importador/facturar a (sociedad con su identificación fiscal, rotulada como la llama su país: NIT, RTN, RUC, cédula jurídica…; se configura en el catálogo de países) y consignatario/notify party.
 - **Condiciones:** número y fecha, incoterm, moneda, condiciones de pago, países de origen y procedencia, transporte, puertos, transportista y BL/AWB, contenedores y marchamos. Los encabezados no listan órdenes de compra ni centros de destino (serían demasiado largos); **cada línea muestra su OC y línea**.
-- **Detalle:** OC y línea, código y UPC, descripción comercial, **partida arancelaria (SAC)**, origen, cantidad, unidad, precio y total. En la lista de empaque, por grupo de cajas: rango y número de cajas, contenido por caja, **inner packs**, medidas, pesos neto y bruto, m³, pallet y tipo de etiqueta.
+- **Detalle:** OC y línea, código y código de barras, descripción comercial, **partida arancelaria** (con el nombre de la nomenclatura del país destino: SAC en Centroamérica, el que se configure en *Productos → Clasificación → Arancel* para otro país), origen, cantidad, unidad, precio y total. En la lista de empaque, por grupo de cajas: rango y número de cajas, contenido por caja, **inner packs**, medidas, pesos neto y bruto, m³, pallet y tipo de etiqueta.
 - **Totales:** cantidad por unidad, bultos, pesos, volumen, valor, **monto en letras** (“SAY: FOUR THOUSAND … US DOLLARS AND 00/100” en inglés, “SON: …” en español), marcas de embarque y la declaración firmada del exportador.
 - Hasta que se finaliza, el PDF lleva la marca de agua **BORRADOR · NO OFICIAL** (*DRAFT · NOT OFFICIAL* en inglés); cada página muestra “Página X de Y”.
 - Salen completos aunque el rol del usuario oculte datos: son documentos legales.
 - El idioma del documento es el que la persona eligió en su perfil (vea *Idiomas*).
+
+## Integraciones con ERP y otros sistemas
+
+*Configuración → Integraciones* conecta cualquier sistema que exporte o importe **CSV, Excel o JSON**: se elige el formato, se mapean los campos y códigos del sistema externo (con versiones) y se cargan órdenes de compra o se generan archivos de facturas finalizadas. Cada intercambio queda en una bitácora con su huella, para no aplicar dos veces el mismo contenido, y cada registro guarda su identificador externo. **No hay adaptadores propios de SAP, Oracle, Dynamics u Odoo ni conexión directa por API**: se conectan por archivo. Detalle y cómo agregar un adaptador en **[docs/INTEGRACIONES.md](docs/INTEGRACIONES.md)**.
 
 ## Reglas principales
 
@@ -490,7 +508,10 @@ backend/app/
     reportes/        generador de reportes: fuentes permitidas, ejecución, exportación y reportes guardados
     productos/       ficha técnica, flujo de clasificación y descripciones
     clasificacion/   arancel oficial, motor de clasificación, atributos, reglas, familias, conocimiento
-    documentos/      PDF y Excel (factura, lista de empaque, plantillas), montos en letras, idioma del documento
+    documentos/      PDF y Excel (factura, lista de empaque, plantillas), montos en letras, idioma del documento,
+                     nombres aduaneros por país (aduana.py)
+    integraciones/   capa de integración: adaptadores de formato, entidades, mapeos versionados, bitácora y
+                     referencias externas (el núcleo no la conoce)
   instalacion/       arranque de una instalación: migraciones.py, datos incluidos, primer administrador (inicial.py),
                      demostración (demo.py)
   i18n/              textos del servidor (claves.json) y su traducción al español (es.json)
@@ -502,14 +523,17 @@ frontend/src/
   main.js, App.vue, router.js, styles.css   arranque, marco de la aplicación, rutas y estilos
   nucleo/            cliente de la API (api.js), formatos (utils.js), búsqueda, unidades de medida, directivas
   componentes/       interfaz compartida: íconos, modales, tablas (paginación, orden, columnas), filtros, selectores,
-                     estados, gráficas SVG, barra de acciones en bloque, cargas de archivos, búsqueda global
-  composables/       tablas, columnas por usuario, edición exclusiva, rutas
+                     estados, gráficas SVG, barra de acciones en bloque, cargas de archivos, búsqueda global,
+                     portada de configuración (tarjetas)
+  composables/       edición exclusiva, rutas
   stores/            sesión, selección para facturar, preferencias, tema, avisos
   i18n/              es.json, glosario.json y claves.json
   modulos/<dominio>/ vistas/ (pantallas) y componentes/ propios de cada dominio:
     plataforma/      organizaciones de la instalación
     acceso/          ingreso, bienvenida, Mi perfil, Usuarios y accesos (con la bitácora)
     empresa/         Configuración → Empresa
+    configuracion/   portada de Configuración
+    integraciones/   Configuración → Integraciones
     inicio/          tablero de inicio
     compras/         órdenes de compra y su carga
     facturacion/     facturas

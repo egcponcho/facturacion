@@ -22,10 +22,13 @@ import { textoDonde, textoSalida } from '@/modulos/etiquetado/etiquetas.js'
 // Familias de etiquetado y qué es de cada una. A la izquierda el árbol (solo
 // nombres y cuántos artículos tienen); a la derecha la ficha de la elegida
 // (sus etiquetas, sus campos y sus acciones juntas) y lo que pertenece a ella:
-// productos (la familia se pone al producto y la heredan sus tallas), artículos
-// con familia propia o grupos de artículos completos. Para agregar no hay que ir
+// sus productos (la familia es del producto y la comparten todas sus variantes);
+// la vista de artículos elige variantes y les pone la familia a sus productos. Para agregar no hay que ir
 // al final: «Agregar a esta familia» está arriba y lo elegido se pone desde la
 // barra flotante. Editar y crear se hace en la misma página, sin ventanas.
+// La familia es una sola (la del catálogo, /grupos-producto): aquí se crea o se
+// cambia con el mismo controlador que en Productos, y lo del etiquetado (los
+// campos de sus etiquetas) se guarda en su sección de etiquetado.
 const route = useRoute()
 const router = useRouter()
 const editable = computed(() => puede('etiquetas.familias'))
@@ -45,7 +48,7 @@ async function cargarFamilias() {
   }
 }
 onMounted(cargarFamilias)
-alCambiar(() => cargarFamilias(), ['/etiquetas/familias'])
+alCambiar(() => cargarFamilias(), ['/etiquetas/familias', '/grupos-producto'])
 const arbol = computed(() => {
   const hijos = {}
   for (const f of familias.value) (hijos[f.padre_id || 0] ||= []).push(f)
@@ -77,7 +80,7 @@ async function cargarMatriz() {
   }
 }
 onMounted(cargarMatriz)
-alCambiar(() => cargarMatriz(), ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias', '/etiquetas/categorias'])
+alCambiar(() => cargarMatriz(), ['/etiquetas/usos', '/etiquetas/tipos', '/etiquetas/plantillas', '/etiquetas/familias', '/grupos-producto'])
 const filaMatriz = computed(() => (matriz.value?.filas || []).find((f) => f.nivel === 'FAMILIA' && String(f.id) === elegida.value))
 const celda = ref(null)
 function abrirCelda(tipo) {
@@ -93,7 +96,7 @@ const categorias = ref([])
 const categoriaDestino = ref('')
 async function asignarCategoria(categoria) {
   try {
-    const r = await api.post('/etiquetas/productos/categoria', { categoria_id: categoria ? Number(categoria) : null, ids: seleccion.value })
+    const r = await api.post('/grupos-producto/productos/categoria', { categoria_id: categoria ? Number(categoria) : null, ids: seleccion.value })
     avisar(t('{0} changed.', [fmtNum(r.cambiados)]))
     categoriaDestino.value = ''
     cargarMatriz()
@@ -107,7 +110,7 @@ function celdaGuardada() {
   cargarMatriz()
 }
 
-// ---- Productos, artículos o grupos ------------------------------------------------------------------
+// ---- Productos o artículos ------------------------------------------------------------------------
 // ver: lo que es de la familia elegida · agregar: lo que aún no es de ella (sin familia o de otra)
 const modo = ref('ver')
 const origenAgregar = ref('sin')
@@ -115,13 +118,11 @@ const filtroFamilia = computed(() => (modo.value === 'agregar' ? origenAgregar.v
 const tabla = ref(null)
 const q = ref('')
 const datos = ref({ items: [], total: 0 })
-const grupos = ref([])
 const cargando = ref(false)
 const seleccion = ref([])
 const destino = ref('')
 let ultima = null
 async function consultar(c = ultima) {
-  if (que.value === 'grupos') return cargarGrupos()
   if (!c) return
   ultima = c
   cargando.value = true
@@ -137,20 +138,8 @@ async function consultar(c = ultima) {
     cargando.value = false
   }
 }
-async function cargarGrupos() {
-  cargando.value = true
-  try {
-    const r = await api.get('/etiquetas/grupos-articulos', { q: q.value || undefined, familia: filtroFamilia.value })
-    grupos.value = modo.value === 'agregar' ? r.filter((g) => String(g.familia_id || '') !== elegida.value) : r
-  } catch (e) {
-    errorApi(e)
-  } finally {
-    cargando.value = false
-  }
-}
 async function recargar() {
   seleccion.value = []
-  if (que.value === 'grupos') return cargarGrupos()
   await nextTick()
   if (tabla.value && tabla.value.pagina !== 1) tabla.value.pagina = 1
   else consultar()
@@ -161,41 +150,32 @@ watch(q, () => {
   espera = setTimeout(recargar, 300)
 })
 watch([elegida, que, modo, origenAgregar], recargar)
-onMounted(() => que.value === 'grupos' && cargarGrupos())
 
 const columnas = computed(() => (que.value === 'productos' ? [
-  { clave: 'estilo', texto: t('Product'), fija: true, prioridad: 1, ordenable: false, filtro: false },
-  { clave: 'nombre', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
-  { clave: 'grupo', texto: t('Group'), prioridad: 3, ordenable: false, filtro: false },
-  { clave: 'tallas', texto: t('Sizes'), num: true, prioridad: 3, ordenable: false, filtro: false },
+  { clave: 'producto', texto: t('Product'), fija: true, prioridad: 1, ordenable: false, filtro: false },
+  { clave: 'nombre', texto: t('Name'), prioridad: 2, ordenable: false, filtro: false },
+  { clave: 'variantes', texto: t('Variants'), num: true, prioridad: 3, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
   { clave: 'categoria', texto: t('Labeling category'), prioridad: 2, ordenable: false, filtro: false },
-] : que.value === 'articulos' ? [
+] : [
   { clave: 'sku', texto: t('SKU'), fija: true, prioridad: 1, ordenable: false, filtro: false },
   { clave: 'descripcion', texto: t('Description'), prioridad: 2, ordenable: false, filtro: false },
   { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 2, ordenable: false, filtro: false },
-  { clave: 'grupo', texto: t('Group'), prioridad: 3, ordenable: false, filtro: false },
   { clave: 'familia', texto: t('Labeling family'), prioridad: 1, ordenable: false, filtro: false },
-] : [
-  { clave: 'codigo', texto: t('Group'), fija: true, prioridad: 1 },
-  { clave: 'nombre', texto: t('Name'), prioridad: 1 },
-  { clave: 'categoria', texto: t('Category'), prioridad: 3 },
-  { clave: 'articulos', texto: t('Items'), num: true, prioridad: 2 },
-  { clave: 'familia', texto: t('Labeling family'), prioridad: 1 },
 ]))
-const ORIGEN = () => ({ ARTICULO: t('own'), PRODUCTO: t('by product'), GRUPO: t('by group') })
-const QUE_TXT = () => ({ productos: t('products'), articulos: t('items'), grupos: t('groups') })
+const QUE_TXT = () => ({ productos: t('products'), articulos: t('items') })
 
 // Poner en una familia (o quitarla) lo elegido; con artículos, también todos los del filtro
 async function asignar(familia, todos = false) {
   const familia_id = familia === 'ninguna' || familia == null ? null : Number(familia)
   try {
     let r
-    if (que.value === 'productos') r = await api.post('/etiquetas/productos/familia', { familia_id, ids: seleccion.value })
-    else if (que.value === 'grupos') r = await api.post('/etiquetas/grupos-articulos/familia', { familia_id, grupo_ids: seleccion.value })
+    if (que.value === 'productos') r = await api.post('/grupos-producto/productos/familia', { familia_id, ids: seleccion.value })
     else {
-      r = await api.post('/etiquetas/articulos/familia', todos ? { familia_id, filtro: { q: q.value || undefined, familia: filtroFamilia.value } }
-        : { familia_id, ids: seleccion.value })
+      // Todos los del filtro: primero sus ids (la familia la pone el catálogo, por artículos elegidos)
+      const ids = todos ? (await api.get('/etiquetas/articulos', { q: q.value || undefined, familia: filtroFamilia.value, solo_ids: true })).ids
+        : seleccion.value
+      r = await api.post('/grupos-producto/articulos/familia', { familia_id, ids })
     }
     avisar(t('{0} changed.', [fmtNum(r.cambiados ?? seleccion.value.length)]))
     destino.value = ''
@@ -217,9 +197,10 @@ function editar(f) {
 }
 async function guardar() {
   const f = formulario.value
-  const cuerpo = { codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion, activa: f.activa, campos: f.campos, padre_id: f.padre_id || null }
+  const cuerpo = { codigo: f.codigo, nombre: f.nombre, descripcion: f.descripcion, activa: f.activa, padre_id: f.padre_id || null }
   try {
-    const r = f.id ? await api.patch(`/etiquetas/familias/${f.id}`, cuerpo) : await api.post('/etiquetas/familias', cuerpo)
+    const r = f.id ? await api.patch(`/grupos-producto/${f.id}`, cuerpo) : await api.post('/grupos-producto', { ...cuerpo, clase: 'FAMILIA' })
+    await api.put(`/grupos-producto/${r.id}/secciones/etiquetado`, { campos: f.campos || [] })
     avisar(f.id ? t('Family saved.') : t('Family “{0}” created.', [f.nombre]))
     formulario.value = null
     await cargarFamilias()
@@ -236,7 +217,7 @@ function cancelar() {
 async function eliminar(f) {
   if (!(await confirmar(t('The family {0} is deleted (if something uses it, it is deactivated instead).', [f.nombre]), { titulo: t('Delete family'), boton: t('Delete'), peligro: true }))) return
   try {
-    await api.del(`/etiquetas/familias/${f.id}`)
+    await api.del(`/grupos-producto/${f.id}`)
     avisar(t('Family deleted.'))
     formulario.value = null
     elegir('')
@@ -255,7 +236,8 @@ async function mover(f, delta) {
   const b = ids.indexOf(hermanas[j].id)
   ;[ids[a], ids[b]] = [ids[b], ids[a]]
   try {
-    familias.value = await api.put('/etiquetas/familias/orden', { ids })
+    await api.put('/grupos-producto/orden', { ids })
+    await cargarFamilias()
   } catch (e) {
     errorApi(e)
   }
@@ -308,7 +290,7 @@ async function mover(f, delta) {
               <p v-if="familiaElegida.padre_id" class="fa-ruta">{{ tx(familiaElegida.ruta || '') }}</p>
               <h3>{{ tx(familiaElegida.nombre) }} <span class="etiqueta ms-0">{{ familiaElegida.codigo }}</span>
                 <span v-if="!familiaElegida.activa" class="etiqueta aviso ms-0">{{ t('Inactive') }}</span></h3>
-              <p class="ayuda">{{ t('{0} items · {1} products · {2} groups', [fmtNum(familiaElegida.articulos || 0), fmtNum(familiaElegida.productos || 0), fmtNum(familiaElegida.grupos || 0)]) }}
+              <p class="ayuda">{{ t('{0} items · {1} products', [fmtNum(familiaElegida.articulos || 0), fmtNum(familiaElegida.productos || 0)]) }}
                 <template v-if="subfamilias.length"> · {{ t('{0} subfamilies', [subfamilias.length]) }}</template></p>
             </div>
             <div v-if="editable" class="fa-ficha-acciones">
@@ -350,7 +332,7 @@ async function mover(f, delta) {
         <template v-else>
           <!-- Arriba de la tabla: qué se ve, buscar y agregar (nada de ir hasta el final) -->
           <div class="fa-barra">
-            <Segmentos v-model="que" :opciones="[['productos', t('Products')], ['articulos', t('Items (sizes)')], ['grupos', t('Item groups')]]" :etiqueta="t('Show')" />
+            <Segmentos v-model="que" :opciones="[['productos', t('Products')], ['articulos', t('Items (variants)')]]" :etiqueta="t('Show')" />
             <label class="buscador fa-buscar"><Icono nombre="buscar" :tam="16" /><input v-model="q" type="search" :placeholder="t('Search')" :aria-label="t('Search')" /></label>
             <span class="crece" />
             <template v-if="familiaElegida && editable">
@@ -363,34 +345,26 @@ async function mover(f, delta) {
             <span>{{ t('Choose the {0} to put in «{1}», then use the bar at the bottom.', [QUE_TXT()[que], tituloDerecha]) }}</span>
             <Segmentos v-model="origenAgregar" :opciones="[['sin', t('Without family')], ['', t('All the others')]]" :etiqueta="t('From')" />
           </div>
-          <p v-else class="ayuda">{{ que === 'productos' ? t('The family is set on the product; all its sizes inherit it unless a size has its own.')
-            : que === 'articulos' ? t('A size with its own family keeps it even if its product or group has another one.')
-              : t('Every item of a group belongs to its family, except the products or items that have their own.') }}</p>
+          <p v-else class="ayuda">{{ que === 'productos' ? t('The family is set on the product; all its variants, packs and kits share it.')
+            : t('Choosing items puts the family on their products: all their variants share it.') }}</p>
 
-          <TablaDatos v-if="que !== 'grupos'" :key="`${que}-${modo}`" ref="tabla" :tabla="`etiquetas_${que}`" modo="servidor" :columnas="columnas" :filas="datos.items"
+          <TablaDatos :key="`${que}-${modo}`" ref="tabla" :tabla="`etiquetas_${que}`" modo="servidor" :columnas="columnas" :filas="datos.items"
                       :total="datos.total" :cargando="cargando" :seleccionable="editable" v-model:seleccion="seleccion" :etiqueta="tituloDerecha"
                       :externos="{ q, elegida, modo, origenAgregar }" @consulta="consultar">
-            <template #celda-estilo="{ fila: p }"><router-link :to="`/productos/${p.id}?vista=etiquetas`" class="enlace"><strong>{{ p.estilo }}</strong></router-link><span class="sub">{{ p.color }}</span></template>
-            <template #celda-sku="{ fila: a }"><strong class="codigo">{{ a.sku }}</strong><span class="sub">{{ a.estilo }}</span></template>
+            <template #celda-producto="{ fila: p }"><router-link :to="`/productos/${p.id}?vista=etiquetas`" class="enlace"><strong>{{ p.codigo_generico || p.nombre }}</strong></router-link></template>
+            <template #celda-sku="{ fila: a }"><strong class="codigo">{{ a.sku }}</strong><span class="sub">{{ tx(a.producto || a.generico) }}</span></template>
             <template #celda-familia="{ fila: x }">
               <span v-if="x.familia" class="etiqueta ms-0">{{ tx(x.familia) }}</span>
-              <span v-if="x.familia && x.familia_origen" class="sub">{{ ORIGEN()[x.familia_origen] }}</span>
               <span v-if="!x.familia" class="etiqueta aviso ms-0">{{ t('Without family') }}</span>
             </template>
             <template #celda-categoria="{ fila: x }">
               <template v-if="x.categoria"><span class="etiqueta ms-0">{{ tx(x.categoria) }}</span>
-                <span class="sub">{{ x.categoria_parcial ? t('only some sizes') : x.categoria_origen === 'MANUAL' ? t('set by hand') : t('by its conditions') }}</span></template>
+                <span class="sub">{{ x.categoria_parcial ? t('only some variants') : x.categoria_origen === 'MANUAL' ? t('set by hand') : t('by its conditions') }}</span></template>
               <template v-else-if="x.categorias?.length"><span v-for="c in x.categorias" :key="c" class="etiqueta ms-0">{{ tx(c) }}</span>
-                <span class="sub">{{ t('depends on the size') }}</span></template>
+                <span class="sub">{{ t('depends on the variant') }}</span></template>
               <span v-else class="apagado">—</span>
             </template>
             <template #vacio>{{ modo === 'agregar' ? t('Nothing to add here: everything already has a family.') : t('Nothing here.') }}</template>
-          </TablaDatos>
-          <TablaDatos v-else tabla="etiquetas_grupos" :columnas="columnas" :filas="grupos" :cargando="cargando" :seleccionable="editable"
-                      v-model:seleccion="seleccion" :etiqueta="t('Item groups')">
-            <template #celda-codigo="{ fila: g }"><strong class="codigo">{{ g.codigo }}</strong></template>
-            <template #celda-familia="{ fila: g }"><span v-if="g.familia" class="etiqueta ms-0">{{ tx(g.familia) }}</span><span v-else class="etiqueta aviso ms-0">{{ t('Without family') }}</span></template>
-            <template #vacio>{{ t('Nothing here.') }}</template>
           </TablaDatos>
           <p v-if="editable && modo === 'agregar' && que === 'articulos' && datos.total > seleccion.length" class="ayuda">
             <button type="button" class="enlace" @click="asignar(elegida, true)">{{ t('Put all {0} of the filter in «{1}»', [fmtNum(datos.total), tituloDerecha]) }}</button></p>
@@ -430,9 +404,9 @@ async function mover(f, delta) {
 .fa-arbol { position: sticky; top: 12px; max-height: calc(100vh - 140px); overflow: auto; padding: 12px; }
 .fa-arbol ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .fa-cabeza, .fa-titulo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-.fa-cabeza h3, .fa-titulo h3 { margin: 0; font-size: 0.95rem; }
+.fa-cabeza h3, .fa-titulo h3 { margin: 0; font-size: var(--t-base); }
 .fa-item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: start; background: none; border: 0;
-  border-radius: 8px; padding: 7px 10px; padding-inline-start: calc(10px + var(--nivel, 0) * 16px); font: inherit; font-size: 0.88rem; color: var(--tinta);
+  border-radius: 8px; padding: 7px 10px; padding-inline-start: calc(10px + var(--nivel, 0) * 16px); font: inherit; font-size: var(--t-sm); color: var(--tinta);
   cursor: pointer; min-height: 36px; position: relative; }
 .fa-item.sub::before { content: ''; position: absolute; inset-inline-start: calc(var(--nivel) * 16px - 4px); top: 6px; bottom: 6px; border-inline-start: 1px solid var(--linea); }
 .fa-item:hover { background: var(--superficie-2); }
@@ -441,28 +415,28 @@ async function mover(f, delta) {
 .fa-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fa-nombre small { font-weight: 400; }
 .fa-sin { margin-top: 6px; border-top: 1px solid var(--linea-suave); border-radius: 0; }
-.fa-cuenta { color: var(--tinta-3); font-size: 0.76rem; font-weight: 500; flex: none; background: var(--superficie-2); border-radius: 10px; padding: 1px 7px; }
+.fa-cuenta { color: var(--tinta-3); font-size: var(--t-xs); font-weight: 500; flex: none; background: var(--superficie-2); border-radius: 10px; padding: 1px 7px; }
 .fa-item[aria-pressed='true'] .fa-cuenta { background: var(--superficie); }
 .fa-contenido { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 /* Ficha */
 .fa-ficha { display: flex; flex-direction: column; gap: 12px; }
 .fa-ficha-cabeza { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
-.fa-ficha-titulo h3 { margin: 0; font-size: 1.15rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fa-ficha-titulo h3 { margin: 0; font-size: var(--t-lg); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fa-ficha-titulo p { margin: 4px 0 0; }
-.fa-ruta { font-size: 0.78rem; color: var(--tinta-3); margin: 0 0 2px !important; }
+.fa-ruta { font-size: var(--t-xs); color: var(--tinta-3); margin: 0 0 2px !important; }
 .fa-ficha-acciones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fa-etiquetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-.fa-etiquetas-titulo { grid-column: 1 / -1; margin: 0; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
+.fa-etiquetas-titulo { grid-column: 1 / -1; margin: 0; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
 .fa-etiqueta { display: flex; flex-direction: column; gap: 3px; text-align: start; border: 1px solid var(--linea); border-radius: 10px; padding: 8px 10px;
   background: var(--superficie); font: inherit; color: var(--tinta); cursor: pointer; }
 .fa-etiqueta:hover { border-color: var(--acento); background: var(--acento-claro); }
 .fa-etiqueta.falta { border-color: var(--aviso); background: var(--aviso-fondo); }
-.fa-etiqueta-tipo { font-size: 0.76rem; color: var(--tinta-3); }
-.fa-etiqueta-diseno { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; font-size: 0.86rem; flex-wrap: wrap; }
+.fa-etiqueta-tipo { font-size: var(--t-xs); color: var(--tinta-3); }
+.fa-etiqueta-diseno { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; font-size: var(--t-sm); flex-wrap: wrap; }
 .fa-etiqueta-diseno.apagado { font-weight: 400; color: var(--tinta-2); }
 .fa-etiqueta-diseno.aviso { color: var(--aviso); }
 .fa-etiqueta-diseno small { color: var(--tinta-3); font-weight: 400; }
-.fa-etiqueta-extra { font-size: 0.74rem; color: var(--tinta-2); }
+.fa-etiqueta-extra { font-size: var(--t-xs); color: var(--tinta-2); }
 .fa-campos-txt { margin: 0; }
 /* Barra de la tabla */
 .fa-barra { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
@@ -473,7 +447,7 @@ async function mover(f, delta) {
 /* Edición */
 .fa-edicion { display: flex; flex-direction: column; gap: 14px; }
 .fa-edicion-cabeza { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--linea); padding-bottom: 12px; }
-.fa-edicion-cabeza h3 { flex: 1; margin: 0; font-size: 1.05rem; }
+.fa-edicion-cabeza h3 { flex: 1; margin: 0; font-size: var(--t-md); }
 .fa-edicion-pie { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--linea); padding-top: 12px; }
 .fa-destino { min-width: 200px; }
 @media (max-width: 860px) { .fa { grid-template-columns: 1fr; } .fa-arbol { position: static; max-height: none; } }

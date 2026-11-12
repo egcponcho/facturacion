@@ -152,6 +152,6 @@ async function quitar(c) {
 .grupo-cl { border: 1px solid var(--linea); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .fuentes { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 4px; }
 .fuentes li > span { display: inline-block; min-width: 60%; }
-.fuente { display: inline-block; margin-inline-end: 8px; font-size: 0.85rem; }
-code { font-size: 0.8rem; color: var(--tinta-3); }
+.fuente { display: inline-block; margin-inline-end: 8px; font-size: var(--t-sm); }
+code { font-size: var(--t-xs); color: var(--tinta-3); }
 </style>

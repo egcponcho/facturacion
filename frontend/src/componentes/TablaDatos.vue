@@ -609,7 +609,7 @@ th.num .td-th { justify-content: flex-end; }
 .td-filtrar { padding: 3px; opacity: 0.45; display: inline-flex; align-items: center; gap: 2px; }
 .td-filtrar.activo, .td-filtrar[aria-expanded='true'], th:hover .td-filtrar, .td-filtrar:focus-visible { opacity: 1; }
 .td-filtrar.activo { color: var(--acento); }
-.td-n { font-size: 0.68rem; font-weight: 700; }
+.td-n { font-size: var(--t-2xs); font-weight: 700; }
 th { position: relative; }
 .td-filtrada { background: var(--acento-claro); }
 .td-redim { position: absolute; top: 0; inset-inline-end: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 3; }
@@ -619,7 +619,7 @@ th { position: relative; }
 .td-datos { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 4px 14px; margin: 0 0 8px; font-size: var(--t-sm); }
 .td-datos dt { color: var(--tinta-3); }
 .td-datos dd { margin: 0; min-width: 0; }
-/* Densidad: la definen las variables --td-* de styles.css (Tablas) */
+/* Densidad: la definen las variables --td-* de estilos/tablas.css */
 @media (max-width: 720px) {
   .td-densidad { display: none; }
 }

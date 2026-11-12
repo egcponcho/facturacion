@@ -310,10 +310,10 @@ watch(() => props.codigo, cargar)
 .cabeza { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .cabeza h2 { margin: 0 0 4px; }
 .pasos-asistente { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
-.pasos-asistente button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 5px 12px 5px 6px; font: inherit; font-size: 0.86rem; color: var(--tinta-2); cursor: pointer; }
+.pasos-asistente button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 5px 12px 5px 6px; font: inherit; font-size: var(--t-sm); color: var(--tinta-2); cursor: pointer; }
 .pasos-asistente button[aria-current='step'] { border-color: var(--acento); background: var(--acento-claro); color: var(--acento-texto); font-weight: 650; }
 .pasos-asistente button:disabled { opacity: 0.5; cursor: not-allowed; }
-.pasos-asistente .num { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--linea-suave); font-size: 0.75rem; font-weight: 700; }
+.pasos-asistente .num { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--linea-suave); font-size: var(--t-xs); font-weight: 700; }
 .pasos-asistente .hecho .num { background: var(--ok-fondo); color: var(--ok); }
 .cuerpo { display: grid; gap: 10px; }
 .campo.ancho { grid-column: 1 / -1; }
@@ -321,7 +321,7 @@ watch(() => props.codigo, cargar)
 .lista-filas li { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--linea-suave); flex-wrap: wrap; }
 .lista-filas li:first-child { border-top: 0; }
 .lista-filas li.apagada { opacity: 0.55; }
-.vacio-fila { color: var(--tinta-3); font-size: 0.88rem; }
+.vacio-fila { color: var(--tinta-3); font-size: var(--t-sm); }
 .crece { flex: 1; min-width: 180px; }
 .corto { width: auto; }
 .agregar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -329,7 +329,7 @@ watch(() => props.codigo, cargar)
 .aviso-txt { color: var(--aviso); }
 .resultado { border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px; display: grid; gap: 10px; background: var(--superficie-2); }
 .sello { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.codigo-grande { font-size: 1.6rem; font-weight: 750; letter-spacing: 0.02em; }
+.codigo-grande { font-size: var(--t-2xl); font-weight: 750; letter-spacing: 0.02em; }
 .preguntas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
-.razones { margin: 0; padding-inline-start: 18px; font-size: 0.86rem; display: grid; gap: 3px; }
+.razones { margin: 0; padding-inline-start: 18px; font-size: var(--t-sm); display: grid; gap: 3px; }
 </style>

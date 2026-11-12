@@ -9,6 +9,10 @@ import AcuerdosOrigen from '@/modulos/productos/componentes/ficha/AcuerdosOrigen
 import FichaTecnica from '@/modulos/productos/componentes/ficha/FichaTecnica.vue'
 import DocumentosTecnicos from '@/modulos/productos/componentes/ficha/DocumentosTecnicos.vue'
 import EtiquetadoProducto from '@/modulos/etiquetado/componentes/EtiquetadoProducto.vue'
+import UsoProducto from '@/modulos/productos/componentes/UsoProducto.vue'
+import EmpaqueProducto from '@/modulos/productos/componentes/EmpaqueProducto.vue'
+import CabeceraProducto from '@/modulos/productos/componentes/CabeceraProducto.vue'
+import VariantesProducto from '@/modulos/productos/componentes/VariantesProducto.vue'
 import GenericoModal from '@/modulos/maestros/componentes/GenericoModal.vue'
 import AvisoEdicion from '@/componentes/AvisoEdicion.vue'
 import { useEdicion } from '@/composables/useEdicion'
@@ -19,15 +23,17 @@ import TablaDatos from '@/componentes/TablaDatos.vue'
 import { estado as leerEstado } from '@/nucleo/estados.js'
 import { cargarContexto, entradaDe, fichaDe, sesion } from '@/modulos/clasificacion/useClasificacion'
 import { EST_PAIS, FUENTES, PAIS_LISTO, digits, fmtCode, fmtPais } from '@/modulos/clasificacion/formato.js'
-import { esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
+import { comercioExterior, esInterno, puede, sesion as sesionUsuario } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
-import { fmtFecha, fmtFechaHora, textoVariante } from '@/nucleo/utils'
+import { fmtFecha, fmtFechaHora } from '@/nucleo/utils'
 import { confirmar } from '@/stores/confirmar'
 
-// Ficha técnica del producto (estilo-color) y su clasificación arancelaria.
-// Cada cambio se manda al motor único del servidor (/clasificacion/sesion),
-// que devuelve los campos, la sugerencia, los códigos por país y la evidencia;
-// guardar y aprobar vuelven a pasar por el mismo motor.
+// Página del producto: sus datos, sus variantes, dónde se usa, su empaque y sus
+// etiquetas. Con el complemento de comercio exterior (módulo «clasificacion»)
+// suma la ficha técnica y su clasificación arancelaria: cada cambio se manda al
+// motor único del servidor (/clasificacion/sesion), que devuelve los campos, la
+// sugerencia, los códigos por país y la evidencia; guardar y aprobar vuelven a
+// pasar por el mismo motor.
 const props = defineProps({ id: [String, Number] })
 const router = useRouter()
 
@@ -39,7 +45,18 @@ const r = ref(null) // respuesta del motor
 const tocados = reactive(new Set())
 const filas = reactive({}) // filas de composición que se editan, por campo comp.*
 // ?vista=etiquetas abre la pestaña de etiquetas (enlaces desde el etiquetado)
-const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : 'ficha')
+const comex = comercioExterior()
+const pestana = ref(useRoute().query.vista === 'etiquetas' && esInterno() ? 'etiquetas' : comex ? 'ficha' : 'variantes')
+const editarProducto = ref(false)
+// Pestañas que se consultan poco: van en «Más» ([clave, nombre, cuenta])
+const masAbierto = ref(false)
+const SECUNDARIAS = computed(() => [
+  ...(comex ? [['acuerdos', t('Trade agreements'), 0], ['versiones', t('Versions'), (p.value?.versiones?.length || 0) + 1]] : []),
+  ['historial', t('History'), p.value?.historial?.length || 0],
+])
+function cerrarMas() { masAbierto.value = false }
+onMounted(() => document.addEventListener('click', cerrarMas))
+onBeforeUnmount(() => document.removeEventListener('click', cerrarMas))
 const NIVEL_CONF = { high: t('high'), medium: t('medium'), low: t('low') }
 const ocupado = ref(false)
 const calculando = ref(false)
@@ -48,7 +65,7 @@ const codOficial = ref('')
 const otroCodigo = ref('')
 const modal = ref(null)
 const verRazones = ref(false)
-const agregarTallas = ref(false)
+const agregarVariantes = ref(false)
 const cargas = ref(0) // vuelve a montar el formulario tras guardar
 
 const aprobado = computed(() => ['aprobado', 'corregido'].includes(p.value?.estado))
@@ -219,7 +236,7 @@ function tomar(det) {
   codOficial.value = ''
   cargas.value++
   base.value = instantanea()
-  evaluar(true)
+  if (comex) evaluar(true) // sin comercio exterior no hay ficha que clasificar
 }
 function instantanea() {
   return JSON.stringify([f.tipo, f.ficha, f.nombre, f.origen, f.alertasOk, f.partidas])
@@ -239,7 +256,7 @@ async function cargar() {
     tomar(det)
   } catch (e) {
     errorApi(e)
-    if (e.status === 404) router.replace('/productos')
+    if (e.status === 404) router.replace('/productos/catalogo')
   }
 }
 
@@ -509,7 +526,7 @@ function aplicarCorreccion(c) {
 
 async function descargarFicha(formato, version) {
   try {
-    await api.descargar(`/productos/${p.value.id}/ficha`, `sheet_${p.value.estilo}${version ? `_v${version}` : ''}.${formato}`, { formato, version })
+    await api.descargar(`/productos/${p.value.id}/ficha`, `sheet_${p.value.codigo_generico || p.value.id}${version ? `_v${version}` : ''}.${formato}`, { formato, version })
   } catch (e) {
     errorApi(e)
   }
@@ -578,21 +595,6 @@ const colCodigosVersion = [
   { clave: 'estado', texto: t('Status'), prioridad: 2 },
   { clave: 'fuente', texto: t('Source'), prioridad: 3 },
 ]
-// Tallas (artículos) del genérico
-const codigoTalla = (a) => (a.sku.length === 11 ? a.sku.slice(8) : null)
-const descripcionArticulo = (a) => (p.value.descripcion_comercial
-  ? `${p.value.descripcion_comercial}, ${a.tipo === 'PREPACK' ? `${t('pack')} ${a.talla}` : textoVariante(a)}` : a.descripcion)
-const colArticulos = [
-  { clave: 'sku', texto: t('Item code'), fija: true, prioridad: 1 },
-  { clave: 'codigo_talla', texto: t('Size code'), prioridad: 3, valor: codigoTalla },
-  { clave: 'sku_proveedor', texto: t('Supplier SKU'), prioridad: 3 },
-  { clave: 'upc', texto: 'UPC', prioridad: 3 },
-  { clave: 'variante', texto: t('Variant'), valor: (x) => textoVariante(x), prioridad: 1 },
-  { clave: 'unidad', texto: t('Unit'), prioridad: 2 },
-  { clave: 'descripcion', texto: t('Description'), prioridad: 3, valor: (a) => descripcionArticulo(a) },
-  { clave: 'activo', texto: t('Status'), prioridad: 2, opciones: [[true, t('Active')], [false, t('Inactive')]] },
-]
-
 // ---- Historial -------------------------------------------------------------
 const ACCION = {
   ficha_guardada: t('Saved the technical sheet'),
@@ -638,45 +640,34 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 
 <template>
   <div v-if="p && ctx">
-    <router-link to="/productos" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Products') }}</router-link>
+    <router-link to="/productos/catalogo" class="volver"><Icono nombre="atras" :tam="15" />{{ t('Catalog') }}</router-link>
     <AvisoEdicion :edicion="p.edicion" :pausado="edicion.pausado.value" entidad="producto" :id="Number(props.id)" @liberado="cargar" @continuar="edicion.continuar" />
 
-    <section class="doc-cabeza">
-      <div class="doc-fila">
-        <span class="foto-cabeza">
-          <img v-if="p.fotos.length" :src="`/api/productos/fotos/${p.fotos[0].id}`" alt="" />
-          <Icono v-else nombre="caja" :tam="24" />
-        </span>
-        <div>
-          <span class="doc-numero">{{ tx(p.estilo) }} · {{ tx(p.color) }}</span>
-          <div class="doc-sub"><span v-if="p.codigo_generico" class="etiqueta acento ms-0" :title="t('Generic (style-color)')">{{ t('Generic {0}', [p.codigo_generico]) }}</span> {{ tx(p.descripcion_comercial || '—') }} · {{ tx(p.marca_nombre || p.marca) }}<template v-if="p.proveedor && p.proveedor !== (p.marca_nombre || p.marca)"> · {{ tx(p.proveedor) }}</template></div>
-        </div>
+    <CabeceraProducto :producto="p" :origen="f.origen || ''" :comex="comex" :editable="!!p.codigo_generico && puede('catalogos.editar')"
+                      @editar="editarProducto = true" @variantes="pestana = 'variantes'">
+      <template v-if="comex" #estado>
         <EstadoBadge :estado="p.estado" tipo="producto" />
-        <span v-if="p.version_ficha > 1" class="etiqueta">{{ t('Version {0}', [p.version_ficha]) }}</span>
-        <div class="doc-acciones">
-          <MasOpciones>
-            <button class="btn btn-fantasma" :title="t('Technical sheet with the classification, as PDF')" @click="descargarFicha('pdf')"><Icono nombre="descargar" />PDF</button>
-            <button class="btn btn-fantasma" :title="t('Technical sheet with composition and national codes, as Excel')" @click="descargarFicha('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
-            <button v-if="aprobado && puede('producto.ficha')" class="btn" @click="modal = { tipo: 'version', texto: '', desde: '' }"><Icono nombre="editar" />{{ t('New version') }}</button>
-            <router-link v-if="reglaDesdeAqui" class="btn" :to="{ path: '/familias', query: { vista: 'reglas', desde: p.id } }"
-                         :title="t('Next time the engine suggests this code by itself')"><Icono nombre="varita" />{{ t('Turn this decision into a rule') }}</router-link>
-            <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
-          </MasOpciones>
-          <button v-if="puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
-          <button v-if="envioPrevio" class="btn btn-primario" :disabled="ocupado || !completa || (!oculta && codigo6.length < 6)"
-                  :title="tx(!completa ? t('Complete first: {0}', [faltan.join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
-        </div>
-      </div>
-      <div class="doc-meta">
-        <span>{{ t('Sizes') }} <b>{{ tx(p.rango_tallas || '—') }}</b></span>
-        <span>{{ t('SKUs') }} <b>{{ tx(p.skus) }}</b></span>
-        <span>{{ t('Origin') }} <b>{{ tx(f.origen || '—') }}</b></span>
-        <span v-if="p.revisado_por">{{ t('Reviewed by') }} <b>{{ tx(p.revisado_por) }}</b> · {{ fmtFecha(p.revisado_en) }}</span>
-      </div>
-    </section>
+        <span v-if="p.version_ficha > 1" class="etiqueta ms-0">{{ t('Version {0}', [p.version_ficha]) }}</span>
+      </template>
+      <template #acciones>
+          <button v-if="p.codigo_generico && puede('catalogos.editar')" class="btn" @click="editarProducto = true"><Icono nombre="editar" />{{ t('Edit product') }}</button>
+        <MasOpciones v-if="comex">
+          <button class="btn btn-fantasma" :title="t('Technical sheet with the classification, as PDF')" @click="descargarFicha('pdf')"><Icono nombre="descargar" />PDF</button>
+          <button class="btn btn-fantasma" :title="t('Technical sheet with composition and national codes, as Excel')" @click="descargarFicha('xlsx')"><Icono nombre="descargar" />{{ t('Excel') }}</button>
+          <button v-if="aprobado && puede('producto.ficha')" class="btn" @click="modal = { tipo: 'version', texto: '', desde: '' }"><Icono nombre="editar" />{{ t('New version') }}</button>
+          <router-link v-if="reglaDesdeAqui" class="btn" :to="{ path: '/familias', query: { vista: 'reglas', desde: p.id } }"
+                       :title="t('Next time the engine suggests this code by itself')"><Icono nombre="varita" />{{ t('Turn this decision into a rule') }}</router-link>
+          <button v-if="enRevision && puede('producto.ficha')" class="btn" :disabled="ocupado" :title="t('Take it back to draft to change it')" @click="retirarRevision"><Icono nombre="atras" />{{ t('Back to draft') }}</button>
+        </MasOpciones>
+        <button v-if="comex && puedeEditar" class="btn" :class="{ 'btn-primario': !puedeEnviar || puedeAprobar }" :disabled="ocupado || !sucio" @click="guardar()"><Icono nombre="check" />{{ tx(sucio ? (puedeEnviar ? t('Save draft') : t('Save sheet')) : t('Saved')) }}</button>
+        <button v-if="comex && envioPrevio" class="btn btn-primario" :disabled="ocupado || !completa || (!oculta && codigo6.length < 6)"
+                :title="tx(!completa ? t('Complete first: {0}', [faltan.join(', ')]) : t('Customs reviews it and approves or returns it'))" @click="enviarRevision"><Icono nombre="enviar" />{{ t('Send to review') }}</button>
+      </template>
+    </CabeceraProducto>
 
-    <Pasos class="pasos-producto" :pasos="pasos" />
+    <Pasos v-if="comex" class="pasos-producto" :pasos="pasos" />
 
+    <template v-if="comex">
     <p v-if="p.estado === 'observado' && p.observaciones" class="nota aviso" role="status">
       <Icono nombre="alerta" /><span><b>{{ t('Returned for correction.') }}</b> {{ tx(p.observaciones) }}</span>
     </p>
@@ -689,21 +680,31 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
     <p v-else-if="aprobado" class="nota ok">
       <Icono nombre="check" /><span>{{ t('This sheet is approved and locked. Purchase orders and invoices use its codes. To change it, open a new version.') }}</span>
     </p>
+    </template>
 
-    <div class="producto-layout">
+    <div class="producto-layout" :class="{ 'sin-lateral': !comex }">
       <div class="producto-principal">
-        <div class="pestanas" role="tablist">
-          <button class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
-            <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'tallas'" @click="pestana = 'tallas'"><Icono nombre="caja" :tam="16" />{{ t('Sizes and prepacks') }}
-            <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
-            <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'acuerdos'" @click="pestana = 'acuerdos'"><Icono nombre="ruta" :tam="16" />{{ t('Trade agreements') }}</button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'versiones'" @click="pestana = 'versiones'"><Icono nombre="capas" :tam="16" />{{ t('Versions') }}
-            <span class="cuenta">{{ tx(p.versiones.length + 1) }}</span></button>
-          <button v-if="puede('etiquetas.ver') && esInterno()" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
-          <button class="pestana" role="tab" :aria-selected="pestana === 'historial'" @click="pestana = 'historial'"><Icono nombre="historial" :tam="16" />{{ t('History') }}</button>
+        <div class="pestanas-barra">
+          <div class="pestanas" role="tablist">
+            <button v-if="comex" class="pestana" role="tab" :aria-selected="pestana === 'ficha'" @click="pestana = 'ficha'"><Icono nombre="lista" :tam="16" />{{ t('Technical sheet') }}
+              <span v-if="r && faltan.length && !aprobado" class="cuenta alerta">{{ tx(faltan.length) }}</span></button>
+            <button class="pestana" role="tab" :aria-selected="pestana === 'variantes'" @click="pestana = 'variantes'"><Icono nombre="cuadricula" :tam="16" />{{ t('Variants and packs') }}
+              <span class="cuenta">{{ tx(p.articulos.length) }}</span></button>
+            <button class="pestana" role="tab" :aria-selected="pestana === 'documentos'" @click="pestana = 'documentos'"><Icono nombre="archivo" :tam="16" />{{ t('Technical documents') }}
+              <span v-if="p.documentos?.length" class="cuenta">{{ tx(p.documentos.length) }}</span></button>
+            <!-- Dónde se usa y cómo se empaca: el producto conectado con compras, facturación, logística y empaque -->
+            <button class="pestana" role="tab" :aria-selected="pestana === 'uso'" @click="pestana = 'uso'"><Icono nombre="ruta" :tam="16" />{{ t('Usage') }}</button>
+            <button v-if="puede('catalogos.ver')" class="pestana" role="tab" :aria-selected="pestana === 'empaque'" @click="pestana = 'empaque'"><Icono nombre="caja" :tam="16" />{{ t('Packing') }}</button>
+            <button v-if="puede('etiquetas.ver') && esInterno()" class="pestana" role="tab" :aria-selected="pestana === 'etiquetas'" @click="pestana = 'etiquetas'"><Icono nombre="etiqueta" :tam="16" />{{ t('Labels') }}</button>
+            <!-- Lo que se consulta de vez en cuando: en «Más» (con su nombre a la vista si está abierta) -->
+            <button class="pestana" role="tab" :aria-selected="SECUNDARIAS.some((x) => x[0] === pestana)" aria-haspopup="menu" :aria-expanded="masAbierto"
+                    @click.stop="masAbierto = !masAbierto">
+              <Icono nombre="puntos" :tam="16" />{{ tx(SECUNDARIAS.find((x) => x[0] === pestana)?.[1] || t('More')) }}<Icono nombre="abajo" :tam="13" /></button>
+          </div>
+          <div v-if="masAbierto" class="pestanas-menu" role="menu">
+            <button v-for="[k, txt, n] in SECUNDARIAS" :key="k" type="button" role="menuitem" :class="{ activa: pestana === k }"
+                    @click="pestana = k; masAbierto = false">{{ txt }}<span v-if="n" class="cuenta">{{ n }}</span></button>
+          </div>
         </div>
 
         <!-- Ficha técnica -->
@@ -714,6 +715,8 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
         <DocumentosTecnicos v-else-if="pestana === 'documentos'" :producto="p" :campos="r?.campos || []" :editable="puedeEditar" @cambio="recargarDocumentos" />
 
         <!-- Etiquetado: familia y diseño de cada variante -->
+        <UsoProducto v-else-if="pestana === 'uso'" :producto-id="p.id" />
+        <EmpaqueProducto v-else-if="pestana === 'empaque'" :producto-id="p.id" />
         <EtiquetadoProducto v-else-if="pestana === 'etiquetas'" :producto-id="p.id" />
 
         <!-- Acuerdos comerciales por destino según el origen -->
@@ -769,25 +772,9 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           </div>
         </div>
 
-        <!-- Tallas y prepacks -->
-        <div v-else-if="pestana === 'tallas'">
-          <div class="fila-flex mt-chico entre">
-            <p class="ayuda">{{ t('Every size of generic') }} <b>{{ tx(p.codigo_generico || '—') }}</b> {{ t('(style-color) shares the technical sheet and the HS code. Prepacks are not classified: they are built with these solids and take their code.') }}</p>
-            <button v-if="p.codigo_generico && puede('catalogos.crear')" class="btn btn-chico" @click="agregarTallas = true"><Icono nombre="mas" :tam="14" />{{ t('Add sizes') }}</button>
-          </div>
-          <div class="mt-chico">
-            <TablaDatos tabla="productos_articulos" :columnas="colArticulos" :filas="p.articulos" :etiqueta="t('Sizes and prepacks')">
-              <template #celda-sku="{ fila: a }"><span class="fuerte">{{ tx(a.sku) }}</span><span v-if="a.tipo === 'PREPACK'" class="etiqueta acento">{{ t('Prepack') }}</span></template>
-              <template #celda-codigo_talla="{ fila: a }"><span class="apagado">{{ tx(codigoTalla(a) || '—') }}</span></template>
-              <template #celda-descripcion="{ fila: a }"><span class="apagado">{{ tx(descripcionArticulo(a)) }}</span></template>
-              <template #celda-activo="{ fila: a }"><span v-if="a.activo" class="etiqueta ok ms-0">{{ t('Active') }}</span><span v-else class="etiqueta ms-0">{{ t('Inactive') }}</span></template>
-            </TablaDatos>
-          </div>
-          <div v-for="x in p.prepacks" :key="x.id" class="panel mt">
-            <div class="panel-cabeza"><div><h2>{{ t('Prepack {0}', [x.codigo]) }}</h2><p>{{ t('{0} · {1} per carton', [x.descripcion, x.total]) }}<template v-if="x.sku">&nbsp;{{ t('· SKU {0}', [x.sku]) }}</template></p></div></div>
-            <div class="chips"><span v-for="c in x.componentes" :key="c.sku" class="etiqueta">{{ tx(c.variante || c.talla || c.sku) }} × {{ tx(c.cantidad) }}</span></div>
-          </div>
-        </div>
+        <!-- Variantes, packs y kits -->
+        <VariantesProducto v-else-if="pestana === 'variantes'" :producto="p" :comex="comex"
+                           :puede-agregar="!!p.codigo_generico && puede('catalogos.crear')" @agregar="agregarVariantes = true" />
 
         <!-- Historial -->
         <div v-else class="panel">
@@ -803,7 +790,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
       </div>
 
       <!-- Panel de clasificación -->
-      <aside class="clasif" :aria-label="t('Classification')">
+      <aside v-if="comex" class="clasif" :aria-label="t('Classification')">
         <section class="panel">
           <div class="eyebrow">{{ t('Tariff classification') }}</div>
           <div class="sello" :class="aprobado ? 'aprobado' : codigo6.length === 6 ? 'sugerido' : 'vacio'">
@@ -882,7 +869,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
             <li v-for="n in (verNotas ? notasVista : notasVista.slice(0, 3))" :key="n.id">
               <b>{{ tx(n.ambito === 'explicativa' ? t('Explanatory note, heading {0}', [fmtCode(n.codigo)]) : n.codigo === 'RGI' ? t('General rule {0}', [n.numero]) : n.ambito === 'seccion' ? t('Section {0}, note {1}', [n.codigo, n.numero]) : n.ambito === 'complementaria' ? t('Chapter {0}, Central American note {1}', [n.codigo, n.numero.replace('NCC ', '')]) : t('Chapter {0}, note {1}', [n.codigo, n.numero])) }}</b>
               <span class="etiqueta" :class="n.oficial ? 'ok' : 'aviso'">{{ n.oficial ? t('Official text') : n.tipo_fuente === 'CLASSIFIER_GUIDANCE' ? t('Classifier summary') : t('Internal guidance') }}</span>
-              <span>{{ tx(n.texto) }}</span>
+              <span :class="{ 'nota-recorte': !verNotas }" :title="verNotas ? '' : tx(n.texto)">{{ tx(n.texto) }}</span>
             </li>
             <li v-if="!notasVista.length" class="apagado">{{ soporte === 'explicativas' ? t('No guidance for this heading. Internal guidance and classifier summaries are added in Tariff schedule → Notes.') : t('No legal notes loaded for this chapter.') }}</li>
           </ul>
@@ -952,7 +939,7 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
           <div class="panel-cabeza"><div><h2>{{ t('Similar products') }}</h2><p>{{ t('Already classified') }}</p></div></div>
           <ul class="parecidos">
             <li v-for="x in r.parecidos.slice(0, 3)" :key="x.id">
-              <router-link :to="`/productos/${x.id}`"><span v-if="x.generico" class="codigo">{{ tx(x.generico) }}</span> {{ tx(x.estilo) }} {{ tx(x.color) }}</router-link>
+              <router-link :to="`/productos/${x.id}`"><span v-if="x.generico" class="codigo">{{ tx(x.generico) }}</span> {{ tx(x.nombre) }}</router-link>
               <span class="codigo-sac">{{ tx(x.codigo_txt) }}</span>
               <span class="sub">{{ tx(x.descripcion) }}</span>
             </li>
@@ -994,7 +981,8 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
     </div>
 
     <!-- Ventanas -->
-    <GenericoModal v-if="agregarTallas" :generico="p.codigo_generico" @cerrar="agregarTallas = false" @listo="agregarTallas = false; cargar()" />
+    <GenericoModal v-if="agregarVariantes" :generico="p.codigo_generico" @cerrar="agregarVariantes = false" @listo="agregarVariantes = false; cargar()" />
+    <GenericoModal v-if="editarProducto" :generico="p.codigo_generico" editar @cerrar="editarProducto = false" @listo="editarProducto = false; cargar()" />
     <Modal v-if="modal?.tipo === 'devolver'" :titulo="t('Return to the supplier')" @cerrar="modal = null">
       <label class="campo"><span class="req">{{ t('What should be corrected') }}</span><textarea v-model="modal.texto" class="entrada" rows="4" maxlength="2000"></textarea></label>
       <template #pie>
@@ -1031,16 +1019,17 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 <style scoped>
 .pasos-producto { margin: 4px 0 16px; }
 .bases-legales { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--linea); }
-.bases-legales p { margin: 4px 0 0; font-size: 0.78rem; color: var(--tinta-3); line-height: 1.35; }
+.bases-legales p { margin: 4px 0 0; font-size: var(--t-xs); color: var(--tinta-3); line-height: 1.35; }
 .bases-legales b { color: var(--tinta-2); }
 .version-vista { border-top: 1px solid var(--linea); padding-top: 12px; }
-.version-vista h3 { font-size: 1rem; margin: 0; }
-.version-vista h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); margin-bottom: 6px; }
+.version-vista h3 { font-size: var(--t-md); margin: 0; }
+.version-vista h4 { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); margin-bottom: 6px; }
 .rejilla-dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 16px; }
 .rejilla-dl .par { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.rejilla-dl .par span { font-size: 0.76rem; color: var(--tinta-3); }
-.rejilla-dl .par b { font-weight: 560; font-size: 0.9rem; overflow-wrap: anywhere; }
+.rejilla-dl .par span { font-size: var(--t-xs); color: var(--tinta-3); }
+.rejilla-dl .par b { font-weight: 560; font-size: var(--t-base); overflow-wrap: anywhere; }
 .producto-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; margin-top: 4px; }
+.producto-layout.sin-lateral { grid-template-columns: minmax(0, 1fr); }
 .producto-principal .pestanas { margin-top: 4px; }
 .clasif { display: flex; flex-direction: column; gap: 14px; }
 .clasif .panel + .panel { margin-top: 0; }
@@ -1054,48 +1043,48 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .ancho-2 { grid-column: span 2; }
 @media (max-width: 600px) { .ancho-2 { grid-column: auto; } }
 .composicion { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.reglas-ev { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; }
+.reglas-ev { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sm); }
 .reglas-ev li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
-.reglas-ev li .sub { flex-basis: 100%; color: var(--tinta-3); font-size: 0.78rem; }
+.reglas-ev li .sub { flex-basis: 100%; color: var(--tinta-3); font-size: var(--t-xs); }
 .reglas-ev li.legal b { color: var(--ok); }
 .atributos { display: flex; flex-direction: column; gap: 14px; }
 .atributo { display: flex; flex-direction: column; gap: 6px; }
-.atributo-nombre { font-weight: 580; font-size: 0.86rem; color: var(--tinta-2); }
-.atributo.definido { flex-direction: row; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 0.88rem; padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); }
-.atributo.check { flex-direction: row; align-items: flex-start; gap: 8px; font-size: 0.9rem; }
+.atributo-nombre { font-weight: 580; font-size: var(--t-sm); color: var(--tinta-2); }
+.atributo.definido { flex-direction: row; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: var(--t-sm); padding: 8px 10px; background: var(--superficie-2); border-radius: var(--radio); }
+.atributo.check { flex-direction: row; align-items: flex-start; gap: 8px; font-size: var(--t-base); }
 .foto-cabeza { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--linea); background: var(--superficie-2); display: grid; place-items: center; overflow: hidden; color: var(--tinta-3); flex: none; }
 .foto-cabeza img { width: 100%; height: 100%; object-fit: cover; }
 .fotos { display: flex; gap: 10px; flex-wrap: wrap; }
 .foto { position: relative; margin: 0; width: 120px; height: 120px; border-radius: 10px; overflow: hidden; border: 1px solid var(--linea); }
 .foto img { width: 100%; height: 100%; object-fit: cover; }
 .foto .btn-icono { position: absolute; top: 4px; inset-inline-end: 4px; background: var(--superficie); }
-.desc-aduana { font-size: 0.9rem; letter-spacing: 0.01em; background: var(--superficie-2); border: 1px dashed var(--linea); border-radius: var(--radio); padding: 10px 12px; }
+.desc-aduana { font-size: var(--t-base); letter-spacing: 0.01em; background: var(--superficie-2); border: 1px dashed var(--linea); border-radius: var(--radio); padding: 10px 12px; }
 .sello { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; margin: 6px 0 4px; }
-.codigo-grande { font-stretch: 125%; font-weight: 780; font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.codigo-grande { font-stretch: 125%; font-weight: 780; font-size: var(--t-3xl); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .sello.vacio .codigo-grande { color: var(--tinta-3); }
-.sello-texto { font-size: 0.78rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 6px; background: var(--linea-suave); color: var(--tinta-2); }
+.sello-texto { font-size: var(--t-xs); font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 6px; background: var(--linea-suave); color: var(--tinta-2); }
 .sello.aprobado .sello-texto { background: var(--ok-fondo); color: var(--ok); }
 .sello.sugerido .sello-texto { background: var(--info-fondo); color: var(--info); }
-.desc-sac { font-size: 0.86rem; color: var(--tinta-2); }
+.desc-sac { font-size: var(--t-sm); color: var(--tinta-2); }
 .confianza { display: flex; align-items: center; gap: 4px; margin: 12px 0 6px; }
 .confianza .barra { width: 22px; height: 6px; border-radius: 3px; background: var(--linea); }
 .confianza .barra.llena.n3 { background: var(--ok); }
-.confianza .barra.llena.n2 { background: #d69e2e; }
+.confianza .barra.llena.n2 { background: var(--aviso); }
 .confianza .barra.llena.n1 { background: var(--error); }
 .confianza .ayuda { margin-inline-start: 6px; }
-.razones { margin: 6px 0 2px; padding-inline-start: 18px; font-size: 0.86rem; color: var(--tinta-2); display: flex; flex-direction: column; gap: 3px; }
-.pistas { list-style: none; margin: 8px 0 0; padding: 0; font-size: 0.82rem; color: var(--aviso); display: flex; flex-direction: column; gap: 4px; }
+.razones { margin: 6px 0 2px; padding-inline-start: 18px; font-size: var(--t-sm); color: var(--tinta-2); display: flex; flex-direction: column; gap: 3px; }
+.pistas { list-style: none; margin: 8px 0 0; padding: 0; font-size: var(--t-sm); color: var(--aviso); display: flex; flex-direction: column; gap: 4px; }
 .pistas li { display: flex; gap: 6px; align-items: flex-start; }
 .pistas svg { margin-top: 2px; flex: none; }
 .bloque-clasif { border-top: 1px solid var(--linea-suave); margin-top: 12px; padding-top: 10px; }
-.bloque-clasif h3 { font-size: 0.86rem; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.lista-simple { margin: 0; padding-inline-start: 18px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 3px; }
+.bloque-clasif h3 { font-size: var(--t-sm); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.lista-simple { margin: 0; padding-inline-start: 18px; font-size: var(--t-sm); display: flex; flex-direction: column; gap: 3px; }
 .alertas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.alertas li { font-size: 0.84rem; padding: 7px 9px; border-radius: 7px; background: var(--info-fondo); color: var(--info-texto); display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+.alertas li { font-size: var(--t-sm); padding: 7px 9px; border-radius: 7px; background: var(--info-fondo); color: var(--info-texto); display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
 .alertas li.aviso { background: var(--aviso-fondo); color: var(--aviso); }
 .alertas li.error { background: var(--error-fondo); color: var(--error); }
-.alertas .btn-texto { color: inherit; font-size: 0.8rem; white-space: nowrap; }
-.alternativas { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 0.86rem; }
+.alertas .btn-texto { color: inherit; font-size: var(--t-xs); white-space: nowrap; }
+.alternativas { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: var(--t-sm); }
 .otro-codigo { gap: 6px; flex-wrap: nowrap; }
 .otro-codigo .entrada { flex: 1; min-width: 0; }
 .entrada-pais { width: 100%; min-width: 0; font-family: var(--mono); font-weight: 600; padding: 6px 8px; }
@@ -1107,13 +1096,13 @@ const edicion = useEdicion('producto', () => Number(props.id), () => ({ editable
 .paises td:first-child { width: 44px; }
 .paises td:last-child { width: 56px; }
 .paises .sub { white-space: normal; display: block; }
-.notas-sac { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 0.84rem; line-height: 1.45; }
+.notas-sac { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: var(--t-sm); line-height: 1.45; }
 .notas-sac li { display: flex; flex-direction: column; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--acento-claro); }
-.notas-sac b { font-size: 0.78rem; color: var(--acento-texto); }
+.notas-sac b { font-size: var(--t-xs); color: var(--acento-texto); }
 .notas-sac li .etiqueta { align-self: flex-start; }
 .conf-hist { margin: -4px 0 8px; }
 .notas-sac span { color: var(--tinta-2); }
-.parecidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; }
+.parecidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: var(--t-sm); }
 .parecidos .codigo-sac { margin-inline-start: 6px; }
 .opinion p + p { margin-top: 6px; }
 .acciones-clasif { display: flex; flex-direction: column; gap: 8px; }

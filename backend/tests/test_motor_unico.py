@@ -316,7 +316,7 @@ def test_especialista_recibe_la_ficha_del_motor(interno):
     from app.modulos.clasificacion import especialista
 
     with SessionLocal() as db:
-        p = db.scalar(select(Producto).where(Producto.estilo == "VN000EE3"))
+        p = db.scalar(select(Producto).where(Producto.codigo_generico == "30095125"))  # el estilo VN000EE3 de la demostración
         d = especialista.entrada(db, p)
     assert "Footwear style: " in d["ficha_texto"] and d["sugerido"] == "6404.19"
     assert "- estilo_calzado (Footwear style): tenis = Sneaker" in d["campos"] and "comp.corte" in d["campos"]

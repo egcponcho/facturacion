@@ -46,10 +46,10 @@ def test_pdf_png_svg_con_medidas_colores_y_fuentes_reales():
         {"id": "fondo", "tipo": "rect", "x": 0, "y": 0, "w": 100, "h": 12, "relleno": "#1565c0"},
         {"id": "sku", "tipo": "campo", "campo": "articulo.sku", "x": 4, "y": 16, "w": 90, "h": 10,
          "estilo": {"tam": 14, "negrita": True, "color": "#c62828"}},
-        {"id": "fijo", "tipo": "texto", "contenido": "Talla {{articulo.talla}}", "x": 4, "y": 30, "w": 60, "h": 8,
+        {"id": "fijo", "tipo": "texto", "contenido": "Talla {{articulo.atributo.TALLA}}", "x": 4, "y": 30, "w": 60, "h": 8,
          "estilo": {"tam": 10, "fuente": "serif", "cursiva": True}},
     ])
-    lz = render.componer(d, {"articulo.sku": "NF0A7QEY", "articulo.talla": "M"})
+    lz = render.componer(d, {"articulo.sku": "NF0A7QEY", "articulo.atributo.TALLA": "M"})
     assert not lz.problemas
     # PDF: la página mide exactamente 100 × 50 mm, con el texto, su color y la fuente incluida
     with pdfplumber.open(io.BytesIO(salidas.pdf([lz]))) as doc:
@@ -102,7 +102,7 @@ def test_codigos_validados_sin_inventar_identificadores():
     assert errores("ean13", "NF0A7QEY") == {"codigo_invalido"}  # un SKU interno no es un EAN
     assert errores("code39", "abc") == {"codigo_invalido"}
     assert errores("code128", "Ñandú") == {"codigo_invalido"}
-    assert errores("code128", "{{articulo.upc}}") == {"codigo_sin_valor"}
+    assert errores("code128", "{{articulo.codigo_barras}}") == {"codigo_sin_valor"}
     assert errores("ean13", "590123412345", w=12) == {"codigo_pequeno"}  # barra más fina que 0.264 mm
     assert errores("qr", "x", color="#bbbbbb") == {"codigo_contraste"}
     assert errores("qr", "x", color="#ffffff", relleno="#000000") == {"codigo_contraste"}  # invertido
@@ -125,7 +125,7 @@ def test_texto_largo_vacio_condiciones_y_limites():
                                            "estilo": {"tam": 9, "multilinea": True}}]), {})
     assert len(multilinea.prims[-1].lineas) >= 3 and not multilinea.problemas
     # Campo vacío: advertir, ocultar, texto alternativo o error
-    campo = {"id": "c", "tipo": "campo", "ajustar": "no", "campo": "articulo.color", "x": 2, "y": 2, "w": 40, "h": 8}
+    campo = {"id": "c", "tipo": "campo", "ajustar": "no", "campo": "articulo.atributo.COLOR", "x": 2, "y": 2, "w": 40, "h": 8}
     assert {p["codigo"] for p in render.componer(_diseno([campo]), {}).advertencias} == {"campo_vacio"}
     assert not render.componer(_diseno([{**campo, "si_vacio": "ocultar"}]), {}).problemas
     alt = render.componer(_diseno([{**campo, "si_vacio": "alternativo", "alternativo": "N/A"}]), {})
@@ -133,9 +133,9 @@ def test_texto_largo_vacio_condiciones_y_limites():
     assert {p["codigo"] for p in render.componer(_diseno([{**campo, "si_vacio": "error"}]), {}).errores} == {"campo_obligatorio"}
     # Condición: el elemento solo aparece si el campo tiene valor
     cond = {"id": "x", "tipo": "texto", "ajustar": "no", "contenido": "PREPACK", "x": 2, "y": 2, "w": 30, "h": 8,
-            "condicion": {"campo": "articulo.prepack", "op": "existe"}}
+            "condicion": {"campo": "articulo.codigo_pack", "op": "existe"}}
     assert len(render.componer(_diseno([cond]), {}).prims) == 1  # solo el fondo
-    assert len(render.componer(_diseno([cond]), {"articulo.prepack": "PPK-6"}).prims) == 2
+    assert len(render.componer(_diseno([cond]), {"articulo.codigo_pack": "PPK-6"}).prims) == 2
     # Límites
     fuera = render.componer(_diseno([{"id": "f", "tipo": "rect", "x": 120, "y": 2, "w": 10, "h": 5, "relleno": "#000000"}]), {})
     assert {p["codigo"] for p in fuera.errores} == {"fuera_de_la_etiqueta"}

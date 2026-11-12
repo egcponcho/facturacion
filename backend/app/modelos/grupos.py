@@ -1,17 +1,12 @@
 """Grupos de producto: un solo árbol de la empresa para agrupar lo que vende
-(calzado → calzado técnico → sandalias…), compartido por el etiquetado, las
-reglas de empaque y lo que venga (docs/GRUPOS_PRODUCTO.md).
+(por ejemplo bebidas → jugos → jugos de naranja), compartido por el catálogo,
+el etiquetado, las reglas de empaque y lo que venga.
 
 Cada nodo es de una clase:
 - FAMILIA: se asigna a mano a grupos de artículos, productos o artículos; puede
   tener subfamilias (hijas FAMILIA) sin límite de niveles.
 - CATEGORIA: hoja dentro de una familia que se reconoce sola por condiciones
   sobre los datos del artículo, o se pone a mano en el producto.
-
-Reemplaza a familias_etiquetado y categorias_etiquetado (migración 0081): sus
-filas se copiaron 1:1 y `legado_familia_id` / `legado_categoria_id` guardan de
-cuál salió cada nodo. Las tablas anteriores quedan congeladas, solo para volver
-atrás.
 """
 from __future__ import annotations
 
@@ -46,17 +41,13 @@ class GrupoProducto(DeOrganizacion, Base):
     # [{"campo": "articulo.descripcion", "op": "contiene", "valor": "sandal"}]: todas deben cumplirse.
     # Una categoría con condiciones se reconoce sola; sin condiciones, solo se pone a mano.
     condiciones: Mapped[list] = mapped_column(JSON, default=list)
-    # Los campos habituales del grupo y cuáles son obligatorios ([{"campo": "articulo.talla", "obligatorio": true}])
+    # Los campos habituales del grupo y cuáles son obligatorios ([{"campo": "articulo.atributo.TALLA", "obligatorio": true}])
     campos: Mapped[list] = mapped_column(JSON, default=list)
-    # Con qué atributos de variante se distinguen las variantes de sus productos, en orden
-    # (["COLOR", "TALLA"], ["CONCENTRACION", "ENVASE"]…). Vacío: los del grupo padre.
-    ejes_variante: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # Sus atributos (los de producto y los de variante, con los que se distinguen sus variantes)
+    # están en atributo_familias: valen en la familia, sus subfamilias y sus categorías.
     orden: Mapped[int] = mapped_column(Integer, default=0)
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
-    # De qué familia o categoría de etiquetado se copió (migración 0081); vacío en los nodos nuevos
-    legado_familia_id: Mapped[int | None] = mapped_column(Integer)
-    legado_categoria_id: Mapped[int | None] = mapped_column(Integer)
 
     padre: Mapped["GrupoProducto | None"] = relationship(remote_side=lambda: GrupoProducto.id)
 
@@ -77,7 +68,7 @@ class GrupoProducto(DeOrganizacion, Base):
 
 
 class GrupoFamilia(GrupoProducto):
-    """Familia (o subfamilia): se asigna a mano a grupos de artículos, productos o artículos."""
+    """Familia (o subfamilia): se asigna a mano a cada producto."""
 
     __mapper_args__ = {"polymorphic_identity": "FAMILIA"}
 

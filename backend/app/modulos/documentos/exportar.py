@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from app.core.archivos import celda_texto
 from app.modulos.acceso import visibilidad
 from app.modulos.acceso.preferencias import fecha_hora_txt
-from app.modulos.documentos import idioma_doc
+from app.modulos.documentos import aduana, idioma_doc
 from app.modulos.documentos.documentos import _acento_hex, _fecha, _por_unidad_txt, declaracion
 from app.modulos.documentos.idioma_doc import L
 
@@ -79,7 +79,7 @@ class _Hoja:
         self.unir(1, 1, corte)
         self.celda(2, 1, " · ".join(x for x in (exp.get("direccion"), exp.get("pais")) if x), color=TENUE, tam=8)
         self.unir(2, 1, corte)
-        self.celda(3, 1, " · ".join(x for x in (L("Tax ID: {0}", exp['id_fiscal']) if exp.get("id_fiscal") else None,
+        self.celda(3, 1, " · ".join(x for x in (aduana.texto_id_fiscal(exp) if exp.get("id_fiscal") else None,
                                                   exp.get("correos"), exp.get("telefono")) if x), color=TENUE, tam=8)
         self.unir(3, 1, corte)
         self.celda(1, corte + 1, titulo, negrita=True, color=_acento(), tam=13)
@@ -211,7 +211,7 @@ def _lineas_parte(p: dict | None) -> list[str]:
         return ["—"]
     lineas = [f"{p.get('codigo') or ''} · {p.get('razon_social') or p.get('nombre') or ''}"]
     if p.get("id_fiscal"):
-        lineas.append(L("Tax ID (NIT / RUC): {0}", p['id_fiscal']))
+        lineas.append(aduana.texto_id_fiscal(p))
     lineas.append(" · ".join(x for x in (p.get("direccion"), p.get("pais")) if x) or "—")
     if p.get("puerto"):
         lineas.append(L("Port of arrival: {0}", p.get('puerto_nombre') or p['puerto']))
@@ -256,15 +256,15 @@ def exportar_factura(d: dict) -> bytes:
         *d.get("propios", []),
     ])
     t = d["totales"]
-    # Los datos de cada línea que la empresa eligió (variante, estilo, atributos…), cada uno en su columna
-    cols = [c for c in d["columnas_linea"] if c[0] != "upc"]
-    filas = [[l["oc"], l["posicion"], l["sku"], l["upc"], l["marca"], *[l["datos"].get(k) for k, _ in cols],
-              (l["descripcion"] or "") + (L(" · pack {0}", l['prepack']) if l["prepack"] else ""),
+    # Los datos de cada línea que la empresa eligió (variante, atributos…), cada uno en su columna
+    cols = [c for c in d["columnas_linea"] if c[0] != "codigo_barras"]
+    filas = [[l["oc"], l["posicion"], l["sku"], l["codigo_barras"], l["marca"], *[l["datos"].get(k) for k, _ in cols],
+              (l["descripcion"] or "") + (L(" · pack {0}", l['pack']) if l["pack"] else ""),
               l["origen"], l["partida"], l["cantidad"], l["unidad"], l["precio"], l["total"]] for l in d["lineas"]]
     fila_cab = h.tabla(
-        [(L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("UPC"), None), (L("Brand"), None),
+        [(L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("Barcode"), None), (L("Brand"), None),
          *[(e, None) for _, e in cols],
-         (L("Customs description"), None), (L("Origin"), None), (L("HS code (SAC)"), None),
+         (L("Customs description"), None), (L("Origin"), None), (aduana.titulo_codigo(d.get("aduana")), None),
          (L("Quantity"), _ENTERO), (L("UoM"), None), (L("Unit price"), "#,##0.0000"), (L("Amount {0}", d['moneda']), _MONEDA)],
         filas, pie=[L("Total"), None, L("{0} lines", len(filas)), None, None, *[None] * len(cols), None, None, None,
                     sum(l["cantidad"] for l in d["lineas"]), None, None, t["importe"]],
@@ -309,14 +309,14 @@ def exportar_pl(d: dict) -> bytes:
         (L("Final destination"), d["destinos"][0] if len(d["destinos"]) == 1 else L("Per carton (see lines)")),
         (L("ETD / ETA"), f"{_fecha(tr.get('etd'))} / {_fecha(tr.get('eta'))}"),
     ], columnas=5)
-    cols = [c for c in d["columnas_linea"] if c[0] != "upc"]
+    cols = [c for c in d["columnas_linea"] if c[0] != "codigo_barras"]
     filas = []
     for g in d["grupos"]:
         for i, it in enumerate(g["items"]):
             p = i == 0
             filas.append([
                 g["rango"] if p else None, g["num_cajas"] if p else None, it["oc"], it["posicion"], it["sku"],
-                it["upc"], it["marca"], it["descripcion"], *[it["datos"].get(k) for k, _ in cols], it["inners"], it["inner_pack"],
+                it["codigo_barras"], it["marca"], it["descripcion"], *[it["datos"].get(k) for k, _ in cols], it["inners"], it["inner_pack"],
                 it["por_caja"], it["total"], it["unidad"], g["largo"] if p else None, g["ancho"] if p else None,
                 g["alto"] if p else None, g["neto_caja"] if p else None, g["bruto_caja"] if p else None,
                 g["neto_total"] if p else None, g["bruto_total"] if p else None, g["cbm"] if p else None,
@@ -324,7 +324,7 @@ def exportar_pl(d: dict) -> bytes:
                 (", ".join(g["ocs"]) + (f" → {g['centro_destino']}" if g["centro_destino"] else "")) if p else None,
             ])
     fila_cab = h.tabla(
-        [(L("Cartons"), None), (L("Qty"), _ENTERO), (L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("UPC"), None),
+        [(L("Cartons"), None), (L("Qty"), _ENTERO), (L("PO"), None), (L("Line"), None), (L("Item code"), None), (L("Barcode"), None),
          (L("Brand"), None), (L("Customs description"), None), *[(e, None) for _, e in cols],
          (L("Inner packs per carton"), _ENTERO), (L("Per inner pack"), _ENTERO), (L("Total per carton"), _ENTERO), (L("Total"), _ENTERO), (L("UoM"), None), (L("Length cm"), "0.0"), (L("Width cm"), "0.0"), (L("Height cm"), "0.0"),
          (L("Net/ctn kg"), "0.00"), (L("Gross/ctn kg"), "0.00"), (L("Net total kg"), _MONEDA), (L("Gross total kg"), _MONEDA),
@@ -340,9 +340,9 @@ def exportar_pl(d: dict) -> bytes:
                 [[p["numero"], p["cajas"], p["medidas"], p["tara"], p["bruto"], p["cbm"]] for p in d["pallets"]])
     if d["sin_caja"]:
         h.parrafo(L("NOT YET PACKED"), negrita=True, color=_acento(), tam=8)
-        h.tabla([(L("PO"), None), (L("Item code"), None), (L("Style / model"), None), (L("Variant"), None), (L("Quantity"), _ENTERO),
+        h.tabla([(L("PO"), None), (L("Item code"), None), (L("Description"), None), (L("Variant"), None), (L("Quantity"), _ENTERO),
                  (L("UM"), None)],
-                [[x["oc"], x["sku"], x["estilo"], x["variante"], x["cantidad"], x["unidad"]] for x in d["sin_caja"]],
+                [[x["oc"], x["sku"], x["descripcion"], x["variante"], x["cantidad"], x["unidad"]] for x in d["sin_caja"]],
                 texto={0, 1})
     h.rejilla([
         (L("Total packages"), L("{0} cartons", f"{d['total_cajas']:,}") + (L(" on {0} pallets", f"{tp['pallets']:,}") if tp["pallets"] else "")),
@@ -413,7 +413,7 @@ def _hoja_reporte(ws, titulo, subtitulo, filtros, indicadores, columnas, filas):
 def exportar_ficha(d: dict, x: dict) -> bytes:
     """Ficha técnica en Excel: datos y clasificación en la primera hoja; la
     composición, los códigos por país y las tallas en las siguientes."""
-    titulo = L("Technical sheet {0} · {1}", d['estilo'], d['color'])
+    titulo = L("Technical sheet {0}", d.get('codigo_generico') or '')
     sub = " · ".join(str(v) for v in (d.get("nombre"), d.get("proveedor"), d.get("marca_nombre") or d.get("marca")) if v)
     estado = L("Version {0} · {1}", d.get('version_ficha') or 1, d.get('estado_txt') or d.get('estado') or '')
     filas = [[L("Classification"), k, str(v)] for k, v in x["clasificacion"]]
@@ -425,9 +425,10 @@ def exportar_ficha(d: dict, x: dict) -> bytes:
     filas += [[L("Reasoning"), "", r] for r in x["razones"]]
     hojas = [
         {"titulo": L("Composition"), "columnas": [(L("Part"), 1.6, False), (L("Materials"), 5, False)], "filas": x["composicion"]},
-        {"titulo": L("National codes"), "columnas": [(L("Country"), 0.8, False), (L("Code"), 1.6, False), (L("Duty (DAI)"), 0.9, False),
+        {"titulo": L("National codes"), "columnas": [(L("Country"), 0.8, False), (L("Code"), 1.6, False),
+                                                  (aduana.titulo_derecho((d.get("etiquetas") or {}).get("aduana")), 0.9, False),
                                                   (L("Status"), 0.9, False), (L("Source"), 0.9, False)], "filas": x["partidas"]},
-        {"titulo": L("Sizes"), "columnas": [(L("SKU"), 1.4, False), (L("UPC"), 1.4, False), (L("Size"), 0.7, False), (L("Unit"), 0.6, False),
+        {"titulo": L("Variants"), "columnas": [(L("SKU"), 1.4, False), (L("UPC"), 1.4, False), (L("Variant"), 0.7, False), (L("Unit"), 0.6, False),
                                          (L("Description"), 3, False)], "filas": x["tallas"]},
     ]
     return exportar_reporte(titulo, sub, estado, [], [(L("Section"), 1.4, False), (L("Field"), 1.8, False), (L("Value"), 6, False)],

@@ -224,7 +224,7 @@ async function archivar(p) {
 .barra-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
 .grupo-etq { margin-bottom: 26px; }
 .grupo-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-.grupo-cabeza h2 { margin: 0; font-size: 1.05rem; }
+.grupo-cabeza h2 { margin: 0; font-size: var(--t-md); }
 .tarjetas-etq { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .tarjeta-etq { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--sombra); }
 .tarjeta-etq.apagada { opacity: 0.65; }

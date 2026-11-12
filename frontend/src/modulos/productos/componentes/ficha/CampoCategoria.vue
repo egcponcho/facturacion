@@ -86,9 +86,9 @@ function tecla(e) {
 .cbx { position: relative; width: 100%; }
 .cbx .entrada { width: 100%; }
 .cbx-lista { position: absolute; z-index: 40; inset-inline-start: 0; inset-inline-end: 0; top: calc(100% + 2px); min-width: min(320px, 90vw); max-height: 300px; overflow: auto; background: var(--superficie); border: 1px solid var(--linea); border-radius: 8px; box-shadow: var(--sombra-flotante); padding: 4px 0; }
-.grp { font-size: 0.72rem; font-weight: 650; color: var(--tinta-3); padding: 8px 12px 4px; text-transform: uppercase; letter-spacing: 0.03em; }
-.cbx-lista button { display: block; width: 100%; text-align: start; border: 0; background: none; padding: 7px 12px; font-size: 0.9rem; cursor: pointer; color: var(--tinta); font-family: inherit; }
+.grp { font-size: var(--t-2xs); font-weight: 650; color: var(--tinta-3); padding: 8px 12px 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+.cbx-lista button { display: block; width: 100%; text-align: start; border: 0; background: none; padding: 7px 12px; font-size: var(--t-base); cursor: pointer; color: var(--tinta); font-family: inherit; }
 .cbx-lista button.act, .cbx-lista button:hover { background: var(--acento-claro); }
 .cbx-lista button.elegido { font-weight: 650; color: var(--acento-texto); }
-.vacio-cbx { padding: 8px 12px; font-size: 0.84rem; color: var(--tinta-3); }
+.vacio-cbx { padding: 8px 12px; font-size: var(--t-sm); color: var(--tinta-3); }
 </style>

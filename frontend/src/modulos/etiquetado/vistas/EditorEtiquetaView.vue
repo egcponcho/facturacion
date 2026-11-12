@@ -418,14 +418,14 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
 /* Cabecera en una línea; en pantallas angostas pasa a dos */
 .ed-cabeza { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 6px; }
 .ed-titulo { flex: 1 1 220px; min-width: 0; }
-.ed-titulo h1 { margin: 0; font-size: 1.15rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ed-meta { margin: 1px 0 0; font-size: 0.78rem; color: var(--tinta-3); display: flex; gap: 6px; white-space: nowrap; overflow: hidden; }
+.ed-titulo h1 { margin: 0; font-size: var(--t-lg); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-meta { margin: 1px 0 0; font-size: var(--t-xs); color: var(--tinta-3); display: flex; gap: 6px; white-space: nowrap; overflow: hidden; }
 .ed-meta span { overflow: hidden; text-overflow: ellipsis; }
 .ed-meta span + span::before { content: '·'; margin-inline-end: 6px; }
 .ed-version { display: flex; align-items: center; gap: 8px; flex: none; }
 .ed-version :deep(.sb) { min-width: 160px; }
 .ed-acciones { display: flex; align-items: center; gap: 6px; flex: none; }
-.indicador-guardado { font-size: 0.76rem; color: var(--ok); white-space: nowrap; }
+.indicador-guardado { font-size: var(--t-xs); color: var(--ok); white-space: nowrap; }
 .indicador-guardado.sucio { color: var(--aviso); }
 .ed-estado-previa { color: var(--ok); flex: none; }
 .ed-estado-previa.aviso { color: var(--aviso); }
@@ -440,7 +440,7 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
 .ed-cuerpo.sin-izq.sin-der { grid-template-columns: 64px minmax(0, 1fr); }
 .ed-riel { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; }
 .riel-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; border: 0; border-radius: 8px; background: none;
-  color: var(--tinta-3); font: inherit; font-size: 0.68rem; line-height: 1.15; cursor: pointer; text-align: center; }
+  color: var(--tinta-3); font: inherit; font-size: var(--t-2xs); line-height: 1.15; cursor: pointer; text-align: center; }
 .riel-btn:hover { background: var(--superficie-2); color: var(--tinta); }
 .riel-btn.activo { background: var(--acento-claro); color: var(--acento-texto); }
 .riel-icono { position: relative; display: inline-flex; }
@@ -450,7 +450,7 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
 .riel-texto { overflow-wrap: anywhere; }
 .ed-lado { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
 .ed-lado-cabeza { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--linea); }
-.ed-lado-cabeza h2 { flex: 1; min-width: 0; margin: 0; font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-lado-cabeza h2 { flex: 1; min-width: 0; margin: 0; font-size: var(--t-base); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ed-scroll { flex: 1; overflow: auto; padding: 10px 12px 16px; min-width: 0; }
 /* Dentro de los paneles nada se sale por el borde: las columnas y los selectores se encogen */
 .ed-scroll :deep(.rejilla-2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -458,7 +458,7 @@ const medida = computed(() => (est.diseno ? `${fmtNum(est.diseno.ancho, 1)} × $
 .ed-scroll :deep(input), .ed-scroll :deep(select), .ed-scroll :deep(textarea) { max-width: 100%; min-width: 0; box-sizing: border-box; }
 .ed-centro { position: relative; min-height: 0; min-width: 0; border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
 .ed-abrir-der { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2; box-shadow: var(--sombra-flotante); }
-kbd { font-family: ui-monospace, monospace; font-size: 0.78rem; background: var(--superficie-2); border: 1px solid var(--linea); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; }
+kbd { font-family: ui-monospace, monospace; font-size: var(--t-xs); background: var(--superficie-2); border: 1px solid var(--linea); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; }
 @media (max-width: 1400px) {
   .ed-cuerpo { grid-template-columns: 64px 248px minmax(0, 1fr) 296px; }
   .ed-cuerpo.sin-izq { grid-template-columns: 64px minmax(0, 1fr) 296px; }

@@ -103,13 +103,13 @@ const fondo = ref('cuadros')
 .vp-svg :deep(svg) { box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25); }
 .vp-pie { display: flex; justify-content: space-between; align-items: center; margin-top: -4px; }
 .vp-problemas { display: flex; flex-direction: column; gap: 4px; }
-.vp-problema { display: flex; gap: 8px; align-items: flex-start; text-align: left; border: 1px solid; border-radius: 8px; padding: 7px 9px; font-size: 0.8rem; cursor: pointer;
+.vp-problema { display: flex; gap: 8px; align-items: flex-start; text-align: left; border: 1px solid; border-radius: 8px; padding: 7px 9px; font-size: var(--t-xs); cursor: pointer;
   background: var(--aviso-suave); border-color: var(--aviso-borde); color: var(--aviso); }
 .vp-problema.error { background: var(--error-fondo); border-color: color-mix(in srgb, var(--error) 30%, transparent); color: var(--error); }
 .vp-problema svg { flex: none; margin-top: 1px; }
-.vp-ok { display: flex; gap: 6px; align-items: center; color: var(--ok); font-size: 0.82rem; margin: 0; }
-.vp-valores summary { cursor: pointer; font-size: 0.8rem; color: var(--tinta-2); }
-.vp-valores dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 3px 10px; margin: 8px 0 0; font-size: 0.78rem; }
+.vp-ok { display: flex; gap: 6px; align-items: center; color: var(--ok); font-size: var(--t-sm); margin: 0; }
+.vp-valores summary { cursor: pointer; font-size: var(--t-xs); color: var(--tinta-2); }
+.vp-valores dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 3px 10px; margin: 8px 0 0; font-size: var(--t-xs); }
 .vp-valores dt { color: var(--tinta-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vp-valores dd { margin: 0; overflow-wrap: anywhere; }
 .segmentos { display: flex; }

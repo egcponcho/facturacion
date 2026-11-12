@@ -29,6 +29,9 @@ const MODULO_DEL_PANEL = { envios: 'transporte', contenedores: 'transporte' }
 // Campos propios de una entidad (Configuración → Empresa → Campos propios) y su valor en texto
 export const camposPropios = (entidad) => sesion.usuario?.organizacion?.campos_propios?.[entidad] || []
 export const valorPropio = (c, v) => (v === null || v === undefined || v === '' ? '—' : c.tipo === 'bool' ? (v ? t('Yes') : t('No')) : String(v))
+// Complemento de comercio exterior (módulo «clasificacion»): ficha aduanera, clasificación y acuerdos.
+// Apagado, un producto es solo sus datos y sus variantes.
+export const comercioExterior = () => sesion.usuario?.config?.modulos?.clasificacion !== false
 export const vePanel = (panel) => !(sesion.usuario?.inicio_oculto || []).includes(panel)
   && sesion.usuario?.config?.modulos?.[MODULO_DEL_PANEL[panel]] !== false
 

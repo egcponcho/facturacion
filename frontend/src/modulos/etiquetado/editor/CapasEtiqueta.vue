@@ -65,7 +65,7 @@ function alternar(e, prop) {
 <style scoped>
 .capas-barra { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .capas-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.capa { position: relative; display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+.capa { position: relative; display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 6px; cursor: pointer; font-size: var(--t-xs);
   border: 1px solid transparent; }
 .capa:hover { background: var(--fila-hover); }
 .capa.elegida { background: var(--acento-claro); border-color: var(--acento-medio); }
@@ -74,7 +74,7 @@ function alternar(e, prop) {
 .capa-grupo { position: absolute; left: 2px; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; }
 .capa-icono { color: var(--tinta-3); flex: none; }
 .capa-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.capa-nombre-input { flex: 1; min-width: 0; font-size: 0.8rem; padding: 2px 4px; }
+.capa-nombre-input { flex: 1; min-width: 0; font-size: var(--t-xs); padding: 2px 4px; }
 .capa-btn { border: 0; background: none; padding: 2px; color: var(--tinta-3); opacity: 0.45; cursor: pointer; border-radius: 4px; display: inline-flex; }
 .capa:hover .capa-btn, .capa-btn.activo { opacity: 1; }
 .capa-btn.activo { color: var(--acento); }

@@ -163,23 +163,23 @@ function guardado(opciones) {
 
 <style scoped>
 .mz-barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
-.pildora { border: 1px solid var(--linea); background: var(--superficie); border-radius: 18px; padding: 6px 14px; font: inherit; font-size: 0.86rem; cursor: pointer; color: var(--tinta-2); }
+.pildora { border: 1px solid var(--linea); background: var(--superficie); border-radius: 18px; padding: 6px 14px; font: inherit; font-size: var(--t-sm); cursor: pointer; color: var(--tinta-2); }
 .pildora[aria-pressed='true'] { background: var(--acento-claro); border-color: var(--acento); color: var(--acento-texto); font-weight: 600; }
 .pestanas-pildora { display: flex; gap: 6px; }
-.mz-cobertura { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--aviso); color: var(--aviso); background: var(--aviso-fondo); border-radius: 18px; padding: 5px 12px; font: inherit; font-size: 0.84rem; cursor: pointer; }
+.mz-cobertura { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--aviso); color: var(--aviso); background: var(--aviso-fondo); border-radius: 18px; padding: 5px 12px; font: inherit; font-size: var(--t-sm); cursor: pointer; }
 .mz-cobertura.completa { border-color: var(--ok); color: var(--ok); background: transparent; cursor: default; }
 .mz-marco { overflow-x: auto; border: 1px solid var(--linea); border-radius: var(--radio-panel); background: var(--superficie); }
-.mz { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.mz { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
 .mz th, .mz td { border-bottom: 1px solid var(--linea-suave); padding: 6px 8px; text-align: start; vertical-align: top; }
 .mz thead th { background: var(--superficie-2); position: sticky; top: 0; z-index: 1; min-width: 180px; }
 .mz thead .mz-fila-cab { min-width: 220px; }
 .mz-tipo { display: block; font-weight: 650; }
-.mz-tipo-sub { display: block; font-size: 0.75rem; color: var(--tinta-3); font-weight: 400; }
+.mz-tipo-sub { display: block; font-size: var(--t-xs); color: var(--tinta-3); font-weight: 400; }
 .mz-fila { font-weight: 500; white-space: nowrap; }
 .mz-general .mz-fila { font-weight: 700; }
 .mz-rama { color: var(--tinta-3); margin-inline-end: 4px; }
 .mz-nombre { display: inline; }
-.mz-cuenta { display: block; font-size: 0.75rem; color: var(--tinta-3); font-weight: 400; }
+.mz-cuenta { display: block; font-size: var(--t-xs); color: var(--tinta-3); font-weight: 400; }
 .mz-celda { width: 100%; min-height: 44px; text-align: start; border: 1px solid transparent; border-radius: 8px; background: none; font: inherit; color: inherit;
   padding: 6px 8px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
 .mz-celda:hover, .mz-celda:focus-visible { border-color: var(--acento); background: var(--acento-claro); }
@@ -188,9 +188,9 @@ function guardado(opciones) {
 .mz-hereda { color: var(--tinta-3); }
 .mz-no-lleva { display: inline-flex; gap: 5px; align-items: center; color: var(--tinta-2); font-style: italic; }
 .mz-categoria .mz-fila { font-weight: 400; color: var(--tinta-2); }
-.mz-no-aplica { color: var(--tinta-3); font-size: 0.78rem; font-style: italic; cursor: default; background: repeating-linear-gradient(135deg, transparent 0 6px, var(--superficie-2) 6px 8px); }
+.mz-no-aplica { color: var(--tinta-3); font-size: var(--t-xs); font-style: italic; cursor: default; background: repeating-linear-gradient(135deg, transparent 0 6px, var(--superficie-2) 6px 8px); }
 .mz-falta { color: var(--aviso); display: inline-flex; gap: 5px; align-items: center; font-weight: 600; }
-.mz-extra { font-size: 0.75rem; color: var(--tinta-2); }
+.mz-extra { font-size: var(--t-xs); color: var(--tinta-2); }
 .mz-leyenda { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
 .mz-leyenda span { display: inline-flex; gap: 4px; align-items: center; }
 /* En el celular: una tarjeta por fila con un renglón por tipo */
@@ -200,6 +200,6 @@ function guardado(opciones) {
   .mz thead { display: none; }
   .mz tr { border: 1px solid var(--linea); border-radius: 10px; margin-bottom: 10px; background: var(--superficie); }
   .mz-fila { padding-inline-start: 10px !important; white-space: normal; }
-  .mz td::before { content: attr(data-tipo); display: block; font-size: 0.75rem; color: var(--tinta-3); font-weight: 600; }
+  .mz td::before { content: attr(data-tipo); display: block; font-size: var(--t-xs); color: var(--tinta-3); font-weight: 600; }
 }
 </style>

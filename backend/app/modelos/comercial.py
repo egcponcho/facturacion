@@ -33,9 +33,6 @@ from app.modelos.base import Importe, ahora
 if TYPE_CHECKING:
     from app.modelos.maestros import Contacto
 
-ROLES_TERCERO = ("CLIENTE", "PROVEEDOR", "TRANSPORTISTA", "AGENTE")
-
-
 def _fk_codigo(columna: str, catalogo: str, tabla: str) -> ForeignKeyConstraint:
     return ForeignKeyConstraint(["organizacion_id", columna], [f"{catalogo}.organizacion_id", f"{catalogo}.codigo"],
                                 name=f"fk_{tabla}_{columna}")

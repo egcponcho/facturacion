@@ -54,7 +54,7 @@ const emitir = () => emit('valida', valida.value)
 .fuerza span { display: block; height: 100%; border-radius: 99px; background: var(--error); transition: width 0.2s; }
 .fuerza[data-nivel='media'] span { background: var(--aviso); }
 .fuerza[data-nivel='alta'] span { background: var(--ok); }
-.reglas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 12px; font-size: 0.84rem; }
+.reglas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 12px; font-size: var(--t-sm); }
 .reglas li { display: flex; align-items: center; gap: 6px; color: var(--tinta-3); }
 .reglas li.ok { color: var(--ok); }
 </style>

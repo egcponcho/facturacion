@@ -27,7 +27,7 @@ from app.modulos.documentos.partes import partes
 from app.modulos.facturacion.cantidades import nombre_factura, totales_pl
 from app.modulos.recepcion import recepcion as rec
 from app.modulos.transporte.alcance import condiciones_alcance, en_alcance  # noqa: F401 (la usan otros módulos)
-from app.modulos.transporte.leadtimes import Estandares, _riesgo, entre, limite_puerto
+from app.modulos.transporte.leadtimes import Estandares, _riesgo, entre, familias_de, limite_puerto
 
 ESTADO_POR_EVENTO = {
     "SALIDA": "EN_TRANSITO",
@@ -37,7 +37,7 @@ ESTADO_POR_EVENTO = {
 }
 
 
-def _embarque(db: Session, user: Usuario, embarque_id: int) -> Embarque:
+def cargar_embarque(db: Session, user: Usuario, embarque_id: int) -> Embarque:
     exigir(user, "transporte.gestionar")
     e = db.get(Embarque, embarque_id)
     if not e or not en_alcance(db, user, e):
@@ -96,6 +96,14 @@ def modalidad_embarque(e: Embarque) -> str | None:
     return None if not mods else mods.pop() if len(mods) == 1 else "MIXTO"
 
 
+def _marcas(lineas: list) -> list[str]:
+    """Las marcas de las líneas: su atributo de producto que apunta al catálogo de marcas (foto de la línea)."""
+    from app.modulos.catalogo import servicio as catalogo
+
+    db = object_session(lineas[0]) if lineas else None
+    return sorted({m for x in lineas if (m := catalogo.marca(db, x.atributos))})
+
+
 def resumen_unidad(u: UnidadCarga) -> dict:
     pls = [pl for pl in u.packing_lists if pl.estado != "CANCELADO"]
     cajas = 0
@@ -116,10 +124,10 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         alertas.append(f"The weight exceeds the nominal capacity ({pct_kg}%).")
     ocs = {pl_linea.factura_linea.posicion_oc.oc for pl in pls for pl_linea in pl.lineas}
     grupos: dict[int, set] = {}
-    for pl in pls:
-        for pl_linea in pl.lineas:
-            pos = pl_linea.factura_linea.posicion_oc
-            grupos.setdefault(pos.oc_id, set()).add(pos.grupo)
+    posiciones = [pl_linea.factura_linea.posicion_oc for pl in pls for pl_linea in pl.lineas]
+    familias = familias_de(object_session(u), posiciones)
+    for pos in posiciones:
+        grupos.setdefault(pos.oc_id, set()).add(familias.get(pos.id))
     tiendas = [o.fecha_tienda for o in ocs if o.fecha_tienda]
     e = u.embarque
     ests = Estandares(object_session(u)) if ocs else None
@@ -142,8 +150,7 @@ def resumen_unidad(u: UnidadCarga) -> dict:
         # En tiempo / en riesgo / atrasado frente a la fecha en tienda (None: faltan fechas)
         "estado_tiempo": _riesgo((limite - llegada).days) if limite and llegada else None,
         "llegada_estimada": llegada,
-        "marcas": sorted({pl_linea.factura_linea.marca for pl in pls for pl_linea in pl.lineas
-                          if pl_linea.factura_linea.marca}),
+        "marcas": _marcas([pl_linea.factura_linea for pl in pls for pl_linea in pl.lineas]),
         "recolectados": sum(1 for pl in pls if pl.recolectado_en),
         "tipo": u.tipo,
         "tipo_nombre": t.nombre if t else u.tipo,
@@ -325,7 +332,7 @@ def crear_embarque(db: Session, user: Usuario, datos) -> dict:
 
 
 def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     campos = datos.model_dump(exclude_unset=True)
     motivo = campos.pop("motivo", None)
     if "tipo_transporte" in campos and e.unidades:
@@ -370,7 +377,7 @@ def actualizar_embarque(db: Session, user: Usuario, embarque_id: int, datos) -> 
 def detalle_embarque(db: Session, user: Usuario, embarque_id: int) -> dict:
     from app.modelos import Historial
 
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     historial = db.scalars(
         select(Historial).where(Historial.entidad == "embarque", Historial.entidad_id == e.id)
         .order_by(Historial.fecha.desc())
@@ -442,7 +449,7 @@ def _con_carga(e: Embarque) -> list[UnidadCarga]:
 
 
 def registrar_evento(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     if datos.tipo not in eventos_permitidos(e.estado):
         nombre = listas.nombre("evento_embarque", datos.tipo) or datos.tipo
         raise ErrorNegocio(f"{nombre} cannot be recorded with the shipment in status "
@@ -521,7 +528,7 @@ def cancelar(db: Session, user: Usuario, embarque_id: int, motivo: str | None) -
     """Anula un embarque que no salió: su carga vuelve a estar disponible."""
     exigir(user, "transporte.gestionar")
     motivo = requerir_motivo(motivo, "call off the shipment")
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     EMBARQUE.exigir("cancelar", e.estado)
     for u in e.unidades:
         for pl in list(u.packing_lists):
@@ -546,7 +553,7 @@ def _validar_tipo(db: Session, e: Embarque, codigo: str) -> TipoUnidad:
 
 
 def agregar_unidad(db: Session, user: Usuario, embarque_id: int, datos) -> dict:
-    e = _embarque(db, user, embarque_id)
+    e = cargar_embarque(db, user, embarque_id)
     _exigir_planificado(e, "add containers")
     _validar_tipo(db, e, datos.tipo)
     n = sum(1 for u in e.unidades if u.tipo == datos.tipo) + 1
@@ -625,7 +632,7 @@ def _fila_pl(pl: PackingList) -> dict:
         "puede_confirmar": puede_confirmar,
         "motivo_no_confirmable": motivo,
         "recolectado_en": pl.recolectado_en,
-        "marcas": sorted({x.factura_linea.marca for x in pl.lineas if x.factura_linea.marca}),
+        "marcas": _marcas([x.factura_linea for x in pl.lineas]),
         "ocs": sorted({x.factura_linea.oc_numero for x in pl.lineas}),
         "fecha_xf": min((x.factura_linea.posicion_oc.oc.fecha_xf for x in pl.lineas
                          if x.factura_linea.posicion_oc.oc.fecha_xf), default=None),

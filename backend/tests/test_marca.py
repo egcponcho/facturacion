@@ -38,6 +38,19 @@ def test_marca_valida_y_se_ve_en_el_menu(admin):
         admin.put("/organizacion", {"marca": {"color": "", "titulo": ""}})
 
 
+def test_paleta_de_la_interfaz(admin):
+    """La empresa elige una de las paletas de la interfaz; vacío es la de fábrica."""
+    assert admin.put("/organizacion", {"marca": {"paleta": "rosa"}}).status_code == 422
+    try:
+        r = admin.put("/organizacion", {"marca": {"paleta": "esmeralda"}})
+        assert r.status_code == 200 and r.json()["marca"]["paleta"] == "esmeralda"
+        assert admin.get("/auth/me").json()["organizacion"]["marca"]["paleta"] == "esmeralda"
+        # «indigo» era el nombre de la de fábrica: se guarda como vacío
+        assert admin.put("/organizacion", {"marca": {"paleta": "indigo"}}).json()["marca"]["paleta"] == ""
+    finally:
+        admin.put("/organizacion", {"marca": {"paleta": ""}})
+
+
 def test_papel_y_declaraciones_de_los_documentos(admin, interno):
     assert admin.put("/organizacion", {"documentos": {"papel": "A3"}}).status_code == 422
     assert admin.put("/organizacion", {"documentos": {"logo_en_reportes": "si"}}).status_code == 422

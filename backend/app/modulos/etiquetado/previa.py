@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.errores import ErrorNegocio
 from app.modelos import TipoEtiqueta, Usuario
 from app.modulos.acceso.permisos import exigir, exigir_alguno
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.etiquetado import campos, datos, plantillas, salidas
 from app.modulos.etiquetado import diseno as svc_diseno
 
@@ -33,7 +34,7 @@ def vista_previa(db: Session, user: Usuario, pedido: dict) -> dict:
         posicion = datos.cargar_posicion(db, user, pedido["posicion_id"]) if pedido.get("posicion_id") else None
         oc = datos.cargar_oc(db, user, pedido.get("oc_id") or posicion.oc_id) if (pedido.get("oc_id") or posicion) else None
         articulo = datos.cargar_articulo(db, user, pedido["articulo_id"]) if pedido.get("articulo_id") else \
-            (posicion.articulo if posicion else None)
+            (catalogo.articulo(db, posicion.articulo_id) if posicion else None)
         bulto = None
         if pedido.get("bulto") and oc:
             lista = campos.bultos(db, oc.id)

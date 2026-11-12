@@ -1,51 +1,33 @@
-"""Variantes de un producto de cualquier tipo.
+"""Valores de variante de artículos y líneas de documento.
 
-Cada familia del árbol de grupos de producto dice con qué atributos de variante
-se distinguen las variantes de sus productos (`ejes_variante`, en orden): un
-calzado por color y talla, un químico por concentración y envase, un alimento
-por sabor y presentación. Una familia sin ejes usa los de su padre; sin
-ninguno, valen todos los atributos activos de la empresa.
-
-Las líneas de OC y de factura guardan los valores de variante del artículo
-(`variante`) y su texto se arma en el orden de los atributos («BLACK · 9.5»).
+Las reglas de orden, texto y resumen viven en el catálogo
+(`catalogo/valores.py`); aquí quedan las que reciben objetos (un artículo, una
+línea de OC o de factura) mientras sus usuarios pasan al servicio del catálogo.
 """
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from app.modelos import Articulo, AtributoVariante
-
-SEPARADOR = " · "
-
-
-def atributos(db: Session) -> list[AtributoVariante]:
-    """Los atributos de variante activos, en su orden (una vez por sesión)."""
-    res = db.info.get("atributos_variante")
-    if res is None:
-        res = db.info["atributos_variante"] = list(db.scalars(
-            select(AtributoVariante).where(AtributoVariante.activo.is_(True))
-            .order_by(AtributoVariante.orden, AtributoVariante.codigo)))
-    return res
-
-
-def ejes_de_grupo(grupo) -> list[str]:
-    """Los ejes de la familia o de la primera antecesora que los tenga."""
-    for g in reversed(grupo.ruta() if grupo is not None else []):
-        if g.ejes_variante:
-            return list(g.ejes_variante)
-    return []
+from app.modelos import Articulo
+from app.modulos.catalogo import valores as _valores
+from app.modulos.catalogo.valores import (  # noqa: F401  (los usan quienes aún importan desde aquí)
+    SEPARADOR,
+    aplica,
+    atributos,
+    de_catalogo,
+    de_grupo,
+    ejes_de_grupo,
+    nombres,
+    olvidar,
+    orden_de_valores,
+    ordenados,
+    ordenar,
+    rango,
+    texto,
+)
 
 
-def ejes(db: Session, articulo: Articulo | None = None) -> list[str]:
-    """Con qué atributos se distinguen las variantes del producto del artículo."""
-    propios = ejes_de_grupo(articulo.familia_efectiva) if articulo is not None else []
-    return propios or [a.codigo for a in atributos(db)]
-
-
-def ordenar(db: Session, valores: dict | None) -> dict:
-    """Los valores en el orden de los atributos (los que no son atributos, al final)."""
-    valores = {k: v for k, v in (valores or {}).items() if v not in (None, "")}
-    orden = [a.codigo for a in atributos(db)]
-    return {**{k: valores[k] for k in orden if k in valores}, **{k: v for k, v in valores.items() if k not in orden}}
+def ordenar_producto(db: Session | None, valores: dict | None) -> dict:
+    """Los valores de los atributos de producto en el orden de sus atributos."""
+    return _valores.ordenar(db, valores, "PRODUCTO")
 
 
 def de_articulo(db: Session, a: Articulo | None) -> dict:
@@ -53,15 +35,23 @@ def de_articulo(db: Session, a: Articulo | None) -> dict:
     return ordenar(db, a.variantes) if a is not None else {}
 
 
-def texto(valores: dict | None) -> str:
-    """«BLACK · 9.5»: los valores ya ordenados, separados."""
-    return SEPARADOR.join(str(v) for v in (valores or {}).values() if v not in (None, ""))
+def de_linea(linea, db: Session | None = None) -> dict:
+    """Los valores de variante guardados en una línea de OC o de factura, en orden."""
+    db = db or object_session(linea)
+    if not getattr(linea, "variante", None):
+        return {}
+    return ordenar(db, linea.variante)
 
 
-def nombres(db: Session) -> dict[str, str]:
-    return {a.codigo: a.nombre for a in atributos(db)}
+def _simples(articulos: list) -> list[dict]:
+    return [a.variantes for a in articulos if getattr(a, "tipo", "SOLIDO") != "PREPACK"]
 
 
-def texto_linea(valores: dict | None) -> str | None:
-    """El texto de la variante guardada en una línea de documento (o None)."""
-    return texto(valores) or None
+def por_atributo(db: Session | None, articulos: list, ejes: list[str] | None = None) -> list[dict]:
+    """Las variantes de un producto por atributo (los packs no cuentan): [{codigo, nombre, valores, texto}]."""
+    return _valores.por_atributo(db, _simples(articulos), ejes)
+
+
+def resumen(db: Session | None, articulos: list) -> str:
+    """Las variantes de un producto por atributo, en texto corto (los packs no cuentan)."""
+    return _valores.resumen(db, _simples(articulos))

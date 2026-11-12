@@ -20,6 +20,8 @@ from sqlalchemy.orm import Session
 from app.core import dinero
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PackingList, PosicionOC, UnidadCarga, Usuario
 from app.modulos.acceso.permisos import sociedad_filtro
+from app.modulos.catalogo import servicio as catalogo
+from app.modulos.facturacion.estados import fecha_devengo
 
 # OC cuyo saldo se puede facturar / OC que siguen en el seguimiento
 OC_CON_SALDO = ("APROBADA",)
@@ -29,7 +31,7 @@ EMBARQUE_FINAL = ("RECIBIDO", "CANCELADO")
 
 def moneda_principal(valores: dict) -> str | None:
     """La moneda de la empresa si está entre los importes; si no, la de mayor importe."""
-    from app.modulos.compras.ordenes import moneda_base
+    from app.modulos.compras.importacion import moneda_base
 
     base = moneda_base()
     if not valores:
@@ -110,10 +112,6 @@ def oc_llegada_tarde(filas: list[dict]) -> set:
     return {f["oc_id"] for f in filas if f["riesgo"] == "ATRASO" and f["etapa"] != "RECIBIDO"}
 
 
-def oc_poca_holgura(filas: list[dict]) -> set:
-    return {f["oc_id"] for f in filas if f["riesgo"] == "JUSTO" and f["etapa"] != "RECIBIDO"}
-
-
 ETAPAS_SALDO = ("POR_FACTURAR", "PEND_LIBERACION")
 
 
@@ -124,12 +122,6 @@ def oc_xf_en_rango(filas: list[dict], desde: date | None, hasta: date | None) ->
 
 
 # ---- Facturación -----------------------------------------------------------------------------
-def fecha_devengo():
-    """Fecha en que una factura cuenta como facturada: su fecha de documento o,
-    si no tiene, el día en que se finalizó."""
-    return func.coalesce(Factura.fecha, func.date(Factura.finalizado_en))
-
-
 def facturado(db: Session, user: Usuario, prov, desde: date, hasta: date, marcas: set | None = None) -> dict:
     """Facturas FINALIZADAS con fecha de devengo en el período: importe por
     moneda (líneas redondeadas como el documento), facturas y detalle por
@@ -139,14 +131,15 @@ def facturado(db: Session, user: Usuario, prov, desde: date, hasta: date, marcas
     cond = [Factura.estado == "FINALIZADA", f_dev >= desde, f_dev <= hasta, *sociedad_filtro(user, Factura.sociedad)]
     if prov:
         cond.append(Factura.proveedor_id.in_(prov))
-    if marcas:
-        cond.append(func.coalesce(FacturaLinea.marca, "").in_(marcas))
     filas = db.execute(
-        select(Factura.id, Factura.moneda, f_dev, FacturaLinea.cantidad, FacturaLinea.precio_unitario)
+        select(Factura.id, Factura.moneda, f_dev, FacturaLinea.cantidad, FacturaLinea.precio_unitario, FacturaLinea.atributos)
         .join(FacturaLinea, FacturaLinea.factura_id == Factura.id).where(*cond)
     ).all()
     por_factura: dict[int, dict] = {}
-    for fid, moneda, fecha, cant, precio in filas:
+    for fid, moneda, fecha, cant, precio, atributos in filas:
+        # La marca de la línea: el atributo del producto que apunta al catálogo de marcas (su foto)
+        if marcas and (catalogo.marca(db, atributos) or "") not in marcas:
+            continue
         x = por_factura.setdefault(fid, {"id": fid, "moneda": moneda, "fecha": _como_fecha(fecha), "importe": dinero.CERO})
         x["importe"] += dinero.importe(cant, precio, moneda)
     por_moneda: dict[str, object] = defaultdict(lambda: dinero.CERO)
@@ -165,11 +158,12 @@ def _como_fecha(v) -> date | None:
 
 def marcas_facturadas(db: Session, user: Usuario, prov, desde: date, hasta: date) -> list[str]:
     f_dev = fecha_devengo()
-    cond = [Factura.estado == "FINALIZADA", f_dev >= desde, f_dev <= hasta, FacturaLinea.marca.is_not(None),
+    cond = [Factura.estado == "FINALIZADA", f_dev >= desde, f_dev <= hasta, FacturaLinea.atributos.is_not(None),
             *sociedad_filtro(user, Factura.sociedad)]
     if prov:
         cond.append(Factura.proveedor_id.in_(prov))
-    return sorted(m for (m,) in db.execute(select(FacturaLinea.marca).join(Factura).where(*cond).distinct()).all() if m)
+    return sorted({m for (a,) in db.execute(select(FacturaLinea.atributos).join(Factura).where(*cond)).all()
+                   if (m := catalogo.marca(db, a))})
 
 
 def facturas_terminadas():

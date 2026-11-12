@@ -1,6 +1,7 @@
 """Separación de capas: solo fuentes oficiales determinan qué códigos, textos
 legales, DAI, impuestos y regulaciones existen. El motor interpreta y la empresa
 aporta historial, pero ninguno de los dos crea ni modifica datos oficiales."""
+from conftest import familia_demo
 from sqlalchemy import func, select
 
 from app.core.db import SessionLocal
@@ -358,14 +359,12 @@ def test_uncertain_cases_are_never_approved_automatically(interno, monkeypatch):
 def test_history_preferred_national_line_needs_confirmation(interno):
     """640399 tiene dos líneas oficiales en GT sin condiciones: la que solo el historial
     prefiere es una sugerencia; al aprobar, una persona la confirma."""
-    m = {x["codigo"]: x["id"] for x in interno.get("/catalogos/marcas", params={"size": 100}).json()["items"]}
-    g = {x["codigo"]: x["id"] for x in interno.get("/catalogos/grupos").json()["items"]}
     pv = {x["codigo"]: x["id"] for x in interno.get("/catalogos/proveedores").json()["items"]}
-    r = interno.post("/catalogos/genericos", {"generico": "30077702", "estilo": "VNHIST01", "color": "Black", "marca_id": m["VANS"],
-                                              "grupo_id": g["CALZ-CAS"], "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather court shoe",
-                                              "tallas": [{"talla": "8"}]})
+    r = interno.post("/catalogos/genericos", {"generico": "30077702", "grupo_producto_id": familia_demo(), "atributos": {"MARCA": "VANS", "MODELO": "VNHIST01"},
+                                              "proveedor_id": pv["VANS"], "unidad": "PAR", "nombre": "Leather court shoe",
+                                              "variantes": [{"valores": {"COLOR": "Black", "TALLA": "8"}}]})
     assert r.status_code == 200, r.text
-    p = next(x for x in interno.get("/productos", params={"q": "VNHIST01"}).json()["items"] if x["estilo"] == "VNHIST01")
+    p = next(x for x in interno.get("/productos", params={"q": "VNHIST01"}).json()["items"] if x["codigo_generico"] == "30077702")
     det = interno.get(f"/productos/{p['id']}").json()
     det = interno.put(f"/productos/{p['id']}/ficha", {"version": det["version"], "tipo": "calzado", "pais_origen": "VN", "ficha": {
         "comp": {"corte": "100% leather", "suela": "100% rubber"}, "estilo_calzado": "tenis", "altura": "bajo", "genero": "U", "edad": "adulto"}}).json()
@@ -408,9 +407,9 @@ def test_documents_use_six_digits_never_the_projected_destination(interno):
     from app.modulos.productos.productos import partida_para
 
     with SessionLocal() as db:
-        p = next(x for x in db.scalars(select(Producto)) if x.aprobado and x.partidas)
-        assert partida_para(p) == f"{p.codigo[:4]}.{p.codigo[4:6]}"
-        no_aprobado = next((x for x in db.scalars(select(Producto)) if not x.aprobado), None)
+        p = next(x for x in db.scalars(select(Producto)) if x.comex.aprobado and x.partidas)
+        assert partida_para(p) == f"{p.comex.codigo[:4]}.{p.comex.codigo[4:6]}"
+        no_aprobado = next((x for x in db.scalars(select(Producto)) if not x.comex.aprobado), None)
         if no_aprobado:
             assert partida_para(no_aprobado) is None
         for l in db.scalars(select(FacturaLinea).where(FacturaLinea.partida_arancelaria.is_not(None))):

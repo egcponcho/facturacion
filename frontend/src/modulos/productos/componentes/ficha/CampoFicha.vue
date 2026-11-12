@@ -63,19 +63,19 @@ function numero(e) {
 <style scoped>
 .campo-f { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; min-width: 0; }
 .campo-f.ancho { grid-column: 1 / -1; }
-.lbl-f { font-size: 0.84rem; font-weight: 620; color: var(--tinta); }
+.lbl-f { font-size: var(--t-sm); font-weight: 620; color: var(--tinta); }
 .opcional { font-weight: 400; color: var(--tinta-3); }
-.hint { font-size: 0.78rem; color: var(--tinta-3); }
+.hint { font-size: var(--t-xs); color: var(--tinta-3); }
 .segs { display: flex; flex-wrap: wrap; gap: 6px; }
-.segs button { padding: 6px 12px; font-size: 0.88rem; border: 1px solid var(--linea); border-radius: 7px; background: var(--superficie-2); color: var(--tinta); cursor: pointer; font-family: inherit; }
+.segs button { padding: 6px 12px; font-size: var(--t-sm); border: 1px solid var(--linea); border-radius: 7px; background: var(--superficie-2); color: var(--tinta); cursor: pointer; font-family: inherit; }
 .segs button:hover:not(:disabled) { border-color: var(--acento); }
 .segs button[aria-checked='true'] { background: var(--acento-claro); border-color: var(--acento); color: var(--acento-texto); font-weight: 620; }
 .segs button:disabled { opacity: 0.42; border-style: dashed; background: transparent; cursor: not-allowed; }
 .segs button[aria-checked='true']:disabled { opacity: 1; border-style: solid; }
-.check-f { display: flex; gap: 8px; align-items: flex-start; font-size: 0.9rem; margin-bottom: 12px; cursor: pointer; grid-column: 1 / -1; }
+.check-f { display: flex; gap: 8px; align-items: flex-start; font-size: var(--t-base); margin-bottom: 12px; cursor: pointer; grid-column: 1 / -1; }
 .check-f input { margin-top: 3px; accent-color: var(--acento); }
-.auto-tag { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ok); margin-inline-start: 6px; }
-.disc { margin-inline-start: 6px; font-size: 0.7rem; }
+.auto-tag { font-size: var(--t-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ok); margin-inline-start: 6px; }
+.disc { margin-inline-start: 6px; font-size: var(--t-2xs); }
 .chips-f { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 textarea.entrada { resize: vertical; }
 </style>

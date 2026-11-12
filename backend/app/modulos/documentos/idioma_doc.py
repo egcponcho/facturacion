@@ -53,6 +53,34 @@ def L(texto, *args) -> str:
     return t
 
 
+_PLANTILLAS: list[tuple[re.Pattern, str]] = []
+
+
+def armado(texto: str | None) -> str | None:
+    """Un mensaje ya armado («Missing required values: Qty.») en el idioma del documento: se
+    reconoce por su plantilla («Missing required values: {0}.»). Las partes variables son datos
+    (columnas, códigos) y quedan tal cual."""
+    if not texto or _idioma.get() != "es":
+        return texto
+    es = _cargar()
+    if texto in es:
+        return es[texto]
+    if not _PLANTILLAS:
+        for clave in sorted((k for k in es if "{0}" in k), key=len, reverse=True):
+            partes = re.split(r"\{(\d)\}", clave)
+            patron = "".join(re.escape(x) if i % 2 == 0 else "(.+?)" for i, x in enumerate(partes))
+            _PLANTILLAS.append((re.compile(f"^{patron}$", re.S), clave))
+    for patron, clave in _PLANTILLAS:
+        m = patron.match(texto)
+        if m:
+            orden = [int(x) for x in re.findall(r"\{(\d)\}", clave)]
+            args: list = [None] * (max(orden) + 1)
+            for i, n in enumerate(orden):
+                args[n] = m.group(i + 1)
+            return L(clave, *args)
+    return texto
+
+
 def _celda(v):
     """Una celda de un reporte: se traducen los textos del sistema (estados,
     «Pending»…), no los datos (códigos en mayúsculas, descripciones)."""

@@ -4,12 +4,12 @@ import { api } from '@/nucleo/api'
 // producto, OC): devuelven opciones { valor, texto, sub } de SelectBusqueda.
 export async function buscarArticulos(q) {
   const r = await api.get('/etiquetas/articulos', { q, size: 30 })
-  return r.items.map((a) => ({ valor: a.id, texto: a.sku, sub: [a.descripcion, a.color, a.talla, a.familia].filter(Boolean).join(' · ') }))
+  return r.items.map((a) => ({ valor: a.id, texto: a.sku, sub: [a.descripcion, a.variante, a.familia].filter(Boolean).join(' · ') }))
 }
 
 export async function buscarProductos(q) {
   const r = await api.get('/productos', { q, size: 30 })
-  return (r.items || []).map((p) => ({ valor: p.id, texto: p.estilo || p.nombre, sub: [p.nombre, p.marca, p.proveedor].filter(Boolean).join(' · ') }))
+  return (r.items || []).map((p) => ({ valor: p.id, texto: p.codigo_generico || p.nombre, sub: [p.nombre, p.marca_nombre || p.marca, p.proveedor].filter(Boolean).join(' · ') }))
 }
 
 export async function buscarOrdenes(q) {

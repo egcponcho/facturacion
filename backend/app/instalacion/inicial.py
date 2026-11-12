@@ -75,8 +75,10 @@ def crear_admin(db: Session, email: str, telefono: str | None, password: str) ->
 
 if __name__ == "__main__":
     from app.core.db import SessionLocal
+    from app.core.modulos import cargar
     from app.modulos.acceso.autenticacion import password_temporal
 
+    cargar()  # los módulos se inscriben en sus registros, como al arrancar el servidor
     if len(sys.argv) < 2:
         sys.exit("Uso: python -m app.instalacion.inicial <correo> [celular]")
     clave = password_temporal()

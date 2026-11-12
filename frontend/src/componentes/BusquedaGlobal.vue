@@ -197,19 +197,19 @@ onBeforeUnmount(() => document.removeEventListener('keydown', atajo))
 
 <style scoped>
 .bg-disparador { display: inline-flex; align-items: center; gap: 8px; min-width: 0; height: 36px; padding: 0 8px 0 10px; border: 1px solid var(--linea);
-  border-radius: var(--radio); background: var(--superficie-2); color: var(--tinta-3); cursor: pointer; font: inherit; font-size: 0.86rem; }
+  border-radius: var(--radio); background: var(--superficie-2); color: var(--tinta-3); cursor: pointer; font: inherit; font-size: var(--t-sm); }
 .bg-disparador:hover { border-color: var(--borde-hover); color: var(--tinta-2, var(--tinta-3)); }
 .bg-placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-.bg-kbd { font: inherit; font-size: 0.72rem; padding: 1px 6px; border: 1px solid var(--linea); border-radius: 5px; background: var(--superficie); color: var(--tinta-3); white-space: nowrap; }
+.bg-kbd { font: inherit; font-size: var(--t-2xs); padding: 1px 6px; border: 1px solid var(--linea); border-radius: 5px; background: var(--superficie); color: var(--tinta-3); white-space: nowrap; }
 .bg-fondo { position: fixed; inset: 0; background: var(--velo); z-index: 60; display: flex; justify-content: center; align-items: flex-start; padding: 10vh 16px 16px; }
 .bg-panel { width: 100%; max-width: 640px; background: var(--superficie); border-radius: 14px; box-shadow: var(--sombra-flotante); display: flex; flex-direction: column; max-height: 75vh; overflow: hidden; }
 .bg-entrada { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--linea-suave); color: var(--tinta-3); }
-.bg-entrada input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 1rem; color: var(--tinta, inherit); }
+.bg-entrada input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: var(--t-md); color: var(--tinta, inherit); }
 .bg-cargando { width: 14px; height: 14px; border: 2px solid var(--linea); border-top-color: var(--acento); border-radius: 50%; animation: bg-giro 0.7s linear infinite; }
 @keyframes bg-giro { to { transform: rotate(360deg); } }
 .bg-lista { overflow-y: auto; padding: 6px 8px 10px; }
-.bg-grupo h3 { display: flex; justify-content: space-between; align-items: center; margin: 10px 8px 4px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); }
-.bg-ver-todos { border: 0; background: none; color: var(--acento-texto); font: inherit; font-size: 0.72rem; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.bg-grupo h3 { display: flex; justify-content: space-between; align-items: center; margin: 10px 8px 4px; font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); }
+.bg-ver-todos { border: 0; background: none; color: var(--acento-texto); font: inherit; font-size: var(--t-2xs); text-transform: none; letter-spacing: 0; cursor: pointer; }
 .bg-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: var(--radio); background: none; text-align: start; font: inherit; color: inherit; cursor: pointer; }
 .bg-item[data-activo="1"] { background: var(--acento-claro); }
 .bg-icono { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 7px; background: var(--superficie-2); color: var(--tinta-3); flex: none; }
@@ -217,6 +217,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', atajo))
 .bg-textos b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-textos small { color: var(--tinta-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-ir { color: var(--tinta-3); }
-.bg-nada, .bg-ayuda { margin: 14px 10px; color: var(--tinta-3); font-size: 0.88rem; }
+.bg-nada, .bg-ayuda { margin: 14px 10px; color: var(--tinta-3); font-size: var(--t-sm); }
 @media (max-width: 900px) { .bg-placeholder, .bg-disparador .bg-kbd { display: none; } .bg-disparador { width: 36px; justify-content: center; padding: 0; } }
 </style>

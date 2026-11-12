@@ -133,6 +133,9 @@ class Settings:
     ETIQUETAS_ASINCRONO_DESDE: int = 2000
     ETIQUETAS_MAXIMO_TRABAJO: int = 50000
     ETIQUETAS_PL_SIN_FINALIZAR: bool = False
+    # Cargas masivas (OCs a mano o por una integración): filas como máximo por archivo, para no
+    # procesar en una sola petición más de lo que se puede revisar en la vista previa
+    IMPORTACION_MAX_FILAS: int = 20000
     ETIQUETAS_VALIDAR_EMPAQUE: bool = True
     # Ejecución duradera de los trabajos (trabajos.py): el proceso que genera
     # renueva su arriendo; si deja de hacerlo (se detuvo) otro lo retoma. Cada

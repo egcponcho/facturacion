@@ -108,13 +108,13 @@ async function subir() {
 </template>
 
 <style scoped>
-.pasos-carga { margin: 0 0 12px; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; }
+.pasos-carga { margin: 0 0 12px; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; font-size: var(--t-base); }
 .pasos-carga .btn { margin-inline-start: 8px; }
 .vista-plantilla { margin-bottom: 12px; }
 .vista-plantilla .pestanas-pildora { margin-bottom: 8px; }
 .vista-plantilla .tabla-marco { max-height: 260px; overflow: auto; }
-.vista-plantilla th, .vista-plantilla td { white-space: nowrap; font-size: 0.82rem; }
-.guia-cols { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 4px 12px; font-size: 0.84rem; margin: 8px 0 0; max-height: 220px; overflow: auto; }
+.vista-plantilla th, .vista-plantilla td { white-space: nowrap; font-size: var(--t-sm); }
+.guia-cols { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 4px 12px; font-size: var(--t-sm); margin: 8px 0 0; max-height: 220px; overflow: auto; }
 .guia-cols dt { font-weight: 600; }
 .guia-cols dd { margin: 0; color: var(--tinta-2); }
 .lista-instr { margin: 8px 0 0; padding-inline-start: 18px; }

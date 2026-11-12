@@ -1,5 +1,5 @@
-"""Registros del sistema: historial de cambios, alertas, metas, idempotencia y
-edición exclusiva.
+"""Registros del sistema: historial de cambios, alertas, metas, idempotencia,
+edición exclusiva y respaldo de los datos que una migración retiró.
 """
 from __future__ import annotations
 
@@ -126,3 +126,17 @@ class Reporte(DeOrganizacion, Base):
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, onupdate=ahora)
 
     autor: Mapped[Usuario | None] = relationship(foreign_keys=[creado_por])
+
+
+class RespaldoMigracion(Base):
+    """Datos que una migración retiró de la base (filas de tablas borradas y
+    valores de columnas borradas), tal como estaban: la vuelta atrás de esa
+    migración los devuelve. No se leen en la operación."""
+
+    __tablename__ = "respaldos_migracion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    migracion: Mapped[str] = mapped_column(String(10), index=True)
+    tabla: Mapped[str] = mapped_column(String(60))
+    fila_id: Mapped[int | None] = mapped_column(Integer)
+    datos: Mapped[dict] = mapped_column(JSON)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)

@@ -83,15 +83,15 @@ const contenidoTxt = (g) => (g.items || []).map((i) => `${cantTxt(i.cantidad_por
 .icono { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--acento-claro); color: var(--acento-texto); }
 .cuerpo { min-width: 0; }
 .titulo { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
-.tipo { font-size: 0.8rem; color: var(--tinta-2); }
-.cuantos { font-size: 0.78rem; color: var(--tinta-3); }
-.sub { font-size: 0.78rem; color: var(--tinta-3); }
-.medidas { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--tinta-2); margin-top: 2px; }
+.tipo { font-size: var(--t-xs); color: var(--tinta-2); }
+.cuantos { font-size: var(--t-xs); color: var(--tinta-3); }
+.sub { font-size: var(--t-xs); color: var(--tinta-3); }
+.medidas { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--t-xs); color: var(--tinta-2); margin-top: 2px; }
 .mini { display: inline-flex; align-items: center; gap: 4px; }
 .mini > span { color: var(--tinta-3); }
 .mini :deep(.celda-editable), .mini :deep(input) { width: 70px; }
-.pesos { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.8rem; color: var(--tinta-2); white-space: nowrap; }
-.pesos b { color: var(--tinta); font-size: 0.86rem; }
+.pesos { display: flex; flex-direction: column; align-items: flex-end; font-size: var(--t-xs); color: var(--tinta-2); white-space: nowrap; }
+.pesos b { color: var(--tinta); font-size: var(--t-sm); }
 @media (max-width: 600px) {
   .nodo { grid-template-columns: calc(var(--nivel) * 12px) auto 1fr; }
   .pesos { grid-column: 3; align-items: flex-start; flex-direction: row; gap: 8px; }

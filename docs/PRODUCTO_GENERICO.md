@@ -14,7 +14,7 @@ la base de datos.
 | Atributo de la ficha | Un dato técnico del producto, con tipo: texto, opción, varias opciones, sí/no, número con unidad, composición, país o juego de medidas. | Clasificación → Atributos | `atributos_def`, `atributo_opciones` |
 | Ámbito del atributo | Dónde se pregunta y si es obligatorio: en todo el sistema, en un dominio, un capítulo o partida arancelaria o una categoría (SHOW, REQUIRE, HIDE), con condiciones. | Clasificación → Atributos | `atributo_ambitos` |
 | Producto | El producto con su código propio, su ficha (`ficha`, JSON con un valor por atributo) y sus versiones cerradas. Estilo y color son opcionales. | Productos | `productos`, `producto_versiones` |
-| Atributo de variante | Lo que distingue las variantes de un producto (talla, color, sabor, presentación, concentración, voltaje…). Talla y color vienen de fábrica; la empresa agrega los suyos con tipo: texto, número en una unidad (220 V, 500 ml) o una de sus opciones. Cada familia elige los suyos. | Datos maestros → Atributos de variante; Grupos de producto | `atributos_variante`, `articulo_atributos`, `grupos_producto.ejes_variante` |
+| Atributo de variante | Lo que distingue las variantes de un producto (talla, color, sabor, presentación, concentración, voltaje…). Talla y color vienen de fábrica; la empresa agrega los suyos con tipo: texto, número en una unidad (220 V, 500 ml) o una de sus opciones. Cada atributo vale en sus familias o en todas. | Datos maestros → Atributos; Familias | `atributos`, `atributo_familias`, `articulo_atributos` |
 | Artículo (variante, SKU) | La unidad que se compra: sus datos, los valores de sus atributos de variante y sus campos propios. | Datos maestros → Artículos | `articulos` |
 | Campos propios | Datos que la empresa agrega a artículos, OC, facturas y otros registros (texto, número, fecha, sí/no, opción). | Empresa → Campos propios | `definiciones_campo`, columna `extra` |
 | Unidades de medida | En qué se cuenta o mide cada artículo. Una unidad contable solo admite enteros. Una unidad puede convertirse a una base de la lista (`base`, `equivale`). | Datos maestros → Unidades | `unidades_medida` |
@@ -36,14 +36,17 @@ variante y sus unidades.
   en `articulo_atributos`. Talla y color son dos atributos más (de fábrica); sus
   columnas en el artículo quedan como copia para lo que todavía las lee y se
   sincronizan solas en los dos sentidos.
-- **Los ejes de variante:** cada familia del árbol de grupos de producto define
-  con qué atributos se distinguen sus variantes, en orden (`ejes_variante`):
+- **Los atributos de cada familia:** cada atributo vale en las familias que
+  tiene (y en sus subfamilias y categorías) o en todas si es general
+  (`atributo_familias`, `atributos.general`, migración 0094). Las variantes de
+  un producto se distinguen por los atributos de variante que valen en su
+  familia, en el orden de los atributos:
   - calzado: COLOR, TALLA;
   - químico: CONCENTRACION, ENVASE;
   - alimento: SABOR, PRESENTACION.
 
-  Una familia sin ejes usa los de su padre; sin ninguno, valen todos los
-  atributos activos.
+  Un producto sin familia solo lleva atributos generales. Detalle en
+  `docs/reestructuracion/06-articulos-genericos.md`, sección 8.
 - **Sin repetidos:** dos variantes del mismo producto no pueden tener los mismos
   valores. Comparten estilo, marca y proveedor, y el color solo si el producto
   lo fija.

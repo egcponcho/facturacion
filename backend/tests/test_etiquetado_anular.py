@@ -2,7 +2,7 @@
 registros pendientes para generarlos de nuevo (la ejecución anulada ya no se descarga, no se
 confirma como impresa ni entra en el ZIP del trabajo); reimprimir da copias idénticas de todo
 el lote o de algunos grupos y rangos, y queda en el historial del lote."""
-from etiquetado_util import aprobada, generado, oc_con_articulos, pdf, tipo, trabajo, uso
+from etiquetado_util import aprobada, generado, oc_con_articulos, pdf, problemas, tipo, trabajo, uso
 
 NUMERO = [{"id": "n", "tipo": "texto", "contenido": "{{articulo.sku}} {{etiqueta.numero}}/{{etiqueta.total}}",
            "x": 3, "y": 3, "w": 90, "h": 10}]
@@ -38,6 +38,8 @@ def test_anular_deja_los_registros_pendientes_y_se_genera_de_nuevo(interno, admi
         # Sin motivo, o un proveedor: no
         assert interno.post(f"/etiquetas/generaciones/{g['id']}/anular", {"motivo": " "}).status_code == 422
         assert tnf.post(f"/etiquetas/generaciones/{g['id']}/anular", {"motivo": "Wrong data"}).status_code in (403, 404)
+        resumen = {"origen": "OC", "id": tr["parametros"]["oc_ids"][0]}
+        generadas = interno.get("/etiquetas/resumen", params=resumen).json()["ya_generadas"]
         r = interno.post(f"/etiquetas/generaciones/{g['id']}/anular", {"motivo": "Wrong supplier SKU"})
         assert r.status_code == 200, r.text
         assert r.json()["situacion"] == "ANULADA" and r.json()["motivo_anulacion"] == "Wrong supplier SKU"
@@ -50,6 +52,10 @@ def test_anular_deja_los_registros_pendientes_y_se_genera_de_nuevo(interno, admi
         # Los registros vuelven a estar pendientes y el trabajo se genera de nuevo, en otra ejecución
         tr = interno.get(f"/etiquetas/trabajos/{tr['id']}").json()
         assert tr["estado"] in ("VALIDADO", "PARCIAL") and all(r["estado"] != "GENERADO" for r in tr["registros"])
+        # Un lote anulado no cuenta como «ya generado»: ni en el aviso de cada registro ni en el resumen de la OC
+        tr = interno.post(f"/etiquetas/trabajos/{tr['id']}/validar").json()
+        assert all("ya_generada" not in problemas(r) for r in tr["registros"]), [r["problemas"] for r in tr["registros"]]
+        assert interno.get("/etiquetas/resumen", params=resumen).json()["ya_generadas"] == generadas - 6
         tr = generado(interno, tr)
         assert tr["estado"] == "GENERADO" and [e["situacion"] for e in tr["ejecuciones"]] == ["ANULADA", "GENERADA"]
         assert tr["ejecuciones"][1]["total"] == 6

@@ -14,4 +14,4 @@ VII Enmienda del SAC, versión 6 de agosto de 2025).
 
 Las condiciones de cada inciso se deducen de su texto (puntera metálica, que cubran
 el tobillo o la rodilla, cubrecalzado, para hombres/mujeres/bebés, sombreros); las de
-la base ADOC se conservan cuando el inciso coincide.
+la base anterior de la empresa se conservan cuando el inciso coincide.

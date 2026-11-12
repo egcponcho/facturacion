@@ -104,7 +104,7 @@ async function entrar(o) {
     <template #celda-activa="{ fila: o }"><span class="etiqueta ms-0" :class="o.activa ? 'ok' : ''">{{ o.activa ? t('Active') : t('Suspended') }}</span></template>
     <template #acciones="{ fila: o }">
       <div class="acciones-apiladas">
-        <button v-if="o.activa && o.id !== sesion.usuario?.organizacion?.id" class="btn btn-chico btn-primario" type="button" @click="entrar(o)">{{ t('Enter') }}</button>
+        <button v-if="o.activa && o.id !== sesion.usuario?.organizacion?.id" class="btn btn-chico btn-tinte" type="button" @click="entrar(o)">{{ t('Enter') }}</button>
         <button class="btn btn-chico" type="button" @click="cambiarEstado(o)">{{ o.activa ? t('Suspend') : t('Reactivate') }}</button>
       </div>
     </template>

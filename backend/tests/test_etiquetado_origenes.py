@@ -8,7 +8,8 @@ import zipfile
 
 import pdfplumber
 import pytest
-from etiquetado_util import aprobada, cambiar, generado, tipo, trabajo, uso
+from conftest import con_atributos
+from etiquetado_util import aprobada, cambiar, generado, nueva_familia, tipo, trabajo, uso
 from sqlalchemy import inspect, select
 
 from app.core.db import SessionLocal
@@ -41,16 +42,24 @@ OC = {"id": "oc", "tipo": "campo", "campo": "oc.numero", "prefijo": "PO ", "x": 
 
 @pytest.fixture(scope="module")
 def familia(interno):
-    """Una familia con el grupo de artículos que más líneas de OC tiene."""
-    r = interno.post("/etiquetas/familias", {"codigo": "MASIVO", "nombre": "Bulk family"})
+    """Una familia con los tres productos que más líneas de OC tienen."""
+    from sqlalchemy import func
+
+    from app.modelos import Articulo, PosicionOC, Producto
+
+    r = nueva_familia(interno, "MASIVO", "Bulk family")
     assert r.status_code == 200, r.text
     f = r.json()
-    grupos = sorted(interno.get("/etiquetas/grupos-articulos").json(), key=lambda g: -g["articulos"])
-    ids = [g["id"] for g in grupos[:3] if g["articulos"]]
-    assert interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": f["id"], "grupo_ids": ids}).status_code == 200
+    con_atributos(interno, f["id"])
+    with SessionLocal() as db, en_organizacion(1):
+        antes = {pid: fam for pid, fam in db.execute(
+            select(Producto.id, Producto.grupo_producto_id).join(Articulo, Articulo.producto_id == Producto.id)
+            .join(PosicionOC, PosicionOC.articulo_id == Articulo.id).group_by(Producto.id, Producto.grupo_producto_id)
+            .order_by(func.count(PosicionOC.id).desc(), Producto.id).limit(3))}
+    assert interno.post("/grupos-producto/productos/familia", {"familia_id": f["id"], "ids": list(antes)}).status_code == 200
     yield f
-    for g in grupos[:3]:
-        interno.post("/etiquetas/grupos-articulos/familia", {"familia_id": g["familia_id"], "grupo_ids": [g["id"]]})
+    for pid, fam in antes.items():
+        interno.post("/grupos-producto/productos/familia", {"familia_id": fam, "ids": [pid]})
 
 
 def test_ordenes_de_una_familia_un_pdf_por_oc_y_cada_articulo_una_vez(interno, admin, tnf, familia):

@@ -95,13 +95,13 @@ const numerico = (c) => ['GT', 'GTE', 'LT', 'LTE', 'BETWEEN'].includes(c.operado
 <style scoped>
 .cond-editor { display: grid; gap: 6px; }
 .grupo { border: 1px solid var(--linea); border-radius: var(--radio); padding: 8px 10px; display: grid; gap: 6px; }
-.grupo-tit { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 650; }
+.grupo-tit { font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--tinta-3); font-weight: 650; }
 .fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.y { width: 32px; font-size: 0.74rem; font-weight: 700; color: var(--acento-texto); }
+.y { width: 32px; font-size: var(--t-xs); font-weight: 700; color: var(--acento-texto); }
 .campo { min-width: 200px; flex: 1; }
 .op { width: auto; }
 .val { width: 150px; }
-.neg { display: inline-flex; gap: 4px; align-items: center; font-size: 0.8rem; color: var(--tinta-3); }
-.o { margin: 0; text-align: center; font-weight: 700; font-size: 0.78rem; color: var(--tinta-3); }
+.neg { display: inline-flex; gap: 4px; align-items: center; font-size: var(--t-xs); color: var(--tinta-3); }
+.o { margin: 0; text-align: center; font-weight: 700; font-size: var(--t-xs); color: var(--tinta-3); }
 .acciones { display: flex; gap: 6px; }
 </style>

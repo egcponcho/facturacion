@@ -19,54 +19,27 @@ from sqlalchemy import delete, event, inspect, select, tuple_
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.modelos import (
-    Archivo,
-    Edicion,
-    Embarque,
-    EventoEmbarque,
-    Factura,
-    FacturaLinea,
-    GrupoCajas,
-    GrupoCajasItem,
-    OrdenCompra,
-    PackingList,
-    PartidaPais,
-    PLLinea,
-    PosicionOC,
-    Producto,
-    ProductoDocumento,
-    ProductoFoto,
-    UnidadCarga,
-    Usuario,
-    ahora,
-)
+from app.modelos import Edicion, Usuario, ahora
 from app.modulos.acceso.permisos import permisos_de
 from app.modulos.comun.historial import registrar
 
 VIGENCIA = 120  # segundos sin renovar para que el permiso venza
 
-ENTIDADES = {"factura": Factura, "packing_list": PackingList, "embarque": Embarque, "producto": Producto,
-             "orden": OrdenCompra}
+# Documentos que se editan en exclusiva, los registra cada módulo desde su modulo.py:
+# entidad → modelo; tabla → (entidad, cómo obtener el id del documento); entidad → quién lo ve
+ENTIDADES: dict = {}
+_RAIZ: dict = {}
+_ACCESO: dict = {}
 
-# Para cada tabla: a qué documento pertenece (entidad y cómo obtener su id)
-_RAIZ = {
-    Factura: ("factura", lambda db, o: o.id),
-    FacturaLinea: ("factura", lambda db, o: o.factura_id),
-    Archivo: ("factura", lambda db, o: o.factura_id),
-    PackingList: ("packing_list", lambda db, o: o.id),
-    PLLinea: ("packing_list", lambda db, o: o.pl_id),
-    GrupoCajas: ("packing_list", lambda db, o: o.pl_id),
-    GrupoCajasItem: ("packing_list", lambda db, o: (db.get(GrupoCajas, o.grupo_id) or GrupoCajas()).pl_id),
-    Embarque: ("embarque", lambda db, o: o.id),
-    UnidadCarga: ("embarque", lambda db, o: o.embarque_id),
-    EventoEmbarque: ("embarque", lambda db, o: o.embarque_id),
-    Producto: ("producto", lambda db, o: o.id),
-    PartidaPais: ("producto", lambda db, o: o.producto_id),
-    ProductoFoto: ("producto", lambda db, o: o.producto_id),
-    ProductoDocumento: ("producto", lambda db, o: o.producto_id),
-    OrdenCompra: ("orden", lambda db, o: o.id),
-    PosicionOC: ("orden", lambda db, o: o.oc_id),
-}
+
+def registrar_documento(entidad: str, modelo, partes: dict, verificar_acceso) -> None:
+    """Un módulo registra un documento suyo que se edita en exclusiva: su modelo, sus partes
+    ({modelo: (db, objeto) → id del documento}) y cómo se verifica que el usuario lo ve."""
+    ENTIDADES[entidad] = modelo
+    _RAIZ.update({m: (entidad, f) for m, f in partes.items()})
+    _ACCESO[entidad] = verificar_acceso
+
+
 # Cambios que no son edición del documento (los hace el sistema al tocar otro)
 _NO_CUENTAN = {"version", "actualizado_en"}
 
@@ -96,27 +69,10 @@ def _error(e: Edicion) -> ErrorNegocio:
 
 
 def _verificar_acceso(db: Session, user: Usuario, entidad: str, entidad_id: int) -> None:
-    """Solo pide el permiso quien puede ver el documento."""
-    if entidad == "factura":
-        from app.modulos.facturacion.facturas import cargar_factura
-        cargar_factura(db, user, entidad_id)
-    elif entidad == "packing_list":
-        from app.modulos.empaque.packing import cargar_pl
-        cargar_pl(db, user, entidad_id)
-    elif entidad == "embarque":
-        from app.modulos.transporte.transporte import _embarque
-        _embarque(db, user, entidad_id)
-    elif entidad == "producto":
-        from app.modulos.productos.productos import _producto
-        _producto(db, user, entidad_id)
-    elif entidad == "orden":
-        from app.modulos.acceso.permisos import asegurar_proveedor
-        oc = db.get(OrdenCompra, entidad_id)
-        if not oc:
-            raise ErrorNegocio("The purchase order does not exist.", 404, "no_encontrado")
-        asegurar_proveedor(user, oc.proveedor_id, oc.sociedad)
-    else:
+    """Solo pide el permiso quien puede ver el documento (lo decide el módulo que lo registró)."""
+    if entidad not in _ACCESO:
         raise ErrorNegocio("Unknown document type.", 404, "no_encontrado")
+    _ACCESO[entidad](db, user, entidad_id)
 
 
 def estado(db: Session, user: Usuario, entidad: str, entidad_id: int) -> dict:

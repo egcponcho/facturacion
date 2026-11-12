@@ -20,13 +20,10 @@ from sqlalchemy.orm import Session
 from app.core.empresa import configuracion_actual
 from app.core.errores import ErrorNegocio
 from app.modelos import (
-    Articulo,
     Centro,
     Embarque,
-    EscalaTalla,
     Factura,
     FacturaLinea,
-    GrupoArticulo,
     OrdenCompra,
     Pais,
     PaisArancel,
@@ -146,20 +143,29 @@ USOS_CODIGO = {
     "puertos": [OrdenCompra.puerto_despacho, Embarque.puerto_origen, Embarque.puerto_destino, Centro.puerto,
                 ReglaLeadTime.puerto],
     "regiones": [Pais.region, ReglaLeadTime.region],
-    "categorias": [GrupoArticulo.categoria, EscalaTalla.categoria, PosicionOC.categoria],
     "paises": [OrdenCompra.pais_origen, OrdenCompra.pais_procedencia, PosicionOC.pais_origen, FacturaLinea.pais_origen,
                Sociedad.pais, Centro.pais, Puerto.pais, Proveedor.pais, Transportista.pais, PaisArancel.iso],
     "monedas": [OrdenCompra.moneda, Factura.moneda, Sociedad.moneda],
     "incoterms": [OrdenCompra.incoterm, Factura.incoterm],
     "condiciones_pago": [OrdenCompra.condicion_pago],
-    "unidades": [PosicionOC.unidad, Articulo.unidad, PlantillaCaja.unidad],
+    "unidades": [PosicionOC.unidad, PlantillaCaja.unidad],
     "modos_transporte": [Puerto.tipo, TipoUnidad.modo],
 }
 
 
 def en_uso(db: Session, tipo: str, codigo: str | None) -> bool:
-    return bool(codigo) and any(db.scalar(select(col).where(col == codigo).limit(1)) is not None
-                                for col in USOS_CODIGO.get(tipo, []))
+    if not codigo:
+        return False
+    if any(db.scalar(select(col).where(col == codigo).limit(1)) is not None for col in USOS_CODIGO.get(tipo, [])):
+        return True
+    from app.modulos.catalogo import servicio as catalogo
+
+    if tipo == "unidades" and catalogo.usa_unidad(db, codigo):
+        return True
+    # Un catálogo al que apuntan atributos (las marcas): lo usan los productos que tienen ese valor
+    from app.modelos.maestros import CATALOGOS_ATRIBUTO
+
+    return tipo in CATALOGOS_ATRIBUTO and catalogo.usa_registro_de(db, tipo, codigo)
 
 
 def exigir_sin_uso(db: Session, tipo: str, obj) -> None:

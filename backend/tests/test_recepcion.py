@@ -159,7 +159,7 @@ def test_recepcion_por_contenedor_de_principio_a_fin(admin, interno, client):
     inv = interno.get("/existencias", params={"centro": otra}).json()
     assert any(it["codigo"] == ln["codigo"] and it["recibido"] == mitad + 2 and it["danado"] == 1 for it in inv["items"])
     kardex = interno.get("/existencias/movimientos", params={"centro": otra, "codigo": ln["codigo"],
-                                                             **({"talla": ln["talla"]} if ln["talla"] else {})}).json()
+                                                             }).json()
     assert {m["tipo"] for m in kardex} == {"CONTEO", "AJUSTE"}
     assert trans.get("/existencias").status_code == 403
 

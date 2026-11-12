@@ -152,15 +152,15 @@ const ocultosMarcados = computed(() => [...marcados.value].filter((v) => !opcion
 <style scoped>
 .fc { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 8px; padding: 10px; max-height: min(460px, calc(100vh - 24px));
   background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-panel); box-shadow: var(--sombra-flotante);
-  font-size: 0.9rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--tinta); }
-.fc-titulo { font-size: 0.78rem; font-weight: 650; color: var(--tinta-3); text-transform: uppercase; letter-spacing: 0.04em; }
+  font-size: var(--t-base); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--tinta); }
+.fc-titulo { font-size: var(--t-xs); font-weight: 650; color: var(--tinta-3); text-transform: uppercase; letter-spacing: 0.04em; }
 .fc-buscar, .fc-buscar input { width: 100%; min-width: 0 !important; }
 .fc-lista { overflow: auto; min-height: 60px; max-height: 280px; margin: 0 -4px; }
 .fc-op { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
 .fc-op:hover { background: var(--fila-hover); }
 .fc-todos { font-weight: 600; border-bottom: 1px solid var(--linea-suave); border-radius: 0; margin-bottom: 2px; }
 .fc-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fc-n { font-size: 0.78rem; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+.fc-n { font-size: var(--t-xs); color: var(--tinta-3); font-variant-numeric: tabular-nums; }
 .fc-nada, .fc-nota { margin: 4px 6px; }
 .fc-pie { display: flex; justify-content: flex-end; gap: 6px; padding-top: 6px; border-top: 1px solid var(--linea-suave); }
 </style>

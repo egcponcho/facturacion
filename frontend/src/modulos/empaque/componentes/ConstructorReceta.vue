@@ -192,7 +192,7 @@ const textoCantidad = (i) => (i === 0
 <style scoped>
 .constructor { display: flex; flex-direction: column; gap: 10px; }
 .campo.ancho { grid-column: 1 / -1; }
-.titulo-niveles { margin: 8px 0 0; font-size: 1rem; }
+.titulo-niveles { margin: 8px 0 0; font-size: var(--t-md); }
 .agregar { align-self: flex-start; }
 .niveles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .nivel { margin-inline-start: var(--sangria); border-inline-start: 2px solid var(--linea); padding-inline-start: 8px; }
@@ -200,7 +200,7 @@ const textoCantidad = (i) => (i === 0
 .icono-nivel { color: var(--acento); }
 .tipo { min-width: 150px; }
 .cantidad { width: 80px; }
-.total { color: var(--tinta-3); font-size: 0.88rem; }
+.total { color: var(--tinta-3); font-size: var(--t-sm); }
 .medidas { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; margin: 6px 0 2px; align-items: end; }
 .prueba { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 10px; align-items: end; }
 .avisos { list-style: none; padding: 0; margin: 0; color: var(--aviso); display: flex; flex-direction: column; gap: 2px; }

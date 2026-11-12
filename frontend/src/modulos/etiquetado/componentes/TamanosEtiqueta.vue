@@ -72,7 +72,7 @@ async function guardar(lista) {
 <style scoped>
 .tm { margin-top: 16px; }
 .tm-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.tm-cabeza h3 { margin: 0; font-size: 0.95rem; }
+.tm-cabeza h3 { margin: 0; font-size: var(--t-base); }
 .tm-lista { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .tm-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-width: 640px; }
 .tm-pie { display: flex; gap: 8px; margin-top: 6px; }

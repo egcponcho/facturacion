@@ -108,3 +108,35 @@ def interno(client):
 @pytest.fixture(scope="session")
 def admin(client):
     return Api(client, "admin@demo.com")
+
+
+def con_atributos(api, familia_id):
+    """Una familia de prueba que va a recibir productos de la demostración lleva sus atributos
+    (los que no son generales: color, talla, género…): un producto solo pasa a una familia donde
+    valen los atributos que ya tiene."""
+    codigos = [a["codigo"] for a in api.get("/catalogos/atributos", params={"size": 100}).json()["items"] if not a["general"]]
+    r = api.patch(f"/grupos-producto/{familia_id}", {"atributos": codigos})
+    assert r.status_code == 200, r.text
+
+
+def familia_de(articulo_id=None, producto_id=None):
+    """La familia que tiene ahora el producto (o el producto del artículo), para dejarla como estaba."""
+    from app.core.db import SessionLocal
+    from app.core.organizacion import en_organizacion
+    from app.modelos import Articulo, Producto
+
+    with SessionLocal() as db, en_organizacion(1):
+        p = db.get(Articulo, articulo_id).producto if articulo_id else db.get(Producto, producto_id)
+        return p.familia_etiquetado_id
+
+
+def familia_demo(codigo="FOOTWEAR"):
+    """El id de una familia de la demostración (FOOTWEAR, FOOTWEAR-TECH, APPAREL, ACCESSORIES)."""
+    from sqlalchemy import select
+
+    from app.core.db import SessionLocal
+    from app.core.organizacion import en_organizacion
+    from app.modelos import GrupoProducto
+
+    with SessionLocal() as db, en_organizacion(1):
+        return db.scalar(select(GrupoProducto.id).where(GrupoProducto.codigo == codigo))

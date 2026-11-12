@@ -2,10 +2,9 @@
 
 - Tipos de etiqueta: colgante (obligatoria), sticker de precio, etiqueta de
   caja (obligatoria) y hoja de contenido de OC.
-- Familias: calzado (con una subfamilia técnica) y ropa. La familia se pone de
-  las tres formas posibles: a un grupo de artículos, a un producto y una
-  subfamilia a un producto concreto. La mochila queda sin familia a propósito
-  y lleva un diseño propio de su producto.
+- Familias: las de los productos (demo.py: calzado con una subfamilia técnica,
+  ropa y accesorios). El calzado y la ropa tienen su colgante; la mochila
+  (accesorios) lleva un diseño propio de su producto.
 - Diseños aprobados para cada tipo, uno con una versión nueva esperando
   aprobación.
 - Qué diseño lleva cada cosa: diseños generales, por familia, por producto,
@@ -22,7 +21,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modelos import Articulo, GrupoArticulo, OrdenCompra, PackingList, Producto, Usuario
+from app.modelos import Articulo, Atributo, OrdenCompra, PackingList, Producto, ProductoAtributo, Usuario
 
 # id de elemento, tipo y lo demás: el diseño se valida y completa con diseno.validar
 _TEXTO = {"fuente": "sans", "tam": 9}
@@ -30,13 +29,13 @@ _TEXTO = {"fuente": "sans", "tam": 9}
 
 def _colgante(titulo: str, idioma: str = "en", temporada: bool = False) -> dict:
     elementos = [
-        {"id": "marca", "tipo": "campo", "campo": "articulo.marca", "x": 4, "y": 4, "w": 43, "h": 7,
+        {"id": "marca", "tipo": "campo", "campo": "producto.marca", "x": 4, "y": 4, "w": 43, "h": 7,
          "estilo": {**_TEXTO, "tam": 12, "negrita": True}},
         {"id": "desc", "tipo": "campo", "campo": "articulo.descripcion", "x": 4, "y": 12, "w": 43, "h": 9,
          "estilo": {**_TEXTO, "tam": 8, "multilinea": True}},
-        {"id": "talla", "tipo": "campo", "campo": "articulo.talla", "prefijo": "Size " if idioma == "en" else "Talla ",
+        {"id": "talla", "tipo": "campo", "campo": "articulo.atributo.TALLA", "prefijo": "Size " if idioma == "en" else "Talla ",
          "x": 4, "y": 22, "w": 21, "h": 6, "estilo": {**_TEXTO, "negrita": True}},
-        {"id": "color", "tipo": "campo", "campo": "articulo.color", "x": 26, "y": 22, "w": 21, "h": 6, "estilo": _TEXTO},
+        {"id": "color", "tipo": "campo", "campo": "articulo.atributo.COLOR", "x": 26, "y": 22, "w": 21, "h": 6, "estilo": _TEXTO},
         {"id": "oc", "tipo": "campo", "campo": "oc.numero", "prefijo": "PO ", "x": 4, "y": 29, "w": 43, "h": 5,
          "si_vacio": "ocultar", "estilo": {**_TEXTO, "tam": 7}},
         {"id": "codigo", "tipo": "codigo", "simbologia": "code128", "valor": "{{articulo.sku}}", "x": 4, "y": 36, "w": 43,
@@ -71,7 +70,7 @@ def _caja(titulo: str) -> dict:
          "si_vacio": "ocultar", "estilo": _TEXTO},
         {"id": "contenido", "tipo": "tabla", "coleccion": "bulto.lineas", "x": 5, "y": 32, "w": 92, "h": 70, "alto_fila": 6,
          "desborde": "resumir", "estilo": {**_TEXTO, "tam": 7},
-         "columnas": [{"campo": "sku", "titulo": "SKU", "ancho": 3}, {"campo": "talla", "titulo": "Size", "ancho": 1},
+         "columnas": [{"campo": "sku", "titulo": "SKU", "ancho": 3}, {"campo": "atributo.TALLA", "titulo": "Size", "ancho": 1},
                       {"campo": "cantidad", "titulo": "Qty", "ancho": 1, "alin": "der"}], "totales": ["cantidad"]},
         {"id": "codigo", "tipo": "codigo", "simbologia": "code128",
          "valor": "{{bulto.packing_list}}-{{bulto.numero}}", "x": 5, "y": 108, "w": 92, "h": 38, "legible": True}]}
@@ -90,7 +89,7 @@ def _contenido() -> dict:
 
 
 def sembrar(db: Session) -> None:
-    from app.modulos.etiquetado import familias, plantillas, tipos, trabajos, usos
+    from app.modulos.etiquetado import plantillas, tipos, trabajos, usos
 
     interno = db.scalar(select(Usuario).where(Usuario.email == "interno@demo.com"))
     admin = db.scalar(select(Usuario).where(Usuario.email == "admin@demo.com"))
@@ -99,18 +98,9 @@ def sembrar(db: Session) -> None:
     # ---- Tipos de etiqueta ------------------------------------------------------------------
     t = {x["codigo"]: x for x in tipos.crear_sugeridos(db, admin, [s["codigo"] for s in tipos.SUGERIDOS])}
 
-    # ---- Familias: por grupo, por producto y una subfamilia ------------------------------------
-    calzado = familias.crear(db, admin, {"codigo": "FOOTWEAR", "nombre": "Footwear",
-                                         "descripcion": "Shoes and sandals: hang tag with size and color."})
-    tecnico = familias.crear(db, admin, {"codigo": "FOOTWEAR-TECH", "nombre": "Technical footwear", "padre_id": calzado["id"],
-                                         "descripcion": "Trail and running footwear (inherits the footwear designs)."})
-    ropa = familias.crear(db, admin, {"codigo": "APPAREL", "nombre": "Apparel", "descripcion": "Jackets and fleece."})
-    grupos = {g.codigo: g.id for g in db.scalars(select(GrupoArticulo))}
-    familias.asignar_grupos(db, admin, calzado["id"], [grupos["CALZ-CAS"]])
-    familias.asignar_grupos(db, admin, ropa["id"], [grupos["CHAQ"], grupos["FLEE"]])
-    trail = db.scalar(select(Producto).where(Producto.estilo == "NF0A7W4G"))
-    familias.asignar_productos(db, admin, tecnico["id"], [trail.id])
-    mochila = db.scalar(select(Producto).where(Producto.estilo == "NF0A3VY2"))
+    # ---- Familias del producto (ya creadas con sus atributos y sus productos: demo._familias) ----
+    calzado, ropa = _familia(db, "FOOTWEAR"), _familia(db, "APPAREL")
+    mochila = db.get(Producto, _productos(db, "NF0A3VY2")[0])
 
     # ---- Diseños aprobados -----------------------------------------------------------------
     def diseno(nombre: str, tipo: str, contenido: dict, descripcion: str) -> dict:
@@ -147,7 +137,7 @@ def sembrar(db: Session) -> None:
     uso("CONTENIDO", contenido)
     uso("COLGANTE", colgante_calzado, "FAMILIA", calzado["id"])
     uso("COLGANTE", colgante_ropa, "FAMILIA", ropa["id"])
-    uso("COLGANTE", colgante_ropa, "PRODUCTO", mochila.id)  # sin familia, con diseño propio
+    uso("COLGANTE", colgante_ropa, "PRODUCTO", mochila.id)  # su familia no tiene diseño: lleva uno propio
     uso("COLGANTE", colgante_es, "FAMILIA", calzado["id"], contexto_tipo="PAIS_DESTINO", contexto_valores=["PA"],
         motivo="Customs in Panama ask for Spanish texts on the hang tag.")
     oc_especial = db.scalar(select(OrdenCompra).where(OrdenCompra.estado == "APROBADA").order_by(OrdenCompra.id.desc()))
@@ -190,8 +180,8 @@ def sembrar(db: Session) -> None:
                                          "parametros": {"oc_ids": [oc.id], "familia_id": calzado["id"],
                                                         "tipos": [t["COLGANTE"]["id"]]}})
         _nota(db, j["id"], "Created from the labeling module for the Footwear family; still a draft.")
-    zapatos = list(db.scalars(select(Articulo).join(GrupoArticulo, GrupoArticulo.id == Articulo.grupo_id)
-                              .where(GrupoArticulo.codigo == "CALZ-CAS", Articulo.tipo == "SOLIDO").order_by(Articulo.id).limit(2)))
+    zapatos = list(db.scalars(select(Articulo).where(Articulo.producto_id.in_(_productos(db, "VN000EE3", "VN0A4BV4")),
+                                                     Articulo.tipo == "SOLIDO").order_by(Articulo.id).limit(2)))
     if zapatos:
         j = trabajos.crear(db, interno, {"origen": "ARTICULOS", "nombre": "Footwear hang tags (season missing)",
                                          "parametros": {"articulos": [{"articulo_id": a.id, "cantidad": 6} for a in zapatos],
@@ -200,6 +190,19 @@ def sembrar(db: Session) -> None:
                            "fill it in the Review step.")
         trabajos.validar(db, interno, j["id"])
     db.flush()
+
+
+def _familia(db: Session, codigo: str) -> dict:
+    from app.modelos import GrupoFamilia
+
+    return {"id": db.scalar(select(GrupoFamilia.id).where(GrupoFamilia.codigo == codigo))}
+
+
+def _productos(db: Session, *estilos: str) -> list[int]:
+    """Ids de los productos de esos estilos (su atributo de producto MODELO)."""
+    return list(db.scalars(select(ProductoAtributo.producto_id).join(Atributo, Atributo.id == ProductoAtributo.atributo_id)
+                           .where(Atributo.codigo == "MODELO", ProductoAtributo.valor.in_(estilos))
+                           .order_by(ProductoAtributo.producto_id)))
 
 
 def _nota(db: Session, trabajo_id: int, texto: str) -> None:

@@ -54,9 +54,6 @@ def cargar_motor(db: Session) -> None:
     from app.modulos.clasificacion import busqueda, categorias, materiales, reglas, semilla_familias, traducciones
 
     semilla_familias.sembrar_dominios(db)  # familias y los capítulos donde se clasifican
-    from app.instalacion.base_organizacion import vincular_dominios
-
-    vincular_dominios(db)  # líneas de artículo de fábrica → su dominio
     materiales.sembrar(db)  # clases de material de base con su palabra aduanera
     busqueda.sembrar(db)  # vocabulario de búsqueda en el texto oficial (inglés → español)
     categorias.sembrar(db)
@@ -69,11 +66,14 @@ def cargar_paises(db: Session) -> None:
     """Países ISO 3166-1 (dato compartido de la plataforma): las columnas de
     país de toda la base tienen llave foránea a este catálogo. Solo agrega los
     que faltan; nunca cambia el nombre ni desactiva uno que la plataforma editó."""
-    existentes = set(db.scalars(select(Pais.codigo)))
+    existentes = {p.codigo: p for p in db.scalars(select(Pais))}
     datos = json.loads((REFERENCIA / "paises_iso.json").read_text(encoding="utf-8"))["paises"]
     for p in datos:
-        if p["codigo"] not in existentes:
-            db.add(Pais(codigo=p["codigo"], nombre=p["nombre"], activo=True))
+        x = existentes.get(p["codigo"])
+        if x is None:
+            db.add(Pais(codigo=p["codigo"], nombre=p["nombre"], activo=True, nombre_id_fiscal=p.get("id_fiscal")))
+        elif not x.nombre_id_fiscal and p.get("id_fiscal"):
+            x.nombre_id_fiscal = p["id_fiscal"]  # solo completa: nunca pisa lo que la plataforma editó
     db.flush()
 
 

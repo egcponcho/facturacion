@@ -16,7 +16,10 @@ import Segmentos from '@/componentes/Segmentos.vue'
 // Tablero de un módulo: los indicadores que la persona eligió (o los de su
 // rol), cada uno con su fórmula, su período y su fuente. Los números los
 // calcula el servidor con el alcance de datos del usuario.
-const props = defineProps({ modulo: { type: String, default: '' } })
+// `incrustado`: el tablero es el resumen de su módulo (Compras, Facturación, Logística): sin las
+// pestañas de los demás tableros, que en Análisis se reducen al general y a los que no tienen módulo propio
+const props = defineProps({ modulo: { type: String, default: '' }, incrustado: Boolean })
+const EN_SU_MODULO = new Set(['compras', 'facturacion', 'logistica'])
 const route = useRoute()
 const router = useRouter()
 const d = ref(null)
@@ -29,7 +32,7 @@ const PERIODOS = [[7, t('7 days')], [30, t('30 days')], [90, t('90 days')], [365
 async function cargar() {
   if (!props.modulo) {
     try {
-      modulos.value = await api.get('/tableros')
+      modulos.value = (await api.get('/tableros')).filter((m) => !EN_SU_MODULO.has(m.clave))
       if (modulos.value.length) router.replace({ path: `/tableros/${modulos.value[0].clave}`, query: route.query })
     } catch (e) {
       errorApi(e)
@@ -39,9 +42,9 @@ async function cargar() {
   cargando.value = true
   try {
     d.value = await api.get(`/tableros/${props.modulo}`, { dias: dias.value })
-    modulos.value = d.value.modulos
+    modulos.value = props.incrustado ? [] : d.value.modulos.filter((m) => !EN_SU_MODULO.has(m.clave))
   } catch (e) {
-    errorApi(e)
+    if (!(props.incrustado && e.status === 403)) errorApi(e)
   } finally {
     cargando.value = false
   }
@@ -160,7 +163,7 @@ async function guardar(destino) {
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>{{ t('Indicators') }}</h1>
+      <h1>{{ props.incrustado ? tx(d?.titulo || t('Summary')) : t('Indicators') }}</h1>
       <p>{{ t('How the operation is doing: each figure against the previous period, with its trend.') }}</p>
     </div>
     <div class="acciones">
@@ -174,7 +177,7 @@ async function guardar(destino) {
                  :aria-selected="m.clave === props.modulo">{{ tx(m.titulo) }}</router-link>
   </nav>
 
-  <EstadoVacio v-if="!modulos.length && !cargando" icono="grafica" :titulo="t('No indicators for your role')"
+  <EstadoVacio v-if="props.incrustado ? !d && !cargando : !modulos.length && !cargando" icono="grafica" :titulo="t('No indicators for your role')"
                :texto="t('Indicators appear for the modules your role can see (orders, invoices, shipments, products).')" />
 
   <template v-if="d">
@@ -261,21 +264,21 @@ async function guardar(destino) {
 .rejilla-indicadores { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--e-4); margin-top: var(--e-3); align-items: start; }
 .kpi-tarjeta { margin: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
 .kpi-cifra { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
-.kpi-otras { margin: -6px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--tinta-2); }
-.kpi-desglose { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; }
+.kpi-otras { margin: -6px 0 0; font-size: var(--t-xs); font-weight: 600; color: var(--tinta-2); }
+.kpi-desglose { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--t-xs); }
 .kpi-desglose li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; }
 .kpi-desglose span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tinta-2); }
 .kpi-desglose b { font-variant-numeric: tabular-nums; }
 .kpi-desglose small { color: var(--tinta-3); }
-.kpi-ultimo { margin: -6px 0 0; font-size: 0.78rem; color: var(--tinta-3); }
-.kpi-hoy { height: 44px; display: flex; align-items: flex-end; gap: 6px; padding-bottom: 6px; font-size: 0.8rem; color: var(--tinta-3); border-bottom: 1px dashed var(--linea); }
+.kpi-ultimo { margin: -6px 0 0; font-size: var(--t-xs); color: var(--tinta-3); }
+.kpi-hoy { height: 44px; display: flex; align-items: flex-end; gap: 6px; padding-bottom: 6px; font-size: var(--t-xs); color: var(--tinta-3); border-bottom: 1px dashed var(--linea); }
 .kpi-cabeza { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--e-2); }
 .kpi-cabeza h2 { margin: 0; font-size: var(--t-sm); font-weight: 650; color: var(--tinta-2); }
 .kpi-valor { font-size: var(--t-xl); font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .kpi-pie { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
 .enlace-kpi { display: inline-flex; align-items: center; gap: 2px; font-size: var(--t-sm); }
 .kpi-explicacion { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: var(--e-2) 0 0; padding-top: var(--e-2);
-  border-top: 1px solid var(--linea-suave); font-size: 0.84rem; }
+  border-top: 1px solid var(--linea-suave); font-size: var(--t-sm); }
 .kpi-explicacion dt { color: var(--tinta-3); }
 .kpi-explicacion dd { margin: 0; }
 .lista-kpis { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -283,7 +286,7 @@ async function guardar(destino) {
 .lista-kpis .check { align-items: flex-start; }
 .mover { display: inline-flex; flex: none; }
 .lista-metas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.lista-metas li { display: grid; grid-template-columns: minmax(0, 1fr) 110px 40px; gap: 8px; align-items: center; font-size: 0.86rem; }
+.lista-metas li { display: grid; grid-template-columns: minmax(0, 1fr) 110px 40px; gap: 8px; align-items: center; font-size: var(--t-sm); }
 .panel-rol h3 { margin: 8px 0 4px; font-size: var(--t-sm); }
 .rol-sel { min-width: 220px; flex: 1; }
 </style>

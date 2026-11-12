@@ -1,0 +1,204 @@
+# Artículos genéricos: núcleo mínimo, atributos, códigos y compuestos
+
+Objetivo: que un producto y sus variantes guarden solo lo que tiene cualquier
+producto de cualquier rubro, y que todo lo demás (marca, modelo, talla,
+color, sabor, concentración, presentación…) sea un **atributo** que la
+empresa define. Continúa `05-productos-generico.md` (núcleo mínimo y perfil
+por familia), que había conservado las columnas de rubro; esta etapa las
+retira (migración destructiva **0092**, autorizada, con respaldo y vuelta
+atrás).
+
+## 1. Modelo nuevo
+
+| Tabla | Qué guarda |
+|---|---|
+| `productos` | Núcleo: código del producto (`codigo_generico`), nombre, unidad, familia (`grupo_producto_id`), proveedor (opcional), país de origen; con comercio exterior, la ficha técnica y la clasificación. |
+| `articulos` | La variante, o un pack o kit: código de artículo (`sku`), producto (obligatorio), unidad, peso unitario, descripción, tipo (`SOLIDO` = simple, `PREPACK` = pack o kit), activo. |
+| `atributos` | Los atributos de la empresa. Cada uno vale en sus familias (`atributo_familias`) o en todas (`general`; sección 8) y tiene su **nivel** (`PRODUCTO`: los comparten todas sus variantes; `VARIANTE`: las distinguen) y su **tipo de valor** (texto, número con unidad, una de sus opciones, fecha, sí/no o un registro de un catálogo: la marca apunta a `marcas` y, con proveedor, solo acepta sus marcas). |
+| `producto_atributos` | Valores de los atributos de producto (marca, modelo, material…). |
+| `articulo_atributos` | Valores de los atributos de variante (talla, color, sabor…). |
+| `articulo_codigos` | Los códigos de la variante, varios por variante: `BARRAS` (GTIN/EAN/UPC), `PROVEEDOR` (con su proveedor) y `PACK` (el identificador de un pack, p. ej. `AB12`). |
+| `articulo_componentes` | El contenido de un pack o un kit: el compuesto es el artículo mismo. Un **pack** junta variantes de un mismo producto (es de ese producto); un **kit** junta artículos de cualquier producto (es su propio producto). El contenido no cambia después de creado. |
+| `escalas_valores` | Escalas de cualquier atributo de variante (antes solo tallas): sus valores en orden y la regla de su código (valor × factor, consecutivo o el mismo valor). |
+| `grupos_producto` | La familia: la **única clasificación** del producto (antes había además grupos de artículos y categorías de artículo). Lleva sus atributos (en `atributo_familias`; sus variantes se distinguen por los de variante), los datos que exige a sus productos y los días extra de lead time (antes en el grupo de artículos). |
+
+Las líneas de OC y de factura guardan la **foto** de lo que eran el producto y
+la variante al crearse: `atributos` (los del producto), `variante` (los de la
+variante), `codigo_barras` y `codigo_pack`; la versión del artículo
+(`articulo_versiones`) sigue igual.
+
+En el código, `Articulo` lee del producto `generico`, `proveedor_id` y la
+familia (propiedades híbridas: también sirven en consultas), y lee y escribe
+sus códigos con `codigo(tipo)` / `poner_codigo(tipo, valor)` y sus valores
+con `variantes`.
+
+## 2. Qué se retiró
+
+Tablas: `grupos_articulos`, `categorias_articulo`, `prepacks`,
+`prepack_componentes`, `escalas_talla` y `atributos_variante` (reemplazadas
+por las de arriba) y `familias_etiquetado` y `categorias_etiquetado`
+(congeladas desde 0081).
+
+Columnas: de `articulos` (`generico`, `sku_proveedor`, `upc`, `estilo`,
+`color`, `talla`, `marca_id`, `grupo_id`, `proveedor_id`, `prepack_id`,
+`extra`, familias de etiquetado), de `productos` (`estilo`, `color`,
+`marca_id`, `grupo_id`, familias de etiquetado), de las líneas de OC y de
+factura (`upc`, `estilo`, `color`, `talla`, `marca`, `grupo`, `categoria`,
+`prepack`) y las referencias congeladas de `grupos_producto`.
+
+Pantallas y archivos: el catálogo *Prepacks* (ahora *Nuevo pack o kit* en
+Artículos y su carga masiva), *Grupos de artículos*, *Categorías de
+artículo*, *Atributos de variante* (ahora *Atributos*, con su nivel), las
+plantillas estáticas `plantilla_articulos.csv` y `plantilla_prepacks.csv`
+(se usan las que arma el servidor con los atributos de la empresa) y los
+campos propios de artículos (pasan a ser atributos de variante).
+
+## 3. Migración 0092
+
+1. Respalda en `respaldos_migracion` cada tabla y columna que se borra, tal
+   como estaba.
+2. Crea las tablas nuevas y copia: atributos (mismos ids), valores de
+   variante, `MODELO` (desde estilo) y `MARCA` (desde `marca_id`) solo en las
+   organizaciones que los usaban, códigos (upc → BARRAS, sku_proveedor →
+   PROVEEDOR, el código del prepack → PACK), componentes, escalas (la regla
+   TALLA pasa a VALOR) y la foto de las líneas.
+3. Familia única: el producto sin familia toma la de su grupo de artículos;
+   los días extra del grupo pasan a la familia (el mayor si varios grupos
+   comparten familia; un grupo con días extra y sin familia se vuelve una
+   familia).
+4. `productos.proveedor_id` se completa con el de sus variantes;
+   `articulos.producto_id` pasa a ser obligatorio (una variante sin producto
+   recibe uno con su código).
+5. Renombra las claves guardadas en diseños de etiqueta, reglas de etiquetado
+   y de empaque, campos exigidos por familias, nombres propios de campos,
+   datos obligatorios de la empresa y columnas de línea de los documentos:
+   `articulo.upc` → `articulo.codigo_barras`, `articulo.talla` →
+   `articulo.atributo.TALLA`, `articulo.estilo` → `producto.dato.MODELO`,
+   `articulo.marca` → `producto.marca`, `linea.color` →
+   `linea.atributo.COLOR`, `upc` → `codigo_barras`, `marca_id` →
+   `atributo.MARCA`…
+6. La vuelta atrás recrea la estructura anterior, devuelve lo respaldado y
+   completa con los datos nuevos lo creado después.
+
+## 4. API
+
+| Antes | Ahora |
+|---|---|
+| `/catalogos/atributos_variante` | `/catalogos/atributos` (con `nivel`) |
+| `POST /catalogos/genericos` con `estilo`, `color`, `marca_id`, `grupo_id`, `tallas` | `POST /catalogos/genericos` con `atributos` (`{"MARCA": "VANS", "MODELO": "…"}`), `variantes` (`[{"valores": {"TALLA": "8"}, "codigo_barras": …}]`) o `combinar` |
+| `POST /catalogos/genericos/{gen}/tallas` | `POST /catalogos/genericos/{gen}/variantes` |
+| `/catalogos/prepacks` (tipo CURVA o KIT) | `POST /catalogos/compuestos` (tipo PACK o KIT), `GET /catalogos/compuestos/{id}/componentes`, `/catalogos/compuestos/importar` y `/plantilla` |
+| `/catalogos/escalas/{id}/tallas` | `/catalogos/escalas/{id}/valores` |
+| Filtros de seguimiento `estilo`, `color`, `talla`, `grupo` | `familia`, `atr_<código>` (producto) y `var_<código>` (variante) |
+| Respuestas con `upc`, `sku_proveedor`, `n_prepacks`, `prepacks`, `tallas` | `codigo_barras`, `codigo_proveedor`, `n_compuestos`, `compuestos`, `variantes` |
+
+## 5. Decisiones
+
+- **La marca es un atributo de producto** con tipo catálogo (`marcas`): sigue
+  siendo un catálogo con sus proveedores autorizados, pero ningún código del
+  sistema depende de que se llame MARCA.
+- **El proveedor queda en el producto** (`productos.proveedor_id`): define
+  quién ve y mantiene el producto; el código que el proveedor le da a cada
+  variante va en `articulo_codigos` (PROVEEDOR).
+- **Una sola clasificación**: la familia del producto. Grupos de artículos y
+  categorías se retiraron; la regla de empaque y el lead time usan la familia.
+- **Códigos en una tabla**: una variante puede tener varios códigos de
+  barras; el identificador del pack es un código más.
+- **Ningún atributo de fábrica** para una organización nueva: cada empresa
+  define los suyos. La demostración (y las organizaciones que ya usaban
+  marca, estilo, color o talla) los tienen porque venían de sus datos.
+- La empresa puede volver obligatorio cualquier atributo
+  (`atributo.<código>` en *Datos maestros → Artículos → datos
+  obligatorios*); antes ese gobierno no veía los atributos.
+
+## 6. Lo que se mantuvo a propósito
+
+- `campos` de la familia sigue como JSON (es configuración, no datos que se
+  consulten por valor). Los `ejes_variante` se reemplazaron en 0094 por los
+  atributos de la familia (sección 8).
+- No hay tabla aparte para comercio exterior: la ficha y la clasificación
+  siguen en el producto, ocultas sin el complemento.
+- Los tipos de artículo conservan sus códigos `SOLIDO` y `PREPACK` (se
+  muestran como *Simple* y *Pack o kit*) y `productos.codigo_generico` su
+  nombre, para no tocar índices ni integraciones que los leen.
+- El motor de clasificación sigue leyendo un texto «estilo» de su entrada: es
+  su vocabulario (texto de búsqueda), no una columna del artículo; la ficha
+  le pasa el modelo.
+
+## 7. Revisión de lo que seguía fijo (migración 0093)
+
+Una segunda revisión del módulo buscó reglas, listas y textos que todavía
+suponían un rubro (calzado o ropa):
+
+| Lo que estaba fijo | Ahora |
+|---|---|
+| Sin escala, el código de la variante era siempre «valor × 10 en 3 dígitos» (la regla de las tallas de calzado) | Es una opción de la empresa: *Configuración de productos → Código de variante sin escala de valores* (valor × factor, consecutivo o el mismo valor, con sus dígitos). De fábrica, consecutivo de 3 dígitos. La migración **0093** guarda «× 10» en las empresas que ya tenían artículos, para que nada les cambie |
+| El resumen de variantes y los tramos «S-XL» usaban una lista fija de tallas de ropa (XS, S, M, L, XL…) | Se ordenan con las opciones del atributo y los valores de sus escalas; los números, como números; lo demás, en el orden en que viene |
+| La lista de productos tenía un filtro fijo de marca | Una columna filtrable por cada atributo de producto (marca, modelo, material…) y otra por familia. Se retiró el parámetro `marca_id` de las listas de productos, de la vista por producto y de los artículos del etiquetado |
+| La cabecera del producto mostraba solo la marca | Muestra la familia y todos los atributos del producto |
+| El resumen contaba siempre «variantes sin código de barras» | Solo cuando la empresa o alguna familia exige el código de barras |
+| La portada de configuración mostraba siempre *Marcas* | Solo si un atributo usa el catálogo de marcas o ya hay marcas |
+| La sugerencia de palabra clave descartaba géneros y colores en inglés | Descarta los conectores y los datos propios del producto (sus atributos y los valores de sus variantes) |
+| La plantilla de caja tomaba «PAR» si no se elegía unidad; la lista de empaque nombraba las unidades PAR, UN y CJ a mano; la pantalla tomaba «CJ» como la única unidad de packs | La primera unidad de artículos de la lista; el nombre de cada unidad sale de la lista de unidades; las unidades de packs y kits son las marcadas «solo para packs y kits» |
+
+Se mantuvo: el vocabulario interno del motor de clasificación (sus fuentes de
+texto «estilo» y «tallas» son nombres de sus reglas, configuradas como datos)
+y el tipo de atributo «registro de un catálogo», que por ahora apunta solo al
+catálogo de marcas (las listas propias se cubren con el tipo «una de las
+opciones»).
+
+## 8. Atributos por familia (migración 0094)
+
+Hasta 0093 un atributo valía para todos los productos: crear «Upper material»
+lo ponía también en la mochila y en la chaqueta. La familia solo decía, con sus
+`ejes_variante`, con qué atributos se distinguían sus variantes.
+
+Ahora **cada atributo vale en las familias que tiene** (y en sus subfamilias y
+categorías) **o en todas si es general**:
+
+| Dónde | Qué cambia |
+|---|---|
+| *Datos maestros → Atributos* | Cada atributo pide *Todas las familias* o sus *Familias*. Uno nuevo empieza sin familias: hay que elegirlas o marcarlo para todas. |
+| *Productos → Familias* | Cada familia elige sus atributos de producto y de variante; los generales y los de la familia que la contiene aparecen marcados (no se eligen). La fila de la familia dice sus atributos y por qué se distinguen sus variantes. |
+| *Nuevo producto* y *Editar producto* | Muestran solo los atributos de la familia elegida. Al cambiar la familia de un producto, los atributos de producto que la nueva no lleva se quitan al guardar (se avisa antes). |
+| Servidor | Crear o editar productos, agregar variantes, el catálogo de artículos y la carga masiva rechazan un atributo que no vale en la familia del producto. Un producto sin familia solo lleva atributos generales. |
+| Lo que ya está guardado | Ningún cambio deja valores fuera de su familia: quitarle una familia a un atributo, quitarle atributos a una familia, mover una subfamilia o pasar un producto a otra familia (también desde Etiquetas) se rechaza y dice qué productos lo impiden. |
+
+Modelo: tabla `atributo_familias` (atributo, familia) y columna
+`atributos.general`. `GET /grupos-producto` devuelve de cada nodo sus
+`atributos` (los asignados a él), `atributos_producto` y `ejes` (los de
+producto y de variante que valen en él); `PATCH /grupos-producto/{id}` recibe
+`atributos`. El perfil de un producto (`GET /productos/perfil?grupo_id=`) solo
+trae los atributos de su familia.
+
+La migración **0094** convierte sin perder nada lo que ya valía, por
+organización:
+
+1. los atributos de producto quedan generales;
+2. si ninguna familia tenía ejes, los de variante también (nada cambia);
+3. si no, cada familia recibe los ejes que usaba (los suyos, los heredados o,
+   sin ninguno, todos) que su familia padre no le da ya, y el atributo que
+   valía en todas las familias queda general;
+4. un atributo con valores guardados en una familia donde no valdría se le
+   asigna a esa familia.
+
+`ejes_variante` se respalda en `respaldos_migracion` y se borra; la vuelta atrás
+lo recrea con lo respaldado.
+
+**Demostración rehecha.** Los productos y artículos de la demostración se
+borraron y se crean de nuevo con los mismos servicios que usa la pantalla
+(*Nuevo producto*, *Nuevo pack o kit*), después de crear las familias con sus
+atributos:
+
+| Familia | Atributos de producto | Variantes por |
+|---|---|---|
+| Footwear (y su subfamilia Technical footwear) | Brand, Style, Gender, Upper material | Color, Size |
+| Apparel | Brand, Style, Gender | Color, Size |
+| Bags and accessories | Brand, Style, Capacity (liters) | Color |
+
+Marca y estilo son generales. Cada producto es un estilo con su familia; la
+mochila ya no tiene una «talla OS»: se distingue solo por su color. La chaqueta
+en azul que estaba «observada» es ahora su propio estilo (NF0A84KD, de mujer).
+Solo se rehízo la base de demostración (`python -m app.instalacion.demo`, que
+exige `SEED_DEMO=1` y se niega a borrar una base que no es de demostración): la
+migración no borra artículos de ninguna empresa.

@@ -22,6 +22,7 @@ from app.esquemas import (
     PLQuitar,
 )
 from app.modulos.documentos import documentos, exportar
+from app.modulos.empaque import cajas, contenedores, detalle_pl, estados_pl
 from app.modulos.empaque import packing as svc
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar, leer_subida, plantilla_o_vista
 
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/packing-lists")
 @router.get("/{pl_id}")
 def detalle(pl_id: int, db: Db, user: User):
     """Lista de empaque con sus filas, cajas, pallets, totales, validaciones y acciones permitidas."""
-    return svc.detalle_pl(db, user, pl_id)
+    return detalle_pl.detalle_pl(db, user, pl_id)
 
 
 @router.post("/{pl_id}/agregar")
@@ -61,97 +62,97 @@ def mover_cajas(pl_id: int, datos: PLMoverCajas, db: Db, user: User, clave: Clav
 @router.post("/{pl_id}/empaque/previa")
 def empaque_previa(pl_id: int, datos: EmpaquePrevia, db: Db, user: User):
     """Vista previa del empaque por plantilla: cajas completas y sobrante de cada fila; no guarda."""
-    return svc.empaque_previa(db, user, pl_id, datos)
+    return cajas.empaque_previa(db, user, pl_id, datos)
 
 
 @router.post("/{pl_id}/empaque/aplicar")
 def empaque_aplicar(pl_id: int, datos: EmpaqueAplicar, db: Db, user: User, clave: Clave = None):
     """Crea las cajas completas de cada fila con su plantilla; el sobrante va en caja parcial o sin caja."""
-    return ejecutar(db, user, clave, lambda: svc.aplicar_empaque(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: cajas.aplicar_empaque(db, user, pl_id, datos))
 
 
 @router.post("/{pl_id}/empaque-receta/previa")
 def empaque_receta_previa(pl_id: int, datos: EmpaqueRecetaPrevia, db: Db, user: User):
     """Qué armaría «Empacar según la receta» en cada fila (unidades completas y parciales por nivel); no guarda."""
-    return svc.empaque_receta_previa(db, user, pl_id, datos)
+    return cajas.empaque_receta_previa(db, user, pl_id, datos)
 
 
 @router.post("/{pl_id}/empaque-receta")
 def empaque_receta(pl_id: int, datos: EmpaqueRecetaAplicar, db: Db, user: User, clave: Clave = None):
     """Arma en un paso el árbol de cada fila con los niveles de su receta (inner, caja, pallet…)."""
-    return ejecutar(db, user, clave, lambda: svc.aplicar_empaque_receta(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: cajas.aplicar_empaque_receta(db, user, pl_id, datos))
 
 
 @router.post("/{pl_id}/cajas")
 def crear_caja(pl_id: int, datos: CajaManual, db: Db, user: User, clave: Clave = None):
     """Arma cajas a mano con cantidades sin caja, respetando las reglas de casepack y prepack."""
-    return ejecutar(db, user, clave, lambda: svc.crear_caja(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: cajas.crear_caja(db, user, pl_id, datos))
 
 
 @router.patch("/{pl_id}/cajas")
 def editar_cajas(pl_id: int, datos: EditarCajas, db: Db, user: User, clave: Clave = None):
     """Cambia medidas, tara, pesos, tipo, plantilla o cantidad de las cajas elegidas."""
-    return ejecutar(db, user, clave, lambda: svc.editar_cajas(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: cajas.editar_cajas(db, user, pl_id, datos))
 
 
 @router.post("/{pl_id}/cajas/eliminar")
 def eliminar_cajas(pl_id: int, datos: EliminarCajas, db: Db, user: User, clave: Clave = None):
     """Deshace las cajas elegidas con lo que llevan dentro; su producto queda sin caja."""
-    return ejecutar(db, user, clave, lambda: svc.eliminar_cajas(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: cajas.eliminar_cajas(db, user, pl_id, datos))
 
 
 @router.post("/{pl_id}/pallets")
 def paletizar(pl_id: int, datos: Paletizar, db: Db, user: User, clave: Clave = None):
     """Pone cajas en un pallet (u otro contenedor) nuevo o existente, repartidas por igual."""
-    return ejecutar(db, user, clave, lambda: svc.paletizar(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: contenedores.paletizar(db, user, pl_id, datos))
 
 
 @router.post("/{pl_id}/pallets/quitar")
 def despaletizar(pl_id: int, datos: Despaletizar, db: Db, user: User, clave: Clave = None):
     """Saca cajas de su pallet o vacía un pallet; los contenedores que quedan vacíos se quitan."""
-    return ejecutar(db, user, clave, lambda: svc.despaletizar(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: contenedores.despaletizar(db, user, pl_id, datos))
 
 
 @router.put("/{pl_id}/lineas/{pl_linea_id}/inner")
 def definir_inner(pl_id: int, pl_linea_id: int, datos: InnerPackIn, db: Db, user: User, clave: Clave = None):
     """Define el inner pack de una fila del PL cuando la OC no lo trae y la fila aún no tiene cajas."""
-    return ejecutar(db, user, clave, lambda: svc.definir_inner(db, user, pl_id, pl_linea_id, datos))
+    return ejecutar(db, user, clave, lambda: contenedores.definir_inner(db, user, pl_id, pl_linea_id, datos))
 
 
 @router.put("/{pl_id}/numero")
 def renombrar(pl_id: int, datos: PLNumeroIn, db: Db, user: User, clave: Clave = None):
     """Cambia el número del PL (el del proveedor); único entre los PL vigentes del proveedor."""
-    return ejecutar(db, user, clave, lambda: svc.renombrar(db, user, pl_id, datos))
+    return ejecutar(db, user, clave, lambda: contenedores.renombrar(db, user, pl_id, datos))
 
 
 @router.patch("/{pl_id}/pallets/{pallet_id}")
 def editar_pallet(pl_id: int, pallet_id: int, datos: PalletPatch, db: Db, user: User, clave: Clave = None):
     """Cambia las medidas o la tara de un pallet del PL."""
-    return ejecutar(db, user, clave, lambda: svc.editar_pallet(db, user, pl_id, pallet_id, datos))
+    return ejecutar(db, user, clave, lambda: contenedores.editar_pallet(db, user, pl_id, pallet_id, datos))
 
 
 @router.post("/{pl_id}/cajas/{grupo_id}/plantilla")
 def guardar_plantilla(pl_id: int, grupo_id: int, datos: GuardarPlantilla, db: Db, user: User, clave: Clave = None):
     """Guarda una caja de un solo producto como plantilla de caja del proveedor."""
-    return ejecutar(db, user, clave, lambda: svc.guardar_como_plantilla(db, user, pl_id, grupo_id, datos.nombre))
+    return ejecutar(db, user, clave, lambda: cajas.guardar_como_plantilla(db, user, pl_id, grupo_id, datos.nombre))
 
 
 @router.post("/{pl_id}/finalizar")
 def finalizar(pl_id: int, datos: Finalizar, db: Db, user: User, clave: Clave = None):
     """Finaliza el PL si no le falta nada (todo en cajas, con medidas y pesos); deja de ser editable."""
-    return ejecutar(db, user, clave, lambda: svc.finalizar_pl(db, user, pl_id, datos.version))
+    return ejecutar(db, user, clave, lambda: estados_pl.finalizar_pl(db, user, pl_id, datos.version))
 
 
 @router.post("/{pl_id}/reabrir")
 def reabrir(pl_id: int, datos: ConMotivo, db: Db, user: User, clave: Clave = None):
     """Reabre un PL finalizado para corregirlo (con motivo); si iba en una unidad de carga, sale de ella."""
-    return ejecutar(db, user, clave, lambda: svc.reabrir_pl(db, user, pl_id, datos.motivo))
+    return ejecutar(db, user, clave, lambda: estados_pl.reabrir_pl(db, user, pl_id, datos.motivo))
 
 
 @router.post("/{pl_id}/cancelar")
 def cancelar(pl_id: int, datos: ConMotivo, db: Db, user: User, clave: Clave = None):
     """Cancela el PL (con motivo si ya no es borrador); el proveedor solo cancela borradores."""
-    return ejecutar(db, user, clave, lambda: svc.cancelar_pl(db, user, pl_id, datos.motivo))
+    return ejecutar(db, user, clave, lambda: estados_pl.cancelar_pl(db, user, pl_id, datos.motivo))
 
 
 @router.get("/{pl_id}/exportar")

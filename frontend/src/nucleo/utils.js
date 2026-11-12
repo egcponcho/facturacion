@@ -187,7 +187,9 @@ export async function enfocarUltimo(selector) {
 }
 
 // Variante de una línea o un artículo de cualquier producto: sus valores en orden
-// («BLACK · 9.5», «30 % · 1 L»); sin variante guardada, color y talla
-export const textoVariante = (x) => x?.variante || [x?.color, x?.talla].filter(Boolean).join(' · ')
-// El artículo en una línea: estilo o modelo (si lo usa) y su variante
-export const textoArticulo = (x) => [x?.estilo, textoVariante(x)].filter(Boolean).join(' · ')
+// («BLACK · 9.5», «30 % · 1 L»); un pack, su código
+export const textoVariante = (x) => x?.variante || (x?.codigo_pack ? `pack ${x.codigo_pack}` : '')
+// Los atributos del producto de una línea (modelo, material…) sin la marca, que se muestra aparte
+export const textoProducto = (x) => Object.values(x?.atributos || {}).filter((v) => v && v !== x?.marca).join(' · ')
+// El artículo en una línea: los atributos de su producto y su variante
+export const textoArticulo = (x) => [textoProducto(x), textoVariante(x)].filter(Boolean).join(' · ')

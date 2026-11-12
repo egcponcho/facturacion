@@ -47,10 +47,10 @@ onBeforeUnmount(cerrar)
 .menu-barra-lista { position: fixed; z-index: 70; min-width: 230px; padding: 6px; display: flex; flex-direction: column; gap: 1px;
   background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; box-shadow: var(--sombra-flotante); }
 .menu-barra-lista :deep(button) { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: transparent; text-align: start;
-  padding: 7px 9px; border-radius: 6px; font: inherit; font-size: 0.86rem; color: var(--tinta); cursor: pointer; }
+  padding: 7px 9px; border-radius: 6px; font: inherit; font-size: var(--t-sm); color: var(--tinta); cursor: pointer; }
 .menu-barra-lista :deep(button:hover:not(:disabled)), .menu-barra-lista :deep(button:focus-visible) { background: var(--superficie-2); outline: none; }
 .menu-barra-lista :deep(button:disabled) { opacity: 0.45; cursor: default; }
-.menu-barra-lista :deep(kbd) { margin-inline-start: auto; font-size: 0.72rem; color: var(--tinta-3); font-family: ui-monospace, monospace; }
+.menu-barra-lista :deep(kbd) { margin-inline-start: auto; font-size: var(--t-2xs); color: var(--tinta-3); font-family: ui-monospace, monospace; }
 .menu-barra-lista :deep(hr) { border: 0; border-top: 1px solid var(--linea); margin: 4px 2px; }
-.menu-barra-lista :deep(.mb-seccion) { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); padding: 6px 9px 2px; }
+.menu-barra-lista :deep(.mb-seccion) { font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); padding: 6px 9px 2px; }
 </style>

@@ -10,11 +10,15 @@ clave de cada campo.
 import re
 from datetime import date
 
-from app.core.errores import ErrorNegocio
+from sqlalchemy import select
 
-# Entidad → etiqueta (las de datos maestros son los catálogos del mismo nombre)
+from app.core.errores import ErrorNegocio
+from app.core.tablas import DefinicionCampo
+
+# Entidad → etiqueta (las de datos maestros son los catálogos del mismo nombre). Los productos y
+# sus variantes no tienen campos propios: tienen atributos (Datos maestros → Atributos)
 ENTIDADES = {
-    "articulos": "Items", "proveedores": "Suppliers", "sociedades": "Companies", "centros": "Plants",
+    "proveedores": "Suppliers", "sociedades": "Companies", "centros": "Plants",
     "marcas": "Brands", "transportistas": "Carriers", "ordenes": "Purchase orders", "facturas": "Invoices",
 }
 TIPOS = {"texto": "Text", "numero": "Number", "fecha": "Date", "bool": "Yes / no", "opcion": "Option"}
@@ -98,16 +102,12 @@ def limpiar(entidad: str, valores: dict | None, actuales: dict | None = None, pa
 
 
 # ---- Guardadas en la tabla definiciones_campo ----------------------------------------------
-TABLAS = {"articulos": "articulos", "proveedores": "proveedores", "sociedades": "sociedades", "centros": "centros",
+TABLAS = {"proveedores": "proveedores", "sociedades": "sociedades", "centros": "centros",
           "marcas": "marcas", "transportistas": "transportistas", "ordenes": "ordenes_compra", "facturas": "facturas"}
 
 
 def cargar(db) -> dict:
     """{entidad: [definiciones en su orden]} de la organización de la sesión."""
-    from sqlalchemy import select
-
-    from app.modelos import DefinicionCampo
-
     res: dict[str, list] = {}
     for d in db.scalars(select(DefinicionCampo).order_by(DefinicionCampo.entidad, DefinicionCampo.orden, DefinicionCampo.id)):
         res.setdefault(d.entidad, []).append(
@@ -134,10 +134,6 @@ def guardar(db, definiciones: dict) -> None:
     queda sin campos): conserva las que siguen, agrega las nuevas y quita las
     que ya no están (sus valores en `extra` se conservan, solo dejan de
     mostrarse)."""
-    from sqlalchemy import select
-
-    from app.modelos import DefinicionCampo
-
     for entidad in ENTIDADES:
         campos = definiciones.get(entidad, [])
         actuales = {d.clave: d for d in db.scalars(select(DefinicionCampo).where(DefinicionCampo.entidad == entidad))}

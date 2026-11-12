@@ -94,6 +94,11 @@ def extraer() -> list[str]:
                 if es_texto(t) and re.search(r"[A-Za-z]{3,}", re.sub(r"\{\d\}", "", t)):
                     claves.add(t)
         for n in ast.walk(arbol):
+            # El nombre en singular de un catálogo se muestra aunque sea una sola palabra («attribute»)
+            if isinstance(n, ast.Dict):
+                claves.update(v.value for k, v in zip(n.keys, n.values, strict=True)
+                              if isinstance(k, ast.Constant) and k.value == "singular"
+                              and isinstance(v, ast.Constant) and isinstance(v.value, str))
             if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs and id(n) not in dentro_fstring:
                 # El vocabulario del lector de composiciones (palabras en minúscula) no es texto de pantalla
                 if es_texto(n.value) and not (ruta.name == "composicion.py" and not n.value[:1].isupper()):

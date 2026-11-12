@@ -10,18 +10,19 @@ llevarla a la bodega, darle ingreso y reexportarla (ver leadtimes).
 from datetime import date, timedelta
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core import listas
 from app.core.db import plano
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, Usuario
 from app.modulos.acceso.permisos import proveedor_filtro, sociedad_filtro
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.compras import liberaciones
 from app.modulos.comun import tabla
 from app.modulos.facturacion.cantidades import facturado_por_posicion, nombre_factura
 from app.modulos.seguimiento import metricas
 from app.modulos.transporte import leadtimes as lt
-from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, limite_puerto
+from app.modulos.transporte.leadtimes import Estandares, _riesgo, arribo_estimado, entre, familias_de, limite_puerto
 
 ETAPAS = [
     ("PEND_LIBERACION", "Pending release"),
@@ -34,7 +35,7 @@ ETAPAS = [
     ("ENTREGADO", "Delivered"),
     ("RECIBIDO", "Received"),
 ]
-ORDEN = {"almacen", "grupo", "documento", "marca", "estilo", "color", "talla", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
+ORDEN = {"almacen", "familia", "documento", "marca", "variante", "oc", "cantidad", "etapa", "fecha_xf", "fecha_tienda", "eta",
          "holgura", "embarque", "contenedor", "recolectado_en", "proveedor"}
 TODO = 100_000  # «todas las filas» al calcular sobre la lista completa
 
@@ -109,12 +110,19 @@ def valores_columna(filas: list[dict], columnas: dict, columna: str, q: str | No
 
 
 
-def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None) -> dict:
+def _base(p: PosicionOC, oc: OrdenCompra, hoy: date, est: dict | None = None, fam: catalogo.FichaFamilia | None = None) -> dict:
+    db = object_session(p)
     return {
         "limite_puerto": limite_puerto(oc.fecha_tienda, est) if est else None,
-        "marca": p.marca, "estilo": p.estilo, "color": p.color, "talla": p.talla, "sku": p.codigo_articulo,
-        "variante": " · ".join(str(v) for v in (p.variante or {}).values() if v not in (None, "")) or None,
-        "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen, "grupo": p.grupo,
+        # La marca es el atributo del producto que apunta al catálogo de marcas (foto de la línea)
+        "marca": catalogo.marca(db, p.atributos), "sku": p.codigo_articulo,
+        "atributos": catalogo.ordenar(db, p.atributos, "PRODUCTO"),
+        # Valores de variante por atributo ({"COLOR": "BLACK", "CONC": "30 %"}): los filtros y
+        # opciones salen de aquí, sin suponer qué atributos usa la empresa
+        "variantes": (vals := catalogo.ordenar(db, p.variante)),
+        "variante": catalogo.texto(vals),
+        "oc_id": oc.id, "oc": oc.numero, "estado_oc": oc.estado, "posicion": p.posicion, "precio": p.precio, "moneda": oc.moneda, "almacen": p.almacen,
+        "familia": fam.nombre if fam else None,
         "proveedor": oc.proveedor.nombre, "documento": None, "sociedad": oc.sociedad, "centro": oc.centro,
         "liberacion_comercial": oc.liberacion_comercial, "liberacion_logistica": oc.liberacion_logistica,
         "transportista": None, "puerto_origen": None, "puerto_destino": None,
@@ -152,9 +160,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
     posiciones = list(db.scalars(consulta).all())
     ests = Estandares(db)
 
-    def sin_embarque(fila: dict, oc: OrdenCompra, grupo: str | None = None) -> None:
+    def sin_embarque(fila: dict, oc: OrdenCompra, familia: int | None = None) -> None:
         # Aún sin embarque: se estima el arribo con la XF y el tránsito estándar de su origen
-        est = ests.de_oc(oc, grupo)
+        est = ests.de_oc(oc, familia)
         llegada = arribo_estimado(oc.fecha_xf, est, hoy)
         _en_tienda(fila, llegada, est)
         lim = fila["limite_puerto"]
@@ -163,13 +171,15 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             fila["riesgo"] = _riesgo(fila["holgura"])
 
     facturado = facturado_por_posicion(db, [p.id for p in posiciones])
+    familia = familias_de(db, posiciones)
+    fams = catalogo.familia_de_grupos(db)
     filas = []
     for p in posiciones:
         saldo = p.cantidad - facturado.get(p.id, 0)
         if saldo > 0 and p.oc.estado in metricas.OC_CON_SALDO:
-            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, p.grupo)), "cantidad": saldo,
+            fila = {**_base(p, p.oc, hoy, ests.de_oc(p.oc, familia.get(p.id)), fams.get(familia.get(p.id))), "cantidad": saldo,
                     "etapa": "POR_FACTURAR" if p.oc.liberada else "PEND_LIBERACION"}
-            sin_embarque(fila, p.oc, p.grupo)
+            sin_embarque(fila, p.oc, familia.get(p.id))
             filas.append(fila)
 
     cond = [Factura.estado != "CANCELADA", OrdenCompra.estado.in_(metricas.OC_EN_SEGUIMIENTO),
@@ -183,7 +193,9 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                           .join(Factura).join(PosicionOC, PosicionOC.id == FacturaLinea.posicion_oc_id)
                           .join(OrdenCompra, OrdenCompra.id == PosicionOC.oc_id).where(*cond)).all():
         lineas_pl.setdefault(pll.factura_linea_id, []).append(pll)
-    for fl in db.scalars(consulta).all():
+    lineas_factura = list(db.scalars(consulta).all())
+    familia.update(familias_de(db, [fl.posicion_oc for fl in lineas_factura]))
+    for fl in lineas_factura:
         p = fl.posicion_oc
         oc = p.oc
         f = fl.factura
@@ -193,7 +205,7 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
             if pl.estado == "CANCELADO":
                 continue
             en_pl += pll.cantidad
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, p.grupo)), "cantidad": pll.cantidad, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id)), fams.get(familia.get(p.id))), "cantidad": pll.cantidad, "factura_id": f.id,
                     "factura": nombre_factura(f), "pl_id": pl.id, "pl": pl.numero, "etapa": "EN_PL",
                     "recolectado_en": pl.recolectado_en}
             if pl.recolectado_en and oc.fecha_xf:
@@ -211,48 +223,81 @@ def filas_seguimiento(db: Session, user: Usuario, proveedor_id: int | None = Non
                 llegada = e.arribo_real or e.eta or (
                     entre(e.salida_real or e.etd, ests.de_oc(oc, modo=e.tipo_transporte), "salida", "arribo")
                     if (e.salida_real or e.etd) else arribo_estimado(oc.fecha_xf, ests.de_oc(oc), hoy))
-                _en_tienda(fila, llegada, ests.de_oc(oc, p.grupo, e.tipo_transporte))
+                _en_tienda(fila, llegada, ests.de_oc(oc, familia.get(p.id), e.tipo_transporte))
                 if fila["limite_puerto"] and llegada:
                     fila["holgura"] = (fila["limite_puerto"] - llegada).days
                 fila["riesgo"] = _riesgo(fila["holgura"])
             else:
-                sin_embarque(fila, oc, p.grupo)
+                sin_embarque(fila, oc, familia.get(p.id))
             filas.append(fila)
         resto = fl.cantidad - en_pl
         if resto > 0:
-            fila = {**_base(p, oc, hoy, ests.de_oc(oc, p.grupo)), "cantidad": resto, "factura_id": f.id,
+            fila = {**_base(p, oc, hoy, ests.de_oc(oc, familia.get(p.id)), fams.get(familia.get(p.id))), "cantidad": resto, "factura_id": f.id,
                     "factura": nombre_factura(f), "etapa": "FACTURADO"}
-            sin_embarque(fila, oc, p.grupo)
+            sin_embarque(fila, oc, familia.get(p.id))
             filas.append(fila)
     return filas
 
 
 # Filtros exactos de la vista (valor igual) y rangos de fechas (desde/hasta)
-FILTROS_EXACTOS = ("oc_id", "marca", "estilo", "color", "talla", "almacen", "grupo", "sku", "contenedor", "documento",
+FILTROS_EXACTOS = ("oc_id", "marca", "almacen", "familia", "sku", "contenedor", "documento",
                    "etapa", "riesgo", "embarque_id", "proveedor", "sociedad", "centro", "liberacion_comercial",
                    "liberacion_logistica")
 RANGOS = ("eta", "fecha_xf", "fecha_tienda")
+
+
+# Filtro por atributo de variante (var_<CÓDIGO>=valor1,valor2) o de producto (atr_<CÓDIGO>=…)
+PREFIJO_VARIANTE = "var_"
+PREFIJO_ATRIBUTO = "atr_"
 
 
 def _valores(todas: list[dict], campo: str) -> list:
     return sorted({f[campo] for f in todas if f[campo]}, key=str)
 
 
-def _opciones(todas: list[dict]) -> dict:
+def _orden_valor(v: str):
+    """Números en orden numérico (6.5 antes de 10) y el resto en orden alfabético."""
+    try:
+        return (0, float(str(v).replace(",", ".")), "")
+    except ValueError:
+        return (1, 0.0, str(v))
+
+
+def _atributos_opciones(db: Session, todas: list[dict], clave: str = "variantes", nivel: str = "VARIANTE") -> list[dict]:
+    """Los atributos de variante (o de producto) presentes en las filas, en el orden del
+    catálogo, con sus valores: son los filtros de la pantalla."""
+    nombres = catalogo.nombres_atributos(db)
+    vistos: dict[str, set] = {}
+    for f in todas:
+        for k, v in (f.get(clave) or {}).items():
+            vistos.setdefault(k, set()).add(str(v))
+    orden = [a["codigo"] for a in catalogo.atributos(db, nivel)]
+    claves = [k for k in orden if k in vistos] + sorted(k for k in vistos if k not in orden)
+    return [{"codigo": k, "nombre": nombres.get(k, k), "valores": sorted(vistos[k], key=_orden_valor)} for k in claves]
+
+
+def _liberaciones_opciones(db: Session) -> dict:
+    """Los estados de liberación del catálogo (los códigos que manda el ERP de la empresa)."""
+    lib = liberaciones.de(db)
+    return {tipo: [{"codigo": x.codigo, "nombre": x.nombre, "libera": x.libera} for x in est.lista]
+            for tipo, est in (("comercial", lib.comercial), ("logistica", lib.logistica))}
+
+
+def _opciones(db: Session, todas: list[dict]) -> dict:
     embarques = sorted({(f["embarque_id"], f["embarque"]) for f in todas if f["embarque_id"]})
     return {
         "marcas": _valores(todas, "marca"),
-        "estilos": _valores(todas, "estilo"),
-        "colores": _valores(todas, "color"),
+        "atributos": _atributos_opciones(db, todas),
+        "atributos_producto": _atributos_opciones(db, todas, "atributos", "PRODUCTO"),
+        "liberaciones": _liberaciones_opciones(db),
         "almacenes": _valores(todas, "almacen"),
-        "grupos": _valores(todas, "grupo"),
+        "familias": _valores(todas, "familia"),
         "skus": _valores(todas, "sku"),
         "contenedores": _valores(todas, "contenedor"),
         "documentos": _valores(todas, "documento"),
         "proveedores": _valores(todas, "proveedor"),
         "sociedades": _valores(todas, "sociedad"),
         "centros": _valores(todas, "centro"),
-        "tallas": sorted({f["talla"] for f in todas if f["talla"]}, key=lambda t: (not t.isdigit(), t.zfill(4))),
         "embarques": [{"id": i, "codigo": c} for i, c in embarques],
     }
 
@@ -273,6 +318,13 @@ def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
         if campo in filtros:
             valor = filtros[campo]
             filas = [f for f in filas if _en(f[campo], valor)]
+    for clave, valor in filtros.items():
+        if clave.startswith(PREFIJO_VARIANTE):
+            codigo = clave[len(PREFIJO_VARIANTE):]
+            filas = [f for f in filas if _en((f.get("variantes") or {}).get(codigo, ""), valor)]
+        elif clave.startswith(PREFIJO_ATRIBUTO):
+            codigo = clave[len(PREFIJO_ATRIBUTO):]
+            filas = [f for f in filas if _en((f.get("atributos") or {}).get(codigo, ""), valor)]
     if filtros.get("riesgo"):
         # El riesgo es de lo que aún no llega a bodega: lo recibido ya no está en riesgo
         filas = [f for f in filas if f["etapa"] != "RECIBIDO"]
@@ -285,8 +337,9 @@ def _filtrar(todas: list[dict], filtros: dict) -> list[dict]:
     if filtros.get("q"):
         t = filtros["q"].strip().lower()
         filas = [f for f in filas if any(t in str(f[k] or "").lower()
-                                         for k in ("sku", "oc", "factura", "contenedor", "embarque", "estilo", "pl",
-                                                   "documento", "color"))]
+                                         for k in ("sku", "oc", "factura", "contenedor", "embarque", "pl",
+                                                   "documento", "variante", "marca"))
+                 or any(t in str(v).lower() for v in (f.get("atributos") or {}).values())]
     return filas
 
 
@@ -294,7 +347,7 @@ def seguimiento(db: Session, user: Usuario, proveedor_id: int | None = None, fil
                 orden: str | None = None, page: int = 1, size: int = 25) -> dict:
     filtros = {k: v for k, v in (filtros or {}).items() if v not in (None, "")}
     todas = filas_seguimiento(db, user, proveedor_id)
-    opciones = _opciones(todas)
+    opciones = _opciones(db, todas)
     filas = _filtrar(todas, filtros)
 
     # Resumen: cantidades por etapa y por marca, separadas por unidad de medida
@@ -396,7 +449,7 @@ def embarques(db: Session, user: Usuario, proveedor_id: int | None = None, filtr
     return {
         "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
         "kpis": kpis, "por_estado": [{"clave": k, "nombre": n, "total": por_estado[k]} for k, n in ESTADOS_EMB],
-        "llegadas": semanas, "opciones": _opciones(todas),
+        "llegadas": semanas, "opciones": _opciones(db, todas),
     }
 
 
@@ -479,7 +532,7 @@ def explosion_unidad(db: Session, user: Usuario, unidad_id: int, proveedor_id: i
             "oc_id": f["oc_id"], "oc": f["oc"], "proveedor": f["proveedor"], "sociedad": f["sociedad"],
             "centro": f["centro"], "centro_destino": f["centro_destino"], "fecha_tienda": f["fecha_tienda"],
             "fecha_xf": f["fecha_xf"], "lineas": []})
-        o["lineas"].append({k: f[k] for k in ("posicion", "sku", "marca", "grupo", "estilo", "color", "talla", "variante",
+        o["lineas"].append({k: f[k] for k in ("posicion", "sku", "marca", "familia", "atributos", "variante",
                                               "almacen", "cantidad", "unidad", "tipo_empaque", "factura",
                                               "factura_id", "pl", "pl_id", "holgura", "riesgo")})
     res = []
@@ -561,7 +614,7 @@ def ordenes(db: Session, user: Usuario, proveedor_id: int | None = None, filtros
     return {
         "items": items[(page - 1) * size: page * size], "total": len(items), "page": page, "size": size,
         "kpis": kpis, "estados": [{"clave": k, "nombre": n, "total": resumen[k]} for k, n in ESTADOS_OC],
-        "opciones": _opciones(todas),
+        "opciones": _opciones(db, todas),
     }
 
 
@@ -744,7 +797,7 @@ def valores_documentos(db: Session, user: Usuario, columna: str, q: str | None, 
 
 def _filas_documentos(db: Session, user: Usuario, proveedor_id: int | None, filtros: dict | None) -> tuple[list, dict]:
     """Las filas de documentos con los filtros de la pantalla y las opciones de los filtros."""
-    from app.modulos.empaque.packing import validar_pl
+    from app.modulos.empaque.estados_pl import validar_pl
     from app.modulos.facturacion.cantidades import totales_pl
     from app.modulos.facturacion.estados import EDITABLE_PL
     from app.modulos.facturacion.facturas import validar_factura

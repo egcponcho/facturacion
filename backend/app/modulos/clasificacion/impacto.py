@@ -10,22 +10,24 @@
 from sqlalchemy import select
 
 from app.core.errores import ErrorNegocio
-from app.modelos import CategoriaProducto, Producto, ReglaClasificacion, Usuario
+from app.modelos import CategoriaProducto, Producto, ProductoComex, ReglaClasificacion, Usuario
 from app.modulos.acceso.permisos import exigir
-from app.modulos.productos.productos import APROBADOS, _producto, entrada_producto, fmt_codigo
+from app.modulos.productos.consulta import ver_producto
+from app.modulos.productos.flujo_ficha import entrada_producto
+from app.modulos.productos.productos import APROBADOS, fmt_codigo
 
 LIMITE = 120  # artículos que se vuelven a clasificar en una simulación (los más recientes)
 
 
 def _en_ambito(db, tipo: str, codigo: str):
-    q = select(Producto)
+    q = select(Producto).join(ProductoComex, ProductoComex.producto_id == Producto.id)
     if tipo == "CATEGORY":
-        q = q.where(Producto.tipo == codigo)
+        q = q.where(ProductoComex.tipo == codigo)
     elif tipo == "DOMAIN":
         cats = db.scalars(select(CategoriaProducto.codigo).where(CategoriaProducto.dominio == codigo)).all()
-        q = q.where(Producto.tipo.in_(cats or [""]))
+        q = q.where(ProductoComex.tipo.in_(cats or [""]))
     elif tipo in ("CHAPTER", "HEADING", "SUBHEADING"):
-        q = q.where((Producto.codigo.like(f"{codigo}%")) | (Producto.sugerido.like(f"{codigo}%")))
+        q = q.where((ProductoComex.codigo.like(f"{codigo}%")) | (ProductoComex.sugerido.like(f"{codigo}%")))
     return q.order_by(Producto.actualizado_en.desc())
 
 
@@ -61,7 +63,8 @@ def simular(db, user: Usuario, datos: dict, regla_id: int | None = None) -> dict
         despues = _hs6(db, productos, cat)
     finally:
         punto.rollback()
-    cambian = [{"id": p.id, "estilo": p.estilo, "color": p.color, "estado": p.estado, "aprobado": fmt_codigo(p.codigo) if p.codigo else None,
+    cambian = [{"id": p.id, "nombre": p.nombre, "codigo_generico": p.codigo_generico, "estado": p.comex.estado,
+                "aprobado": fmt_codigo(p.comex.codigo) if p.comex.codigo else None,
                 "antes": fmt_codigo(antes[p.id]) if antes[p.id] else None, "despues": fmt_codigo(despues[p.id]) if despues[p.id] else None}
                for p in productos if antes[p.id] != despues[p.id]]
     return {"en_ambito": total, "evaluados": len(productos), "cambian": cambian,
@@ -73,12 +76,13 @@ def desde_producto(db, user: Usuario, producto_id: int) -> dict:
     from app.modulos.productos.ficha import catalogo
 
     exigir(user, "clasificacion.configurar")
-    p = _producto(db, user, producto_id)
-    hs6 = "".join(ch for ch in str(p.codigo or "") if ch.isdigit())[:6]
-    if p.estado not in APROBADOS or len(hs6) < 6 or not p.tipo:
+    p = ver_producto(db, user, producto_id)
+    c = p.comex
+    hs6 = "".join(ch for ch in str(c.codigo or "") if ch.isdigit())[:6]
+    if c.estado not in APROBADOS or len(hs6) < 6 or not c.tipo:
         raise ErrorNegocio("Only an approved item with a category can become a rule.", 422, "validacion")
     cat = catalogo(db)
-    ficha = p.ficha or {}
+    ficha = c.ficha or {}
     condiciones = []
     for a in cat.atributos:
         v = ficha.get(a.codigo)
@@ -87,7 +91,7 @@ def desde_producto(db, user: Usuario, producto_id: int) -> dict:
         if a.booleano and v is False:
             continue
         condiciones.append({"grupo": 1, "campo": a.codigo, "operador": "EQUAL", "valor": v, "negado": False})
-    c = cat.categorias.get(p.tipo)
-    return {"tipo_regla": "HARD_CONSTRAINT", "tipo_ambito": "CATEGORY", "codigo_ambito": p.tipo, "prioridad": 600,
-            "efecto": f"{c.nombre if c else p.tipo} → {fmt_codigo(hs6)} ({p.estilo})"[:500],
+    k = cat.categorias.get(c.tipo)
+    return {"tipo_regla": "HARD_CONSTRAINT", "tipo_ambito": "CATEGORY", "codigo_ambito": c.tipo, "prioridad": 600,
+            "efecto": f"{k.nombre if k else c.tipo} → {fmt_codigo(hs6)} ({p.nombre or p.codigo_generico})"[:500],
             "accion": {"tipo": "RESTRICT", "codigos": [hs6]}, "condiciones": condiciones[:8]}

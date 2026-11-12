@@ -47,7 +47,7 @@ const modos = computed(() => Object.entries(props.pl.sugerencia_unidades?.modos 
 
 <style scoped>
 .destinos-unidades { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 14px; }
-.destinos-unidades h3 { margin: 0 0 4px; font-size: 0.95rem; }
+.destinos-unidades h3 { margin: 0 0 4px; font-size: var(--t-base); }
 .lista-destinos { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .lista-destinos li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--linea); border-radius: 8px; }
 .lista-destinos b { display: flex; align-items: center; gap: 6px; }

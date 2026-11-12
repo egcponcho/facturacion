@@ -19,16 +19,19 @@ ENTIDADES = {
     "unidad": "Load unit", "producto": "Product", "usuario": "User", "rol": "Role", "proveedores": "Supplier",
     "organizacion": "Company settings", "alerta": "Alert", "plantilla_caja": "Packing template",
     "aranceles": "Tariff schedule", "clasificacion": "Classification engine", "conocimiento": "Classification engine",
-    "flujo": "Classification workflow", "traduccion": "Translations", "genericos": "Generic items", "prepacks": "Prepacks",
+    "flujo": "Classification workflow", "traduccion": "Translations", "genericos": "Products", "compuestos": "Packs and kits",
     "importacion_oc": "PO import", "perfil_importacion": "Import profile",
 }
 
 
-def _nombre(entidad: str) -> str:
-    """Nombre de la entidad (los catálogos de datos maestros usan su título)."""
-    from app.modulos.maestros.catalogos import CATALOGOS
+def registrar_entidades(nombres: dict[str, str]) -> None:
+    """Un módulo agrega el nombre legible de sus entidades (datos maestros: el título de cada catálogo)."""
+    for clave, nombre in nombres.items():
+        ENTIDADES.setdefault(clave, nombre)
 
-    return ENTIDADES.get(entidad) or CATALOGOS.get(entidad, {}).get("titulo") or entidad
+
+def _nombre(entidad: str) -> str:
+    return ENTIDADES.get(entidad) or entidad
 
 
 # Filtro por columna de la bitácora (app/modulos/comun/tabla.py): la fecha, por

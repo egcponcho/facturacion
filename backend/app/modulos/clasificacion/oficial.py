@@ -226,6 +226,11 @@ def importar(db: Session, contenido: bytes, usuario: Usuario | None = None, nomb
         if _txt(f.get("legal_basis")):
             x.base_legal = _txt(f.get("legal_basis"))[:300]
         x.mcca = "common market" in (x.contexto or "").lower()
+        # Nombres aduaneros del país: los del paquete si los trae; si no, los de la
+        # integración centroamericana (SAC y DAI) cuando el país la declara
+        centroamericano = "central american" in (x.contexto or "").lower()
+        x.nomenclatura = _txt(f.get("nomenclature")) or x.nomenclatura or ("SAC" if centroamericano else None)
+        x.nombre_derecho = _txt(f.get("duty_name")) or x.nombre_derecho or ("DAI" if centroamericano else None)
         x.nota = _txt(f.get("implementation_note")) or x.nota
         if f.get("active") is not None:
             x.activo = _si(f.get("active"))
@@ -451,11 +456,6 @@ def problemas_version(v: VersionDataset | None) -> list[str]:
     if v.estado == "PUBLICADA" and not v.vigente_desde:
         out.append(f"Version {v.codigo} is published without its validity (valid from).")
     return out
-
-
-def exigir_trazable(v: VersionDataset | None) -> None:
-    if p := problemas_version(v):
-        raise ErrorNegocio("Official data needs a traceable source: " + " ".join(p), 422, "fuente_no_trazable", [{"mensaje": x} for x in p])
 
 
 def verificar_fuente(db: Session, user: Usuario, fuente_id: int, datos: dict) -> dict:

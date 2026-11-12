@@ -69,15 +69,15 @@ const marca = (p, i) => (i === props.actual ? 'actual' : p.errores ? 'error' : p
 .as-cabeza { display: flex; align-items: flex-start; gap: 12px; }
 .as-titulos { flex: 1; min-width: 0; }
 .as-titulos h1 { margin: 2px 0 0; }
-.as-guardado { color: var(--tinta-3); font-size: 0.84rem; white-space: nowrap; align-self: center; }
+.as-guardado { color: var(--tinta-3); font-size: var(--t-sm); white-space: nowrap; align-self: center; }
 .as-barra { height: 4px; border-radius: 4px; background: var(--linea-suave); overflow: hidden; }
 .as-barra > div { height: 100%; background: var(--acento); transition: width 0.2s ease-out; }
 .as-pasos ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
 .as-paso { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta-2);
-  border-radius: 20px; padding: 4px 12px 4px 4px; font: inherit; font-size: 0.85rem; cursor: pointer; }
+  border-radius: 20px; padding: 4px 12px 4px 4px; font: inherit; font-size: var(--t-sm); cursor: pointer; }
 .as-paso:hover:not(:disabled) { border-color: var(--borde-hover); }
 .as-paso:disabled { cursor: default; opacity: 0.6; }
-.as-marca { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--linea-suave); font-size: 0.78rem; font-weight: 650; }
+.as-marca { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--linea-suave); font-size: var(--t-xs); font-weight: 650; }
 .as-paso.actual { border-color: var(--acento); color: var(--acento-texto); background: var(--acento-claro); font-weight: 620; }
 .as-paso.actual .as-marca { background: var(--acento); color: var(--sobre-acento); }
 .as-paso.completo .as-marca { background: var(--ok-fondo); color: var(--ok); }
@@ -91,7 +91,7 @@ const marca = (p, i) => (i === props.actual ? 'actual' : p.errores ? 'error' : p
   /* Pantalla completa: el asistente tapa el menú y se desplaza solo su contenido */
   .asistente { position: fixed; inset: 0; z-index: 48; max-width: none; gap: 10px; padding: 12px 16px 0; background: var(--papel); }
   .as-cuerpo { flex: 1; overflow-y: auto; margin: 0 -16px; padding: 0 16px 12px; }
-  .as-titulos h1 { font-size: 1.25rem; }
+  .as-titulos h1 { font-size: var(--t-lg); }
   .as-guardado { display: none; }
   .as-pasos ol { flex-wrap: nowrap; overflow-x: auto; }
   .as-paso { padding: 4px; }

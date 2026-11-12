@@ -102,8 +102,8 @@ function alternarOtra(o) {
 .frase-fecha, .frase-motivo { display: flex; gap: 6px; align-items: center; }
 .frase-motivo { flex: 1 1 240px; }
 .frase-motivo input { flex: 1; min-width: 0; }
-.frase-otras { font-size: 0.86rem; }
-.frase-pie { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.86rem; }
+.frase-otras { font-size: var(--t-sm); }
+.frase-pie { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: var(--t-sm); }
 .ok-txt { color: var(--ok); }
 .aviso-txt { color: var(--aviso); }
 .error-txt { color: var(--error); }

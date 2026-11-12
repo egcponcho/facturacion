@@ -247,7 +247,7 @@ async function descartar(b) {
 <style scoped>
 .guia { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }
 .guia-lado { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 10px; }
-.guia-progreso { margin: 0; font-size: 0.8rem; color: var(--tinta-2); font-weight: 600; }
+.guia-progreso { margin: 0; font-size: var(--t-xs); color: var(--tinta-2); font-weight: 600; }
 .guia-barra { height: 6px; border-radius: 3px; background: var(--superficie-2); overflow: hidden; }
 .guia-barra span { display: block; height: 100%; background: var(--ok); transition: width 0.3s; }
 .guia-pasos { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; position: relative; }
@@ -256,31 +256,31 @@ async function descartar(b) {
 .guia-paso:hover { background: var(--fila-hover); }
 .guia-paso.actual { background: var(--superficie); border-color: var(--acento-medio); box-shadow: 0 1px 2px rgb(0 0 0 / 5%); }
 .guia-num { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--linea);
-  font-size: 0.75rem; font-weight: 700; color: var(--tinta-2); background: var(--superficie); }
+  font-size: var(--t-xs); font-weight: 700; color: var(--tinta-2); background: var(--superficie); }
 .guia-paso.actual .guia-num { border-color: var(--acento); color: var(--acento-texto); }
 .guia-paso.listo .guia-num { background: var(--ok); border-color: var(--ok); color: #fff; }
 .guia-paso.falta .guia-num { border-color: var(--aviso); color: var(--aviso); }
 .guia-texto { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.guia-texto strong { font-size: 0.86rem; }
-.guia-texto small { font-size: 0.76rem; color: var(--tinta-3); }
+.guia-texto strong { font-size: var(--t-sm); }
+.guia-texto small { font-size: var(--t-xs); color: var(--tinta-3); }
 .guia-paso.falta .guia-texto small { color: var(--aviso); }
 .guia-borradores { margin-top: 10px; padding: 12px; border: 1px dashed var(--linea); border-radius: 10px; }
-.guia-borradores h3 { margin: 0; font-size: 0.85rem; }
-.guia-borradores .ayuda { margin: 2px 0 8px; font-size: 0.76rem; }
-.guia-borrador { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--linea); font-size: 0.82rem; }
+.guia-borradores h3 { margin: 0; font-size: var(--t-sm); }
+.guia-borradores .ayuda { margin: 2px 0 8px; font-size: var(--t-xs); }
+.guia-borrador { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--linea); font-size: var(--t-sm); }
 .guia-borrador a, .guia-borrador > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.guia-borrador small { grid-column: 1; color: var(--tinta-3); font-size: 0.74rem; }
+.guia-borrador small { grid-column: 1; color: var(--tinta-3); font-size: var(--t-xs); }
 .guia-borrador .btn-icono { grid-row: 1 / span 2; grid-column: 2; }
 .guia-cabeza { margin-bottom: 16px; }
-.guia-sup { margin: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
-.guia-cabeza h2 { margin: 2px 0 4px; font-size: 1.25rem; }
+.guia-sup { margin: 0; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--tinta-3); font-weight: 600; }
+.guia-cabeza h2 { margin: 2px 0 4px; font-size: var(--t-lg); }
 .guia-cabeza .ayuda { margin: 0; max-width: 760px; }
-.guia-falta { display: inline-flex; gap: 6px; align-items: center; margin: 10px 0 0; padding: 6px 10px; border-radius: 8px; font-size: 0.84rem;
+.guia-falta { display: inline-flex; gap: 6px; align-items: center; margin: 10px 0 0; padding: 6px 10px; border-radius: 8px; font-size: var(--t-sm);
   background: var(--aviso-fondo); color: var(--aviso); }
 .guia-disenos { display: flex; flex-direction: column; gap: 10px; }
 .guia-tipo { margin: 0; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
 .guia-tipo.falta { border-inline-start: 3px solid var(--aviso); }
-.guia-tipo h3 { margin: 0; font-size: 0.98rem; }
+.guia-tipo h3 { margin: 0; font-size: var(--t-md); }
 .guia-tipo .ayuda { margin: 2px 0 0; }
 .guia-mini { display: flex; gap: 6px; margin-top: 8px; }
 .guia-mini img { height: 48px; max-width: 90px; object-fit: contain; border: 1px solid var(--linea); border-radius: 6px; background: #fff; }

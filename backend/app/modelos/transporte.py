@@ -15,7 +15,9 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
+    Integer,
     String,
     Table,
     Text,
@@ -218,3 +220,15 @@ class EventoEmbarque(DeOrganizacion, Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     embarque: Mapped[Embarque] = relationship(back_populates="eventos")
+
+
+class FamiliaLogistica(DeOrganizacion, Base):
+    """La sección de logística de una familia del catálogo (grupos_producto): los días que sus
+    productos suman a la fecha estimada en tienda. Vacío: los de la familia que la contiene."""
+
+    __tablename__ = "familia_logistica"
+    __table_args__ = (ForeignKeyConstraint(["familia_id", "organizacion_id"], ["grupos_producto.id", "grupos_producto.organizacion_id"],
+                                           ondelete="CASCADE", name="fk_familia_logistica_familia_org"),)
+
+    familia_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    dias_extra: Mapped[int | None] = mapped_column(Integer)

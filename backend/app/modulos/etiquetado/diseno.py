@@ -84,7 +84,8 @@ class Condicion(_Base):
 
 class Columna(_Base):
     """Una columna de una tabla: un dato de cada fila de la colección."""
-    campo: str = Field(pattern=r"^[a-z_]{1,30}$")
+    # dato de la fila (sku, cantidad…) o el valor de un atributo de variante (atributo.TALLA)
+    campo: str = Field(pattern=r"^([a-z_]{1,30}|atributo\.[A-Za-z0-9_]{1,20})$")
     titulo: str | None = Field(None, max_length=60)
     ancho: float = Field(1, gt=0, le=100)  # peso relativo del ancho
     alin: Literal["izq", "centro", "der"] = "izq"

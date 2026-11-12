@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.core.empresa import hoy
 from app.core.errores import ErrorNegocio
-from app.modelos import Articulo, OrdenCompra, PosicionOC, Usuario
+from app.modelos import OrdenCompra, PosicionOC, Usuario
 from app.modulos.acceso.permisos import asegurar_proveedor, proveedor_filtro
+from app.modulos.catalogo import servicio as catalogo
 from app.modulos.etiquetado import campos
 
 
@@ -19,8 +20,8 @@ def cargar_oc(db: Session, user: Usuario, oc_id: int) -> OrdenCompra:
     return oc
 
 
-def cargar_articulo(db: Session, user: Usuario, articulo_id: int) -> Articulo:
-    a = db.get(Articulo, articulo_id)
+def cargar_articulo(db: Session, user: Usuario, articulo_id: int) -> catalogo.FichaArticulo:
+    a = catalogo.articulo(db, articulo_id)
     prov = proveedor_filtro(user)
     if not a or (prov is not None and a.proveedor_id not in prov):
         raise ErrorNegocio("The item does not exist.", 404, "no_encontrado")
@@ -35,7 +36,7 @@ def cargar_posicion(db: Session, user: Usuario, posicion_id: int) -> PosicionOC:
     return p
 
 
-def valores(db: Session, sujeto: str, articulo: Articulo | None = None, oc: OrdenCompra | None = None,
+def valores(db: Session, sujeto: str, articulo: catalogo.FichaArticulo | None = None, oc: OrdenCompra | None = None,
             posicion: PosicionOC | None = None, bulto: campos.Bulto | None = None, organizacion: dict | None = None,
             pl=None, de_oc: dict | None = None) -> dict:
     """Todos los valores de una etiqueta (sin la numeración, que pone la generación).
@@ -49,7 +50,7 @@ def valores(db: Session, sujeto: str, articulo: Articulo | None = None, oc: Orde
     if posicion is not None and "linea" in grupos:
         v.update(campos.valores_linea(posicion))
     if articulo is not None and "articulo" in grupos:
-        v.update(campos.valores_articulo(articulo))
+        v.update(campos.valores_articulo(db, articulo))
     if pl is not None and "pl" in grupos:
         v.update(campos.valores_pl(pl))
     if bulto is not None:

@@ -32,10 +32,10 @@ const max = computed(() => Math.max(1, ...props.etapas.map((e) => e.total || 0))
 <style scoped>
 .barras-etapas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .be-fila { width: 100%; display: grid; grid-template-columns: 20px minmax(110px, 38%) minmax(0, 1fr) 36px; align-items: center; gap: 10px;
-  padding: 5px 8px; border: 0; border-radius: var(--radio); background: none; color: var(--tinta); font: inherit; font-size: 0.84rem; text-align: start; cursor: pointer; }
+  padding: 5px 8px; border: 0; border-radius: var(--radio); background: none; color: var(--tinta); font: inherit; font-size: var(--t-sm); text-align: start; cursor: pointer; }
 .be-fila:hover { background: var(--superficie-2); }
 .be-fila[aria-pressed='true'] { background: var(--acento-claro); box-shadow: inset 0 0 0 1px var(--acento-medio); }
-.be-num { font-size: 0.7rem; font-weight: 700; color: var(--tinta-3); text-align: center; font-variant-numeric: tabular-nums; }
+.be-num { font-size: var(--t-2xs); font-weight: 700; color: var(--tinta-3); text-align: center; font-variant-numeric: tabular-nums; }
 .be-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tinta-2); }
 .be-pista { height: 10px; border-radius: 5px; background: var(--linea-suave); overflow: hidden; }
 .be-barra { display: block; height: 100%; border-radius: 5px; background: var(--acento); min-width: 0; transition: width 0.2s ease; }

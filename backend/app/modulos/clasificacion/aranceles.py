@@ -61,6 +61,7 @@ def paises(db: Session, user: Usuario) -> list[dict]:
              "nota": x.nota, "base_legal": x.base_legal, "orden": x.orden, "activo": x.activo, "codigos": n.get(x.iso, 0),
              "longitudes": x.longitudes_validas() if x.longitudes else [], "longitudes_validas": x.longitudes_validas(),
              "nivel_base": x.nivel_base, "modelo_arancel": x.modelo_arancel, "contexto": x.contexto,
+             "nomenclatura": x.nomenclatura, "nombre_derecho": x.nombre_derecho,
              "fuente": fuentes.get(x.fuente_id), **_estado_oficial(x, n.get(x.iso, 0))}
             for x in db.scalars(select(PaisArancel).order_by(PaisArancel.orden, PaisArancel.iso))]
 
@@ -105,7 +106,7 @@ def guardar_pais(db: Session, user: Usuario, datos, pais_id: int | None = None) 
         if lons and datos.digitos not in lons:
             raise ErrorNegocio("The usual number of digits must be one of the valid lengths.", 422, "validacion")
         x.longitudes = ",".join(str(n) for n in lons) or None
-    for k in ("nivel_base", "modelo_arancel", "contexto"):
+    for k in ("nivel_base", "modelo_arancel", "contexto", "nomenclatura", "nombre_derecho"):
         if k in campos:
             setattr(x, k, (getattr(datos, k) or "").strip() or None)
     if "fuente" in campos:

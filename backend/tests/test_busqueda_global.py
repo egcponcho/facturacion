@@ -16,9 +16,9 @@ def test_encuentra_por_tipo(interno):
     prov = interno.get("/catalogos/proveedores").json()["items"][0]
     g = _buscar(interno, prov["nombre"].lower()[:5])
     assert any(x["titulo"] == prov["nombre"] for x in g.get("proveedores", []))
-    # Un estilo lleva al producto
-    p = interno.get("/productos", params={"estado": "", "size": 1}).json()["items"][0]
-    g = _buscar(interno, p["estilo"])
+    # Un atributo del producto (el modelo) lleva al producto
+    p = next(x for x in interno.get("/productos", params={"estado": "", "size": 50}).json()["items"] if x["atributos"].get("MODELO"))
+    g = _buscar(interno, p["atributos"]["MODELO"])
     assert any(x["ruta"] == f"/productos/{p['id']}" for x in g["productos"])
 
 

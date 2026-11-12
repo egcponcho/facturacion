@@ -64,7 +64,7 @@ def test_proveedor_no_ve_la_configuracion(tnf, t_seg):
     for r in (tnf.get("/etiquetas/usos/valores", params={"contexto": "PROVEEDOR"}), tnf.get("/etiquetas/usos"),
               tnf.post("/etiquetas/usos/simular", {"tipo_etiqueta_id": t["id"], "nivel": "GENERAL", "normal": {"accion": "NO_LLEVA"}}),
               tnf.get("/etiquetas/matriz"), tnf.get("/etiquetas/celda", params={"tipo": t["id"], "nivel": "GENERAL"}),
-              tnf.get("/etiquetas/familias"), tnf.get("/etiquetas/categorias"), tnf.get("/etiquetas/campos-logicos")):
+              tnf.get("/etiquetas/familias"), tnf.get("/grupos-producto/categorias"), tnf.get("/etiquetas/campos-logicos")):
         assert r.status_code == 403, r.request.url
     # Lo que necesita para imprimir sigue abierto: los tipos y sus propios artículos
     assert tnf.get("/etiquetas/tipos").status_code == 200

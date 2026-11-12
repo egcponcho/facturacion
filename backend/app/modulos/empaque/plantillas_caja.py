@@ -42,9 +42,9 @@ def crear_plantilla(db: Session, user: Usuario, datos) -> dict:
     nombre = datos.nombre.strip()
     if db.scalar(select(PlantillaCaja.id).where(PlantillaCaja.proveedor_id == prov, PlantillaCaja.nombre == nombre)):
         raise ErrorNegocio(f"A template named “{nombre}” already exists.", 409, "duplicado")
-    from app.modulos.maestros.unidades import exigir_cantidad, validar
+    from app.modulos.maestros.unidades import de_articulo, exigir_cantidad, validar
 
-    unidad = validar(datos.unidad)
+    unidad = validar(datos.unidad or de_articulo()[0])
     exigir_cantidad(datos.cantidad_por_caja, unidad)
     t = PlantillaCaja(**{**datos.model_dump(exclude={"proveedor_id"}), "nombre": nombre, "proveedor_id": prov, "unidad": unidad})
     db.add(t)

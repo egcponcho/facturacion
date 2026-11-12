@@ -7,7 +7,7 @@ METODOS = ("get", "post", "put", "patch", "delete")
 
 
 def test_cada_ruta_tiene_docstring():
-    sin = [f"{m.__name__}.{r.endpoint.__name__}" for m in RUTAS for r in m.router.routes
+    sin = [f"{r.endpoint.__module__}.{r.endpoint.__name__}" for router, _ in RUTAS for r in router.routes
            if hasattr(r, "endpoint") and not (r.endpoint.__doc__ or "").strip()]
     assert not sin, f"Rutas sin docstring: {sin}"
 

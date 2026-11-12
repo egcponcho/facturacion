@@ -26,11 +26,9 @@ específico de una categoría en el código:
 tests/test_ficha.py fija el resultado esperado (casos de referencia en
 tests/paridad).
 """
-import json
 import re
 import threading
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from app.modulos.clasificacion import version_config
 from app.modulos.clasificacion.composicion import Lector, norm, resumen_mat
@@ -178,29 +176,6 @@ class Catalogo:
         out = cls(attrs, cats, sin, pal, cla)
         out.sinonimos_busqueda = sinonimos_busqueda(db)
         return out
-
-    @classmethod
-    def desde_json(cls, ruta: Path | None = None) -> "Catalogo":
-        """El catálogo de la ficha tal como se siembra (pruebas sin base)."""
-        from app.modulos.clasificacion.semilla_familias import semilla
-
-        d = json.loads(ruta.read_text(encoding="utf-8")) if ruta else semilla()
-        attrs = []
-        for a in d["atributos"]:
-            attrs.append(Atributo(
-                codigo=a["codigo"], etiqueta=a["etiqueta"], tipo_dato=a["tipo_dato"], seccion=a.get("seccion") or "caracteristicas",
-                ayuda=a.get("ayuda"), informativo=bool(a.get("informativo")), valor_defecto=a.get("valor_defecto"), derivacion=a.get("derivacion"),
-                bloqueo=a.get("bloqueo") or [], patrones=a.get("patrones") or [], patrones_falso=a.get("patrones_falso") or [],
-                orden=a.get("orden", 0), unidad=a.get("unidad"), control=a.get("control"), origen="MOTOR", texto_aduana=a.get("texto_aduana"),
-                opciones=[Opcion(o["codigo"], o["etiqueta"], o.get("orden", 0), True, o.get("bloqueo") or [], o.get("implica"), o.get("patrones") or [],
-                                 o.get("texto_aduana"))
-                          for o in a.get("opciones") or []],
-                ambitos=[Ambito(x["tipo_ambito"], x["codigo_ambito"], x.get("modo") or "SHOW", x.get("prioridad", 500), x.get("condicion"))
-                         for x in a.get("ambitos") or []]))
-        cats = [Categoria(c["codigo"], c["nombre"], c.get("dominio"), c.get("grupo"), c.get("familia"), c.get("nombre_corto"), c.get("nombre_aduana"),
-                          c.get("alias"), c.get("patrones") or [], c.get("capitulos") or [], c.get("orden", 0), True, c.get("plantilla_aduana"))
-                for c in d["categorias"]]
-        return cls(attrs, cats, clases=d.get("clases_material"))
 
     def canonico(self, codigo: str) -> str:
         """El código del atributo en la ficha (resuelve un alias)."""

@@ -386,20 +386,6 @@ def detalle(db: Session, user: Usuario, atributo_id: int) -> dict:
     return _dict(a, True)
 
 
-def config_motor(db: Session) -> dict:
-    """Lo que la ficha del navegador toma de la base: etiqueta, opciones activas
-    y atributos apagados de los atributos del motor; y los atributos oficiales
-    con sus ámbitos (para las fichas genéricas por dominio)."""
-    attrs = list(db.scalars(select(AtributoDef).options(selectinload(AtributoDef.opciones), selectinload(AtributoDef.ambitos))
-                            .order_by(AtributoDef.orden)))
-    return {
-        "motor": {a.codigo: {"etiqueta": a.etiqueta, "activo": a.activo,
-                             "opciones": {o.codigo: {"etiqueta": o.etiqueta, "activo": o.activo, "orden": o.orden} for o in a.opciones}}
-                  for a in attrs if a.origen == "MOTOR"},
-        "genericos": [{**_dict(a, True)} for a in attrs if a.origen != "MOTOR" and a.activo],
-    }
-
-
 # ---- Edición ----------------------------------------------------------------------
 CAMPOS = ("etiqueta", "descripcion", "unidad", "dominio", "activo", "usado_clasificacion", "orden", "informativo", "valor_defecto", "control")
 COMPORTAMIENTO = ("seccion", "alias", "derivacion", "bloqueo", "patrones", "patrones_falso", "texto_aduana")

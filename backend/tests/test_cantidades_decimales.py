@@ -17,7 +17,7 @@ def test_reglas_por_unidad():
 def test_factura_y_pl_con_kilos(interno):
     # Una posición medida en kg (se cambia la unidad de una posición libre de la demo)
     with SessionLocal() as db:
-        p = db.query(PosicionOC).filter(~PosicionOC.id.in_(db.query(FacturaLinea.posicion_oc_id)), PosicionOC.prepack.is_(None),
+        p = db.query(PosicionOC).filter(~PosicionOC.id.in_(db.query(FacturaLinea.posicion_oc_id)), PosicionOC.codigo_pack.is_(None),
                                          PosicionOC.inner_pack.is_(None)).first()
         pid, oc_prov, antes = p.id, p.oc.proveedor_id, (p.unidad, p.cantidad, p.casepack)
         p.unidad, p.cantidad, p.casepack = "KG", 250.5, None

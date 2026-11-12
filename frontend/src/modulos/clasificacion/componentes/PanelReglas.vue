@@ -265,7 +265,7 @@ async function guardarModal() {
 .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
 .campo.ancho { grid-column: 1 / -1; }
 .conds { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.lista-cond { margin: 0; padding-inline-start: 18px; font-size: 0.88rem; }
-.mt { margin: 16px 0 4px; font-size: 1rem; }
+.lista-cond { margin: 0; padding-inline-start: 18px; font-size: var(--t-sm); }
+.mt { margin: 16px 0 4px; font-size: var(--t-md); }
 .mt-chico { margin-top: 10px; }
 </style>

@@ -42,10 +42,9 @@ export function entradaDe(p, f, extra = {}) {
   return {
     categoria: f.tipo || null,
     ficha: f.ficha,
-    estilo: p.estilo,
     nombre: f.nombre || '',
     uso: f.ficha.uso || '',
-    tallas: f.ficha.tallas || p.rango_tallas || '',
+    tallas: f.ficha.tallas || p.resumen_variantes || '',
     marca: p.marca_nombre || p.marca || null,
     proveedor: p.proveedor || null,
     origen: f.origen || null,

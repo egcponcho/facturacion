@@ -120,7 +120,7 @@ onBeforeUnmount(() => clearInterval(reloj))
       </div>
       <ul class="login-pasos">
         <li><span><Icono nombre="factura" /></span>{{ t('Invoice full POs or in parts') }}</li>
-        <li><span><Icono nombre="caja" /></span>{{ t('Pack by casepack, inner pack or prepack in one step') }}</li>
+        <li><span><Icono nombre="caja" /></span>{{ t('Pack by casepack, inner pack, pack or kit in one step') }}</li>
         <li><span><Icono nombre="barco" /></span>{{ t('Load containers and track transit') }}</li>
       </ul>
     </section>
@@ -173,6 +173,6 @@ onBeforeUnmount(() => clearInterval(reloj))
 
 <style scoped>
 .login-ajustes { position: absolute; top: 18px; inset-inline-end: 18px; display: flex; gap: 8px; align-items: center; }
-.codigo-verificacion { font-size: 1.6rem; letter-spacing: 0.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.codigo-verificacion { font-size: var(--t-2xl); letter-spacing: 0.5em; text-align: center; font-variant-numeric: tabular-nums; }
 .login-seguridad { display: flex; align-items: center; gap: 6px; margin: 0; }
 </style>

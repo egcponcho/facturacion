@@ -32,6 +32,7 @@ REGLAS = {
     "ETIQUETAS_GENERACION_PARCIAL": "A labeling job can generate its ready records and leave the ones with errors for later",
     "ETIQUETAS_ASINCRONO_DESDE": "Labels from which a labeling job is generated in the background",
     "ETIQUETAS_MAXIMO_TRABAJO": "Most labels in one labeling job",
+    "IMPORTACION_MAX_FILAS": "Most rows in one file of a bulk upload (purchase orders or an integration)",
     "ETIQUETAS_PL_SIN_FINALIZAR": "Real labels can be generated from packing lists that are not finalized (tests always can)",
     "ETIQUETAS_VALIDAR_EMPAQUE": "Warn when a packing list differs from the casepack and inner pack of the PO",
     "PAIS_BASE_CLASIF": "Country whose national code completes the suggested HS code",
@@ -67,6 +68,16 @@ def usar_configuracion(config: dict | None) -> None:
 
 def configuracion_actual() -> dict:
     return _config.get() or {}
+
+
+def tope_filas(n: int) -> None:
+    """Rechaza una carga masiva con más filas de las que la empresa permite por archivo."""
+    from app.core.errores import ErrorNegocio
+
+    maximo = int(regla("IMPORTACION_MAX_FILAS"))
+    if n > maximo:
+        raise ErrorNegocio(f"The file has {n} rows and the maximum per upload is {maximo}: split it into several files.",
+                           413, "demasiadas_filas")
 
 
 def regla(nombre: str):

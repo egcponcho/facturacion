@@ -10,6 +10,7 @@ Cada dominio en su archivo; aquí se reexportan todos los modelos para importar
 con `from app.modelos import X`.
 """
 from app.core.db import Base as _Base
+from app.core.tablas import ContadorSerie, DefinicionCampo, EstadoDocumento, SerieDocumental
 from app.modelos.acceso import DesafioDosPasos, Rol, SesionUsuario, Usuario
 from app.modelos.base import Cantidad, ahora, cant
 from app.modelos.clasificacion import (
@@ -69,13 +70,10 @@ from app.modelos.empaque import (
     TipoEmpaque,
     tipo_empaque_contiene,
 )
-from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
+from app.modelos.empresa import Adjunto, Organizacion
 from app.modelos.etiquetado import (
     CampoEtiqueta,
-    CategoriaEtiquetado,
-    CategoriaEtiquetadoAnterior,
-    FamiliaEtiquetado,
-    FamiliaEtiquetadoAnterior,
+    EtiquetadoFamilia,
     GeneracionEtiquetas,
     GeneracionItem,
     PlantillaEtiqueta,
@@ -88,50 +86,53 @@ from app.modelos.etiquetado import (
 )
 from app.modelos.facturacion import Archivo, Factura, FacturaLinea
 from app.modelos.grupos import GrupoCategoria, GrupoFamilia, GrupoProducto
+from app.modelos.integraciones import EjecucionIntegracion, Integracion, IntegracionMapeo, ReferenciaExterna
 from app.modelos.maestros import (
     AcuerdoComercial,
     Almacen,
     Articulo,
     ArticuloAtributo,
+    ArticuloCodigo,
+    ArticuloComponente,
     ArticuloVersion,
-    AtributoVariante,
-    CategoriaArticulo,
+    Atributo,
     Centro,
     CondicionPago,
     Contacto,
-    EscalaTalla,
+    EscalaValores,
     EstadoLiberacion,
-    GrupoArticulo,
     Incoterm,
     Marca,
     ModoTransporte,
     Moneda,
     Pais,
-    Prepack,
-    PrepackComponente,
     Proveedor,
     Sociedad,
     UnidadMedida,
     ValorLista,
+    atributo_familias,
     centro_puertos,
     proveedor_marcas,
     proveedor_sociedades,
 )
-from app.modelos.numeracion import ContadorSerie, SerieDocumental
 from app.modelos.productos import (
     ClasificacionProducto,
+    FamiliaComex,
     PartidaPais,
     Producto,
+    ProductoAtributo,
+    ProductoComex,
     ProductoDocumento,
     ProductoFoto,
     ProductoVersion,
 )
 from app.modelos.referencias import aplicar as _aplicar_referencias
 from app.modelos.restricciones import aplicar as _aplicar_restricciones
-from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte, VersionDatos
+from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte, RespaldoMigracion, VersionDatos
 from app.modelos.transporte import (
     Embarque,
     EventoEmbarque,
+    FamiliaLogistica,
     PasoLeadTime,
     Puerto,
     RegionLeadTime,
@@ -148,10 +149,9 @@ _aplicar_referencias(_Base.metadata)
 
 __all__ = [
     "CampoEtiqueta",
-    "CategoriaEtiquetado",
-    "CategoriaEtiquetadoAnterior",
-    "FamiliaEtiquetado",
-    "FamiliaEtiquetadoAnterior",
+    "EtiquetadoFamilia",
+    "FamiliaComex",
+    "FamiliaLogistica",
     "GrupoCategoria",
     "GrupoFamilia",
     "GrupoProducto",
@@ -166,7 +166,9 @@ __all__ = [
     "VersionPlantilla",
     "ArticuloAtributo",
     "ArticuloVersion",
-    "AtributoVariante",
+    "ArticuloCodigo",
+    "ArticuloComponente",
+    "Atributo",
     "ClasificacionProducto",
     "Adjunto",
     "Direccion",
@@ -185,7 +187,6 @@ __all__ = [
     "AtributoOpcion",
     "cant",
     "Cantidad",
-    "CategoriaArticulo",
     "CategoriaProducto",
     "Centro",
     "centro_puertos",
@@ -201,14 +202,13 @@ __all__ = [
     "DominioClasificacion",
     "Edicion",
     "Embarque",
-    "EscalaTalla",
+    "EscalaValores",
     "EstadoLiberacion",
     "EventoEmbarque",
     "Factura",
     "FacturaLinea",
     "FilaLoteOficial",
     "FuenteOficial",
-    "GrupoArticulo",
     "GrupoCajas",
     "GrupoCajasItem",
     "Historial",
@@ -220,6 +220,7 @@ __all__ = [
     "Marca",
     "Meta",
     "Reporte",
+    "RespaldoMigracion",
     "VersionDatos",
     "NodoArancel",
     "NotaSAC",
@@ -236,13 +237,14 @@ __all__ = [
     "PlantillaCaja",
     "PLLinea",
     "PosicionOC",
-    "Prepack",
-    "PrepackComponente",
     "Producto",
+    "ProductoAtributo",
+    "ProductoComex",
     "ProductoDocumento",
     "ProductoFoto",
     "ProductoVersion",
     "Proveedor",
+    "atributo_familias",
     "proveedor_marcas",
     "proveedor_sociedades",
     "Puerto",
@@ -279,4 +281,8 @@ __all__ = [
     "UnidadMedida",
     "Usuario",
     "VersionDataset",
+    "EjecucionIntegracion",
+    "Integracion",
+    "IntegracionMapeo",
+    "ReferenciaExterna",
 ]

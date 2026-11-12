@@ -111,7 +111,7 @@ const bloque = (campos, msg) => cambiar(sel.value, campos, msg).then(() => (sel.
 
 <style scoped>
 .resumen-caps { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; margin-bottom: 10px; }
-.resumen-caps b { font-size: 1.4rem; margin-inline-end: 6px; }
+.resumen-caps b { font-size: var(--t-xl); margin-inline-end: 6px; }
 .resumen-caps .ayuda { margin: 0; flex: 1 1 380px; }
 .titulo-cap { min-width: 260px; max-width: 480px; white-space: normal; }
 .etiqueta { margin: 1px 3px 1px 0; }

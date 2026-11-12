@@ -378,11 +378,11 @@ async function sincronizar() {
 :deep(tr.apagada > td) { opacity: 0.55; }
 .titulo { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
 .detalle tr.apagada td { opacity: 0.55; }
-.sw { display: inline-flex; gap: 8px; align-items: center; font-size: 0.86rem; }
-.aviso { background: var(--aviso-fondo); padding: 8px 10px; border-radius: var(--radio); font-size: 0.86rem; }
+.sw { display: inline-flex; gap: 8px; align-items: center; font-size: var(--t-sm); }
+.aviso { background: var(--aviso-fondo); padding: 8px 10px; border-radius: var(--radio); font-size: var(--t-sm); }
 .campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; align-items: end; }
 .campo.ancho { grid-column: 1 / -1; }
-h4 { margin: 16px 0 6px; font-size: 0.92rem; display: flex; gap: 6px; align-items: center; }
+h4 { margin: 16px 0 6px; font-size: var(--t-base); display: flex; gap: 6px; align-items: center; }
 .celda { width: 100%; min-width: 70px; }
 .celda::placeholder { color: var(--tinta-3); }
 .nueva .celda, .agregar .celda { border-color: var(--linea); background: var(--superficie); }

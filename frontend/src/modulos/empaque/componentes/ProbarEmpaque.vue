@@ -94,7 +94,7 @@ const valor = (v) => (Array.isArray(v) ? v.join(', ') : v ?? '—')
 .elegir { max-width: 360px; }
 .tabla-scroll { overflow-x: auto; }
 .num { text-align: end; font-variant-numeric: tabular-nums; }
-.explicacion { margin: 4px 0 0; padding-inline-start: 16px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px; }
+.explicacion { margin: 4px 0 0; padding-inline-start: 16px; font-size: var(--t-sm); display: flex; flex-direction: column; gap: 4px; }
 .explicacion li.gana { font-weight: 600; }
 .conds { list-style: none; padding: 0; margin: 2px 0 0; }
 .ok-txt { color: var(--ok); }

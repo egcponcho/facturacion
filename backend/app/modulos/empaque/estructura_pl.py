@@ -53,7 +53,7 @@ def plantilla_estructura(db: Session, pl) -> bytes:
 
 
 def importar_estructura(db: Session, user: Usuario, pl, nombre: str, contenido: bytes) -> dict:
-    from app.modulos.empaque.packing import _rehacer
+    from app.modulos.empaque.packing import rehacer
 
     tipos = _tipos(db)
     alias = {"item_code": "sku", "item": "sku", "sku": "sku", "codigo_de_articulo": "sku", "articulo": "sku",
@@ -167,7 +167,7 @@ def importar_estructura(db: Session, user: Usuario, pl, nombre: str, contenido: 
             raices[firma(k)].append(k)
     for grupo in raices.values():
         crear(grupo, None, len(grupo))
-    _rehacer(db, pl)
+    rehacer(db, pl)
     tocar(pl)
     registrar(db, user, "packing_list", pl.id, "importar_estructura",
               {"unidades": len(unidades), "grupos": creados}, factura_id=pl.factura_id)

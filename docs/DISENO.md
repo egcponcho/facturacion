@@ -11,10 +11,25 @@ se crean variantes propias de botones, pestañas, chips, tablas ni ventanas.
 |---|---|---|
 | Color | `--tinta`, `--tinta-2`, `--tinta-3`, `--papel`, `--superficie`, `--superficie-2`, `--linea`, `--linea-suave`, `--acento*`, `--ok*`, `--aviso*`, `--error*`, `--info*` | Mismos nombres en tema claro y oscuro; nunca colores fijos en las vistas. |
 | Espaciado | `--e-1` (4) · `--e-2` (8) · `--e-3` (12) · `--e-4` (16) · `--e-5` (20) · `--e-6` (24) · `--e-8` (32) | Márgenes, rellenos y separaciones: múltiplos de 4 px. |
-| Tipografía | `--t-xs` · `--t-sm` · `--t-md` · `--t-lg` · `--t-xl` · `--t-2xl`; `--mono` | Base de 14 px (Inter); números tabulares en tablas. |
+| Tipografía | `--t-2xs` · `--t-xs` · `--t-sm` · `--t-base` · `--t-md` · `--t-lg` · `--t-xl` · `--t-2xl` · `--t-3xl`; `--mono` | Base de 14 px (Plus Jakarta Sans); números tabulares en tablas. Ningún `font-size` en rem fuera de esta escala. |
 | Forma | `--radio` (8), `--radio-panel` (12), `--radio-pildora` | Controles, paneles y etiquetas. |
 | Sombra | `--sombra`, `--sombra-media`, `--sombra-flotante` | Paneles, menús y ventanas. |
 | Puntos de quiebre | 600 · 720 · 900 · 1100 px | 720 px es el corte principal a celular. CSS no admite variables en `@media`: se usan estos valores y no otros. |
+
+**Paletas.** El acento y la barra lateral salen de la paleta de la empresa
+(*Configuración → Empresa → Marca → Paleta*): `indigo` (de fábrica),
+`esmeralda`, `terracota` y `marino`, cada una con valores para tema claro
+(`--pal-*`) y oscuro (`--pald-*`) en `:root[data-paleta='…']`
+(`frontend/src/styles.css`). Neutros y colores de estado son los mismos en
+todas: un estado no cambia de color con la paleta. Las vistas usan solo
+`--acento*`, `--lateral*` y `--marca-*`, nunca los `--pal-*` directamente.
+
+**Datos que cambian por familia.** Atributos y variantes no se muestran como
+texto armado: los datos de producto van en tarjetas (una por atributo, la
+vacía punteada) y los valores de variante como fichas por atributo
+(`.var-fichas` / `.var-ficha`); con dos o más ejes, las variantes se ven en
+matriz (último eje en columnas). Ver
+`docs/reestructuracion/07-productos-ux.md`.
 
 Utilidades en lugar de estilos en línea: `mt-0`, `mt-chico`, `mt`, `mb-2`,
 `mb-3`, `mb-4`, `ms-0`, `separar`, `col-completa`, `texto-error`,

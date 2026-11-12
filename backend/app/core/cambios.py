@@ -187,16 +187,25 @@ def _token(request) -> str | None:
     return request.cookies.get("sesion")
 
 
+# Quién es el dueño de un token de sesión: (db, token) → usuario o None. Lo
+# inscribe el módulo de acceso (acceso/modulo.py); core no conoce a ningún módulo.
+_identificar = None
+
+
+def registrar_identificador(identificar) -> None:
+    global _identificar
+    _identificar = identificar
+
+
 def _preparar(token: str | None, tablas: frozenset | None) -> tuple[tuple, dict] | None:
     """Sesión válida (se renueva como en cualquier petición) y versiones de
     las tablas, leídas ANTES de consultar los datos."""
     from app.core.organizacion import de_sesion
-    from app.modulos.acceso.autenticacion import usuario_de_sesion
 
-    if not token:
+    if not token or _identificar is None:
         return None
     with SessionLocal() as db:
-        u = usuario_de_sesion(db, token)
+        u = _identificar(db, token)
         if not u:
             return None
         identidad = (u.id, de_sesion(db) or 0)
