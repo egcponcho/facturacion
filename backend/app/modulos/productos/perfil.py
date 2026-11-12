@@ -162,14 +162,14 @@ def perfil(db: Session, user: Usuario, grupo_id: int | None = None) -> dict:
     """Lo que el asistente y la ficha piden para un producto de la familia (o sin familia):
     el núcleo, lo que la empresa vuelve obligatorio y lo que vuelve obligatorio la familia."""
     from app.modelos import GrupoProducto
-    from app.modulos.maestros import catalogos, gobierno, variantes
+    from app.modulos.maestros import definiciones, gobierno, variantes
 
     exigir_alguno(user, "catalogos.ver", "producto.ficha")
     grupo = db.get(GrupoProducto, grupo_id) if grupo_id else None
     if grupo_id and grupo is None:
         raise ErrorNegocio("The product family does not exist.", 404, "no_encontrado")
     nombres = _etiquetas(db)
-    campos_art = {c["nombre"]: c["etiqueta"] for c in catalogos.CATALOGOS["articulos"]["campos"]}
+    campos_art = {c["nombre"]: c["etiqueta"] for c in definiciones.CATALOGOS["articulos"]["campos"]}
     de_familia = []
     for c in obligatorios(grupo):
         c = _equivalente(db, c)

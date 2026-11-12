@@ -12,7 +12,9 @@ from sqlalchemy import select
 from app.core.errores import ErrorNegocio
 from app.modelos import CategoriaProducto, Producto, ProductoComex, ReglaClasificacion, Usuario
 from app.modulos.acceso.permisos import exigir
-from app.modulos.productos.productos import APROBADOS, entrada_producto, fmt_codigo, ver_producto
+from app.modulos.productos.consulta import ver_producto
+from app.modulos.productos.flujo_ficha import entrada_producto
+from app.modulos.productos.productos import APROBADOS, fmt_codigo
 
 LIMITE = 120  # artículos que se vuelven a clasificar en una simulación (los más recientes)
 

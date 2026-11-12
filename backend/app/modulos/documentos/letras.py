@@ -86,12 +86,6 @@ def _es(n: int) -> str:
     return " ".join(palabras)
 
 
-# ---- Uso en los documentos ----------------------------------------------------
-def numero_en_letras(n: int) -> str:
-    """Número entero en letras, en el idioma de la petición."""
-    return _es(n) if idioma_actual() == "es" else _en(n)
-
-
 def cantidad_en_letras(n: int) -> str:
     """Número en letras para acompañar a un sustantivo (un bulto, veintiún bultos)."""
     return _apocope(_es(n)) if idioma_actual() == "es" else _en(n)

@@ -520,11 +520,6 @@ def ids_productos_texto(q: str | None, proveedores: Iterable[int] | None = None)
     return c
 
 
-def ids_productos_con_articulos(articulo_ids: Select | Iterable[int]) -> Select:
-    """`select(producto_id)` de los productos de esos artículos."""
-    return select(Articulo.producto_id).where(Articulo.id.in_(articulo_ids)).distinct()
-
-
 def ids_productos(*, texto: str | None = None, proveedores: Iterable[int] | None = None,
                   familia_exacta_id: int | None = None, sin_familia: bool = False) -> Select:
     """`select(id)` de productos por texto, proveedores y familia: la suya exacta (o una categoría

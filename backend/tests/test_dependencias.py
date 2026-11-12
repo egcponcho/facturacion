@@ -168,14 +168,14 @@ ARCHIVOS_GRANDES = {
     "modulos/clasificacion/atributos.py", "modulos/clasificacion/motor_clasificacion.py",
     "modulos/clasificacion/oficial.py", "modulos/compras/flujo_oc.py",
     "modulos/compras/ordenes.py", "modulos/documentos/documentos.py",
-    "modulos/empaque/packing.py", "modulos/empaque/recetas.py",
+    "modulos/empaque/recetas.py",
     "modulos/etiquetado/api.py", "modulos/etiquetado/campos.py",
     "modulos/etiquetado/generacion.py", "modulos/etiquetado/plantillas.py",
     "modulos/etiquetado/render.py", "modulos/etiquetado/trabajos.py",
     "modulos/etiquetado/usos.py", "modulos/facturacion/facturas.py",
     "modulos/integraciones/servicio.py", "modulos/maestros/cargas.py",
-    "modulos/maestros/catalogos.py", "modulos/productos/ficha.py",
-    "modulos/productos/productos.py", "modulos/seguimiento/indicadores.py",
+    "modulos/productos/ficha.py",
+    "modulos/seguimiento/indicadores.py",
     "modulos/seguimiento/seguimiento.py", "modulos/transporte/transporte.py",
 }
 

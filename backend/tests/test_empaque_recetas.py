@@ -232,7 +232,7 @@ def test_migracion_crea_recetas_desde_el_casepack():
 
 
 def test_armar_segun_la_receta_completas_y_parciales():
-    from app.modulos.empaque.packing import _contar_receta
+    from app.modulos.empaque.cajas import _contar_receta
 
     niveles = [{"orden": 1, "nombre": "Inner", "cantidad": 12, "unidades": 12},
                {"orden": 2, "nombre": "Master", "cantidad": 2, "unidades": 24},

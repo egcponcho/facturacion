@@ -1,17 +1,12 @@
 """Grupos de producto: un solo árbol de la empresa para agrupar lo que vende
-(calzado → calzado técnico → sandalias…), compartido por el etiquetado, las
-reglas de empaque y lo que venga (docs/GRUPOS_PRODUCTO.md).
+(por ejemplo bebidas → jugos → jugos de naranja), compartido por el catálogo,
+el etiquetado, las reglas de empaque y lo que venga.
 
 Cada nodo es de una clase:
 - FAMILIA: se asigna a mano a grupos de artículos, productos o artículos; puede
   tener subfamilias (hijas FAMILIA) sin límite de niveles.
 - CATEGORIA: hoja dentro de una familia que se reconoce sola por condiciones
   sobre los datos del artículo, o se pone a mano en el producto.
-
-Reemplaza a familias_etiquetado y categorias_etiquetado (migración 0081): sus
-filas se copiaron 1:1 y `legado_familia_id` / `legado_categoria_id` guardan de
-cuál salió cada nodo. Las tablas anteriores quedan congeladas, solo para volver
-atrás.
 """
 from __future__ import annotations
 

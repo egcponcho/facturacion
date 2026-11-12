@@ -596,7 +596,7 @@ def validar_factura(db: Session, f: Factura) -> list[dict]:
 
 
 def finalizar(db: Session, user: Usuario, factura_id: int, version: int, incluir_pls: bool) -> dict:
-    from app.modulos.empaque.packing import validar_pl  # evitar import circular
+    from app.modulos.empaque.estados_pl import validar_pl  # evitar import circular
 
     exigir(user, "factura.finalizar")
     f = cargar_factura(db, user, factura_id, bloquear=True)
@@ -837,7 +837,7 @@ def listar_facturas(
     return {"items": items, "total": total, "page": page, "size": size}
 
 
-def _info_transporte(pl: PackingList) -> dict | None:
+def info_transporte(pl: PackingList) -> dict | None:
     u = pl.unidad
     if not u:
         return None
@@ -961,7 +961,7 @@ def detalle_factura(db: Session, user: Usuario, factura_id: int) -> dict:
                 "estado": pl.estado,
                 "version": pl.version,
                 "totales": totales_pl(pl),
-                "transporte": _info_transporte(pl),
+                "transporte": info_transporte(pl),
             }
             for pl in f.packing_lists
         ],

@@ -69,7 +69,7 @@ def test_la_familia_elige_la_categoria_aduanera_de_sus_fichas(admin):
     from test_grupos_producto import _grupo
 
     from app.modelos import CategoriaProducto
-    from app.modulos.productos.productos import entrada_producto
+    from app.modulos.productos.flujo_ficha import entrada_producto
 
     fam = _grupo(admin, codigo="GP-CX", nombre="Customs family")
     sub = _grupo(admin, codigo="GP-CX-S", nombre="Customs subfamily", padre_id=fam["id"])
