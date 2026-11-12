@@ -21,7 +21,7 @@ Cómo se conectan los módulos sin conocerse: un módulo publica un registro
 importa a nadie, y agregar o quitar un módulo no toca a los otros.
 
 `core` no conoce ningún módulo: recorre las carpetas y lee su contrato.
-Las reglas de dependencias están en tests/test_arquitectura.py.
+Las reglas de dependencias están en tests/test_dependencias.py.
 
 Qué módulos usa cada empresa se decide aparte, en Configuración → Empresa →
 Módulos (`acceso/permisos.py`, MODULOS_ACTIVABLES): el código de todos está

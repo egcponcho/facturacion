@@ -2,7 +2,7 @@
 
 Un solo árbol de la empresa para agrupar lo que vende (calzado → calzado
 técnico → sandalias…). Lo comparten el etiquetado y las reglas de empaque, y
-reemplaza a las familias y categorías que antes eran solo del etiquetado.
+es la base del catálogo (módulo `catalogo`).
 
 Pantalla: **Configuración → Datos maestros → Grupos de producto**
 (`/grupos-producto`). Las pantallas del etiquetado (Etiquetas → Familias y sus
@@ -34,7 +34,7 @@ familia).
 
 ## 2. El motor común
 
-`app/modulos/grupos/arbol.py` da a quien lo use la **ruta del artículo**, de
+`app/modulos/catalogo/familias.py` (`ruta_efectiva`) da a quien lo use la **ruta del artículo**, de
 lo más específico a lo más general: su categoría, su familia y las familias de
 arriba. La recorren:
 - el etiquetado: artículo, producto, categoría, familias y toda la empresa;
@@ -44,33 +44,7 @@ arriba. La recorren:
 Las condiciones se evalúan con un solo evaluador
 (`app/modulos/comun/condiciones.py`) en los dos módulos.
 
-## 3. Migración (alternativa A: convivir)
-
-La migración **0081**:
-1. Copia cada familia y cada categoría 1:1 a `grupos_producto`. El nodo
-   guarda de cuál salió (`legado_familia_id`, `legado_categoria_id`).
-2. Si una categoría tiene el código de una familia de la misma empresa, toma
-   el código con un sufijo (`-C`, `-C2`…).
-3. Reapunta con ese mapa:
-   - las familias de artículos, grupos de artículos y productos;
-   - la categoría puesta a mano en el producto;
-   - las reglas de etiquetado (`usos_diseno.grupo_id`), recalculando su celda;
-   - el historial de etiquetas (`generacion_items.grupo_id`).
-4. No borra ni cambia las tablas y columnas anteriores: quedan congeladas, solo
-   para volver atrás. En el código se llaman `FamiliaEtiquetadoAnterior`,
-   `CategoriaEtiquetadoAnterior` y `*_anterior_id`, y nada las lee.
-
-**Volver atrás (downgrade):**
-- Lo que cambió en el árbol (nombres, lugar, condiciones, asignaciones,
-  reglas) regresa a las tablas anteriores.
-- Los nodos nuevos se agregan a ellas.
-- Lo que se borró del árbol queda inactivo.
-
-Diferencia con lo anterior: un producto con una categoría a mano de una
-familia superior a la de su grupo queda en esa categoría, y su familia pasa a
-ser la de la categoría.
-
-## 4. API
+## 3. API
 
 | Ruta | Para qué |
 |---|---|
@@ -84,6 +58,3 @@ Permisos:
 - Ver: `catalogos.ver` o `etiquetas.familias`.
 - Editar: `catalogos.editar` o `etiquetas.familias`.
 - Un proveedor no ve el árbol.
-
-Las rutas del etiquetado (`/api/etiquetas/familias`, `/api/etiquetas/categorias`…)
-no cambian.

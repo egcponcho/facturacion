@@ -1,0 +1,387 @@
+# Funciones del sistema
+
+Qué hace el sistema, pantalla por pantalla, para quien lo usa o lo configura.
+Cómo está hecho por dentro está en [ARQUITECTURA.md](ARQUITECTURA.md) y qué
+contiene cada módulo, en [MODULOS.md](MODULOS.md).
+
+## Acceso seguro
+
+- **Ingreso en dos pasos:** correo y contraseña, y luego un **código de 6 dígitos enviado por SMS al celular registrado del usuario**. El código vence en 5 minutos, admite 5 intentos, se puede reenviar después de 30 segundos (hasta 5 envíos) y solo se guarda como hash con clave.
+- **Sesiones del lado del servidor** en una cookie `httpOnly` y `SameSite=Strict` (`Secure` con `COOKIE_SEGURA=1`, el valor por defecto). Vencen a las 12 horas o tras 30 minutos de inactividad, y se revocan al cerrar sesión, al cambiar la contraseña o el celular, al desactivar al usuario o al apagar su verificación en dos pasos. El navegador nunca ve un token.
+- **Bloqueo:** 5 contraseñas incorrectas bloquean la cuenta 15 minutos; se devuelve el mismo mensaje para un correo desconocido o una contraseña incorrecta. Las peticiones tienen límite por red.
+- **Contraseñas:** al menos 10 caracteres, con mayúscula, minúscula, número y símbolo, sin contener el nombre de usuario del correo; cada usuario cambia la suya desde la barra superior. Una contraseña puesta o generada por el administrador es temporal (se pide cambiarla al entrar) y además desbloquea la cuenta.
+- **Rutas restringidas:** cada ruta de la API exige sesión y revisa los permisos del rol (los proveedores solo ven sus propios documentos y reciben 404 para los de otros). La interfaz oculta y bloquea las páginas que un rol no puede usar. Los cambios con la cookie exigen el encabezado `X-Requested-With` (protección CSRF).
+- **Encabezados de seguridad:** CSP, `X-Frame-Options: DENY`, `nosniff`, política de referrer estricta y HSTS con `COOKIE_SEGURA=1`. Peticiones mayores que `MAX_SUBIDA_MB` (25 MB por defecto) se rechazan. La documentación interactiva de la API (`/docs`) solo se publica en la demostración.
+- **Usuarios y accesos** (administrador) se organiza en pestañas: **Usuarios**, **Roles y accesos**, **Proveedores** y **Flujo de clasificación**. Cada usuario tiene un rol, un celular registrado en formato internacional (`+50370001234`) y la verificación en dos pasos encendida o apagada.
+- **Roles y accesos:** los roles son libres: el administrador crea cada uno con **nombre, descripción y los permisos** marcados módulo por módulo (ver, crear, editar, eliminar y las acciones propias de cada módulo: importar OCs, finalizar o reabrir facturas y listas de empaque, clasificar y aprobar fichas, gestionar embarques, ver seguimiento, editar el arancel, datos maestros, administración…), los edita en cualquier momento y los asigna a usuarios. No hay tipos de rol fijos: se crean tres roles iniciales (Administrador, Equipo interno, Proveedor) como punto de partida y se pueden editar o eliminar como cualquier otro. **Qué documentos ve un usuario depende del usuario, no del rol:** un usuario con un proveedor asignado solo ve los documentos de ese proveedor, y los permisos del rol sobre datos globales o administración no le aplican (el formulario del rol los marca *Solo usuarios internos*). Los cambios aplican de inmediato; el menú y los botones siguen los permisos y el servidor los hace cumplir. Un rol con usuarios no se puede eliminar, y el sistema nunca deja que el último administrador activo pierda el permiso de administración.
+- **Flujo de clasificación:** interruptores que reparten el trabajo de la ficha técnica sin tocar los roles: *Quién llena la ficha técnica* (el proveedor, el equipo interno, si el proveedor ve la partida sugerida) y *Cómo se aprueba una ficha* (revisión antes de aprobar, cuatro ojos, aprobación por lote).
+
+Para enviar SMS reales defina `SMS_PROVEEDOR=twilio` con `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_FROM`. Con el proveedor `consola` (el valor por defecto) el mensaje va al registro del servidor, y solo en modo demostración (`SEED_DEMO=1`) el código también se muestra en pantalla.
+
+## Menú por módulos
+
+El menú lateral tiene una sola entrada por módulo: **Inicio, Compras, Facturación, Logística, Productos, Etiquetas, Análisis y Configuración**. Cada módulo abre con una barra de pestañas con sus apartados y su acción principal (*Nueva OC*, *Producto nuevo*…), como en el ERP. Los catálogos de datos maestros ya no forman un módulo aparte: cada uno vive en el módulo que lo usa (proveedores en Compras; centros, almacenes, puertos, transportistas y lead times en Logística; artículos, marcas, atributos de variante, escalas, packs y kits en Productos…) y la pantalla de catálogos muestra solo los del módulo. Compras, Facturación y Logística abren en su **Resumen**: los indicadores del módulo con periodo, metas y tendencia (`/compras/resumen`, `/facturacion/resumen`, `/logistica/resumen`; los de Productos están en su propio resumen). Análisis queda para los cruces entre módulos y los reportes. **Configuración** abre en una portada con todo lo que se ajusta: la empresa, usuarios, roles, bitácora, países, integraciones y un acceso a la configuración de cada módulo, cada tarjeta con el permiso de su pantalla y cuántos registros tiene. La definición está en `frontend/src/nucleo/modulos.js`; el diseño (colores, tipografía Inter con una escala de nueve tamaños `--t-2xs` … `--t-3xl`, espaciado) en `design-system/facturacion/MASTER.md` y [DISENO.md](DISENO.md).
+
+### Módulo de Productos
+
+- **Resumen** (`/productos`): cuántos productos y variantes hay, en qué estado están, cómo se reparten por familia, qué falta completar (sin familia, sin variantes, variantes sin código de barras, los que bloquean facturas), lo último modificado y la puesta en marcha (proveedores y marcas → atributos de variante → familias → primer producto). Cada cifra abre el catálogo con ese filtro (`GET /api/productos/resumen`).
+- **Catálogo** (`/productos/catalogo`): la bandeja de productos con su ficha técnica y clasificación; acepta `?familia=<id>` (incluye sus subfamilias).
+- **Producto nuevo** (`/productos/nuevo`): asistente de cuatro pasos para cualquier tipo de producto — tipo (la familia, que define qué datos pide y qué atributos distinguen sus variantes), datos generales (siempre código, nombre y unidad; lo demás —proveedor, marca, grupo, modelo, código de barras, peso…— solo si la empresa o la familia lo exigen, si no queda en *Más datos (opcionales)*), variantes (valores escritos, tramos como `7-10` o `S-XL`, escalas y combinaciones) y revisar. Guarda borrador en el servidor y al crear abre la página del producto.
+- **Página del producto**: la cabecera muestra la familia, los **datos del producto** que pide su familia (una tarjeta por atributo; los vacíos, punteados y contados) y sus **variantes por atributo** (fichas por eje). La pestaña *Variantes y packs* muestra las variantes en **matriz** (un eje en columnas, los demás en filas) o en **lista** con una columna por atributo, y los packs y kits como tarjetas; las pestañas de consulta (acuerdos, versiones, historial) están en *Más*. Además de la ficha y sus variantes, la pestaña **Uso** muestra en qué OCs, facturas y embarques aparece (solo lo que el rol y el alcance del usuario permiten ver) y **Empaque**, las reglas de empaque que pueden aplicarle, en el orden en que compiten, y las recetas con que realmente se pidió.
+- **Clasificación** y **Configuración**: arancel y familias de clasificación; y la portada con todo lo que se configura una vez (familias, atributos de variante, escalas, packs y kits, artículos, marcas, grupos, listas, acuerdos y dominios), cada uno con cuántos registros tiene.
+
+## Módulos y campos propios
+
+- **Módulos** (*Configuración → Empresa → Módulos*): la empresa apaga lo que no usa — embarques y recepción, clasificación arancelaria (arancel y familias de producto), seguimiento y lead times. Sus permisos dejan de darse a todos, así desaparecen las pantallas y el servidor rechaza sus rutas; al encenderlo vuelve todo, sin perder datos.
+- **Campos propios** (*Configuración → Empresa → Campos propios*): datos que la empresa agrega a artículos, proveedores, sociedades, centros, marcas, transportistas, órdenes de compra y facturas, de tipo texto, número, fecha, sí/no u opción, opcionales u obligatorios. En los datos maestros aparecen en el formulario, la tabla y la carga por Excel; las OC los leen del archivo de carga por su nombre (o con un perfil de importación); en la factura se editan en la cabecera, salen en el PDF y el Excel y, si son obligatorios, se piden para finalizar. Se guardan en la columna `extra` de cada registro (`backend/app/core/campos_propios.py`).
+
+## Página de inicio por rol
+
+Cada rol elige qué paneles ve en su página de inicio (*Usuarios y accesos → Rol → Página de inicio*): indicadores, lo que necesita atención, próximos pasos, embarques, unidades de carga en planificación, alertas de importación, desempeño y por proveedor.
+
+## Alcance de los datos por usuario
+
+Además del rol, cada usuario tiene un **alcance** (*Usuarios y accesos → Usuario → Rol y alcance de los datos*). Vacío = sin límite:
+
+- **Proveedores:** un usuario de proveedor siempre ve su proveedor y, además, los que represente (p. ej. un agente con varios proveedores; elige cuál ver en el encabezado). Un usuario interno puede quedar limitado a algunos proveedores.
+- **Sociedades:** solo las OC, facturas, listas de empaque, seguimiento y embarques (por el centro de destino) de esas sociedades; p. ej. el equipo de un país.
+- **Transportistas:** un agente de carga o transportista (con un rol que solo tenga los permisos de transporte) ve únicamente los embarques de sus transportistas.
+
+El servidor aplica el alcance en cada consulta (`backend/app/modulos/acceso/permisos.py`); un documento fuera del alcance responde como si no existiera.
+
+## Datos visibles por rol
+
+Además de los permisos, cada rol puede ocultar grupos de datos en *Usuarios y accesos → Rol → «Datos que ve este rol»*. Los grupos están definidos en `backend/app/modulos/acceso/visibilidad.py`:
+
+| Grupo | Qué oculta |
+|---|---|
+| `precios` | Precios unitarios, valor de la OC, importes de factura y valor facturado |
+| `codigos_internos` | Códigos de sociedad, centro, centro de destino y almacén |
+| `fechas_internas` | Fecha requerida en tienda, llegada estimada a tienda, holgura y riesgo de atraso |
+| `liberaciones` | Códigos y fechas de las liberaciones comercial y logística (el usuario sigue viendo si una OC se puede facturar) |
+| `impuestos` | Arancel (DAI), impuestos y regulaciones de importación de cada país de destino |
+| `contactos` | Nombres, correos y teléfonos de las personas de la empresa en cada centro y sociedad |
+
+- Ocultar no es solo de la pantalla: el servidor quita esos campos de las respuestas de las pantallas de trabajo (órdenes, facturas, listas de empaque, embarques, seguimiento, productos, tablero, búsqueda) y las columnas de los reportes en Excel/PDF. Los documentos oficiales (factura comercial y lista de empaque) siempre salen completos porque son documentos legales.
+- El rol de fábrica de proveedor oculta por defecto `fechas_internas`, `liberaciones` e `impuestos` (se puede cambiar). Los administradores siempre ven todo.
+- Además, cada persona elige qué columnas ver con el botón **Columnas** en *Órdenes*, *Seguimiento* y las líneas de la factura; la elección se guarda en su perfil. Solo se ofrecen las columnas que su rol permite.
+
+## Recorrido de 5 minutos
+
+Los datos de la demostración ya tienen historia: facturas de meses anteriores, un contenedor recibido, otro en tránsito y una factura lista para embarcar.
+
+1. Inicie sesión como **tnf@demo.com** (un clic en “The North Face” y luego ingrese el código que se muestra). **Inicio** muestra lo que falta por facturar, empacar y finalizar, dónde está la mercancía y los embarques en camino.
+2. En *Órdenes*, en la OC 4400003845 haga clic en **Factura** (o ábrala y cambie “Por facturar” para tomar solo una parte; se pueden combinar varias OCs con **Facturar juntas**). Revise y haga clic en **Crear factura**.
+3. En la factura, los pasos de arriba dicen qué falta. Haga clic en **Empacar pendientes**: crea la lista de empaque con todo y la abre.
+4. En *Por empacar*, haga clic en **Empaque automático**. Las líneas con casepack se empacan con esa cantidad exacta por caja, las líneas con inner pack en inner packs completos y el resto con la plantilla sugerida. El sobrante que no llena una caja va a una caja parcial con peso estimado (o queda sin empacar).
+5. En *Revisar*, verifique el contenido **por destino** y las **unidades de carga sugeridas**, haga clic en **Confirmar estimaciones** y **Finalizar lista de empaque**. De vuelta en la factura, ingrese número y fecha y haga clic en **Finalizar**.
+6. Inicie sesión como **interno@demo.com**, abra *Embarques* → EMB-0003, elija 40HC #1 y haga clic en **Asignar carga**: el panel sugiere las unidades de carga para el volumen y el peso seleccionados. Solo se ofrecen facturas y listas de empaque finalizadas. Luego registre la **Salida** con **Registrar evento**.
+7. Abra **Productos** (como interno@demo.com). *Lista para aprobar* tiene el Vans Authentic White: el panel de clasificación muestra la partida sugerida 6404.19, el porqué y el código nacional de cada país de destino. Haga clic en **Aprobar**. Desde ese momento sus líneas de OC muestran 6404.19.90.00 (El Salvador) y las facturas la toman automáticamente. Como tnf@demo.com, la chaqueta *Summit blue* fue devuelta con observaciones: complete la composición de la tela exterior y guárdela; vuelve a revisión.
+8. *Seguimiento* muestra cada OC (y, al abrirla, cada SKU por etapa) y cada embarque con sus unidades, con la holgura frente a la fecha en tienda. Todo se descarga en PDF o Excel. *Datos maestros* reúne todos los catálogos.
+
+## Datos del artículo vs. datos de la línea de OC
+
+| Artículo (dato maestro, *Datos maestros → Artículos*) | Línea de OC (dato de compra, viene en el archivo de la OC) |
+|---|---|
+| Código de artículo (alfanumérico libre), producto, descripción | Número de OC y línea, sociedad, centro, almacén |
+| Atributos del producto (marca, modelo…) y de la variante (talla, color, sabor…), los que defina la empresa | Centro de destino (país), puerto de carga, países de origen y de procedencia |
+| Tipo (simple, o pack o kit), unidad de medida (PAR, UN, CJ), peso | Cantidad, precio unitario, moneda, incoterm |
+| Códigos: de barras (uno o varios), del proveedor, identificador del pack | Fechas XF, fecha en tienda, liberación comercial y logística |
+| Familia y proveedor (del producto) | |
+| Contenido del pack o kit (variantes y cantidades) | **Casepack** para artículos simples (opcional; el inner pack normalmente se define después, en la lista de empaque) |
+
+El artículo no tiene casepack: se define en cada línea de OC, porque el mismo artículo se puede comprar en empaques distintos. En *Órdenes* la tabla de líneas agrupa las columnas como “Artículo · datos maestros” y “Línea de OC · datos de compra”, y el equipo interno puede editar el casepack y el inner pack de una línea mientras no esté facturada.
+
+La partida arancelaria, el país de origen, el tipo de producto y la descripción no se escriben en el artículo: vienen de la **ficha técnica del producto** (siguiente sección), compartida por todas sus variantes. La **familia** del producto es su única clasificación: define sus atributos (con los de variante se distinguen sus variantes), los datos que exige, la regla de empaque y los días extra de lead time. Cada línea de OC y de factura guarda la foto de los atributos del producto y de la variante al crearse (vea [PRODUCTO_GENERICO.md](PRODUCTO_GENERICO.md)).
+
+## Productos: ficha técnica y clasificación arancelaria
+
+El **código de artículo** es libre: cualquier código numérico o alfanumérico de hasta 40 caracteres (letras, dígitos, `.`, `_`, `-`, `/`), sin largo ni prefijo fijo. Cada artículo (variante) pertenece a un **producto** con su propio código; sus variantes, packs y kits comparten sus datos y, con el complemento de comercio exterior, una ficha técnica y una clasificación. Un producto se crea una vez con su núcleo (código, nombre, unidad) y lo que exijan la empresa (*Datos maestros → Artículos → datos obligatorios*) o su familia (*Familias → Datos que exige a sus productos*); el proveedor y la familia son opcionales, y marca, modelo, talla, color o cualquier otro dato son **atributos** que la empresa define en *Datos maestros → Atributos* con su nivel (del producto o de la variante) y su tipo de valor (migración 0092). Cada atributo vale en las familias que tiene (y en sus subfamilias) o en todas si es general: un producto solo lleva los atributos de su familia (migración 0094). Después solo se agregan variantes, cada una con su código de artículo (escrito completo, o código del producto + código de variante), código de barras y código del proveedor. *Datos maestros → Artículos* muestra por defecto una fila por producto (**Compacta**), expandible a sus variantes y packs; **Lista** muestra una fila por código de artículo. Sin el módulo *Comercio exterior* (Configuración → Empresa → Módulos) la página del producto oculta la ficha aduanera, la clasificación, los acuerdos y las versiones, y nada espera una partida arancelaria.
+
+- **Ficha técnica**: tipo de producto, género, para quién es, uso, rango de tallas, país de origen, composición por parte (tela exterior, forro, corte, suela…), las características que cambian el código (solo se preguntan esas), fotos y la descripción aduanal en español (armada desde la ficha o escrita a mano): completa —qué es el producto, sus partes (corte y suela), altura, tela, relleno, uso y para quién es— pero con cada material dicho solo por su categoría: **CUERO, TEXTIL o SINTÉTICO** (caucho, plásticos y cuero artificial), sin porcentajes ni fibras y sin la marca (tiene su propio campo), p. ej. *TENIS CON CORTE DE TEXTIL Y SUELA DE SINTÉTICO, SIN CUBRIR EL TOBILLO, PARA DEPORTE O ENTRENAMIENTO, UNISEX*.
+- **Motor de clasificación**: corre en el servidor (vea *Un solo motor de clasificación*) mientras se edita la ficha. Aplica las reglas del Sistema Armonizado 2022 (RGI, notas de sección y de capítulo) para ropa, calzado, bolsos y accesorios, aprende de lo ya aprobado y devuelve la subpartida SAC de 6 dígitos, su confianza, el razonamiento, alternativas e inconsistencias por revisar.
+- **Códigos nacionales por destino**: solo existen líneas publicadas por una fuente oficial (con fuente, versión y vigencia); la empresa nunca las crea. GT, SV y HN aplican el SAC regional a 10 dígitos, así que sus líneas son las líneas oficiales del ACI. NI, CR y PA muestran *Datos arancelarios nacionales oficiales no disponibles* hasta que se cargue su arancel nacional con su fuente y versión. Las clasificaciones anteriores de la empresa (`historial_clasificacion`) solo ayudan a elegir entre líneas oficiales (*preferida por el historial de su empresa*). Cuando un país abre más la subpartida, la ficha pide solo ese dato. El equipo interno escribe el código nacional directamente en la tabla *Por destino* (se aplica al salir del campo, revisando los dígitos y la subpartida), puede volver al código automático y **recordarlo** para productos similares. Los productos similares muestran su genérico. La ficha ya no pide el rango de tallas: sale de las tallas del genérico. Cada material escrito en la composición muestra cómo cuenta para el arancel (cuero, textil, caucho o plástico, sintético): se reconocen nombres comerciales como synthetic suede, PU leather, leatherette, cowhide, nubuk, phylon, flyknit o corduroy, y se pueden enseñar palabras desconocidas. El panel de clasificación muestra la subpartida SAC de 6 dígitos y las **notas legales del SAC** que aplican (reglas generales, notas de sección, de capítulo y de subpartida); se editan en *Arancel → Notas legales* y la opinión del especialista también las lee. La base es el **texto oficial del SAC** tomado del Arancel Centroamericano de Importación de la SIECA (VII Enmienda, versión 6, agosto de 2025): 518 notas (las seis Reglas Generales, notas de sección, notas de capítulo, notas de subpartida y las notas complementarias centroamericanas de cada capítulo). El panel lista primero las notas que cita el motor y las que tocan la ficha (bebé, unisex, recubierto, cuero, deporte…). Las notas se pueden editar, cargar desde Excel y exportar. Al agregar o editar un código nacional, el formulario muestra solo las condiciones que abren su subpartida: las que ese país ya usa ahí, las que usan otros países y las que abren códigos nacionales en su capítulo, además de cómo divide ese país la subpartida hoy (todas se pueden mostrar igual). Guatemala, El Salvador y Honduras (10 dígitos) vienen con las líneas arancelarias oficiales del ACI (SIECA, VII Enmienda, versión 6) para los capítulos que clasifica el motor, con su DAI; las condiciones que el clasificador deduce de su texto (puntera metálica, que cubre el tobillo o la rodilla, cubrecalzado, para hombre/mujer/bebé, sombreros) son reglas del motor, nunca parte de la línea oficial. La lista completa de partidas y subpartidas del SAC (6,607) se carga con su texto oficial. Nicaragua, Costa Rica (12 dígitos) y Panamá (arancel propio) no tienen líneas nacionales hasta que se carguen sus aranceles oficiales con *Cargar códigos* (fuente y versión obligatorias). Vea `docs/clasificacion/arquitectura.md` para las tres capas (datos oficiales, motor de clasificación, conocimiento de la empresa). `backend/scripts/sieca` reconstruye estos archivos desde una nueva versión del ACI.
+- **Cualquier producto**: químicos, materias primas o cualquier otra cosa usan la misma ficha con las categorías genéricas (*Químico*, *Materia prima*, *Otro*) o cualquier categoría creada en la configuración. Los candidatos salen del texto arancelario oficial de los capítulos habilitados, y el resultado sigue siendo una sugerencia que confirma un especialista.
+- **Base legal**: cada país de destino tiene su base legal (el Arancel Centroamericano de Importación para los países del MCCA, con las aperturas nacionales a 12 dígitos de Nicaragua y Costa Rica; el Arancel Nacional de Importación de Panamá). Se edita en *Arancel → Países* y se muestra bajo los códigos nacionales de cada ficha.
+- **Notas explicativas**: el panel de notas también lista las notas explicativas de la partida. Trae resúmenes propios y cortos para las partidas de los capítulos 42, 61, 62, 64 y 65, marcados como tales; el texto oficial de las Notas Explicativas de la OMA tiene derechos de autor y no se incluye, pero se puede cargar (tipo *Nota explicativa (SA)*, código de partida) desde la carga de notas.
+- **Acuerdos comerciales por origen**: la pestaña *Acuerdos comerciales* de cada producto muestra, para cada país de destino y según su país de origen, si un acuerdo comercial cubre ese origen y qué prueba de origen (certificado de origen, EUR.1, FAUCA…) hay que presentar para obtener la preferencia; sin ella aplica el DAI completo. Trae una base de referencia de los acuerdos vigentes para Centroamérica y Panamá (MCCA, DR-CAFTA, acuerdos de asociación con la UE y el Reino Unido, México, Corea, China–Costa Rica, China–Nicaragua, Taiwán–Guatemala, Colombia, Chile, Perú, Canadá, Singapur, República Dominicana, AELC, Israel–Panamá), mantenida en *Datos maestros → Acuerdos comerciales* (códigos ISO de origen y destino, prueba de origen, notas). Contrástela con las fuentes oficiales antes de confiar en ella.
+- **Flujo**: una ficha es un **borrador** que cualquiera con acceso (el proveedor o el equipo interno) puede editar y guardar cuantas veces haga falta. Cuando está completa, se **envía a revisión** (una por una o en bloque desde la lista); desde ese momento el proveedor no puede cambiarla salvo que la regrese a borrador. El equipo interno la **aprueba** (o elige otro código) o la **devuelve** con observaciones, y vuelve a borrador. Las fichas aprobadas quedan bloqueadas; un cambio abre una **nueva versión**, y las anteriores quedan en la pestaña *Versiones*, donde cada una se puede ver tal como estaba (datos, composición, descripción aduanal, partida y códigos nacionales) y descargar en PDF o Excel. Quién llena y cómo se aprueba se ajusta en *Usuarios y accesos → Flujo de clasificación*.
+- **Dónde se usa**: cada línea de OC muestra el código de su país de destino; las líneas de factura toman el código, el origen y la descripción aduanal de la ficha aprobada (no se escriben en la factura). Una factura no se puede finalizar mientras un producto no esté clasificado; el mensaje enlaza a su ficha.
+- **Opinión del especialista (opcional)**: con `ANTHROPIC_API_KEY`, el equipo interno puede pedirle a Claude una segunda opinión con la ficha y hasta dos fotos. Nunca aprueba nada.
+- **Dos descripciones**, ambas armadas desde la ficha y editables: la aduanal en español y una comercial sencilla —tipo de producto y marca, p. ej. *CALZADO VANS* o *CHAQUETA THE NORTH FACE*— que se usa en la factura y la lista de empaque.
+- **Los packs no se clasifican**: se arman con variantes del producto y toman su partida; un kit (artículos de varios productos) es su propio producto.
+- La ficha se descarga en **PDF o Excel** (el Excel agrega una hoja para la composición, los códigos nacionales y las tallas). El reporte de la lista de productos se descarga en Excel o PDF con la composición, la descripción aduanal y el código nacional guardado para cada país de destino; el Excel además tiene una fila por parte de la composición y una por código de país.
+
+**Soporte de clasificación.** La página del producto tiene un panel *Soporte de clasificación* ligado a la subpartida de la ficha y a los códigos nacionales de destino: **Notas legales** (reglas y notas del SAC que aplican), **notas explicativas** y **Base legal** (las líneas arancelarias nacionales con sus condiciones). Es material de referencia para la clasificación y la revisión, no una adaptación automática de la ficha a todo el SAC.
+
+## Arancel y familias de producto
+
+*Arancel* (en *Productos* o en *Configuración → Comercio y cumplimiento*) tiene un menú lateral que separa los datos oficiales de lo que sabe la empresa; la configuración del motor está aparte, en *Familias de producto*. Las tres capas (vea `docs/clasificacion/arquitectura.md`) no se mezclan:
+
+**Datos oficiales** (*Arancel*)
+- **Fuentes y versiones** de cada conjunto de datos.
+- **Árbol arancelario**: el SAC 2025 v6 oficial (99 capítulos, 1,012 partidas, 5,595 subpartidas, 7,517 líneas arancelarias con su DAI; las 519 líneas cuyo DAI el ACI envía a la Parte II, que difiere por país, no guardan una tasa única), versionado con fuente y checksum. Búsqueda por código o por palabras; cada nodo muestra sus notas legales y, por país, los códigos nacionales, impuestos y regulaciones.
+- **Países**: el esquema de códigos y la fuente de cada tipo de dato.
+- **Incisos nacionales** de cada país con su arancel, versión, fuente y vigencia. El largo del código se configura por país (8 a 14 dígitos cuando no hay esquema definido).
+- **Partidas y subpartidas del SAC** y **Notas legales**, editables.
+- **Impuestos**: IVA/ITBMS/ISV, selectivos… con tasa, base, umbrales y base legal. Gana el patrón más específico de cada tipo.
+- **Regulaciones**: permisos, licencias, registros, etiquetado… para un código o un patrón (p. ej. `3304`).
+- **Capítulos**: qué capítulos usa el clasificador (activo, habilitado, candidato automático, solo manual, archivado), en bloque.
+- **Importación de datos**: los tres paquetes oficiales (01 catálogos, 02 motor dinámico, 03 códigos nacionales, regulaciones e impuestos) se cargan por etapas:
+  1. Suba el archivo a una vista previa. Se valida el archivo y se muestra cada registro nuevo, cambiado o reemplazado (antes → después), los errores y las advertencias.
+  2. Publique para aplicarlo, o descártelo. Si los datos cambiaron desde la vista previa, se le pide revisarla de nuevo.
+
+  Las cargas nunca borran lo publicado.
+- **Integridad de los datos arancelarios**.
+
+**Conocimiento de la empresa** (*Arancel → Historial, decisiones y palabras clave*, bajo `/api/conocimiento/…`): historial de clasificación, decisiones manuales y correcciones, palabras clave y sinónimos aprendidos. El motor devuelve `legal_confidence` (solo reglas y texto oficial) y `historical_confidence` (solo historial de la empresa); el historial solo ordena los candidatos que permiten los datos oficiales.
+
+**Motor de clasificación** (*Familias de producto*; configuración, no dato oficial, también bajo `/api/clasificacion/configuracion/…`), en este orden:
+- **1 · Familias y categorías**: dominios (químicos, materias primas, calzado, ropa, accesorios) y sus capítulos. Un dominio solo ordena preguntas y candidatos; nunca fuerza ni excluye un capítulo.
+- **2 · Preguntas**: los atributos que pide la ficha del producto, con sus opciones (sinónimos, orden, activo) y dónde aplican (sistema, dominio, capítulo, partida, subpartida o categoría de producto; preguntar, obligatorio o no preguntar). La ficha toma de aquí las etiquetas, las opciones desactivadas y las preguntas apagadas.
+- **3 · Reglas**: las reglas del sistema (solo capítulos habilitados, notas legales por encima de la similitud de texto, preguntar solo lo que distingue, revisión de especialista cuando hay ambigüedad…) y las reglas de selección nacional, que son las condiciones del producto que eligen cada código nacional, separadas del código oficial.
+- **Listas de referencia**: clases de material, vocabulario de búsqueda y traducciones.
+
+**Un motor para todos los dominios**: `POST /api/clasificacion/sesion` clasifica calzado, ropa, químicos y materias primas por igual (texto, dominio, categoria, ficha, respuestas, paises, version). Calzado, ropa, accesorios, químicos y materias primas están escritos a partir de las Notas Explicativas del SA en `backend/app/data/motor/familias/*.json` (generados por `backend/scripts/familias/construir.py`, que comprueba cada regla y caso de prueba contra el árbol oficial): categorías, preguntas con la nota que las justifica, reglas `R-NE-*` y casos de prueba. Los productos pueden adjuntar documentos **SDS / TDS / COA** (pestaña *Documentos técnicos*): sus datos (CAS, composición, estado físico, densidad, pH…) completan hechos vacíos de la ficha y nunca son fuente arancelaria.
+
+### Un solo motor de clasificación (servidor)
+
+Hay **un solo motor de clasificación**, en Python (`backend/app/modulos/clasificacion/motor_clasificacion.py`). La ficha del producto, el guardado, la clasificación en bloque, las cargas, la aprobación y la opinión del especialista lo llaman; el navegador solo muestra y edita (no tiene lógica de clasificación).
+
+- **Ficha natural → hechos.** La interfaz envía la ficha tal como se escribió (categoría, composición por parte, género, edad, uso…). El servidor la normaliza (`ficha.py`): lee las composiciones (`composicion.py`), deriva hechos (fibra predominante, material del corte y de la suela…), aplica implicaciones y bloqueos de opciones, detecta lo que dicen el nombre y el uso, y conserva lo que eligió la persona.
+- **Todas las categorías funcionan igual**, calzado y ropa incluidos. Las categorías (`CategoriaProducto`), atributos, opciones, dependencias y ámbitos son datos. Cree un dominio, una categoría, sus atributos, opciones, ámbitos, reglas y códigos nacionales en *Familias de producto* y *Arancel*, y sus productos se clasifican sin cambios de código.
+- **Ámbitos (SHOW / REQUIRE / HIDE).** Gana el ámbito más específico: categoría > dominio > subpartida > partida > capítulo > sistema. Los empates se resuelven por prioridad, luego HIDE > REQUIRE > SHOW, luego el más reciente.
+- **Reglas.** Un número mayor significa mayor precedencia. Hay tres capas: legal (notas legales, arancel nacional), sistema y empresa. Una regla de la empresa nunca rompe una restricción legal (`blocked_by_legal`). Una regla que choca con otra superior queda `overridden_by`.
+  - RESTRICT y EXCLUDE reducen los códigos permitidos.
+  - BOOST solo sube códigos permitidos.
+  - ASK pide datos.
+  - REVIEW y WARN envían el producto a revisión.
+
+  Cada regla tiene un número de revisión y una firma. Una regla legal debe citar su nota legal, y la interfaz muestra *Evidencia legal* aparte de *Regla del sistema* y *Regla de la empresa*. Los códigos de las reglas se revisan contra el árbol de la versión vigente.
+- **Versiones.** La versión vigente se resuelve por fecha y ámbito (regional o por país). La misma entrada con la misma fecha reproduce una clasificación pasada. Las líneas nacionales solo salen de la versión vigente del país y dentro de su propia vigencia; las líneas oficiales nunca se editan, y los cambios de la empresa son sobrescrituras con motivo.
+- **Códigos nacionales.** Cada país tiene sus largos válidos (`10, 12`…). Un código se valida contra ellos y nunca se trunca. Un código de la empresa solo se acepta con un largo válido y dentro de la subpartida.
+- **Evidencia.** Cada respuesta lleva la versión, las entradas, los hechos derivados, las reglas (evaluadas, aplicadas, sobrescritas), las notas legales, el SA6, el SAC, los códigos nacionales, la confianza, las alternativas, los motivos de revisión y las sobrescrituras. La aprobación la guarda en el producto y en cada versión.
+- **El historial** solo impulsa códigos que las reglas permiten.
+
+Un código de un capítulo no habilitado no se puede aprobar.
+
+El esquema de la base de datos se maneja con Alembic (`backend/alembic`). Las migraciones pendientes se aplican al arrancar (igual en demostración y en producción). Una prueba revisa que las migraciones coincidan con los modelos.
+
+## Cargas masivas y exportaciones
+
+- **Productos con sus variantes** (*Datos maestros → Artículos* o *Productos*): una plantilla de Excel con dos hojas. *Products*: una fila por producto con su código, nombre y unidad (obligatorios), proveedor, marca, grupo y modelo (opcionales) y, si se usan, las columnas de la ficha técnica. *Variants*: una fila por variante con una columna por atributo de variante, su código de artículo (o el siguiente libre), código de barras, código del proveedor y peso. Cada variante pasa por los datos que exige su familia. Se siguen leyendo las hojas *Generics* y *Sizes* de plantillas anteriores, y una sola hoja con una fila por código de artículo. Cada ventana de carga tiene una **Vista previa** de la plantilla además de la descarga en Excel.
+- **Cada catálogo de datos maestros** (marcas, atributos, escalas de valores, estados de liberación, proveedores, sociedades, centros, contactos, almacenes, transportistas, tipos de unidad, países, puertos…) tiene su propia plantilla de Excel, carga (crea o actualiza por código) y exportación a Excel/PDF con los filtros de la pantalla.
+- **Los reportes** siguen los filtros elegidos en pantalla; los filtros de dimensión aceptan uno o varios valores. No incluyen las columnas que el rol tiene ocultas (vea *Datos visibles por rol*).
+- **Generador de reportes** (*Reportes*): cada persona arma sus propios reportes sobre órdenes, líneas de OC, facturas, embarques o productos. Los **operativos** listan registros (columnas, filtros por campo y orden); los **analíticos** totalizan por grupo (conteo, suma, promedio, mínimo, máximo). Se ve una vista previa mientras se arma, se guarda la definición (no los datos) y se descarga en CSV, Excel o PDF. El equipo interno puede compartir un reporte con su organización; cada quien lo ve con su propio alcance de datos y sin los campos que su rol tiene ocultos.
+
+## Periodos del tablero
+
+El panel *Desempeño* del tablero muestra lo que pasó en el periodo (valor facturado, listas de empaque finalizadas, embarques que llegan, productos clasificados) y la gráfica del valor facturado para el periodo elegido —el mes en curso por defecto— con opciones rápidas (esta semana, este mes, el mes pasado, este trimestre, este año, 12 meses, personalizado). La gráfica agrupa por día, semana o mes según el largo del periodo, y se puede filtrar por marca.
+
+## Reglas de empaque
+
+Todas las opciones de empaque que necesita el proveedor están disponibles y el servidor las hace cumplir:
+
+- **Sólido con casepack:** cada caja lleva exactamente el casepack, misma variante; las variantes nunca se mezclan. Solo la última caja puede ser parcial, y se marca para confirmarla con el Commercial Brand Manager.
+- **Pack o kit:** un surtido por caja master con contenido fijo (p. ej. una curva de tallas); ya es una caja definida, así que no lleva casepack ni inner pack.
+- **Sólido sin casepack (ropa, accesorios):** la cantidad por caja viene de una plantilla o se ingresa libremente, y las cajas se pueden mezclar.
+- **Inner packs:** cuando la línea de OC tiene inner pack, todos sus inner packs llevan la misma cantidad de unidades o pares, y toda cantidad (línea de OC, línea de factura, movimiento de la lista de empaque, contenido de la caja, plantillas que usa el empaque automático) debe ser un número entero de inner packs. Con casepack, el casepack debe ser múltiplo del inner pack (p. ej. casepack 20 = 4 inner packs de 5); sin casepack, las cajas se empacan en múltiplos del inner pack. Cada inner pack lleva una etiqueta que identifica el producto y la cantidad total que contiene, y cada unidad o par dentro conserva su etiqueta individual; la lista de empaque muestra los inner packs por caja.
+- **Por país de destino:** una caja nunca mezcla mercancía para centros de destino distintos. La lista de empaque muestra qué va a cada destino (cantidades y cajas) para que el proveedor empaque y etiquete cada uno por separado; el documento muestra el destino final, o “según caja” cuando hay varios.
+- **Etiqueta:** *estándar* si la caja lleva una sola OC y una sola variante; *consolidada* en otro caso.
+- **Pallets:** las cajas se pueden paletizar (medidas del pallet y tara); el volumen usa las medidas del pallet y el peso bruto suma la tara.
+
+### Sugerencia de unidades de carga
+
+A partir del volumen (m³) y el peso bruto de la lista de empaque, el sistema sugiere unidades de carga con el catálogo *Tipos de unidad*:
+
+Cada modo de transporte (*Listas de valores*) dice cómo se calcula:
+
+- **Por volumen** (de fábrica: marítimo y terrestre): unidades completas a cerca del 85 % del volumen útil (las cajas nunca llenan el 100 %), consolidado (LCL, LTL) cuando el volumen no justifica una unidad completa, o unidades completas más una más pequeña o un consolidado para el resto.
+- **Por peso cobrable** (de fábrica: aéreo): una guía por el mayor entre el peso real y el volumen por el factor del modo (167 kg por m³).
+
+La opción recomendada (menos unidades completas, luego menos capacidad sobrante) se muestra en la lista de empaque y al asignar carga a un embarque.
+
+## Datos maestros
+
+Un solo lugar con crear, editar, eliminar y filtros con búsqueda para: **sociedades**, sus **centros**, **contactos**, **almacenes**, **países**, **puertos**, **marcas**, **atributos**, **escalas de valores**, **proveedores**, **artículos** (con sus packs y kits), **tipos de empaque**, **transportistas**, **tipos de unidad**, **estados de liberación**, **acuerdos comerciales**, **regiones**, **pasos de lead time**, **reglas de lead time** y **listas de valores**. Los registros en uso no se pueden eliminar.
+
+- **Proveedores:** código, nombre, razón social, NIT, país, dirección y contacto (aparecen como exportador en la factura y la lista de empaque). Cada proveedor tiene **sus marcas**, **las sociedades con las que trabaja** y sus propios **artículos**; la marca de un artículo debe ser una de las de su proveedor.
+- **Transportistas:** código (SCAC o IATA), nombre, tipo (un modo de transporte o multimodal) y las sociedades con las que trabajan.
+- **Tipos de unidad:** modo, **servicio** (una modalidad de ese modo: FCL, LCL, aéreo, FTL, LTL…), capacidad en m³ y kg y si exige marchamo.
+- **Puertos:** puerto marítimo, aeropuerto o frontera terrestre. Un **centro** tiene un puerto principal de llegada y otros puertos de llegada.
+- **Sociedades y centros:** la sociedad de la OC es la **facturada**; su centro es el **notify party** con su país y puerto de llegada. El **centro de destino** de la OC (p. ej. 2220) dice a qué país llega finalmente la mercancía.
+- **Atributos:** los datos que la empresa registra de sus productos. Los del **producto** (marca, modelo, material, número ONU…) los comparten todas sus variantes; los de la **variante** (talla, color, sabor, presentación, concentración…) las distinguen. Cada uno tiene su tipo de valor: texto, número (con su unidad), una de sus opciones, fecha, sí/no o un registro de un catálogo (la marca apunta a *Marcas* y solo acepta las de su proveedor). Ninguno viene de fábrica.
+- **Artículos:** cada variante de un producto con su código de artículo, sus valores de variante, su peso y sus códigos (de barras, del proveedor). Los productos y sus variantes se crean aquí o en *Productos → Nuevo producto*, a mano o con la plantilla que arma el sistema con los atributos de la empresa (hojas *Products* y *Variants*).
+- **Packs y kits** (*Artículos → Nuevo pack o kit*): un artículo con su propio código, un **identificador** (p. ej. `AB12`) y un **contenido** fijo: un pack junta variantes de un mismo producto, un kit artículos de cualquier producto. El contenido se puede ver en todas partes pero nunca cambiar. Carga masiva con la plantilla de packs y kits.
+- **Escalas de valores:** valores ordenados de un atributo de variante (tallas, presentaciones, concentraciones…) con la regla de su código.
+- **Código de variante sin escala:** cuando una variante no sale de una escala y nadie escribe su código de artículo, el código es el del producto más un código armado con la regla de la empresa (*Configuración de productos*: valor × factor, consecutivo o el mismo valor; de fábrica, consecutivo de 3 dígitos).
+- **Estados de liberación:** los códigos que manda el ERP de la empresa para la liberación comercial y la logística (vea *Órdenes de compra*).
+- **Listas de valores:** los valores que ofrecen los formularios y que se aceptan en los archivos, sin nada fijo en el código: **unidades de medida** (nombre, plural, otros nombres en los archivos y si se cuentan en enteros), **monedas** (símbolo, decimales y monto en letras en inglés y español), **incoterms**, **modos de transporte** (cómo se sugieren sus unidades de carga: por volumen o por peso cobrable con su factor; ícono y cómo se llaman su documento, sus puertos, sus transportistas y sus unidades), **modalidades de transporte** (de qué modo son y si son consolidadas, como LCL y LTL) y los tipos de **centro**, **almacén**, **contacto**, **impuesto** y **documento técnico**. Los valores de fábrica son los de una instalación nueva; los de sistema (la caja de pack `CJ`) se pueden renombrar, pero no borrar ni desactivar. Definición: `backend/app/core/listas.py`.
+
+## Órdenes de compra
+
+- Número de OC libre (hasta 40 caracteres) y número de línea libre (alfanumérico, hasta 10).
+- **Obligatorio vs. opcional:** solo proveedor, número de OC, línea, artículo y cantidad son obligatorios. Sociedad (facturar a), moneda y precio se pueden completar después; son obligatorios **para facturar**, y mientras tanto los cálculos de valor los muestran como pendientes. Un precio exige moneda; una cantidad debe ser mayor que 0.
+- **Empaque en la OC:** un pack o kit trae su contenido; un artículo simple puede traer su casepack. El inner pack normalmente se define después en la lista de empaque (columna *Por inner pack*, editable mientras la línea no tenga cajas y la OC no lo haya definido).
+- El **SKU** de cada línea debe existir en el maestro de artículos y pertenecer al proveedor de la OC, y el proveedor debe trabajar con la sociedad de la OC.
+- **Almacén por línea:** la misma OC puede enviar cada línea a un almacén distinto de la misma sociedad.
+- **Liberaciones (dos equipos):** cada OC tiene una liberación **comercial** y una **logística**. Sus estados son datos, no código: se definen en *Datos maestros → Estados de liberación* con los códigos que manda el ERP de la empresa, cada uno con su nombre y sus marcas: `libera` (con este estado la liberación está dada), `con_cambios` (estado logístico de una OC liberada que cambió después), `predeterminado` (el que se usa cuando el archivo no trae el dato) y `alias` (otras palabras que acepta el importador). Los estados de fábrica son los de SAP (comercial `C` liberada / `P` pendiente; logística `300` liberada, `301` liberada con cambios posteriores, `304` no liberada), pero cada empresa los cambia por los suyos. Las reglas del flujo son las mismas para cualquier empresa: solo se factura con las dos liberaciones dadas, sin liberación comercial no hay liberación logística y una OC con liberación logística dada que cambia pasa al estado «con cambios».
+- **Fechas de liberación:** cada liberación guarda su fecha (de `commercial_release_date` / `logistics_release_date` del archivo, o el día en que quedó liberada) para medir los lead times. Logística debe liberar una OC cierto número de días **antes de su XF**, según las reglas de lead time de su origen (vea *Lead times*; en la demostración, 21 días para Asia y 15 en general).
+
+### Crear e importar OCs
+
+*Cargar órdenes de compra* tiene dos modos con la **misma estructura y validaciones**: **formulario** (encabezado más tarjetas de línea; la lista de artículos se filtra por proveedor y la unidad se adapta al artículo) y **archivo**. En *Importar OCs* (equipo interno) suba el Excel o CSV exportado del ERP. Una vista previa muestra lo nuevo, lo cambiado, lo que no cambia, los conflictos y los errores; nada se guarda hasta confirmar. Los conflictos (p. ej. una cantidad menor que lo facturado, o un cambio de casepack/inner pack en una línea facturada) no se aplican y aparecen como alertas.
+
+Columnas obligatorias: `supplier, po, po_line, sku, quantity`. Opcionales: `unit_price, currency, company, plant, destination, storage_location, incoterm, po_date, port_of_loading, country_of_origin, country_of_shipment, xf_date_original, xf_date, in_store_date, commercial_release, logistics_release, commercial_release_date, logistics_release_date, delivery_date, uom, casepack, inner_pack`. Se siguen aceptando los nombres de columna anteriores en español y alias comunes (`vendor`, `material`, `qty`…). Las liberaciones se leen por código, nombre o alias del estado. **Plantilla de ejemplo** descarga una plantilla de Excel generada para el usuario, con sus fechas de ejemplo en el formato de fecha del usuario.
+
+**Perfiles de importación.** Si el ERP de la empresa exporta sus columnas con otros nombres, en otra fila o con otro formato de fecha, un perfil (*Cargar órdenes de compra → Perfiles*) dice cómo leer ese archivo: el nombre de la columna de cada dato (varios separados por coma; tienen prioridad sobre los nombres estándar), la fila de los encabezados, el formato de las fechas y valores por defecto para lo que el archivo no trae (p. ej. la moneda o el incoterm). Al cargar se elige el perfil; el perfil predeterminado se usa sin elegirlo. Los nombres propios de un ERP no están en el código: una instalación que ya tenía OCs al actualizar recibe un perfil *Previous column names* con los nombres que se aceptaban antes (`sap_code`, `codigo_sap`, `sap`).
+
+Los códigos se guardan como texto para conservar los ceros a la izquierda; dé formato de texto a esas columnas en Excel antes de exportar.
+
+## Consistencia de los datos
+
+Los datos maestros y los documentos quedan encadenados, tanto en el archivo de OC como en el formulario de OC:
+
+- Un proveedor solo trabaja con **sus sociedades** (*Datos maestros → Proveedores*): una OC para otra sociedad se rechaza, y el formulario solo ofrece esas sociedades y, de ellas, sus centros, almacenes y centros de destino. Sin sociedad, la OC toma la de su centro, almacén o centro de destino.
+- Centro, almacén y centro de destino deben pertenecer a la sociedad de la OC; el artículo debe pertenecer al proveedor de la OC y su marca debe ser una de las marcas del proveedor; se rechazan proveedores y artículos inactivos.
+- La marca de un artículo debe ser una de las marcas de su proveedor; un artículo en OCs no puede cambiar de proveedor; un proveedor no puede perder una sociedad o una marca que ya usa; un centro o almacén usado en OCs no puede cambiar de sociedad; el centro de un contacto debe pertenecer a su sociedad.
+- Una factura solo toma líneas de un proveedor y de OCs compatibles según las reglas de compatibilidad de la empresa (vea *Reglas configurables*); un embarque llega a un solo centro y su transportista debe trabajar con esa sociedad.
+
+## Número de la lista de empaque
+
+Cada lista de empaque recibe `PL-001`, `PL-002`… por defecto, y el proveedor puede escribir **su propio número** (hasta 40 caracteres: letras, números y `. _ - / #`) en el encabezado de la lista de empaque mientras esté en borrador o en corrección. Debe ser único entre las listas de empaque activas del proveedor.
+
+## Embarques
+
+**Estado frente a la fecha en tienda.** Cada unidad de carga y cada embarque estiman su fecha en tienda a partir del arribo real, o la ETA, o la salida (real o ETD) más el tránsito, más los pasos posteriores al arribo del lead time de su origen y los días extra del grupo de producto (*Datos maestros → Grupos de artículos → Días extra después del arribo*, p. ej. para productos que necesitan etiquetado o inspección). Se compara con la fecha en tienda más temprana de sus OCs: **A tiempo**, **En riesgo** (holgura menor que la regla *Holgura mínima (días) antes de la fecha requerida para estar en tiempo* de *Configuración → Empresa*, 7 días de fábrica) o **Atrasado**. Un embarque toma el peor estado de sus unidades.
+
+- **Todo sigue el modo:** un embarque marítimo solo ofrece puertos marítimos, navieras y contenedores; aéreo, aeropuertos, aerolíneas y guías aéreas; terrestre, fronteras, transportistas terrestres y camiones. El **servicio es de cada unidad**, así que un embarque marítimo puede ser FCL, LCL o mixto.
+- **Solo viajan documentos finalizados:** una unidad de carga solo acepta listas de empaque finalizadas cuya factura esté finalizada; el panel de asignación lista solo esas. Reabrir una factura o una lista de empaque que está en una unidad planificada la quita de la unidad (se vuelve a agregar al finalizarla); después de la salida ya no se pueden reabrir.
+- Mientras está **planificado**, se pueden agregar, mover o quitar unidades y carga. A la **salida** se cierra la carga.
+- Los eventos siguen el orden de estados (recolección → salida → tránsito → arribo → liberación → entrega → recepción); sin fechas futuras ni anteriores al último evento.
+- La carga no puede superar la capacidad nominal de una unidad. Cada embarque llega a un solo centro.
+
+**Hitos del embarque.** Los eventos que se registran en un embarque están en *Datos maestros → Listas de valores → Hitos del embarque*. Los de sistema (recolección, salida, tránsito, arribo, liberación aduanal, entrega, recepción y otro) hacen avanzar el embarque y conservan sus reglas: se pueden renombrar, pero no cambiar sus estados ni borrar. La empresa agrega sus propios hitos (p. ej. inspección en puerto) y elige en qué estados del embarque se registran; un hito propio no cambia el estado.
+
+## Lead times
+
+Los lead times son reglas configurables con herencia por nivel geográfico (`backend/app/modulos/transporte/reglas_lt.py`):
+
+- **Pasos de lead time** (*Datos maestros*): el catálogo de pasos que puede usar un lead time (booking, liberación, XF, ETD, ETA, aduana, bodega, ingreso, tienda…). Un paso se puede ligar a una fecha que el sistema mide para comparar el plan con lo real.
+- **Reglas de lead time** (*Datos maestros*): Global → Región → País → Puerto. Cada regla define solo lo que cambia (pasos que agrega, sobrescribe o quita, y el orden): cada paso es su paso de referencia más N días (naturales o hábiles), opcionalmente solo para un modo de transporte; lo demás se hereda del nivel superior. Las **regiones** agrupan países de origen, y a cada país se le asigna su región en *Países*.
+- *Configuración → Logística → Lead times* muestra el **lead time efectivo** de una región, país o puerto después de la herencia, con el nivel del que viene cada paso.
+
+## Seguimiento
+
+Para el equipo interno: el rol de proveedor no lo incluye (se puede otorgar en su rol).
+
+Cuatro tableros. Los dos primeros comparten filtros (marca, grupo, **un filtro por cada atributo de variante del catálogo** —talla y color en ropa, concentración o envase en químicos—, SKU, almacén, etapa, unidad de carga, BL/AWB, embarque, proveedor, sociedad, centro, riesgo de llegada tardía y rangos de ETA, XF y fecha en tienda), cada uno descargable en **PDF o Excel**:
+
+- **Órdenes de compra:** liberaciones (las opciones del filtro son los estados de liberación del catálogo, con los códigos que manda el ERP de la empresa), estado, avance, XF vencida y holgura frente a la fecha límite en puerto; cada OC se abre en su **detalle por SKU**.
+- **Embarques y unidades de carga:** una fila por embarque y documento de transporte, que se abre en unidades y en lo que lleva cada unidad por OC.
+- **Facturación y listas de empaque:** en qué paso está cada documento y qué falta.
+- **Lead times:** promedio de días de cada etapa **por país de origen** (OC creada → liberación comercial → liberación logística → producción y recolección → salida → tránsito al puerto de destino → puerto a bodega → ingreso a bodega), el porcentaje de liberaciones logísticas a tiempo frente a su meta antes de la XF, la recolección frente a la XF y la holgura en puerto. Cada OC se abre en sus **hitos**, cada uno con su meta, su fecha real o estimada y cuántos días de adelanto o atraso tiene. Filtros: periodo (OCs creadas; últimos 12 meses por defecto), origen, región y proveedor.
+
+**Fecha estimada en tienda.** Cada OC, fila de seguimiento y fila de lead time muestra cuándo estaría la mercancía en tienda con el lead time de su origen: el arribo real, la ETA o, sin embarque, la XF (u hoy, si ya pasó) más el tránsito estándar; luego los pasos de puerto a bodega, ingreso y reexportación. Al lado, cuántos días de adelanto o atraso tiene frente a la fecha en tienda solicitada. Para una OC es la fecha de la última mercancía que falta por llegar.
+
+**Adelanto o atraso.** La fecha en tienda no se compara con el arribo al puerto: después del puerto la mercancía todavía tiene que llegar a la bodega, ingresar y reexportarse a la tienda. Por eso cada OC tiene una **fecha límite en puerto** = fecha en tienda − los días de puerto a bodega, ingreso y reexportación de su lead time (más los días extra del grupo de producto), y el arribo (real, la ETA del embarque o, sin embarque, la XF más el tránsito estándar) se compara con ella: atrasado si es posterior, justo si quedan menos de 7 días de holgura. La reexportación aún no se registra en el sistema; solo se reserva su tiempo.
+
+## Factura comercial y lista de empaque (PDF y Excel)
+
+Cada factura y lista de empaque se descarga en **PDF** (lista para imprimir y firmar) o **Excel**, siguiendo los requisitos aduaneros centroamericanos (CAUCA/RECAUCA y DUCA):
+
+- **Partes:** exportador/vendedor, importador/facturar a (sociedad con su identificación fiscal, rotulada como la llama su país: NIT, RTN, RUC, cédula jurídica…; se configura en el catálogo de países) y consignatario/notify party.
+- **Condiciones:** número y fecha, incoterm, moneda, condiciones de pago, países de origen y procedencia, transporte, puertos, transportista y BL/AWB, contenedores y marchamos. Los encabezados no listan órdenes de compra ni centros de destino (serían demasiado largos); **cada línea muestra su OC y línea**.
+- **Detalle:** OC y línea, código y código de barras, descripción comercial, **partida arancelaria** (con el nombre de la nomenclatura del país destino: SAC en Centroamérica, el que se configure en *Productos → Clasificación → Arancel* para otro país), origen, cantidad, unidad, precio y total. En la lista de empaque, por grupo de cajas: rango y número de cajas, contenido por caja, **inner packs**, medidas, pesos neto y bruto, m³, pallet y tipo de etiqueta.
+- **Totales:** cantidad por unidad, bultos, pesos, volumen, valor, **monto en letras** (“SAY: FOUR THOUSAND … US DOLLARS AND 00/100” en inglés, “SON: …” en español), marcas de embarque y la declaración firmada del exportador.
+- Hasta que se finaliza, el PDF lleva la marca de agua **BORRADOR · NO OFICIAL** (*DRAFT · NOT OFFICIAL* en inglés); cada página muestra “Página X de Y”.
+- Salen completos aunque el rol del usuario oculte datos: son documentos legales.
+- El idioma del documento es el que la persona eligió en su perfil (vea *Idiomas*).
+
+## Integraciones con ERP y otros sistemas
+
+*Configuración → Integraciones* conecta cualquier sistema que exporte o importe **CSV, Excel o JSON**: se elige el formato, se mapean los campos y códigos del sistema externo (con versiones) y se cargan órdenes de compra o se generan archivos de facturas finalizadas. Cada intercambio queda en una bitácora con su huella, para no aplicar dos veces el mismo contenido, y cada registro guarda su identificador externo. **No hay adaptadores propios de SAP, Oracle, Dynamics u Odoo ni conexión directa por API**: se conectan por archivo. Detalle y cómo agregar un adaptador en **[docs/INTEGRACIONES.md](docs/INTEGRACIONES.md)**.
+
+## Reglas principales
+
+**Todo se maneja por cantidades, con la misma fórmula en cada nivel:** disponible = cantidad del nivel superior − lo asignado en documentos activos.
+
+| Nivel | Se asigna | Se libera al |
+|---|---|---|
+| Línea de OC → factura | cantidad parcial o total | quitar la línea, reducir la cantidad o anular la factura |
+| Línea de factura → lista de empaque | parcial o total, en una o varias listas | quitarla de la lista, reducirla en la factura o anular la lista |
+| Fila de la lista → cajas | cajas completas, parciales o mixtas | desempacar |
+
+- **Reducir en la factura** algo que ya está en una lista de empaque: el sistema muestra qué listas lo tienen y libera lo que no está en cajas. Lo empacado nunca se toca automáticamente.
+- **Empaque automático:** un paso para toda la lista, cada fila con su propia plantilla, siguiendo las reglas de casepack e inner pack.
+- **Las plantillas** solo llenan datos; cada caja conserva sus propios valores.
+- **Cajas parciales:** medidas de la plantilla, peso neto proporcional y bruto = neto + tara, marcadas como estimadas hasta confirmarlas.
+- **Los cambios en bloque** son todo o nada: si una fila falla, no se aplica ninguna y se explica la fila que falló.
+- **Estados:** Borrador → Finalizada; reabrir la pasa a “En corrección” y pide un motivo.
+- **Concurrencia:** bloqueo de filas al tomar saldo, una versión por documento (una edición desactualizada se rechaza), claves de idempotencia y un historial de cada cambio con usuario, antes/después y motivo.
+
+## Reglas configurables
+
+Las reglas de negocio se configuran **en la aplicación**, en *Configuración → Empresa → Reglas de negocio* (solo administradores), y se guardan en la base de datos. La lista está en `REGLAS` de `backend/app/core/empresa.py` y se validan y guardan en `backend/app/modulos/empresa/organizacion.py`. Las variables de entorno del mismo nombre (`backend/app/core/config.py`) solo son los **valores de fábrica** de una instalación nueva, mientras la empresa no los cambie en pantalla.
+
+| Regla | De fábrica | Qué hace |
+|---|---|---|
+| `PROVEEDOR_PUEDE_FINALIZAR` | sí | Los proveedores pueden finalizar sus facturas y listas de empaque. |
+| `POSICION_EN_VARIAS_FACTURAS` | no | Una posición de OC puede repartirse en varias facturas activas. |
+| `FACTURA_EN_UNA_SOLA_UNIDAD` | no | Todas las listas de empaque de una factura deben ir en la misma unidad de carga. |
+| `REQUERIR_DATOS_ADUANA` | sí | Para finalizar se exigen país de origen y partida arancelaria por línea. |
+| `DIAS_ALERTA_BORRADOR` | `7` | Días antes de avisar de borradores que siguen reservando cantidades. |
+| `DIAS_MARGEN_RIESGO` | `7` | Holgura mínima (días) antes de la fecha requerida para estar en tiempo. |
+| `DIAS_AVISO_TIENDA` | `30` | Días antes de la fecha en tienda en que una OC se resalta. |
+| `DIAS_TOLERANCIA_ARRIBO` | `0` | Días después de la ETA comprometida que aún cuentan como arribo a tiempo. |
+| `DIAS_TOLERANCIA_XF` | `0` | Días después del XF original que aún cuentan como recolección a tiempo. |
+| `META_LIBERACION_A_TIEMPO` | `80` | Meta (%) de liberaciones de logística a tiempo. |
+| `ETIQUETAS_CUATRO_OJOS` | no | Una versión de diseño de etiqueta la aprueba alguien distinto de su autor. |
+| `ETIQUETAS_GENERACION_PARCIAL` | no | Un trabajo de etiquetado puede generar sus registros listos y dejar para después los que tienen errores. |
+| `ETIQUETAS_ASINCRONO_DESDE` | `2000` | Etiquetas a partir de las cuales un trabajo de etiquetado se genera en segundo plano. |
+| `ETIQUETAS_MAXIMO_TRABAJO` | `50000` | Máximo de etiquetas en un trabajo de etiquetado. |
+| `IMPORTACION_MAX_FILAS` | `20000` | Máximo de filas por archivo en una carga masiva (órdenes de compra o una integración). |
+| `ETIQUETAS_PL_SIN_FINALIZAR` | no | Se pueden generar etiquetas reales de listas de empaque no finalizadas (las de prueba siempre). |
+| `ETIQUETAS_VALIDAR_EMPAQUE` | sí | Advertir cuando una lista de empaque difiere del casepack y del inner pack de la OC. |
+| `PAIS_BASE_CLASIF` | vacío | País cuyo código nacional completa la partida sugerida. |
+| `COMPATIBILIDAD_BLOQUEANTE` | sociedad, moneda, centro | Datos de la OC que no se pueden mezclar en una factura. |
+| `COMPATIBILIDAD_ADVERTENCIA` | incoterm, centro_destino | Datos de la OC que solo avisan si se mezclan en una factura. |
+| `APROBACION_CUATRO_OJOS` | sí | Quien crea o envía una OC no puede aprobarla. |
+| `APROBAR_OC_IMPORTADAS` | no | Las OCs cargadas del ERP también pasan por las reglas de aprobación. |
+| `EXIGIR_LIBERACION_ANTES_ENTREGA` | no | Una unidad de carga solo se entrega en bodega después de su liberación aduanera. |
+
+Las reglas de compatibilidad se eligen entre sociedad, centro, centro de destino, moneda, incoterm, puerto de carga y país de origen; un mismo dato no puede bloquear y solo avisar a la vez. En la misma pantalla se editan la ficha de la empresa (nombre, razón social, NIT, país, logo) y sus preferencias (idioma predeterminado, moneda base, zona horaria y formato de fecha).
+
+## Diseño adaptable
+
+La interfaz se adapta a monitores grandes, laptops, tabletas y teléfonos en lugar de solo encogerse:
+
+- **Filtros:** en el teléfono la búsqueda queda visible y los demás filtros y acciones secundarias se abren desde un botón **Filtros** que muestra cuántos están activos (`v-filtros`).
+- **Tablas:** en tabletas se ocultan las columnas marcadas como secundarias (`<th class="col-sec">`); en el teléfono cada fila se vuelve una **tarjeta** con el nombre de la columna junto a cada valor (`v-tarjetas`).
+- **Encabezado:** en el teléfono el idioma, el tema, la contraseña y el cierre de sesión pasan al menú.
+- **Más opciones:** en el teléfono las acciones secundarias (descargas PDF y Excel, cargas, reabrir, anular…) van en un menú **Más opciones**, dejando visible la acción principal. *Datos maestros* muestra en el escritorio los catálogos de uso diario como pestañas y el resto en **Más catálogos**; en el teléfono, un selector de catálogo.
+- **Contextual:** no se muestran los filtros con un solo valor posible (una sociedad, una marca…).
+
+## Mi perfil y preferencias
+
+Cada usuario abre *Mi perfil* desde su nombre en el encabezado (o el menú en el teléfono) para:
+
+- **Datos básicos:** editar su nombre; ver su correo, rol, proveedor y celular registrado (el celular lo cambia el administrador).
+- **Contraseña:** cambiarla (sus otras sesiones se cierran).
+- **Preferencias**, guardadas en el perfil y aplicadas en cada dispositivo:
+  - **Idioma** de la pantalla (por defecto, el idioma predeterminado de la empresa).
+  - **Idioma de los documentos** (PDF y Excel que descarga: facturas, listas de empaque, fichas técnicas y reportes): *Igual que la pantalla*, español o inglés.
+  - **Formato de fecha** (por defecto, el de la empresa; de fábrica **MM/DD/YYYY**; también DD/MM/YYYY, YYYY-MM-DD, DD-MMM-YYYY, MMM DD, YYYY). Se usa **en todas partes**: listas y documentos en pantalla, los **campos de fecha** (escritos en ese formato o elegidos en el calendario), los archivos **PDF y Excel** que el servidor genera para el usuario, la **plantilla de carga de OCs** (sus fechas de ejemplo vienen en ese formato) y la **lectura de los archivos que sube** (una fecha como 05/10/2026 se lee con el orden día/mes del usuario; las fechas ISO y las celdas de fecha de Excel siempre se aceptan).
+  - **Formato de hora** (12 o 24 horas) y **formato de números** (1,234.56 · 1.234,56 · 1 234,56 · 1'234.56).
+  - **Tema** (claro, oscuro o el del sistema), **filas por página** en las tablas y **página de inicio** después de iniciar sesión.
+  - Las **columnas** elegidas en *Órdenes*, *Seguimiento* y las líneas de la factura.
+
+## Idiomas
+
+La interfaz está en **español e inglés**. El idioma por defecto es el predeterminado de la empresa (*Configuración → Empresa*); antes de iniciar sesión se usa el del navegador. Cada usuario elige su idioma en *Mi perfil* (o con el selector del encabezado) y queda en su perfil, así que lo sigue en cualquier dispositivo.
+
+- El texto en inglés es la clave; la traducción al español está en `frontend/src/i18n/es.json`. Las traducciones están adaptadas al negocio, no son literales: `frontend/src/i18n/glosario.json` fija el término aprobado para cada concepto (p. ej. *Type* → *Tipo*, nunca *Chico*) y lista las traducciones literales que no se aceptan.
+- `backend/tests/test_i18n.py` revisa el español: todos los textos presentes, los mismos marcadores `{0}`, sin textos sin traducir, los términos del glosario respetados, y `claves.json` y `backend/app/i18n/es.json` al día con el código.
+- Después de cambiar textos, extraiga las claves: primero los mensajes del servidor con `python scripts/i18n_extraer.py` (desde `backend`, escribe `app/i18n/claves.json`) y luego los de la interfaz con `node scripts/i18n-extraer.mjs` (desde `frontend`, escribe `src/i18n/claves.json` y `backend/app/i18n/es.json`); después agregue las traducciones nuevas en `es.json`.
+- **Documentos (PDF/Excel):** cada persona elige en su perfil el idioma de sus documentos; una descarga también puede forzarlo con `?idioma=es|en`. Los documentos usan `backend/app/modulos/documentos/idioma_doc.py` y la traducción de `backend/app/i18n/es.json`. Los montos en letras siguen las reglas de cada idioma (`backend/app/modulos/documentos/letras.py`), no una traducción.
+- Los textos oficiales quedan como se publicaron: las descripciones del SAC y la descripción aduanal están en español.

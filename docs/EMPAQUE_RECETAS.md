@@ -25,10 +25,10 @@ Ejemplo de receta, del nivel más externo al más interno:
 | 2 | Master carton | 2 del nivel 1 | 24 |
 | 1 | Inner pack | 12 unidades del artículo | 12 |
 
-## 2. Decisiones respecto de la propuesta original
+## 2. Por qué es así
 
 1. **La curva no es parte de la receta.** Un prepack ya existe como artículo,
-   con su curva (`prepacks` y `prepack_componentes`). Su unidad es la curva, así
+   con su curva (`articulo_componentes`). Su unidad es la curva, así
    que «una curva por caja» es una receta normal: Caja × 1. Así la composición
    por talla vive en un solo lugar y la receta solo describe el empaque.
 2. **El «por defecto» del proveedor o de la empresa es una regla más.** Por
@@ -41,8 +41,7 @@ Ejemplo de receta, del nivel más externo al más interno:
    estaban al asignarla, igual que una factura guarda el precio: cambiar la
    receta después no altera OC emitidas ni facturas.
 5. **Un solo evaluador de condiciones** (`app/modulos/comun/condiciones.py`):
-   lo usan ya el empaque y el etiquetado. Es el primer paso del motor de reglas
-   común (fase 3).
+   lo usan el empaque y el etiquetado.
 6. **La validación viene del catálogo.** «Un inner pack no puede contener un
    master carton» se rechaza porque el tipo no lo tiene en «Puede contener».
    La pantalla solo ofrece, en cada nivel, los tipos que caben.
@@ -51,7 +50,7 @@ Ejemplo de receta, del nivel más externo al más interno:
 
 | Prioridad | Quién decide | Origen guardado |
 |---|---|---|
-| 1 | El packing list real (lo armado o cargado desde Excel) | — (fase 2) |
+| 1 | El packing list real (lo armado o cargado desde Excel) | — |
 | 2 | La receta elegida a mano en la línea | `MANUAL` |
 | 3 | El casepack e inner pack que trae la OC | `DATOS` |
 | 4 | La regla de empaque que aplica | `REGLA` |
@@ -79,26 +78,7 @@ Ejemplo de receta, del nivel más externo al más interno:
 Nunca se tocan las líneas facturadas ni las que tienen receta a mano o del
 casepack.
 
-## 4. Convivencia con casepack e inner pack (alternativa A)
-
-- La migración **0082** crea una receta automática (`CP12`, `CP12-IN6`…) por
-  cada combinación distinta de casepack e inner pack de los sólidos. La arma
-  con los tipos del catálogo: el bulto que lleva producto y, si hay inner, el
-  interior que puede ir dentro. Luego la enlaza a sus líneas y facturas con
-  origen `DATOS`.
-- Quedan sin receta, como hoy:
-  - las combinaciones que no cierran (casepack que no es múltiplo del inner);
-  - los prepacks;
-  - las empresas sin tipos de empaque.
-- Las columnas `casepack` e `inner_pack` no se borran. Con una receta, en los
-  sólidos se calculan de ella:
-  - casepack = unidades del primer nivel que cuenta como bulto;
-  - inner = unidades del nivel justo dentro de él.
-
-  Así el packing list, los documentos y los exportes siguen funcionando igual.
-- El downgrade quita solo lo agregado.
-
-## 5. Packing list
+## 4. Packing list
 
 - **Empacar según la receta** (opción recomendada cuando las líneas tienen
   receta): cada fila se arma con todos los niveles de su receta en un paso.
@@ -120,7 +100,7 @@ casepack.
 - **Inner pack.** Definir el inner pack en el packing list también actualiza
   la receta de la línea de factura.
 
-## 6. API
+## 5. API
 
 | Ruta | Para qué |
 |---|---|
@@ -137,13 +117,3 @@ casepack.
 Permisos:
 - Recetas y reglas: `catalogos.ver` y `catalogos.editar`.
 - Receta de una línea: `oc.empaque`.
-
-## 7. Fases
-
-| Fase | Contenido | Estado |
-|---|---|---|
-| 1 | Recetas, reglas de empaque, receta en la línea de OC y conversión del casepack | **Hecha** (este documento) |
-| 2 | Packing list genérico: «Empacar según la receta» con N niveles, totales por tipo de empaque, caja e inner tomados de la receta de la línea | **Hecha en lo principal**. Pendiente: columnas de la tabla de cajas por nivel y el alta manual de un tipo sin receta |
-| 3 | Grupos de producto compartidos (familias y categorías en un árbol) y motor de reglas común | **Hecha** ([GRUPOS_PRODUCTO.md](GRUPOS_PRODUCTO.md)) |
-| 4 | Etiquetado sobre el árbol físico: «¿Dónde se pega?», reglas en lista y Probar unificado | Pendiente |
-| 5 | Limpieza: retirar columnas y pantallas viejas, con migración e informe | Pendiente |

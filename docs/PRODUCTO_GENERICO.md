@@ -45,25 +45,13 @@ variante y sus unidades.
   - químico: CONCENTRACION, ENVASE;
   - alimento: SABOR, PRESENTACION.
 
-  Un producto sin familia solo lleva atributos generales. Detalle en
-  `docs/reestructuracion/06-articulos-genericos.md`, sección 8.
+  Un producto sin familia solo lleva atributos generales.
 - **Sin repetidos:** dos variantes del mismo producto no pueden tener los mismos
   valores. Comparten estilo, marca y proveedor, y el color solo si el producto
   lo fija.
 - **Líneas de documento:** cada línea de OC y de factura guarda sus valores de
   variante (`variante`, en el orden de los atributos). La columna «Variante» de
   los documentos se arma con ellos («BLACK · 9.5», «30 % · 1 L»).
-
-## Plan de la generalización (G1–G6)
-
-| Etapa | Contenido |
-|---|---|
-| G1 ✓ | Identidad por código, talla y color como valores de variante, ejes por familia, variante en las líneas (migración 0085) |
-| G2 ✓ | Compuestos genéricos: simple, pack de variantes (la curva, de cualquier atributo) o kit; unidad del compuesto configurable en lugar de CJ |
-| G3 ✓ | Alta de productos: familia → atributos → valores (escalas de cualquier atributo) → variantes; cargas sin estilo/color obligatorios |
-| G4 ✓ | Documentos (factura, packing list, ficha, Excel, reportes) con la columna «Variante» y columnas configurables |
-| G5 ✓ | Seguimiento, existencias por artículo, reportes, clasificación y empaque sin supuestos de calzado |
-| G6 ✓ | Pantallas con «Variante» y los atributos configurados |
 
 ## Packs y kits (compuestos)
 
@@ -89,7 +77,7 @@ variante y sus unidades.
    con el código del producto más uno de la variante: el de la escala de
    valores usada, la regla usual talla × 10 o el siguiente libre.
 4. **Escalas de valores:** cada escala ordena los valores de un atributo
-   (`escalas_talla.atributo`, migración 0087). No es solo de tallas.
+   (`escalas_valores.atributo`). No es solo de tallas.
 5. **Carga masiva:** la hoja de variantes acepta una columna por atributo de
    variante, por código o por nombre.
 
@@ -181,4 +169,4 @@ como era cuando se hizo. Por eso cada línea de OC (`posiciones_oc`) y de factur
   misma lista.
 
 El etiquetado de una lista de empaque lee el artículo desde la versión de la
-línea de factura (etapa E4 de `ETIQUETADO_AUDITORIA.md`).
+línea de factura.
