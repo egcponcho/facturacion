@@ -425,7 +425,6 @@ alCambiar(() => consultar(), ['/ordenes'])
     </div>
     <div class="acciones">
       <router-link to="/tableros/compras" class="btn btn-fantasma"><Icono nombre="grafica" />{{ t('Indicators') }}</router-link>
-      <router-link v-if="puede('oc.editar')" to="/ordenes/nueva" class="btn"><Icono nombre="mas" />{{ t('New PO') }}</router-link>
       <router-link v-if="puede('oc.importar')" to="/importar" class="btn"><Icono nombre="importar" />{{ t('Import POs') }}</router-link>
       <button class="btn btn-primario" type="button" :disabled="!carrito.items.length" @click="panel = true">
         <Icono nombre="carrito" />{{ t('Review selection ({0})', [carrito.items.length]) }}
@@ -507,7 +506,7 @@ alCambiar(() => consultar(), ['/ordenes'])
     <template #acciones="{ fila: oc }">
       <div class="acciones-apiladas">
         <button class="btn btn-chico btn-cuadrado" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance to the selection')" :aria-label="t('Add the whole balance to the selection')" @click="agregarOCs([oc.id])"><Icono nombre="mas" :tam="15" /></button>
-        <button class="btn btn-chico btn-primario" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance and review the invoice')" @click="agregarOCs([oc.id], true)">{{ t('Invoice') }}</button>
+        <button class="btn btn-chico btn-tinte" type="button" :disabled="!tieneSaldo(oc)" :title="t('Add the whole balance and review the invoice')" @click="agregarOCs([oc.id], true)">{{ t('Invoice') }}</button>
       </div>
     </template>
     <template #detalle="{ fila: oc }">

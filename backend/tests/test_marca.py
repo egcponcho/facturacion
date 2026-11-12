@@ -45,6 +45,8 @@ def test_paleta_de_la_interfaz(admin):
         r = admin.put("/organizacion", {"marca": {"paleta": "esmeralda"}})
         assert r.status_code == 200 and r.json()["marca"]["paleta"] == "esmeralda"
         assert admin.get("/auth/me").json()["organizacion"]["marca"]["paleta"] == "esmeralda"
+        # «indigo» era el nombre de la de fábrica: se guarda como vacío
+        assert admin.put("/organizacion", {"marca": {"paleta": "indigo"}}).json()["marca"]["paleta"] == ""
     finally:
         admin.put("/organizacion", {"marca": {"paleta": ""}})
 

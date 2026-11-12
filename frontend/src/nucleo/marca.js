@@ -27,11 +27,11 @@ function aplicarColor(hex) {
   raiz.setProperty('--acento-texto', `color-mix(in srgb, ${hex} 80%, var(--tinta))`)
 }
 
-// La paleta de la empresa (acento y barra lateral, en los dos temas: styles.css). Se recuerda en el
+// La paleta de la empresa (acento y barra lateral, en los dos temas: estilos/tokens.css). Se recuerda en el
 // navegador para pintarla desde el arranque (public/tema-inicial.js)
-export const PALETAS = ['indigo', 'esmeralda', 'terracota', 'marino']
+export const PALETAS = ['operacion', 'esmeralda', 'terracota', 'marino']
 export function aplicarPaleta(paleta) {
-  const p = PALETAS.includes(paleta) ? paleta : 'indigo'
+  const p = PALETAS.includes(paleta) ? paleta : 'operacion'
   document.documentElement.dataset.paleta = p
   try { localStorage.setItem('paleta', p) } catch { /* sin almacenamiento: solo esta sesión */ }
 }

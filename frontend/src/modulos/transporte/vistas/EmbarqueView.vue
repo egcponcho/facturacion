@@ -509,7 +509,7 @@ const edicion = useEdicion('embarque', () => Number(props.id), () => ({ editable
           <span class="separar"></span>
           <button v-if="!soloLectura && !u.liberada_en && eventosPermitidos.some(([k]) => k === 'LIBERACION')" class="btn btn-chico" @click="abrirEvento('LIBERACION', u.id)">{{ t('Record customs release') }}</button>
           <button v-if="!soloLectura && !u.entregada_en && eventosPermitidos.some(([k]) => k === 'ENTREGA')" class="btn btn-chico" @click="abrirEvento('ENTREGA', u.id)">{{ t('Record delivery') }}</button>
-          <router-link :to="`/transporte/unidades/${u.id}/recepcion`" class="btn btn-chico btn-primario">
+          <router-link :to="`/transporte/unidades/${u.id}/recepcion`" class="btn btn-chico btn-tinte">
             <Icono nombre="lista" :tam="14" />{{ u.recepcion_estado === 'RECIBIDA' || !puede('recepcion.registrar') ? t('See receipt') : t('Receive') }}
           </router-link>
         </div>
