@@ -52,7 +52,7 @@ from app.modulos.facturacion.cantidades import (
     pl_lineas_activas,
     totales_pl,
 )
-from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL, ESTADO_TXT
+from app.modulos.facturacion.estados import EDITABLE_FACTURA, EDITABLE_PL, ESTADO_TXT, fecha_devengo
 
 ETIQUETAS = {
     "sociedad": "companies",
@@ -789,8 +789,6 @@ def listar_facturas(
     consulta = tabla.aplicar(_consulta_facturas(db, user, proveedor_id, estado, q, vista), COLUMNAS_FACTURAS, filtros or {})
     if desde or hasta:
         # Período por fecha de devengo: la misma que usan Inicio e Indicadores
-        from app.modulos.seguimiento.metricas import fecha_devengo
-
         consulta = consulta.where(*([fecha_devengo() >= desde] if desde else []), *([fecha_devengo() <= hasta] if hasta else []))
     col, _, direccion = (orden or "").partition(":")
     expr = {"nombre": Factura.numero, "fecha": Factura.fecha, "estado": Factura.estado,

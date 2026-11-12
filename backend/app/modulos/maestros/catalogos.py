@@ -58,7 +58,7 @@ from app.modelos import (
 from app.modulos.acceso.permisos import exigir, exigir_compartido
 from app.modulos.comun import tabla
 from app.modulos.comun.historial import registrar
-from app.modulos.comun.normalizar import Referencias
+from app.modulos.comun.normalizar import Referencias, celda, encabezado
 from app.modulos.comun.normalizar import nombre as nombre_fmt
 from app.modulos.comun.normalizar import texto as texto_fmt
 from app.modulos.comun.texto import filtro_texto
@@ -1601,18 +1601,16 @@ CAMPO_EN = {"proveedor": "Supplier"}
 
 
 def _filas_archivo(nombre: str, contenido: bytes) -> list[dict]:
-    from app.modulos.compras.ordenes import _norm, _texto
-
     if nombre.lower().endswith((".xlsx", ".xlsm")):
         wb = abrir_libro(contenido, read_only=True, data_only=True)
-        filas = [[_texto(v) for v in f] for f in wb.active.iter_rows(values_only=True)]
+        filas = [[celda(v) for v in f] for f in wb.active.iter_rows(values_only=True)]
     else:
         texto = contenido.decode("utf-8-sig", errors="replace")
         delim = ";" if texto[:2000].count(";") > texto[:2000].count(",") else ","
         filas = [[v.strip() for v in f] for f in csv.reader(io.StringIO(texto), delimiter=delim)]
     if not filas:
         return []
-    enc = [COLUMNAS_EN.get(_norm(h), _norm(h)) for h in filas[0]]
+    enc = [COLUMNAS_EN.get(encabezado(h), encabezado(h)) for h in filas[0]]
     return [{**{enc[i]: (f[i] if i < len(f) else "") for i in range(len(enc))}, "_fila": n}
             for n, f in enumerate(filas[1:], start=2) if any(f)]
 

@@ -59,7 +59,7 @@ from app.modulos.comex.servicio import (  # noqa: F401
     fmt_codigo,
     sin_marca,
 )
-from app.modulos.comun import adjuntos, edicion, tabla
+from app.modulos.comun import adjuntos, tabla
 from app.modulos.comun.edicion import ajeno as ajeno_edicion
 from app.modulos.comun.historial import registrar, tocar, verificar_version
 from app.modulos.comun.texto import filtro_texto
@@ -226,7 +226,7 @@ def _guardar_partidas(p: Producto, partidas: dict | None) -> None:
 
 
 # ---- Lectura -------------------------------------------------------------------
-def _producto(db: Session, user: Usuario, producto_id: int) -> Producto:
+def ver_producto(db: Session, user: Usuario, producto_id: int) -> Producto:
     exigir(user, "producto.ver")
     p = db.get(Producto, producto_id)
     if not p:
@@ -472,7 +472,7 @@ def _historial(db: Session, p: Producto) -> list[dict]:
 
 def detalle(db: Session, user: Usuario, producto_id: int) -> dict:
     db.flush()  # la sesión no hace autoflush: que se vea lo recién guardado
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     arts = db.scalars(select(Articulo).where(Articulo.producto_id == p.id).order_by(Articulo.tipo.desc(), Articulo.id)).all()
     ds = destinos(db)
     dig = {d["iso"]: d["digitos"] for d in ds}
@@ -626,7 +626,7 @@ def clasificar_y_guardar(db: Session, p: Producto, extra: dict | None = None, ca
 
 def guardar_ficha(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     exigir(user, "producto.ficha")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
     if p.comex.estado in APROBADOS:
         raise ErrorNegocio("The technical sheet is approved. Create a new version to change it.", 409, "ficha_aprobada")
@@ -674,7 +674,7 @@ def clasificar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
     cat = catalogo(db)
     hechos, omitidos = 0, []
     for pid in ids:
-        p = _producto(db, user, pid)
+        p = ver_producto(db, user, pid)
         if p.comex.estado in APROBADOS:
             omitidos.append({"id": p.id, "mensaje": f"{nombre_producto(p)} is already approved."})
             continue
@@ -778,7 +778,7 @@ def _aprobar(db: Session, user: Usuario, p: Producto, codigo: str | None, partid
 def _pais_aprobado(db: Session, user: Usuario, producto_id: int, pais: str, codigo: str | None = None):
     from app.modulos.clasificacion.motor_clasificacion import clasificar_producto
 
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     if p.comex.estado not in APROBADOS or not p.comex.codigo:
         raise ErrorNegocio("Approve the product first: the national codes hang from its approved subheading.", 422, "no_aprobado")
     extra = {"codigo_final": p.comex.sac_codigo or p.comex.codigo}
@@ -837,7 +837,7 @@ def confirmar_partida(db: Session, user: Usuario, producto_id: int, pais: str, c
 
 def aprobar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     exigir(user, "producto.clasificar")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
     flujo.exigir_aprobacion(db, user, p)
     if not p.comex.ficha_completa and not datos.forzar:
@@ -855,7 +855,7 @@ def aprobar_lote(db: Session, user: Usuario, ids: list[int]) -> dict:
         raise ErrorNegocio("Bulk approval is turned off: approve each sheet on its own page.", 422, "lote_apagado")
     ok, errores = 0, []
     for pid in ids:
-        p = _producto(db, user, pid)
+        p = ver_producto(db, user, pid)
         if p.comex.estado in APROBADOS:
             continue
         if p.comex.estado not in ("sugerida", "revision") or not p.comex.ficha_completa:
@@ -876,7 +876,7 @@ def observar(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     """Observaciones del especialista; con `devolver`, la ficha vuelve al
     proveedor para que la corrija."""
     exigir(user, "producto.clasificar")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
     p.comex.observaciones = (datos.observaciones or "").strip()[:2000] or None
     p.comex.resolucion = (datos.resolucion or "").strip()[:200] or None
@@ -897,7 +897,7 @@ def enviar_revision(db: Session, user: Usuario, ids: list[int]) -> dict:
     exigir(user, "producto.ficha")
     ok, errores = 0, []
     for pid in ids:
-        p = _producto(db, user, pid)
+        p = ver_producto(db, user, pid)
         nombre = nombre_producto(p)
         if p.comex.estado not in BORRADORES:
             errores.append({"id": p.id, "mensaje": f"{nombre} is {ESTADOS.get(p.comex.estado, p.comex.estado).lower()}."})
@@ -919,7 +919,7 @@ def enviar_revision(db: Session, user: Usuario, ids: list[int]) -> dict:
 def retirar_revision(db: Session, user: Usuario, producto_id: int) -> dict:
     """Vuelve a borrador una ficha enviada (para corregirla antes de que la revisen)."""
     exigir(user, "producto.ficha")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     if p.comex.estado != "revision":
         raise ErrorNegocio("Only a sheet in review can go back to draft.", 409, "estado")
     p.comex.estado = "sugerida" if p.comex.ficha_completa and p.comex.sugerido else "borrador"
@@ -931,7 +931,7 @@ def retirar_revision(db: Session, user: Usuario, producto_id: int) -> dict:
 def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
     """Cierra la ficha vigente con su partida y abre una copia para editar."""
     exigir(user, "producto.ficha")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     verificar_version(p, datos.version, "product")
     desde = datos.desde or date.today()
     inicio = p.comex.vigente_desde or (p.creado_en.date() if p.creado_en else desde)
@@ -968,14 +968,14 @@ def nueva_version(db: Session, user: Usuario, producto_id: int, datos) -> dict:
 
 
 def guardar_opinion(db: Session, user: Usuario, producto_id: int, opinion: dict) -> None:
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     p.comex.opinion_ia = opinion
 
 
 # ---- Fotos ---------------------------------------------------------------------
 def subir_foto(db: Session, user: Usuario, producto_id: int, nombre: str, tipo: str, contenido: bytes) -> dict:
     exigir(user, "producto.ficha")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     exigir_tamano(contenido)
     # El tipo sale del contenido, no de lo que declara el navegador
     tipo = MIME.get(tipo_imagen(contenido) or "")
@@ -994,7 +994,7 @@ def subir_foto(db: Session, user: Usuario, producto_id: int, nombre: str, tipo: 
 
 def borrar_foto(db: Session, user: Usuario, producto_id: int, foto_id: int) -> None:
     exigir(user, "producto.ficha")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     f = next((x for x in p.fotos if x.id == foto_id), None)
     if not f:
         raise ErrorNegocio("The photo does not exist.", 404, "no_encontrado")
@@ -1008,7 +1008,7 @@ def obtener_foto(db: Session, user: Usuario, foto_id: int) -> ProductoFoto:
     f = db.get(ProductoFoto, foto_id)
     if not f:
         raise ErrorNegocio("The photo does not exist.", 404, "no_encontrado")
-    _producto(db, user, f.producto_id)
+    ver_producto(db, user, f.producto_id)
     return f
 
 
@@ -1026,7 +1026,7 @@ def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nom
     from app.modulos.productos.ficha import catalogo
 
     exigir(user, "producto.ficha")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     tipo = (tipo or "").upper()
     if tipo not in listas.codigos("tipo_documento"):
         raise ErrorNegocio(f"Choose the kind of document: {', '.join(listas.codigos('tipo_documento'))}.", 422, "validacion")
@@ -1056,7 +1056,7 @@ def subir_documento(db: Session, user: Usuario, producto_id: int, tipo: str, nom
 
 def borrar_documento(db: Session, user: Usuario, producto_id: int, doc_id: int) -> None:
     exigir(user, "producto.ficha")
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     d = next((x for x in p.documentos if x.id == doc_id), None)
     if not d:
         raise ErrorNegocio("The document does not exist.", 404, "no_encontrado")
@@ -1070,7 +1070,7 @@ def obtener_documento(db: Session, user: Usuario, doc_id: int) -> ProductoDocume
     d = db.get(ProductoDocumento, doc_id)
     if not d:
         raise ErrorNegocio("The document does not exist.", 404, "no_encontrado")
-    _producto(db, user, d.producto_id)
+    ver_producto(db, user, d.producto_id)
     return d
 
 
@@ -1169,7 +1169,7 @@ def ficha_de_version(db: Session, user: Usuario, producto_id: int, version: int 
     d = {**detalle(db, user, producto_id), "etiquetas": etiquetas_ficha(db)}
     if not version or version == d["version_ficha"]:
         return d
-    p = _producto(db, user, producto_id)
+    p = ver_producto(db, user, producto_id)
     v = next((x for x in p.versiones if x.version == version), None)
     if not v:
         raise ErrorNegocio(f"Version {version} does not exist.", 404, "no_encontrado")
@@ -1284,10 +1284,3 @@ def exportar_lista(db: Session, user: Usuario, filtros: dict, orden: str | None,
     ]
     return exportar.exportar_reporte(titulo, sub, texto, indicadores, columnas, filas, hojas)
 
-
-# La ficha del producto se edita en exclusiva (comun/edicion.py): el producto y sus partes
-edicion.registrar_documento(
-    "producto", Producto,
-    {Producto: lambda db, o: o.id, PartidaPais: lambda db, o: o.producto_id, ProductoFoto: lambda db, o: o.producto_id,
-     ProductoDocumento: lambda db, o: o.producto_id},
-    lambda db, user, producto_id: _producto(db, user, producto_id))

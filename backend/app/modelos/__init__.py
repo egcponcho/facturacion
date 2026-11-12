@@ -10,6 +10,7 @@ Cada dominio en su archivo; aquí se reexportan todos los modelos para importar
 con `from app.modelos import X`.
 """
 from app.core.db import Base as _Base
+from app.core.tablas import ContadorSerie, DefinicionCampo, EstadoDocumento, SerieDocumental
 from app.modelos.acceso import DesafioDosPasos, Rol, SesionUsuario, Usuario
 from app.modelos.base import Cantidad, ahora, cant
 from app.modelos.clasificacion import (
@@ -69,7 +70,7 @@ from app.modelos.empaque import (
     TipoEmpaque,
     tipo_empaque_contiene,
 )
-from app.modelos.empresa import Adjunto, DefinicionCampo, EstadoDocumento, Organizacion
+from app.modelos.empresa import Adjunto, Organizacion
 from app.modelos.etiquetado import (
     CampoEtiqueta,
     EtiquetadoFamilia,
@@ -114,7 +115,6 @@ from app.modelos.maestros import (
     proveedor_marcas,
     proveedor_sociedades,
 )
-from app.modelos.numeracion import ContadorSerie, SerieDocumental
 from app.modelos.productos import (
     ClasificacionProducto,
     FamiliaComex,

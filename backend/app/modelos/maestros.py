@@ -4,6 +4,7 @@ de liberación, atributos y artículos (variantes de los productos).
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -237,6 +238,37 @@ class Marca(DeOrganizacion, Base):
     activa: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+# ---- Lectura de los valores de una escala («6, 6.5, 7-10, 12», «S, M, L», «7=070») ----
+def _rango(a: str, b: str) -> list[str] | None:
+    try:
+        x, y = float(a), float(b)
+    except ValueError:
+        return None
+    paso = 0.5 if (".5" in a or ".5" in b) else 1
+    out, v = [], x
+    while v <= y + 1e-9:
+        out.append(str(int(v)) if float(v).is_integer() else str(v))
+        v += paso
+    return out
+
+
+def valores_de(texto: str) -> list[tuple[str, str | None]]:
+    """[(valor, código escrito o None)] en el orden de la escala."""
+    res: list[tuple[str, str | None]] = []
+    for parte in re.split(r"[,;\n]+", texto or ""):
+        parte = parte.strip()
+        if not parte:
+            continue
+        valor, _, cod = parte.partition("=")
+        valor, cod = valor.strip().upper(), (cod.strip().upper() or None)
+        m = re.fullmatch(r"(\d+(?:\.5)?)\s*(?:-|TO|A)\s*(\d+(?:\.5)?)", valor)
+        lista = _rango(m.group(1), m.group(2)) if m and not cod else None
+        for t in (lista or [valor]):
+            if t not in {x for x, _ in res}:
+                res.append((t, cod if not lista else None))
+    return res
+
+
 class EscalaValores(DeOrganizacion, Base):
     """Escala de valores reutilizable de un atributo de variante (una serie de
     medidas, presentaciones 250 ml / 500 ml / 1 L, concentraciones…): sus valores
@@ -265,8 +297,6 @@ class EscalaValores(DeOrganizacion, Base):
 
     @valores.setter
     def valores(self, texto: str) -> None:
-        from app.modulos.maestros.escalas import valores_de
-
         self.lista_valores = [{"valor": v, "codigo": c} for v, c in valores_de(texto)]
 
 

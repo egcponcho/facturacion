@@ -24,11 +24,14 @@ ENTIDADES = {
 }
 
 
-def _nombre(entidad: str) -> str:
-    """Nombre de la entidad (los catálogos de datos maestros usan su título)."""
-    from app.modulos.maestros.catalogos import CATALOGOS
+def registrar_entidades(nombres: dict[str, str]) -> None:
+    """Un módulo agrega el nombre legible de sus entidades (datos maestros: el título de cada catálogo)."""
+    for clave, nombre in nombres.items():
+        ENTIDADES.setdefault(clave, nombre)
 
-    return ENTIDADES.get(entidad) or CATALOGOS.get(entidad, {}).get("titulo") or entidad
+
+def _nombre(entidad: str) -> str:
+    return ENTIDADES.get(entidad) or entidad
 
 
 # Filtro por columna de la bitácora (app/modulos/comun/tabla.py): la fecha, por

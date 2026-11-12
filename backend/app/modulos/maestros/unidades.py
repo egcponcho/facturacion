@@ -7,6 +7,7 @@ y proveedores (PR, PCS, KGS, LTS…).
 """
 from app.core import listas
 from app.core.errores import ErrorNegocio
+from app.modulos.comun.formato import unidad_txt
 
 # La caja de prepack de fábrica: la unidad de un compuesto si la empresa no marca otra
 PREPACK = "CJ"
@@ -51,10 +52,7 @@ def validar(v, articulo: bool = False) -> str:
 
 
 def texto(unidad: str, cantidad=None) -> str:
-    u = listas.valor("unidad", unidad)
-    if not u:
-        return "unit" if cantidad == 1 else "units"
-    return u["nombre"] if cantidad == 1 else (u.get("nombre_plural") or u["nombre"])
+    return unidad_txt(unidad, cantidad)
 
 
 def opciones(articulo: bool = False) -> list[list[str]]:

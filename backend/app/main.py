@@ -15,39 +15,12 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.core.db import SessionLocal
 from app.core.errores import ErrorNegocio
-from app.modulos.acceso import api as acceso_api
-from app.modulos.acceso import visibilidad
-from app.modulos.catalogo import api_familias as grupos_api
-from app.modulos.clasificacion import api as clasificacion_api
-from app.modulos.clasificacion import api_conocimiento as clasificacion_api_conocimiento
-from app.modulos.compras import api as compras_api
-from app.modulos.compras import api_flujo as compras_api_flujo
-from app.modulos.comun import api as comun_api
-from app.modulos.empaque import api as empaque_api
-from app.modulos.empaque import api_plantillas as empaque_api_plantillas
-from app.modulos.empaque import api_recetas as empaque_api_recetas
-from app.modulos.empresa import api as empresa_api
-from app.modulos.etiquetado import api as etiquetado_api
-from app.modulos.facturacion import api as facturacion_api
-from app.modulos.integraciones import api as integraciones_api
-from app.modulos.maestros import api as maestros_api
-from app.modulos.maestros import api_listas as maestros_api_listas
-from app.modulos.plataforma import api as plataforma_api
-from app.modulos.productos import api as productos_api
-from app.modulos.productos import api_flujo as productos_api_flujo
-from app.modulos.recepcion import api as recepcion_api
-from app.modulos.reportes import api as reportes_api
-from app.modulos.seguimiento import api as seguimiento_api
-from app.modulos.transporte import api as transporte_api
-from app.modulos.transporte import api_leadtimes as transporte_api_leadtimes
+from app.core.modulos import cargar as cargar_modulos
+from app.core.respuestas import RespuestaJSON
 
-
-class RespuestaJSON(JSONResponse):
-    """Respuesta de la API: quita los datos que el rol del usuario no ve
-    (modulos/acceso/visibilidad.py) antes de enviarlos."""
-
-    def render(self, content) -> bytes:
-        return super().render(visibilidad.quitar(content))
+# Los módulos de app/modulos/ (cada uno con su modulo.py). main.py no conoce
+# ninguno por nombre: arma la API con lo que declara cada contrato.
+MODULOS = cargar_modulos()
 
 
 @asynccontextmanager
@@ -71,24 +44,10 @@ async def lifespan(_: FastAPI):
             seed(db)
         preparar_instalacion(db)
     tareas = [asyncio.create_task(_limpieza_periodica()), asyncio.create_task(cambios.difusor.correr())]
-    if settings.ETIQUETAS_RECUPERAR_SEG > 0:
-        tareas.append(asyncio.create_task(_recuperar_etiquetas()))
+    tareas += [asyncio.create_task(tarea()) for m in MODULOS for tarea in m.tareas]
     yield
     for tarea in tareas:
         tarea.cancel()
-
-
-async def _recuperar_etiquetas():
-    """Cada instancia retoma los trabajos de etiquetado que quedaron a medias
-    (el proceso que los generaba se detuvo): al arrancar y luego periódicamente."""
-    from app.modulos.etiquetado.trabajos import recuperar
-
-    while True:
-        try:
-            await asyncio.to_thread(recuperar)
-        except Exception:  # la recuperación nunca debe tumbar el servidor
-            logging.getLogger("etiquetado").exception("Falló la recuperación de trabajos de etiquetado")
-        await asyncio.sleep(settings.ETIQUETAS_RECUPERAR_SEG)
 
 
 async def _limpieza_periodica():
@@ -107,41 +66,13 @@ async def _limpieza_periodica():
         await asyncio.sleep(INTERVALO_SEG)
 
 
-# Documentación de la API (docs/API.md): una etiqueta por módulo de dominio.
-# Se publica en la demostración o con API_DOCS=1.
-ETIQUETAS = [
-    {"name": "Acceso", "description": "Ingreso en dos pasos, sesión, perfil y preferencias, usuarios, roles y permisos."},
-    {"name": "Plataforma", "description": "Organizaciones (empresas cliente) de la instalación; solo la administración "
-                                          "de la plataforma."},
-    {"name": "Empresa", "description": "Ficha, marca, documentos y reglas de la organización."},
-    {"name": "Datos maestros", "description": "Catálogos, listas de valores, genéricos y tallas, cargas masivas y su "
-                                              "gobierno (responsables, obligatorios, historial)."},
-    {"name": "Órdenes de compra", "description": "Órdenes de compra: importación, asistente, aprobación, liberaciones y "
-                                                 "líneas disponibles para facturar."},
-    {"name": "Facturas", "description": "Facturas comerciales armadas desde las líneas de las OCs, su revisión y sus "
-                                        "documentos."},
-    {"name": "Listas de empaque", "description": "Listas de empaque con su estructura de cajas, inner packs y "
-                                                 "prepacks, y plantillas de caja."},
-    {"name": "Transporte", "description": "Embarques, unidades de carga, hitos, recolección, costos logísticos y lead times."},
-    {"name": "Recepción e inventario", "description": "Recepción en bodega por contenedor (conteos, ajustes, cierre) y "
-                                                     "existencias por bodega."},
-    {"name": "Productos", "description": "Fichas técnicas de producto, su flujo de revisión y aprobación y sus "
-                                         "partidas por país."},
-    {"name": "Clasificación arancelaria", "description": "Arancel oficial, motor de clasificación (familias, "
-                                                         "atributos, reglas) y conocimiento de la empresa."},
-    {"name": "Seguimiento e indicadores", "description": "Inicio, búsqueda global, seguimiento, alertas, tableros "
-                                                         "e indicadores por módulo."},
-    {"name": "Reportes", "description": "Generador de reportes: fuentes permitidas, vista previa, exportación y "
-                                        "reportes guardados."},
-    {"name": "Etiquetado", "description": "Tipos de etiqueta, familias, diseños con versiones y aprobación, qué diseño "
-                                          "lleva cada cosa, trabajos desde OC, artículos y listas de empaque, descargas e "
-                                          "historial."},
-    {"name": "Integraciones", "description": "Sistemas externos (ERP u otros): adaptadores de formato, mapeos "
-                                             "versionados, entrada de OCs, salida de facturas, bitácora y "
-                                             "referencias externas (docs/INTEGRACIONES.md)."},
-    {"name": "Común", "description": "Edición exclusiva de un registro y bitácora de auditoría."},
-    {"name": "Sistema", "description": "Estado del servidor."},
-]
+# Documentación de la API: una sección por módulo (la de su contrato) más la
+# del sistema. Se publica en la demostración o con API_DOCS=1.
+ETIQUETAS: list[dict] = []
+for _m in sorted(MODULOS, key=lambda m: bool(m.etiqueta)):  # describe la sección el módulo que le da nombre
+    if _m.rutas() and all(e["name"] != _m.seccion for e in ETIQUETAS):
+        ETIQUETAS.append({"name": _m.seccion, "description": _m.descripcion})
+ETIQUETAS.append({"name": "Sistema", "description": "Estado del servidor y módulos instalados."})
 _docs = settings.API_DOCS
 app = FastAPI(title="Supplier workspace: invoices, packing lists and transport", lifespan=lifespan,
               description="API del espacio de trabajo con proveedores. Convenciones (sesión, encabezados, errores, "
@@ -231,31 +162,8 @@ async def _error_validacion(_: Request, exc: RequestValidationError):
         "mensaje": "Check the data you sent.", "codigo": "datos_invalidos", "detalle": detalle})
 
 
-# Cada módulo registra la sección que guarda de las familias del catálogo (catalogo/secciones.py)
-from app.modulos.comex import familia as _seccion_comex  # noqa: E402, F401
-from app.modulos.empaque import familia as _seccion_empaque  # noqa: E402, F401
-from app.modulos.etiquetado import familia as _seccion_etiquetado  # noqa: E402, F401
-from app.modulos.transporte import familia as _seccion_logistica  # noqa: E402, F401
-
-# Rutas de cada módulo, todas bajo /api. El orden se conserva: una ruta fija
-# (p. ej. /seguimiento/exportar) va antes que una con parámetro del mismo prefijo.
-RUTAS = (
-    clasificacion_api, acceso_api, productos_api_flujo, empresa_api, maestros_api, clasificacion_api_conocimiento,
-    compras_api, compras_api_flujo, facturacion_api, empaque_api, productos_api, transporte_api, recepcion_api, comun_api,
-    seguimiento_api, transporte_api_leadtimes, empaque_api_plantillas, empaque_api_recetas, maestros_api_listas, plataforma_api, reportes_api,
-    etiquetado_api, grupos_api, integraciones_api,
-)
-ETIQUETA_DE = {
-    acceso_api: "Acceso", plataforma_api: "Plataforma", empresa_api: "Empresa",
-    maestros_api: "Datos maestros", maestros_api_listas: "Datos maestros", grupos_api: "Datos maestros",
-    compras_api: "Órdenes de compra", compras_api_flujo: "Órdenes de compra", facturacion_api: "Facturas",
-    empaque_api: "Listas de empaque", empaque_api_plantillas: "Listas de empaque", empaque_api_recetas: "Listas de empaque",
-    transporte_api: "Transporte", transporte_api_leadtimes: "Transporte", recepcion_api: "Recepción e inventario",
-    productos_api: "Productos", productos_api_flujo: "Productos",
-    clasificacion_api: "Clasificación arancelaria", clasificacion_api_conocimiento: "Clasificación arancelaria",
-    seguimiento_api: "Seguimiento e indicadores", reportes_api: "Reportes", comun_api: "Común", etiquetado_api: "Etiquetado",
-    integraciones_api: "Integraciones",
-}
+# Rutas de cada módulo, todas bajo /api, con la sección de su contrato
+RUTAS = [(router, m.seccion) for m in MODULOS for router in m.rutas()]
 
 
 def _resumir(router):
@@ -267,9 +175,9 @@ def _resumir(router):
             ruta.summary = " ".join(doc.partition("\n\n")[0].split()).partition(". ")[0].rstrip(".")
 
 
-for modulo in RUTAS:
-    _resumir(modulo.router)
-    app.include_router(modulo.router, prefix="/api", tags=[ETIQUETA_DE[modulo]])
+for _router, _seccion in RUTAS:
+    _resumir(_router)
+    app.include_router(_router, prefix="/api", tags=[_seccion])
 
 
 _openapi_base = app.openapi
@@ -292,6 +200,12 @@ app.openapi = _openapi
 @app.get("/api/salud", tags=["Sistema"], summary="Estado del servidor")
 def salud():
     return {"ok": True}
+
+
+@app.get("/api/modulos", tags=["Sistema"], summary="Módulos instalados")
+def modulos():
+    """Los módulos de esta instalación, como los declara su contrato (app/modulos/<clave>/modulo.py)."""
+    return [m.resumen() for m in MODULOS]
 
 
 # Sirve el frontend compilado (npm run build) desde el mismo servidor

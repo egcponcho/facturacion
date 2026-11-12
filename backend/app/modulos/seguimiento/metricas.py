@@ -21,6 +21,7 @@ from app.core import dinero
 from app.modelos import Embarque, Factura, FacturaLinea, OrdenCompra, PackingList, PosicionOC, UnidadCarga, Usuario
 from app.modulos.acceso.permisos import sociedad_filtro
 from app.modulos.catalogo import servicio as catalogo
+from app.modulos.facturacion.estados import fecha_devengo
 
 # OC cuyo saldo se puede facturar / OC que siguen en el seguimiento
 OC_CON_SALDO = ("APROBADA",)
@@ -121,12 +122,6 @@ def oc_xf_en_rango(filas: list[dict], desde: date | None, hasta: date | None) ->
 
 
 # ---- Facturación -----------------------------------------------------------------------------
-def fecha_devengo():
-    """Fecha en que una factura cuenta como facturada: su fecha de documento o,
-    si no tiene, el día en que se finalizó."""
-    return func.coalesce(Factura.fecha, func.date(Factura.finalizado_en))
-
-
 def facturado(db: Session, user: Usuario, prov, desde: date, hasta: date, marcas: set | None = None) -> dict:
     """Facturas FINALIZADAS con fecha de devengo en el período: importe por
     moneda (líneas redondeadas como el documento), facturas y detalle por

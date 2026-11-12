@@ -19,46 +19,16 @@ from sqlalchemy import delete, event, inspect, select, tuple_
 from sqlalchemy.orm import Session
 
 from app.core.errores import ErrorNegocio
-from app.modelos import (
-    Archivo,
-    Edicion,
-    Embarque,
-    EventoEmbarque,
-    Factura,
-    FacturaLinea,
-    GrupoCajas,
-    GrupoCajasItem,
-    OrdenCompra,
-    PackingList,
-    PLLinea,
-    PosicionOC,
-    UnidadCarga,
-    Usuario,
-    ahora,
-)
+from app.modelos import Edicion, Usuario, ahora
 from app.modulos.acceso.permisos import permisos_de
 from app.modulos.comun.historial import registrar
 
 VIGENCIA = 120  # segundos sin renovar para que el permiso venza
 
-ENTIDADES = {"factura": Factura, "packing_list": PackingList, "embarque": Embarque, "orden": OrdenCompra}
-
-# Para cada tabla: a qué documento pertenece (entidad y cómo obtener su id)
-_RAIZ = {
-    Factura: ("factura", lambda db, o: o.id),
-    FacturaLinea: ("factura", lambda db, o: o.factura_id),
-    Archivo: ("factura", lambda db, o: o.factura_id),
-    PackingList: ("packing_list", lambda db, o: o.id),
-    PLLinea: ("packing_list", lambda db, o: o.pl_id),
-    GrupoCajas: ("packing_list", lambda db, o: o.pl_id),
-    GrupoCajasItem: ("packing_list", lambda db, o: (db.get(GrupoCajas, o.grupo_id) or GrupoCajas()).pl_id),
-    Embarque: ("embarque", lambda db, o: o.id),
-    UnidadCarga: ("embarque", lambda db, o: o.embarque_id),
-    EventoEmbarque: ("embarque", lambda db, o: o.embarque_id),
-    OrdenCompra: ("orden", lambda db, o: o.id),
-    PosicionOC: ("orden", lambda db, o: o.oc_id),
-}
-# Quién puede ver un documento registrado por otro módulo: (db, user, id) → falla si no
+# Documentos que se editan en exclusiva, los registra cada módulo desde su modulo.py:
+# entidad → modelo; tabla → (entidad, cómo obtener el id del documento); entidad → quién lo ve
+ENTIDADES: dict = {}
+_RAIZ: dict = {}
 _ACCESO: dict = {}
 
 
@@ -99,26 +69,10 @@ def _error(e: Edicion) -> ErrorNegocio:
 
 
 def _verificar_acceso(db: Session, user: Usuario, entidad: str, entidad_id: int) -> None:
-    """Solo pide el permiso quien puede ver el documento."""
-    if entidad in _ACCESO:
-        _ACCESO[entidad](db, user, entidad_id)
-    elif entidad == "factura":
-        from app.modulos.facturacion.facturas import cargar_factura
-        cargar_factura(db, user, entidad_id)
-    elif entidad == "packing_list":
-        from app.modulos.empaque.packing import cargar_pl
-        cargar_pl(db, user, entidad_id)
-    elif entidad == "embarque":
-        from app.modulos.transporte.transporte import _embarque
-        _embarque(db, user, entidad_id)
-    elif entidad == "orden":
-        from app.modulos.acceso.permisos import asegurar_proveedor
-        oc = db.get(OrdenCompra, entidad_id)
-        if not oc:
-            raise ErrorNegocio("The purchase order does not exist.", 404, "no_encontrado")
-        asegurar_proveedor(user, oc.proveedor_id, oc.sociedad)
-    else:
+    """Solo pide el permiso quien puede ver el documento (lo decide el módulo que lo registró)."""
+    if entidad not in _ACCESO:
         raise ErrorNegocio("Unknown document type.", 404, "no_encontrado")
+    _ACCESO[entidad](db, user, entidad_id)
 
 
 def estado(db: Session, user: Usuario, entidad: str, entidad_id: int) -> dict:

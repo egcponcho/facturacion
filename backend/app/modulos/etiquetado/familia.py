@@ -20,7 +20,7 @@ from app.modelos import EtiquetadoFamilia, GeneracionItem, Marca, UsoDiseno, Usu
 from app.modulos.acceso.permisos import exigir, exigir_alguno, exigir_interno, proveedor_filtro
 from app.modulos.catalogo import familias as controlador
 from app.modulos.catalogo import servicio as catalogo
-from app.modulos.catalogo.secciones import SeccionFamilia, registrar_seccion_familia
+from app.modulos.catalogo.secciones import SeccionFamilia
 from app.modulos.comun.historial import registrar
 
 MAX_CAMPOS = 60
@@ -116,9 +116,10 @@ def _usos(db: Session) -> dict[int, dict[str, int]]:
     return res
 
 
-registrar_seccion_familia(SeccionFamilia(
+# Lo que este módulo guarda de cada familia; se inscribe en catalogo/secciones.py desde modulo.py
+SECCION = SeccionFamilia(
     clave="etiquetado", nombre="Labeling", orden=40, leer=_leer, guardar=_guardar, usos=_usos,
-    permisos_ver=("etiquetas.ver", "etiquetas.familias"), permisos_editar=("etiquetas.familias",)))
+    permisos_ver=("etiquetas.ver", "etiquetas.familias"), permisos_editar=("etiquetas.familias",))
 
 
 # ---- Lecturas de las pantallas del etiquetado ----------------------------------------------------
