@@ -124,9 +124,9 @@ async function subirLogo(archivo) {
   }
 }
 
-// Paletas de la interfaz: el acento y la barra lateral (los colores de muestra son los de styles.css)
+// Paletas de la interfaz: el acento y la barra lateral (los colores de muestra son los de estilos/tokens.css)
 const PALETAS_UI = computed(() => [
-  { codigo: '', nombre: t('Indigo'), texto: t('Light side bar, indigo accent (standard).'), lateral: '#ffffff', acento: '#4f46e5', borde: true },
+  { codigo: '', nombre: t('Operation'), texto: t('Graphite side bar, blue accent (standard).'), lateral: '#111418', acento: '#1f5fd6' },
   { codigo: 'esmeralda', nombre: t('Emerald'), texto: t('Graphite side bar, emerald accent.'), lateral: '#18181b', acento: '#047857' },
   { codigo: 'terracota', nombre: t('Terracotta'), texto: t('Warm light side bar, terracotta accent.'), lateral: '#fbf8f5', acento: '#c2410c', borde: true },
   { codigo: 'marino', nombre: t('Navy'), texto: t('Navy side bar, blue accent (the previous one).'), lateral: '#0f172a', acento: '#0369a1' },

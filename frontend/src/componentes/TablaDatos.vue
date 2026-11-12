@@ -619,7 +619,7 @@ th { position: relative; }
 .td-datos { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 4px 14px; margin: 0 0 8px; font-size: var(--t-sm); }
 .td-datos dt { color: var(--tinta-3); }
 .td-datos dd { margin: 0; min-width: 0; }
-/* Densidad: la definen las variables --td-* de styles.css (Tablas) */
+/* Densidad: la definen las variables --td-* de estilos/tablas.css */
 @media (max-width: 720px) {
   .td-densidad { display: none; }
 }

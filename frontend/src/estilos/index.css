@@ -1,0 +1,26 @@
+/*
+  Sistema visual (guía: design-system/facturacion/MASTER.md)
+  Cada archivo es una capa; el orden importa (lo de abajo puede ajustar lo de arriba).
+  - Dos temas, claro y oscuro, con los mismos nombres de tokens. El tema sigue
+    al sistema operativo salvo que la persona elija uno (data-theme en <html>).
+  - Sistema de diseño del ERP (design-system/facturacion/MASTER.md): estilo
+    sobrio para herramientas de trabajo. Neutros y estados comunes; el acento
+    y la barra lateral salen de la paleta de la empresa (data-paleta en <html>:
+    «Operación» de fábrica, con barra grafito y acento azul; esmeralda, terracota
+    o marino), cada una con su versión clara y oscura (--pal-* y --pald-*).
+  - Tablero de trabajo: rótulos en frase (nada en mayúsculas sostenidas),
+    densidad de herramienta, un solo color de acción y bordes finos en lugar
+    de sombras.
+  - Inter (servida desde la aplicación, sin Google Fonts); las tablas usan
+    números tabulares.
+*/
+
+@import './tokens.css';
+@import './base.css';
+@import './marco.css';
+@import './controles.css';
+@import './tablas.css';
+@import './componentes.css';
+@import './pantallas.css';
+@import './utilidades.css';
+@import './adaptable.css';

@@ -1,0 +1,294 @@
+/*
+  Tokens: colores (claro y oscuro, y la paleta de la empresa), espacios, radios y tipografía.
+  Ningún componente usa un color o una medida suelta: usa estos nombres.
+*/
+:root {
+  /* Neutros (comunes a todas las paletas) */
+  --tinta: #0f1419;
+  --tinta-2: #38414d;
+  --tinta-3: #5c6775;
+  --papel: #f4f5f7;
+  --superficie: #ffffff;
+  --superficie-2: #f1f3f5;
+  --linea: #e1e4e9;
+  --linea-suave: #eceef1;
+  --borde-hover: #c9ced6;
+  --fila-hover: #f6f8fa;
+  /* Rampa secuencial (un tono) para etapas ordenadas: de claro a oscuro */
+  --tramo-1: #86b6ef; --tramo-2: #5598e7; --tramo-3: #2a78d6; --tramo-4: #1c5cab; --tramo-5: #104281;
+  /* Etapas del lead time (categórico, orden fijo validado para daltonismo) */
+  --etapa-1: #2a78d6; --etapa-2: #eb6834; --etapa-3: #1baf7a; --etapa-4: #eda100; --etapa-5: #e87ba4; --etapa-6: #008300; --etapa-7: #4a3aa7;
+  /* Acento y barra lateral: los de la paleta de la empresa (abajo), en su versión clara */
+  --acento: var(--pal-acento);
+  --acento-hover: var(--pal-acento-hover);
+  --acento-claro: var(--pal-acento-claro);
+  --acento-medio: var(--pal-acento-medio);
+  --acento-texto: var(--pal-acento-texto);
+  --sobre-acento: var(--pal-sobre-acento);
+  --foco: var(--pal-foco);
+  --azul: var(--acento);
+  --azul-oscuro: var(--acento-texto);
+  --azul-claro: var(--acento-claro);
+  --lateral: var(--pal-lateral);
+  --lateral-2: var(--pal-lateral-2);
+  --lateral-texto: var(--pal-lateral-texto);
+  --lateral-tenue: var(--pal-lateral-tenue);
+  --lateral-fuerte: var(--pal-lateral-fuerte);
+  --lateral-activo: var(--pal-lateral-activo);
+  --lateral-activo-fondo: var(--pal-lateral-activo-fondo);
+  --lateral-acento: var(--pal-lateral-acento);
+  --lateral-linea: var(--pal-lateral-linea);
+  --lateral-control: var(--pal-lateral-control);
+  --marca-1: var(--pal-marca-1);
+  --marca-2: var(--pal-marca-2);
+  --marino: var(--pal-profundo);
+  /* Estados (comunes) */
+  --ok: #15803d;
+  --ok-fondo: #e8f6ed;
+  --ok-borde: #c6e7d1;
+  --ok-suave: #f5fbf7;
+  --aviso: #a15c07;
+  --aviso-fondo: #fdf3dc;
+  --aviso-borde: #f0d9a6;
+  --aviso-suave: #fffaf0;
+  --error: #c81e1e;
+  --error-fondo: #fdecec;
+  --info: #2563eb;
+  --info-fondo: #eef4ff;
+  --info-texto: #1e40af;
+  --sobre-estado: #ffffff;
+  --barra-sup: rgba(246, 247, 249, 0.88);
+  --velo: rgba(17, 20, 28, 0.45);
+  --flotante: #1b1e26;
+  --flotante-2: #a0a7b4;
+  --flotante-borde: #353a46;
+  --toast-error: #8f1d1d;
+  --eje: #7a8291;
+  --rejilla: #e7e9ee;
+  --base-eje: #c5cad3;
+  --flujo-1: #86b6ef;
+  --flujo-2: #5598e7;
+  --flujo-3: #2a78d6;
+  --flujo-4: #1c5cab;
+  --flujo-5: #104281;
+  --sombra: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --sombra-media: 0 4px 14px -4px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.05);
+  --sombra-flotante: 0 18px 40px -12px rgba(16, 24, 40, 0.28);
+  color-scheme: light;
+
+  /* Paleta de fábrica «Operación»: barra lateral grafito y acento azul (Configuración → Empresa → Marca).
+     Se lee como una consola de operación: la barra oscura enmarca y el contenido queda claro. */
+  --pal-acento: #1f5fd6; --pal-acento-hover: #194fb4; --pal-acento-claro: #edf3fe; --pal-acento-medio: #c3d6f8;
+  --pal-acento-texto: #1a4fb0; --pal-sobre-acento: #ffffff; --pal-foco: rgba(31, 95, 214, 0.28);
+  --pal-lateral: #111418; --pal-lateral-2: #1b1f25; --pal-lateral-texto: #c9ced6; --pal-lateral-tenue: #8b93a1;
+  --pal-lateral-fuerte: #ffffff; --pal-lateral-activo: #ffffff; --pal-lateral-activo-fondo: rgba(255, 255, 255, 0.08);
+  --pal-lateral-acento: #5b9bff; --pal-lateral-linea: rgba(255, 255, 255, 0.07); --pal-lateral-control: rgba(255, 255, 255, 0.06);
+  --pal-marca-1: #3b82f6; --pal-marca-2: #1f5fd6; --pal-profundo: #0b1f44;
+  /* … y su versión oscura (la toma el tema oscuro) */
+  --pald-acento: #5b9bff; --pald-acento-hover: #8ab8ff; --pald-acento-claro: rgba(91, 155, 255, 0.14); --pald-acento-medio: rgba(91, 155, 255, 0.4);
+  --pald-acento-texto: #8ab8ff; --pald-sobre-acento: #071a3a; --pald-foco: rgba(91, 155, 255, 0.35);
+  --pald-lateral: #0b0d10; --pald-lateral-2: #171a1f; --pald-lateral-texto: #c9ced6; --pald-lateral-tenue: #8b93a1;
+  --pald-lateral-fuerte: #ffffff; --pald-lateral-activo: #ffffff; --pald-lateral-activo-fondo: rgba(255, 255, 255, 0.07);
+  --pald-lateral-acento: #8ab8ff; --pald-lateral-linea: rgba(255, 255, 255, 0.06); --pald-lateral-control: rgba(255, 255, 255, 0.05);
+
+  --radio: 8px;
+  --radio-panel: 10px;
+  --radio-pildora: 999px;
+  /* Espaciado: múltiplos de 4 px. Márgenes, rellenos y separaciones usan esta escala */
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-5: 20px;
+  --e-6: 24px;
+  --e-8: 32px;
+  /* Tipografía: tamaños con nombre (la base es 14 px) */
+  /* Escala tipográfica (1rem = 14 px): todo tamaño de texto usa uno de estos pasos */
+  --t-2xs: 0.72rem; /* contadores e insignias */
+  --t-xs: 0.78rem;  /* rótulos y ayudas cortas */
+  --t-sm: 0.86rem;  /* texto secundario (12 px) */
+  --t-base: 0.92rem; /* controles y tablas densas */
+  --t-md: 1rem;     /* texto normal */
+  --t-lg: 1.15rem;  /* subtítulos */
+  --t-xl: 1.4rem;   /* cifras de indicadores */
+  --t-2xl: 1.55rem; /* títulos de página */
+  --t-3xl: 2.1rem;  /* cifra principal */
+  --mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  /* Puntos de quiebre (documentados; CSS no admite variables en @media):
+     600 px celular · 720 px celular horizontal / tableta chica · 900 px tableta · 1100 px escritorio angosto */
+  font-family: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings: 'cv11', 'ss01'; /* Inter: «a» y «1» más legibles en cifras y códigos */
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--tinta);
+  background: var(--papel);
+  -webkit-font-smoothing: antialiased;
+}
+/* Otras paletas: solo cambian el acento y la barra lateral (los neutros y los estados son los mismos) */
+:root[data-paleta='esmeralda'] {
+  --pal-acento: #047857; --pal-acento-hover: #065f46; --pal-acento-claro: #ecfdf5; --pal-acento-medio: #a7f3d0;
+  --pal-acento-texto: #065f46; --pal-sobre-acento: #ffffff; --pal-foco: rgba(4, 120, 87, 0.25);
+  --pal-lateral: #18181b; --pal-lateral-2: #27272a; --pal-lateral-texto: #d4d4d8; --pal-lateral-tenue: #a1a1aa;
+  --pal-lateral-fuerte: #ffffff; --pal-lateral-activo: #ffffff; --pal-lateral-activo-fondo: rgba(52, 211, 153, 0.14);
+  --pal-lateral-acento: #34d399; --pal-lateral-linea: rgba(255, 255, 255, 0.08); --pal-lateral-control: rgba(255, 255, 255, 0.06);
+  --pal-marca-1: #10b981; --pal-marca-2: #047857; --pal-profundo: #064e3b;
+  --pald-acento: #34d399; --pald-acento-hover: #6ee7b7; --pald-acento-claro: rgba(52, 211, 153, 0.13); --pald-acento-medio: rgba(52, 211, 153, 0.4);
+  --pald-acento-texto: #6ee7b7; --pald-sobre-acento: #022c22; --pald-foco: rgba(52, 211, 153, 0.32);
+  --pald-lateral: #0f0f11; --pald-lateral-2: #1f1f23; --pald-lateral-texto: #d4d4d8; --pald-lateral-tenue: #9a9aa3;
+  --pald-lateral-fuerte: #ffffff; --pald-lateral-activo: #ffffff; --pald-lateral-activo-fondo: rgba(52, 211, 153, 0.14);
+  --pald-lateral-acento: #6ee7b7; --pald-lateral-linea: rgba(255, 255, 255, 0.06); --pald-lateral-control: rgba(255, 255, 255, 0.05);
+}
+:root[data-paleta='terracota'] {
+  --pal-acento: #c2410c; --pal-acento-hover: #9a3412; --pal-acento-claro: #fff4ed; --pal-acento-medio: #fed7aa;
+  --pal-acento-texto: #9a3412; --pal-sobre-acento: #ffffff; --pal-foco: rgba(194, 65, 12, 0.25);
+  --pal-lateral: #fbf8f5; --pal-lateral-2: #f2ebe3; --pal-lateral-texto: #44403c; --pal-lateral-tenue: #7c746d;
+  --pal-lateral-fuerte: #1c1917; --pal-lateral-activo: #7c2d12; --pal-lateral-activo-fondo: #ffedd5;
+  --pal-lateral-acento: #c2410c; --pal-lateral-linea: #ece3d8; --pal-lateral-control: #f5efe8;
+  --pal-marca-1: #f97316; --pal-marca-2: #c2410c; --pal-profundo: #431407;
+  --pald-acento: #fb923c; --pald-acento-hover: #fdba74; --pald-acento-claro: rgba(251, 146, 60, 0.13); --pald-acento-medio: rgba(251, 146, 60, 0.4);
+  --pald-acento-texto: #fdba74; --pald-sobre-acento: #431407; --pald-foco: rgba(251, 146, 60, 0.32);
+  --pald-lateral: #17130f; --pald-lateral-2: #26201a; --pald-lateral-texto: #d6cfc7; --pald-lateral-tenue: #a19890;
+  --pald-lateral-fuerte: #ffffff; --pald-lateral-activo: #ffffff; --pald-lateral-activo-fondo: rgba(251, 146, 60, 0.15);
+  --pald-lateral-acento: #fdba74; --pald-lateral-linea: rgba(255, 255, 255, 0.06); --pald-lateral-control: rgba(255, 255, 255, 0.05);
+}
+:root[data-paleta='marino'] {
+  --pal-acento: #0369a1; --pal-acento-hover: #075985; --pal-acento-claro: #e8f3fa; --pal-acento-medio: #b6d9ee;
+  --pal-acento-texto: #075985; --pal-sobre-acento: #ffffff; --pal-foco: rgba(3, 105, 161, 0.25);
+  --pal-lateral: #0f172a; --pal-lateral-2: #1e293b; --pal-lateral-texto: #cbd5e1; --pal-lateral-tenue: #94a3b8;
+  --pal-lateral-fuerte: #ffffff; --pal-lateral-activo: #ffffff; --pal-lateral-activo-fondo: rgba(56, 189, 248, 0.14);
+  --pal-lateral-acento: #38bdf8; --pal-lateral-linea: rgba(255, 255, 255, 0.08); --pal-lateral-control: rgba(255, 255, 255, 0.06);
+  --pal-marca-1: #5b7cff; --pal-marca-2: #3355e0; --pal-profundo: #10273a;
+  --pald-acento: #38bdf8; --pald-acento-hover: #7dd3fc; --pald-acento-claro: rgba(56, 189, 248, 0.13); --pald-acento-medio: rgba(56, 189, 248, 0.42);
+  --pald-acento-texto: #7dd3fc; --pald-sobre-acento: #082f49; --pald-foco: rgba(56, 189, 248, 0.32);
+  --pald-lateral: #070d18; --pald-lateral-2: #152034; --pald-lateral-texto: #cbd5e1; --pald-lateral-tenue: #94a3b8;
+  --pald-lateral-fuerte: #ffffff; --pald-lateral-activo: #ffffff; --pald-lateral-activo-fondo: rgba(56, 189, 248, 0.14);
+  --pald-lateral-acento: #7dd3fc; --pald-lateral-linea: rgba(255, 255, 255, 0.06); --pald-lateral-control: rgba(255, 255, 255, 0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --tinta: #e7e9ee;
+    --tinta-2: #c4c9d3;
+    --tinta-3: #979eac;
+    --papel: #0d0f12;
+    --superficie: #15181d;
+    --superficie-2: #1c2028;
+    --linea: #2a2f39;
+    --linea-suave: #20242c;
+    --borde-hover: #3b414d;
+    --fila-hover: #1b1f27;
+    --tramo-1: #184f95; --tramo-2: #256abf; --tramo-3: #3987e5; --tramo-4: #6da7ec; --tramo-5: #9ec5f4;
+    --etapa-1: #3987e5; --etapa-2: #d95926; --etapa-3: #199e70; --etapa-4: #c98500; --etapa-5: #d55181; --etapa-6: #008300; --etapa-7: #9085e9;
+    --acento: var(--pald-acento);
+    --acento-hover: var(--pald-acento-hover);
+    --acento-claro: var(--pald-acento-claro);
+    --acento-medio: var(--pald-acento-medio);
+    --acento-texto: var(--pald-acento-texto);
+    --sobre-acento: var(--pald-sobre-acento);
+    --foco: var(--pald-foco);
+    --lateral: var(--pald-lateral);
+    --lateral-2: var(--pald-lateral-2);
+    --lateral-texto: var(--pald-lateral-texto);
+    --lateral-tenue: var(--pald-lateral-tenue);
+    --lateral-fuerte: var(--pald-lateral-fuerte);
+    --lateral-activo: var(--pald-lateral-activo);
+    --lateral-activo-fondo: var(--pald-lateral-activo-fondo);
+    --lateral-acento: var(--pald-lateral-acento);
+    --lateral-linea: var(--pald-lateral-linea);
+    --lateral-control: var(--pald-lateral-control);
+    --ok: #4ade80;
+    --ok-fondo: rgba(74, 222, 128, 0.13);
+    --ok-borde: rgba(74, 222, 128, 0.3);
+    --ok-suave: rgba(74, 222, 128, 0.06);
+    --aviso: #fbbf24;
+    --aviso-fondo: rgba(251, 191, 36, 0.13);
+    --aviso-borde: rgba(251, 191, 36, 0.32);
+    --aviso-suave: rgba(251, 191, 36, 0.06);
+    --error: #f87171;
+    --error-fondo: rgba(248, 113, 113, 0.13);
+    --info: #93c5fd;
+    --info-fondo: rgba(96, 165, 250, 0.13);
+    --info-texto: #bfdbfe;
+    --sobre-estado: #052e16;
+    --barra-sup: rgba(14, 16, 20, 0.88);
+    --velo: rgba(0, 0, 0, 0.55);
+    --flotante: #232731;
+    --flotante-2: #a9b0bd;
+    --flotante-borde: #3b414d;
+    --toast-error: #7f1d1d;
+    --eje: #8b93a2;
+    --rejilla: #262b34;
+    --base-eje: #3f4552;
+    --flujo-1: #2f64b8;
+    --flujo-2: #3a7bd5;
+    --flujo-3: #5b98e6;
+    --flujo-4: #8ab6ef;
+    --flujo-5: #bcd6f7;
+    --sombra: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --sombra-media: 0 6px 18px rgba(0, 0, 0, 0.35);
+    --sombra-flotante: 0 16px 40px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --tinta: #e7e9ee;
+  --tinta-2: #c4c9d3;
+  --tinta-3: #979eac;
+  --papel: #0d0f12;
+  --superficie: #15181d;
+  --superficie-2: #1c2028;
+  --linea: #2a2f39;
+  --linea-suave: #20242c;
+  --borde-hover: #3b414d;
+  --fila-hover: #1b1f27;
+  --tramo-1: #184f95; --tramo-2: #256abf; --tramo-3: #3987e5; --tramo-4: #6da7ec; --tramo-5: #9ec5f4;
+  --etapa-1: #3987e5; --etapa-2: #d95926; --etapa-3: #199e70; --etapa-4: #c98500; --etapa-5: #d55181; --etapa-6: #008300; --etapa-7: #9085e9;
+  --acento: var(--pald-acento);
+  --acento-hover: var(--pald-acento-hover);
+  --acento-claro: var(--pald-acento-claro);
+  --acento-medio: var(--pald-acento-medio);
+  --acento-texto: var(--pald-acento-texto);
+  --sobre-acento: var(--pald-sobre-acento);
+  --foco: var(--pald-foco);
+  --lateral: var(--pald-lateral);
+  --lateral-2: var(--pald-lateral-2);
+  --lateral-texto: var(--pald-lateral-texto);
+  --lateral-tenue: var(--pald-lateral-tenue);
+  --lateral-fuerte: var(--pald-lateral-fuerte);
+  --lateral-activo: var(--pald-lateral-activo);
+  --lateral-activo-fondo: var(--pald-lateral-activo-fondo);
+  --lateral-acento: var(--pald-lateral-acento);
+  --lateral-linea: var(--pald-lateral-linea);
+  --lateral-control: var(--pald-lateral-control);
+  --ok: #4ade80;
+  --ok-fondo: rgba(74, 222, 128, 0.13);
+  --ok-borde: rgba(74, 222, 128, 0.3);
+  --ok-suave: rgba(74, 222, 128, 0.06);
+  --aviso: #fbbf24;
+  --aviso-fondo: rgba(251, 191, 36, 0.13);
+  --aviso-borde: rgba(251, 191, 36, 0.32);
+  --aviso-suave: rgba(251, 191, 36, 0.06);
+  --error: #f87171;
+  --error-fondo: rgba(248, 113, 113, 0.13);
+  --info: #93c5fd;
+  --info-fondo: rgba(96, 165, 250, 0.13);
+  --info-texto: #bfdbfe;
+  --sobre-estado: #052e16;
+  --barra-sup: rgba(14, 16, 20, 0.88);
+  --velo: rgba(0, 0, 0, 0.55);
+  --flotante: #232731;
+  --flotante-2: #a9b0bd;
+  --flotante-borde: #3b414d;
+  --toast-error: #7f1d1d;
+  --eje: #8b93a2;
+  --rejilla: #262b34;
+  --base-eje: #3f4552;
+  --flujo-1: #2f64b8;
+  --flujo-2: #3a7bd5;
+  --flujo-3: #5b98e6;
+  --flujo-4: #8ab6ef;
+  --flujo-5: #bcd6f7;
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sombra-media: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --sombra-flotante: 0 16px 40px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}

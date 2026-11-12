@@ -7,7 +7,6 @@ import Icono from '@/componentes/Icono.vue'
 import TablaDatos from '@/componentes/TablaDatos.vue'
 import PerfilesImportacion from '@/modulos/compras/componentes/PerfilesImportacion.vue'
 import Seleccion from '@/componentes/Seleccion.vue'
-import { puede } from '@/stores/sesion'
 import { avisar, errorApi } from '@/stores/ui'
 
 const archivo = ref(null)
@@ -88,7 +87,6 @@ const valorTxt = (v) => (v === null || v === undefined || v === '' ? '—' : v)
       <h1>{{ t('Load purchase orders') }}</h1>
       <p>{{ t('Upload a file exported from your ERP. It is checked against the master data; nothing is saved until you confirm.') }}</p>
     </div>
-    <router-link v-if="puede('oc.editar')" to="/ordenes/nueva" class="btn"><Icono nombre="mas" />{{ t('New PO') }}</router-link>
     <button type="button" class="btn" :title="t('Excel template with the dates in the format of your profile')" @click="api.descargar('/ordenes/plantilla', 'purchase_orders_template.xlsx')"><Icono nombre="descargar" />{{ t('Sample template') }}</button>
   </div>
 
