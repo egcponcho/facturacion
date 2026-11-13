@@ -8179,5 +8179,9 @@
 "Places and units": "Lugares y unidades",
 "Slate and petrol": "Pizarra y petróleo",
 "Templates": "Plantillas",
-"Third parties": "Terceros"
+"Third parties": "Terceros",
+"Download the filtered rows with the visible columns (CSV, opens in Excel)": "Descarga las filas filtradas con las columnas visibles (CSV, se abre en Excel)",
+"Export": "Exportar",
+"Exporting…": "Exportando…",
+"Only the first {0} rows were exported. Narrow the filters to export the rest.": "Solo se exportaron las primeras {0} filas. Filtra más para exportar el resto."
 }

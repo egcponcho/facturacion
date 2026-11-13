@@ -60,15 +60,17 @@ function quitarPeriodo() {
 }
 const valores = (columna, buscar, otros) => api.get('/facturas/valores', { columna, buscar, f: JSON.stringify(otros), ...externosApi() })
 
+const paramsFacturas = (c, page = c.page, size = c.size) => ({
+  ...externosApi(), orden: c.orden, page, size, f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined,
+})
+const exportarPagina = (page, size, c) => api.get('/facturas', paramsFacturas(c, page, size))
 let ultima = null
 async function consultar(c = ultima) {
   if (!c) return
   ultima = c
   cargando.value = true
   try {
-    datos.value = await api.get('/facturas', {
-      ...externosApi(), orden: c.orden, page: c.page, size: c.size, f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined,
-    })
+    datos.value = await api.get('/facturas', paramsFacturas(c))
     const estado = c.filtros.estado?.length === 1 ? c.filtros.estado[0] : null
     router.replace({ query: { ...(estado && { estado }), ...(filtros.vista && { vista: filtros.vista }), ...(filtros.q && { q: filtros.q }) } })
   } catch (e) {
@@ -106,7 +108,7 @@ alCambiar(() => consultar(), ['/facturas'])
 
   <TablaDatos ref="tabla" tabla="facturas" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
               :filtros-iniciales="route.query.estado ? { estado: route.query.estado } : {}" fila-clicable :fila-activa="resumenId" :etiqueta="t('Invoices')"
-              :valores="valores" :externos="{ vista: filtros.vista, q: filtros.q }" :chips-externos="chipsPeriodo"
+              :valores="valores" :exportar-pagina="exportarPagina" :externos="{ vista: filtros.vista, q: filtros.q }" :chips-externos="chipsPeriodo"
               @quitar-externo="quitarPeriodo" @limpiar-externos="quitarPeriodo"
               @consulta="consultar" @fila="(f) => (resumenId = f.id)" @vista="(q) => { filtros.vista = q.vista || ''; filtros.q = q.q || ''; recargar() }">
     <template #barra>

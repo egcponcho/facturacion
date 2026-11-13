@@ -66,15 +66,18 @@ const tieneSaldo = (oc) => oc.liberada && Object.values(oc.por_unidad).some((u) 
 // servidor da los valores únicos); las calculadas al vuelo no.
 const fecha = (v) => fmtFecha(v)
 const columnasOC = computed(() => [
-  { clave: 'oc', texto: t('Purchase order'), fija: true, prioridad: 1 },
+  { clave: 'oc', texto: t('Purchase order'), fija: true, prioridad: 1, exporta: (o) => o.numero },
   { clave: 'estado', texto: t('Status'), inicial: false, ordenable: false, prioridad: 3, opciones: ESTADOS_OC },
   { clave: 'proveedor', texto: t('Supplier'), inicial: !sesion.proveedorId, prioridad: 2 },
-  { clave: 'sociedad', texto: t('Company · plant · warehouse'), grupo: 'codigos_internos', inicial: false, ordenable: false, prioridad: 3 },
-  { clave: 'destino', texto: t('Destination plant / port'), inicial: false, ordenable: false, prioridad: 3 },
-  { clave: 'xf', texto: t('XF date'), prioridad: 2, textoValor: fecha },
-  { clave: 'tienda', texto: t('In store'), grupo: 'fechas_internas', prioridad: 3, textoValor: fecha },
-  { clave: 'tienda_estimada', texto: t('Est. in store'), grupo: 'fechas_internas', inicial: false, ordenable: false, filtro: false, prioridad: 3 },
-  { clave: 'por_facturar', texto: t('To invoice'), ordenable: false, filtro: false, prioridad: 2 },
+  { clave: 'sociedad', texto: t('Company · plant · warehouse'), grupo: 'codigos_internos', inicial: false, ordenable: false, prioridad: 3,
+    exporta: (o) => [o.sociedad, o.centro, ...(o.almacenes || [])].filter(Boolean).join(' · ') },
+  { clave: 'destino', texto: t('Destination plant / port'), inicial: false, ordenable: false, prioridad: 3, exporta: (o) => o.destino_nombre || o.centro_destino },
+  { clave: 'xf', texto: t('XF date'), prioridad: 2, textoValor: fecha, exporta: (o) => fecha(o.fecha_xf) },
+  { clave: 'tienda', texto: t('In store'), grupo: 'fechas_internas', prioridad: 3, textoValor: fecha, exporta: (o) => fecha(o.fecha_tienda) },
+  { clave: 'tienda_estimada', texto: t('Est. in store'), grupo: 'fechas_internas', inicial: false, ordenable: false, filtro: false, prioridad: 3,
+    exporta: (o) => fecha(o.tienda_estimada) },
+  { clave: 'por_facturar', texto: t('To invoice'), ordenable: false, filtro: false, prioridad: 2,
+    exporta: (o) => porUnidadTxt(o.por_unidad, 'disponible') },
   { clave: 'importe', texto: t('PO value'), grupo: 'precios', num: true, filtro: false, prioridad: 2 },
   { clave: 'avance', texto: t('Invoiced'), prioridad: 3, textoValor: (v) => `${v}%` },
 ])
@@ -115,16 +118,19 @@ const ordenServidor = (o) => {
   return c ? `${ORDEN_SERVIDOR[c] || c}:${dir}` : undefined
 }
 const valoresColumna = (columna, buscar, otros) => api.get('/ordenes/valores', { columna, buscar, f: JSON.stringify(otros), ...filtrosPantalla() })
+// Los parámetros de la lista con la consulta de la tabla (también para «Exportar», página por página)
+const paramsOrdenes = (c, page = c.page, size = c.size) => ({
+  ...filtrosPantalla(), orden: ordenServidor(c.orden), page, size,
+  f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined,
+})
+const exportarPagina = (page, size, c) => api.get('/ordenes', paramsOrdenes(c, page, size))
 let ultima = null
 async function consultar(c = ultima) {
   if (!c) return
   ultima = c
   cargando.value = true
   try {
-    datos.value = await api.get('/ordenes', {
-      ...filtrosPantalla(), orden: ordenServidor(c.orden), page: c.page, size: c.size,
-      f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined,
-    })
+    datos.value = await api.get('/ordenes', paramsOrdenes(c))
     const ids = new Set(datos.value.items.map((o) => o.id))
     seleccionOC.value = seleccionOC.value.filter((id) => ids.has(id))
   } catch (e) {
@@ -440,7 +446,7 @@ alCambiar(() => consultar(), ['/ordenes'])
   </div>
 
   <TablaDatos ref="tablaOC" tabla="ordenes" modo="servidor" :columnas="columnasOC" :filas="datos.items" :total="datos.total" :cargando="cargando"
-              :valores="valoresColumna" :externos="filtrosVista" :chips-externos="activos.map((a) => ({ clave: a.k, texto: a.texto }))"
+              :valores="valoresColumna" :exportar-pagina="exportarPagina" :externos="filtrosVista" :chips-externos="activos.map((a) => ({ clave: a.k, texto: a.texto }))"
               :mas-filtros-activos="avanzadosActivos" expandible seleccionable v-model:seleccion="seleccionOC" :puede-seleccionar="tieneSaldo"
               :etiqueta="t('Purchase orders')" @consulta="consultar" @vista="aplicarVista" @quitar-externo="quitarFiltro"
               @limpiar-externos="limpiarFiltros" @expandir="(oc) => abrirDetalle(oc)">

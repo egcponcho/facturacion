@@ -159,6 +159,15 @@ def test_configuracion_de_tablas_por_persona(tnf):
     assert tnf.put("/perfil/tablas/Mal Nombre", {"densidad": "normal"}).status_code == 404
 
 
+def test_filas_por_pagina_por_tabla(tnf):
+    """Cada tabla recuerda cuántas filas por página eligió la persona (10 a 100)."""
+    assert tnf.put("/perfil/tablas/ordenes", {"filas": 50}).json()["tablas"]["ordenes"]["filas"] == 50
+    # Un tamaño fuera de la lista no se guarda
+    for malo in (7, 5000, "50", True):
+        assert "filas" not in tnf.put("/perfil/tablas/ordenes", {"filas": malo}).json()["tablas"]["ordenes"]
+    tnf.put("/perfil/tablas/ordenes", None)
+
+
 def test_la_densidad_se_guarda_en_muchas_tablas(interno):
     # El sistema tiene más de cien tablas: antes, a partir de la 60.ª la densidad no se guardaba (422)
     for i in range(120):

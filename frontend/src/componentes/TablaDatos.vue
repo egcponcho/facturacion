@@ -5,6 +5,7 @@ import { api } from '@/nucleo/api'
 import { buscador } from '@/nucleo/busqueda.js'
 import { sesion, ve } from '@/stores/sesion'
 import { filasDefecto } from '@/stores/preferencias'
+import { avisar, errorApi } from '@/stores/ui'
 import DetalleAnidado from './DetalleAnidado.vue'
 import FilasEsqueleto from './FilasEsqueleto.vue'
 import FiltroColumna from './FiltroColumna.vue'
@@ -24,7 +25,11 @@ import VistasGuardadas from './VistasGuardadas.vue'
 // - Columnas, anchos y densidad se guardan por persona; una vista guardada
 //   recuerda además los filtros, el orden, las columnas y la densidad.
 // - «Prioridad +» en el celular, selección de filas, fila expandible y
-//   paginación siempre.
+//   paginación siempre, con las filas por página (10 a 100) que la persona eligió
+//   para esta tabla.
+// - «Exportar» descarga en CSV las filas filtradas con las columnas visibles, en
+//   su orden (modo local: las que ya tiene; modo servidor: las pide por páginas con
+//   `exportarPagina`).
 //
 // modo 'local': recibe todas las filas; ordena, filtra (y calcula los valores
 //   de cada columna) y pagina aquí.
@@ -38,7 +43,8 @@ import VistasGuardadas from './VistasGuardadas.vue'
 //   en el filtro, prioridad (1 siempre · 2 desde tableta · 3 escritorio),
 //   fija (no se oculta), inicial (false: empieza oculta), grupo (dato que el
 //   rol puede no ver), ancho (px), corto (encabezado breve; el nombre completo
-//   queda en el título) }]
+//   queda en el título), exporta (fila) => texto para el CSV cuando la celda se
+//   arma en una ranura y el dato no está en fila[clave] }]
 // Ranuras: celda-<clave> ({ fila, valor }), acciones ({ fila }), detalle
 //   ({ fila }; al abrir la fila llega el evento `expandir`), barra, filtros,
 //   mas-filtros, vacio y pie-<clave> (fila de
@@ -79,6 +85,9 @@ const props = defineProps({
   puedeSeleccionar: { type: Function, default: null },
   // Clase de cada fila (p. ej. resaltar una con error): (fila) => string | objeto
   claseFila: { type: Function, default: null },
+  // Exportar en modo servidor: (page, size, consulta) => Promise<{ items, total }>. Sin ella,
+  // una tabla del servidor no ofrece «Exportar» (una tabla local siempre puede).
+  exportarPagina: { type: Function, default: null },
 })
 const emit = defineEmits(['consulta', 'fila', 'vista', 'update:seleccion', 'quitar-externo', 'limpiar-externos', 'expandir'])
 const slots = useSlots()
@@ -89,25 +98,28 @@ const conf = reactive({
   columnas: guardada().columnas || sesion.usuario?.preferencias?.columnas?.[props.tabla] || null,
   anchos: { ...(guardada().anchos || {}) },
   densidad: guardada().densidad || 'normal',
+  filas: guardada().filas || null,
 })
+// Lo que se guarda de la tabla en el perfil de la persona
+const ajustes = () => ({ columnas: conf.columnas, anchos: conf.anchos, densidad: conf.densidad, ...(conf.filas ? { filas: conf.filas } : {}) })
 let reloj = null
 function guardar() {
   clearTimeout(reloj)
   reloj = setTimeout(async () => {
     try {
-      const r = await api.put(`/perfil/tablas/${props.tabla}`, { columnas: conf.columnas, anchos: conf.anchos, densidad: conf.densidad })
+      const r = await api.put(`/perfil/tablas/${props.tabla}`, ajustes())
       if (sesion.usuario) sesion.usuario.preferencias = { ...(sesion.usuario.preferencias || {}), tablas: r.tablas }
     } catch {
       // Si el servidor no la guarda, al menos se recuerda durante la sesión (no vuelve a «normal»)
       if (sesion.usuario) {
         const pref = sesion.usuario.preferencias || {}
-        sesion.usuario.preferencias = { ...pref, tablas: { ...(pref.tablas || {}), [props.tabla]: { columnas: conf.columnas, anchos: conf.anchos, densidad: conf.densidad } } }
+        sesion.usuario.preferencias = { ...pref, tablas: { ...(pref.tablas || {}), [props.tabla]: ajustes() } }
       }
     }
   }, 600)
 }
 async function restaurar() {
-  Object.assign(conf, { columnas: null, anchos: {}, densidad: 'normal' })
+  Object.assign(conf, { columnas: null, anchos: {}, densidad: 'normal', filas: null })
   try {
     const r = await api.put(`/perfil/tablas/${props.tabla}`, null)
     if (sesion.usuario) sesion.usuario.preferencias = { ...(sesion.usuario.preferencias || {}), tablas: r.tablas }
@@ -237,7 +249,16 @@ const previa = computed(() => props.vistaPrevia ?? inject('vistaPrevia', false))
 // propias y con «Columnas» discreto; la paginación solo si hace falta
 const anidada = inject('tablaAnidada', false)
 const densidad = computed(() => (anidada ? 'compacta' : conf.densidad))
-const tamano = ref(props.porPagina || (previa.value ? 5 : filasDefecto()))
+const tamano = ref(props.porPagina || (previa.value ? 5 : conf.filas || filasDefecto()))
+// Filas por página: se recuerdan por tabla (salvo en una vista previa o una tabla anidada)
+function cambiarTamano(n) {
+  tamano.value = n
+  pagina.value = 1
+  if (!previa.value && !anidada) {
+    conf.filas = n
+    guardar()
+  }
+}
 const activos = computed(() => Object.entries(filtros).filter(([, v]) => v?.length))
 const filtrable = (c) => !previa.value && c.filtro !== false && (props.modo === 'local' || !!props.valores || !!c.opciones)
 const filtrada = (c) => !!filtros[c.clave]?.length
@@ -455,6 +476,52 @@ onMounted(() => document.addEventListener('mousedown', fuera))
 onBeforeUnmount(() => document.removeEventListener('mousedown', fuera))
 const nFiltros = computed(() => activos.value.length + props.chipsExternos.length)
 const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-')))
+
+// ---- Exportar: CSV con las filas filtradas y las columnas visibles ------------------------------
+const MAX_EXPORTAR = 10000
+const exportando = ref(false)
+const puedeExportar = computed(() => !previa.value && !anidada && (props.modo === 'local' || !!props.exportarPagina))
+// Texto de una celda para el CSV: el de la columna si lo da, o el valor tal como se filtra
+function textoCelda(c, fila) {
+  if (c.exporta) return c.exporta(fila) ?? ''
+  const v = valorDe(c, fila)
+  // Un objeto (p. ej. un resumen que la celda dibuja) no tiene texto propio: la columna debe dar `exporta`
+  const uno = (x) => (x === null || x === undefined || typeof x === 'object' ? '' : claveValor(x) === VACIO ? '' : textoValor(c, x, fila))
+  return Array.isArray(v) ? v.map(uno).filter(Boolean).join(', ') : uno(v)
+}
+const celdaCsv = (x) => {
+  const s = String(x ?? '')
+  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+async function exportar() {
+  exportando.value = true
+  try {
+    let filas = procesadas.value
+    let total = filas.length
+    if (props.modo === 'servidor') {
+      filas = []
+      const size = 200
+      for (let page = 1; filas.length < MAX_EXPORTAR; page += 1) {
+        const r = await props.exportarPagina(page, size, consulta())
+        filas.push(...(r.items || []))
+        total = r.total ?? filas.length
+        if (!r.items?.length || filas.length >= total) break
+      }
+    }
+    const cols = visibles.value
+    const lineas = [cols.map((c) => celdaCsv(tx(c.texto))).join(','), ...filas.slice(0, MAX_EXPORTAR).map((f) => cols.map((c) => celdaCsv(textoCelda(c, f))).join(','))]
+    // Con BOM, para que Excel lea bien los acentos
+    const blob = new Blob(['\ufeff' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${props.tabla}.csv` })
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+    if (total > MAX_EXPORTAR) avisar(t('Only the first {0} rows were exported. Narrow the filters to export the rest.', [MAX_EXPORTAR]), 'aviso')
+  } catch (e) {
+    errorApi(e)
+  } finally {
+    exportando.value = false
+  }
+}
 </script>
 
 <template>
@@ -490,6 +557,10 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
           <button type="button" class="btn btn-chico btn-fantasma" @click="restaurar">{{ t('Back to the initial view') }}</button>
         </div>
       </div>
+      <button v-if="puedeExportar" type="button" class="btn btn-fantasma td-exportar" :disabled="exportando || !totalFilas"
+              :title="t('Download the filtered rows with the visible columns (CSV, opens in Excel)')" @click="exportar">
+        <Icono nombre="descargar" :tam="16" />{{ exportando ? t('Exporting…') : t('Export') }}
+      </button>
       </template>
     </div>
     <div v-if="masFiltros && slots['mas-filtros']" class="filtros filtros-avanzados"><slot name="mas-filtros" /></div>
@@ -583,7 +654,7 @@ const hayPie = computed(() => Object.keys(slots).some((k) => k.startsWith('pie-'
       </table>
     </div>
     <Paginacion v-if="conPaginacion" :page="pagina" :size="tamano" :total="totalFilas" :tamanos="previa ? [5, 10, 25] : undefined"
-                @cambiar="(p) => (pagina = p)" @tamano="(n) => { tamano = n; pagina = 1 }" />
+                @cambiar="(p) => (pagina = p)" @tamano="cambiarTamano" />
     <FiltroColumna v-if="abierto" :key="abierto.c.clave" :ancla="abierto.ancla" :titulo="abierto.c.texto" :elegidos="filtros[abierto.c.clave] || []"
                    :cargar="(q) => cargarValores(abierto.c, q)" @aplicar="(v) => aplicarFiltro(abierto.c, v)" @cerrar="abierto = null" />
   </div>

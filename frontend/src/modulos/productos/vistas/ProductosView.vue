@@ -126,6 +126,7 @@ const pantalla = () => ({ estado: filtros.estado, q: filtros.q, proveedor_id: se
 const filtrosColumna = (c) => (c && Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined)
 const valores = (columna, buscar, otros) => api.get('/productos/valores', { columna, buscar, f: JSON.stringify(otros), ...pantalla() })
 
+const exportarPagina = (page, size, c) => api.get('/productos', { ...pantalla(), orden: c.orden, page, size, f: filtrosColumna(c) })
 let ultima = null
 let turno = 0
 async function consultar(c = ultima) {
@@ -272,7 +273,7 @@ alCambiar(() => consultar(), ['/productos'])
   </div>
 
   <TablaDatos ref="tabla" tabla="productos" modo="servidor" :columnas="columnas" :filas="datos.items" :total="datos.total" :cargando="cargando"
-              :valores="valores" :externos="externos"
+              :valores="valores" :exportar-pagina="exportarPagina" :externos="externos"
               seleccionable v-model:seleccion="seleccion" fila-clicable :etiqueta="t('Products')"
               @consulta="consultar" @fila="(p) => router.push(`/productos/${p.id}`)" @vista="aplicarVista">
     <template #barra>
