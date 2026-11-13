@@ -9,7 +9,7 @@ from app.modulos.comun import tabla
 from app.modulos.seguimiento import alertas as servicio_alertas
 from app.modulos.seguimiento import buscar as buscador
 from app.modulos.seguimiento import dashboard as tablero
-from app.modulos.seguimiento import indicadores, reportes
+from app.modulos.seguimiento import indicadores, inicio, reportes
 from app.modulos.seguimiento import seguimiento as seg
 from app.web.rutas import Clave, Db, Formato, User, descarga, ejecutar
 
@@ -21,6 +21,18 @@ def dashboard(db: Db, user: User, proveedor_id: int | None = None, desde: date |
               hasta: date | None = None, marcas: str | None = None):
     """Tablero; el periodo (por defecto el mes en curso) y las marcas filtran las gráficas y el resumen."""
     return tablero.dashboard(db, user, proveedor_id, desde, hasta, marcas)
+
+
+@router.get("/dashboard/compras-recepcion")
+def compras_recepcion(db: Db, user: User, meses: int = 12):
+    """Gráfica del Inicio: comprado contra recibido por mes (3, 6 o 12 meses), en la moneda de la empresa."""
+    return inicio.compras_recepcion(db, user, meses)
+
+
+@router.put("/perfil/inicio")
+def bloques_inicio(db: Db, user: User, datos: dict = Body(...), clave: Clave = None):
+    """Bloques del Inicio de la persona ({"bloques": [...]}, o null para volver a los de fábrica)."""
+    return ejecutar(db, user, clave, lambda: inicio.guardar_bloques(db, user, datos.get("bloques")))
 
 
 @router.get("/buscar")

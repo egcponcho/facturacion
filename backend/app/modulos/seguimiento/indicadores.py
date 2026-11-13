@@ -40,7 +40,7 @@ from app.modulos.comex import servicio as comex
 from app.modulos.comun.historial import registrar
 from app.modulos.seguimiento import metricas
 
-MODULOS = {"resumen": "Summary", "compras": "Purchasing", "facturacion": "Invoicing and packing", "logistica": "Logistics",
+MODULOS = {"inicio": "Home", "resumen": "Summary", "compras": "Purchasing", "facturacion": "Invoicing and packing", "logistica": "Logistics",
            "productos": "Products and classification"}
 PERIODOS = (7, 30, 90, 365)
 # Cuántos períodos iguales y seguidos se grafican para ver la tendencia
@@ -111,6 +111,27 @@ def _en_moneda_base(por_moneda: dict) -> dict:
 
 
 # ---- Compras ------------------------------------------------------------------------------
+def importe_comprado(db, user, desde, hasta):
+    """Valor de las líneas de las OC aprobadas o cerradas con fecha de emisión en el período
+    (las canceladas, los borradores y las que esperan aprobación no cuentan)."""
+    filas = db.execute(select(OrdenCompra.id, OrdenCompra.moneda, PosicionOC.cantidad, PosicionOC.precio)
+                       .join(PosicionOC, PosicionOC.oc_id == OrdenCompra.id)
+                       .where(OrdenCompra.estado.in_(("APROBADA", "CERRADA")), OrdenCompra.fecha >= desde,
+                              OrdenCompra.fecha <= hasta, *_oc(user))).all()
+    por_moneda: dict[str, object] = {}
+    ocs = set()
+    for oc_id, moneda, cant, precio in filas:
+        ocs.add(oc_id)
+        if moneda and precio is not None:
+            por_moneda[moneda] = por_moneda.get(moneda, dinero.CERO) + dinero.importe(cant, precio, moneda)
+    return {**_en_moneda_base(por_moneda), "base": {"n": len(ocs), "m": len(ocs)}}
+
+
+def oc_abiertas(db, user, desde, hasta):
+    """OC aprobadas que todavía tienen cantidad por facturar (la misma base que «Saldo por facturar»)."""
+    return metricas.saldo_por_facturar(db, user, proveedor_filtro(user))["ocs"]
+
+
 def oc_en_aprobacion(db, user, desde, hasta):
     return db.scalar(select(func.count()).select_from(OrdenCompra).where(OrdenCompra.estado == "EN_APROBACION", *_oc(user)))
 
@@ -303,6 +324,10 @@ def sin_clasificar(db, user, desde, hasta):
 HOY = "hoy"
 PERIODO = "periodo"
 CATALOGO = [
+    Indicador("importe_comprado", "compras", "Purchases", "Sum of quantity × unit price of the lines of the approved or closed POs whose issue date falls in the period. Shown in the company currency, with the other currencies apart (never added together).",
+              "Purchase orders (issue date) and their lines", PERIODO, "moneda", "oc.ver", importe_comprado, "/ordenes?solo_disponible=0", "alto", "precios"),
+    Indicador("oc_abiertas", "compras", "Open POs", "Count of approved POs that still have quantity to invoice (lines not blocked).",
+              "Purchase order lines and invoice lines", HOY, "numero", "oc.ver", oc_abiertas, "/ordenes", ""),
     Indicador("oc_en_aprobacion", "compras", "POs pending approval", "Count of purchase orders in the state Pending approval.",
               "Purchase orders", HOY, "numero", "oc.ver", oc_en_aprobacion, "/ordenes?estado=EN_APROBACION&solo_disponible=0", "bajo"),
     Indicador("oc_aprobadas", "compras", "POs approved", "Count of purchase orders whose approval date falls in the period.",
@@ -356,18 +381,26 @@ PRINCIPALES = ["importe_facturado", "saldo_por_facturar", "lead_time_prom", "pun
                "oc_en_riesgo", "recepcion_con_diferencias", "dias_aprobacion"]
 
 
+# Inicio: cuatro indicadores, de punta a punta (comprado, abierto, puntualidad y en camino).
+# Cada persona elige los suyos en «Personalizar panel» (como máximo MAX_INICIO).
+INICIO = ["importe_comprado", "oc_abiertas", "puntualidad", "embarques_en_transito"]
+MAX_INICIO = 4
+
+
 # ---- Qué ve cada persona -------------------------------------------------------------------------
 def _del_modulo(user: Usuario, modulo: str) -> list[Indicador]:
     from app.modulos.acceso import visibilidad
 
     visibles = [i for i in CATALOGO if tiene(user, i.permiso) and not (i.grupo and visibilidad.oculto(i.grupo))]
-    if modulo == "resumen":
-        return sorted(visibles, key=lambda i: PRINCIPALES.index(i.clave) if i.clave in PRINCIPALES else len(PRINCIPALES))
+    if modulo in ("resumen", "inicio"):
+        primeros = INICIO if modulo == "inicio" else PRINCIPALES
+        return sorted(visibles, key=lambda i: primeros.index(i.clave) if i.clave in primeros else len(primeros))
     return [i for i in visibles if i.modulo == modulo]
 
 
 def modulos(user: Usuario) -> list[dict]:
-    return [{"clave": k, "titulo": v} for k, v in MODULOS.items() if _del_modulo(user, k)]
+    # Inicio no es un tablero de Análisis: tiene su propia pantalla
+    return [{"clave": k, "titulo": v} for k, v in MODULOS.items() if k != "inicio" and _del_modulo(user, k)]
 
 
 def _de_rol(rol_id: int | None, modulo: str) -> list[str] | None:
@@ -384,6 +417,9 @@ def elegidos(user: Usuario, modulo: str) -> tuple[list[str], str]:
         return [c for c in del_rol if c in posibles], "rol"
     if modulo == "resumen":
         return [c for c in posibles if c in PRINCIPALES], "sistema"
+    if modulo == "inicio":
+        # Sin elección, los de fábrica que el rol ve y, si faltan, los siguientes que ve
+        return (([c for c in posibles if c in INICIO] + [c for c in posibles if c not in INICIO])[:MAX_INICIO]), "sistema"
     return posibles, "sistema"
 
 
@@ -392,10 +428,13 @@ def _limpiar(user: Usuario, modulo: str, claves) -> list[str]:
         raise ErrorNegocio("Unknown module.", 404, "no_encontrado")
     if not isinstance(claves, list):
         raise ErrorNegocio("Choose the indicators.", 422, "validacion")
-    validas = {i.clave for i in CATALOGO if i.modulo == modulo or modulo == "resumen"}
+    validas = {i.clave for i in CATALOGO if i.modulo == modulo or modulo in ("resumen", "inicio")}
     if set(claves) - validas:
         raise ErrorNegocio("Unknown indicator.", 422, "validacion")
-    return list(dict.fromkeys(claves))
+    claves = list(dict.fromkeys(claves))
+    if modulo == "inicio" and len(claves) > MAX_INICIO:
+        raise ErrorNegocio(f"Home shows up to {MAX_INICIO} indicators.", 422, "validacion")
+    return claves
 
 
 def guardar_propios(db: Session, user: Usuario, modulo: str, claves) -> dict:
