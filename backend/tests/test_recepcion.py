@@ -180,3 +180,22 @@ def test_anular_un_embarque(interno):
     salido = next((x for x in interno.get("/embarques").json() if x["estado"] not in ("PLANIFICADO", "CANCELADO")), None)
     if salido:
         assert interno.post(f"/embarques/{salido['id']}/cancelar", {"motivo": "x"}).status_code == 409
+
+
+def test_lista_por_recibir_y_recibidas(interno, tnf):
+    """Recepción (diseño v3): las unidades con carga en camino o ya llegadas que faltan
+    por recibir, y las recibidas con sus diferencias. Sin permiso de bodega no se ve."""
+    pendientes = interno.get("/recepciones").json()
+    recibidas = interno.get("/recepciones", params={"vista": "recibidas"}).json()
+    # La demostración tiene carga en camino; las pruebas de arriba pueden haberla recibido ya
+    assert pendientes or recibidas
+    for u in pendientes:
+        assert u["recepcion_estado"] != "RECIBIDA" and u["embarque"]["estado"] in ("EN_TRANSITO", "ARRIBADO", "ENTREGADO")
+        assert u["enviado"] > 0 and u["listas"] >= 1 and u["proveedores"]
+        # Lo que viene en camino se planea; se cuenta cuando el embarque llegó
+        assert u["puede_recibir"] == (u["embarque"]["estado"] != "EN_TRANSITO")
+    for u in recibidas:
+        assert u["recepcion_estado"] == "RECIBIDA" and u["diferencias"] >= 0
+    # Una vista desconocida vuelve a «pendientes»
+    assert [u["id"] for u in interno.get("/recepciones", params={"vista": "otra"}).json()] == [u["id"] for u in pendientes]
+    assert tnf.get("/recepciones").status_code == 403
