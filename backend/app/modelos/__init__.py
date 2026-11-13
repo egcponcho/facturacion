@@ -128,6 +128,7 @@ from app.modelos.productos import (
 )
 from app.modelos.pagos import PagoProveedor
 from app.modelos.referencias import aplicar as _aplicar_referencias
+from app.modelos.solicitudes import SolicitudCompra, SolicitudLinea
 from app.modelos.restricciones import aplicar as _aplicar_restricciones
 from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte, RespaldoMigracion, VersionDatos
 from app.modelos.transporte import (
@@ -149,6 +150,8 @@ _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
 
 __all__ = [
+    "SolicitudCompra",
+    "SolicitudLinea",
     "PagoProveedor",
     "CampoEtiqueta",
     "EtiquetadoFamilia",
