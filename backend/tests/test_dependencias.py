@@ -133,7 +133,7 @@ DEPENDENCIAS = {
     ("maestros", "catalogo"), ("maestros", "clasificacion"), ("maestros", "comun"), ("maestros", "documentos"),
     ("maestros", "empresa"), ("maestros", "productos"), ("maestros", "transporte"), ("maestros", "web"),
     ("main", "instalacion"), ("plataforma", "acceso"), ("plataforma", "comun"), ("plataforma", "instalacion"),
-    ("plataforma", "web"), ("productos", "acceso"), ("productos", "catalogo"), ("productos", "clasificacion"),
+    ("pagos", "acceso"), ("pagos", "comun"), ("pagos", "web"), ("plataforma", "web"), ("productos", "acceso"), ("productos", "catalogo"), ("productos", "clasificacion"),
     ("productos", "comex"), ("productos", "comun"), ("productos", "documentos"), ("productos", "empaque"),
     ("productos", "etiquetado"), ("productos", "facturacion"), ("productos", "maestros"), ("productos", "web"),
     ("recepcion", "acceso"), ("recepcion", "catalogo"), ("recepcion", "comun"), ("recepcion", "facturacion"),

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from app.modelos.compras import PosicionOC
     from app.modelos.empaque import PackingList
     from app.modelos.maestros import ArticuloVersion, Proveedor
+    from app.modelos.pagos import PagoProveedor
 
 
 class Factura(DeOrganizacion, Base):
@@ -62,11 +63,14 @@ class Factura(DeOrganizacion, Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
     finalizado_en: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    # Vencimiento para pagarla; sin fecha, se calcula con el plazo de pago (modulos/pagos)
+    vence: Mapped[date | None] = mapped_column(Date, index=True)
 
     proveedor: Mapped[Proveedor] = relationship()
     lineas: Mapped[list["FacturaLinea"]] = relationship(
         back_populates="factura", cascade="all, delete-orphan", order_by="FacturaLinea.id"
     )
+    pagos: Mapped[list["PagoProveedor"]] = relationship(back_populates="factura", order_by="PagoProveedor.id")
     packing_lists: Mapped[list["PackingList"]] = relationship(
         back_populates="factura", order_by="PackingList.id"
     )

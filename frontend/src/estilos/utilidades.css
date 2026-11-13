@@ -28,6 +28,7 @@
 .ms-0 { margin-inline-start: 0; }
 .col-completa { grid-column: 1 / -1; }
 .texto-error { color: var(--error); }
+.texto-aviso { color: var(--aviso); }
 .sin-sombra { box-shadow: none; }
 .nowrap { white-space: nowrap; }
 .mono { font-family: var(--mono); }

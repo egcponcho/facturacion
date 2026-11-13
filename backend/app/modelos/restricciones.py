@@ -56,6 +56,7 @@ RESTRICCIONES: dict[str, list[tuple[str, str]]] = {
     "generaciones_etiqueta": _no_negativo("descargas"),
     "trabajo_etiqueta_registros": [("estado", _en("estado", ("LISTO", "ADVERTENCIA", "ERROR", "GENERADO", "OMITIDO"))),
                                    *_no_negativo("cantidad")],
+    "pagos_proveedor": [("estado", _en("estado", ("PROGRAMADO", "PAGADO", "ANULADO"))), ("importe", "importe > 0")],
     "recepcion_registros": [("tipo", _en("tipo", ("CONTEO", "AJUSTE", "SIN_CONTEO")))],
     "unidades_carga": [("recepcion_estado", _en("recepcion_estado", ("PENDIENTE", "EN_RECEPCION", "RECIBIDA")))],
     "embarques": [("estado", _en("estado", estados.EMBARQUE.estados))],
