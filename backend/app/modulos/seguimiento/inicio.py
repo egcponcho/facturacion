@@ -17,7 +17,10 @@ from sqlalchemy.orm import Session
 from app.core import dinero
 from app.core.errores import ErrorNegocio
 from app.modelos import Factura, FacturaLinea, OrdenCompra, PLLinea, PosicionOC, RecepcionLinea, Usuario
+from app.modulos.acceso import visibilidad
 from app.modulos.acceso.permisos import exigir, proveedor_filtro, sociedad_filtro
+from app.modulos.acceso.preferencias import usar
+from app.modulos.compras.importacion import moneda_base
 from app.modulos.seguimiento import metricas
 
 # Bloques del Inicio, en el orden en que se dibujan. Los tres primeros vienen puestos.
@@ -35,8 +38,6 @@ def bloques(user: Usuario) -> list[str]:
 
 def guardar_bloques(db: Session, user: Usuario, lista) -> dict:
     """Guarda los bloques del Inicio de la persona; null vuelve a los de fábrica."""
-    from app.modulos.acceso.preferencias import usar
-
     pref = dict(user.preferencias or {})
     if lista is None:
         pref.pop("inicio_bloques", None)
@@ -70,16 +71,12 @@ def compras_recepcion(db: Session, user: Usuario, meses: int = 12) -> dict:
     - Comprado: cantidad × precio de las líneas de las OC aprobadas o cerradas, por mes de emisión.
     - Recibido: lo recibido en bodega × precio de la línea de la factura comercial, por mes de la recepción.
     Las otras monedas no se suman: se informan aparte (`otras`)."""
-    from app.modulos.acceso import visibilidad
-
     exigir(user, "oc.ver")
     if visibilidad.oculto("precios"):
         raise ErrorNegocio("Your role does not see prices.", 403, "sin_permiso")
     meses = meses if meses in MESES else 12
     claves = _meses_hasta(date.today(), meses)
     desde = date(int(claves[0][:4]), int(claves[0][5:]), 1)
-    from app.modulos.compras.importacion import moneda_base
-
     base = moneda_base()
     prov = proveedor_filtro(user)
     comprado: dict[str, dict] = defaultdict(lambda: defaultdict(lambda: dinero.CERO))
