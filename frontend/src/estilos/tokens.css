@@ -66,6 +66,8 @@
   --eje: #7d8696;
   --rejilla: #e9ecf0;
   --base-eje: #cfd4dc;
+  /* Dos series que se comparan (comprado / recibido): petróleo y ocre, validadas para daltonismo */
+  --serie-1: #0f5f6e; --serie-2: #b07a1e;
   --flujo-1: #a9cdd2;
   --flujo-2: #6fa9b2;
   --flujo-3: #3a8592;
@@ -233,7 +235,8 @@
     --eje: #8b94a3;
     --rejilla: #232a34;
     --base-eje: #343c49;
-    --flujo-1: #164a53;
+    --serie-1: #3fa6b3; --serie-2: #d9a441;
+  --flujo-1: #164a53;
     --flujo-2: #1f6f7b;
     --flujo-3: #3fa6b3;
     --flujo-4: #79c3cc;
@@ -297,6 +300,7 @@
   --eje: #8b94a3;
   --rejilla: #232a34;
   --base-eje: #343c49;
+  --serie-1: #3fa6b3; --serie-2: #d9a441;
   --flujo-1: #164a53;
   --flujo-2: #1f6f7b;
   --flujo-3: #3fa6b3;

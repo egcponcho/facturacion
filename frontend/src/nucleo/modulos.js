@@ -89,6 +89,7 @@ export const MODULOS = () => [
   {
     clave: 'analisis', grupo: 'control', texto: t('Analysis'), icono: 'grafica',
     apartados: [
+      { a: '/analisis/ejecutivo', texto: t('Executive dashboard'), permiso: ['oc.ver', 'factura.ver', 'transporte.gestionar'], prefijos: ['/analisis/ejecutivo'] },
       { a: '/tableros', texto: t('Indicators'), permiso: VE_ALGO, prefijos: ['/tableros'] },
       { a: '/reportes', texto: t('Reports'), permiso: VE_ALGO, prefijos: ['/reportes'] },
     ],

@@ -71,6 +71,8 @@ const routes = [
     { path: `/${m}/resumen`, component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: { modulo: m, incrustado: true }, meta: { permiso } },
     { path: `/tableros/${m}`, redirect: (to) => ({ path: `/${m}/resumen`, query: to.query }) },
   ]),
+  // Tablero ejecutivo: indicadores principales, cadena de suministro, embarques y proveedores
+  { path: '/analisis/ejecutivo', component: () => import('@/modulos/seguimiento/vistas/TableroEjecutivoView.vue'), meta: { permiso: ['oc.ver', 'factura.ver', 'transporte.gestionar'] } },
   { path: '/tableros/:modulo?', component: () => import('@/modulos/seguimiento/vistas/TableroView.vue'), props: true },
   { path: '/seguimiento', component: () => import('@/modulos/seguimiento/vistas/SeguimientoView.vue'), meta: { permiso: 'seguimiento.ver' } },
   { path: '/perfil', component: () => import('@/modulos/acceso/vistas/PerfilView.vue') },

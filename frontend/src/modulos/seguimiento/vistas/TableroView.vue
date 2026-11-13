@@ -18,7 +18,8 @@ import Segmentos from '@/componentes/Segmentos.vue'
 // calcula el servidor con el alcance de datos del usuario.
 // `incrustado`: el tablero es el resumen de su módulo (Compras, Facturación, Logística): sin las
 // pestañas de los demás tableros, que en Análisis se reducen al general y a los que no tienen módulo propio
-const props = defineProps({ modulo: { type: String, default: '' }, incrustado: Boolean })
+// `titulo`: el encabezado cuando el tablero va dentro de otra pantalla (p. ej. el tablero ejecutivo)
+const props = defineProps({ modulo: { type: String, default: '' }, incrustado: Boolean, titulo: { type: String, default: '' } })
 const EN_SU_MODULO = new Set(['compras', 'facturacion', 'logistica'])
 const route = useRoute()
 const router = useRouter()
@@ -163,7 +164,7 @@ async function guardar(destino) {
 <template>
   <div class="pagina-cabeza">
     <div>
-      <h1>{{ props.incrustado ? tx(d?.titulo || t('Summary')) : t('Indicators') }}</h1>
+      <h1>{{ props.titulo ? tx(props.titulo) : props.incrustado ? tx(d?.titulo || t('Summary')) : t('Indicators') }}</h1>
       <p>{{ t('How the operation is doing: each figure against the previous period, with its trend.') }}</p>
     </div>
     <div class="acciones">
