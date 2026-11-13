@@ -29,23 +29,36 @@ significa algo: la acción principal, lo activo, el estado y el error.
 
 ## Color
 
-Paleta de fábrica «Operación». La empresa puede elegir otra en Configuración →
-Empresa → Marca (esmeralda, terracota, marino); las paletas solo cambian el acento
-y la barra lateral.
+Paleta de fábrica «Pizarra y petróleo» (diseño v3, noviembre de 2026): neutros fríos
+tipo pizarra, un solo acento azul petróleo y estados apagados. En el tema claro la barra
+lateral también es clara; en el oscuro es grafito. La empresa puede elegir otra en
+Configuración → Empresa → Marca («Operación», la anterior con barra grafito y acento
+azul; esmeralda, terracota o marino); las paletas solo cambian el acento y la barra lateral.
 
 | Rol | Claro | Oscuro | Token |
 |---|---|---|---|
-| Barra lateral (grafito) | `#111418` | `#0B0D10` | `--lateral` |
-| Acción principal y lo activo | `#1F5FD6` | `#5B9BFF` | `--acento` |
-| Texto sobre la acción principal | `#FFFFFF` | `#071A3A` | `--sobre-acento` |
-| Fondo tenue de acento (acciones de fila, selección) | `#EDF3FE` | acento al 14 % | `--acento-claro` |
-| Texto principal | `#0F1419` | `#E7E9EE` | `--tinta` |
-| Texto secundario | `#38414D` | `#C4C9D3` | `--tinta-2` |
-| Texto tenue (≥ 5:1) | `#5C6775` | `#979EAC` | `--tinta-3` |
-| Fondo de la página | `#F4F5F7` | `#0D0F12` | `--papel` |
-| Tarjetas y paneles | `#FFFFFF` | `#15181D` | `--superficie` |
-| Bordes | `#E1E4E9` | `#2A2F39` | `--linea` |
-| Bien / aviso / error | `#15803D` · `#A15C07` · `#C81E1E` | `#4ADE80` · `#FBBF24` · `#F87171` | `--ok`, `--aviso`, `--error` |
+| Barra lateral | `#FBFBFC` | `#12161C` | `--lateral` |
+| Acción principal y lo activo | `#0F5F6E` | `#3FA6B3` | `--acento` |
+| Texto sobre la acción principal | `#FFFFFF` | `#0B1418` | `--sobre-acento` |
+| Fondo tenue de acento (lo activo, acciones de fila) | `#E5F0F1` | `#12303A` | `--acento-claro` |
+| Texto principal | `#1D2433` | `#E6E9EE` | `--tinta` |
+| Texto secundario | `#4B5565` | `#A7AFBC` | `--tinta-2` |
+| Texto tenue (≥ 4.5:1) | `#6B7484` | `#8B94A3` | `--tinta-3` |
+| Fondo de la página | `#F6F7F9` | `#0E1116` | `--papel` |
+| Tarjetas y paneles | `#FFFFFF` | `#151A21` | `--superficie` |
+| Bordes | `#E4E7EC` | `#262D38` | `--linea` |
+| Bien / aviso / error / información | `#2E7556` · `#8F5F05` · `#A33A36` · `#3D5A80` | `#4FAE84` · `#D4A64A` · `#E07A72` · `#8AA8D3` | `--ok`, `--aviso`, `--error`, `--info` |
+| Series de gráficos | petróleo, azul acero, salvia, arena, gris | versiones claras | `--etapa-1` … `--etapa-7` |
+
+## Navegación
+
+El menú lateral sigue la cadena de abastecimiento y se ordena en grupos
+(`nucleo/modulos.js`): **Operación** (Compras, Despacho, Transporte, Inventario),
+**Control** (Seguimiento, Análisis), **Datos** (Productos, Terceros, Empaque),
+**Módulos opcionales** (Etiquetas, Aduana) y **Sistema** (Configuración). Un módulo
+apagado o sin permiso desaparece sin dejar su grupo vacío. Dentro de cada módulo, la
+barra del módulo (franja blanca bajo la barra superior) lleva los apartados en
+pestañas y la acción principal a la derecha.
 
 - El color nunca va solo: los estados llevan forma (círculo, cuadro, rombo) y texto.
 - El tema oscuro tiene sus propios valores (no es el claro invertido) y se prueba aparte.

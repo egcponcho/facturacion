@@ -29,9 +29,10 @@ function aplicarColor(hex) {
 
 // La paleta de la empresa (acento y barra lateral, en los dos temas: estilos/tokens.css). Se recuerda en el
 // navegador para pintarla desde el arranque (public/tema-inicial.js)
-export const PALETAS = ['operacion', 'esmeralda', 'terracota', 'marino']
+// «pizarra» es la de fábrica (Pizarra y petróleo): la empresa la tiene cuando no eligió otra
+export const PALETAS = ['pizarra', 'operacion', 'esmeralda', 'terracota', 'marino']
 export function aplicarPaleta(paleta) {
-  const p = PALETAS.includes(paleta) ? paleta : 'operacion'
+  const p = PALETAS.includes(paleta) ? paleta : 'pizarra'
   document.documentElement.dataset.paleta = p
   try { localStorage.setItem('paleta', p) } catch { /* sin almacenamiento: solo esta sesión */ }
 }

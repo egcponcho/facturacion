@@ -6,7 +6,7 @@
 .marco.compacta { grid-template-columns: 68px minmax(0, 1fr); }
 .area { display: flex; flex-direction: column; min-width: 0; }
 
-/* Barra lateral (azul marino en los dos temas) */
+/* Barra lateral: clara en el tema claro y grafito en el oscuro (paleta de fábrica «Pizarra y petróleo») */
 .lateral {
   position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--lateral); color: var(--lateral-texto);
   border-inline-end: 1px solid var(--lateral-linea); z-index: 40; overflow: hidden;
@@ -14,29 +14,37 @@
 .lateral-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 14px 14px; }
 .marca { display: flex; align-items: center; gap: 10px; color: var(--lateral-fuerte); text-decoration: none; min-width: 0; }
 .marca-logo {
-  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none;
-  background: linear-gradient(135deg, var(--marca-1), var(--marca-2)); color: #fff; box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--marca-2) 70%, transparent);
+  width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; flex: none;
+  background: var(--acento); color: var(--sobre-acento);
 }
-.marca-texto { font-weight: 750; font-size: var(--t-md); line-height: 1.1; letter-spacing: -0.01em; white-space: nowrap; }
+.marca-texto { font-weight: 650; font-size: var(--t-md); line-height: 1.1; letter-spacing: -0.01em; white-space: nowrap; }
 .marca-texto span { display: block; font-weight: 450; font-size: var(--t-xs); color: var(--lateral-tenue); margin-top: 2px; letter-spacing: 0; }
 .lateral-cerrar { display: none !important; color: var(--lateral-texto) !important; }
 .lateral-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; scrollbar-color: var(--lateral-2) transparent; }
 .lateral-item, .lateral-seccion {
   position: relative; display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; color: var(--lateral-texto);
-  text-decoration: none; font-size: var(--t-base); font-weight: 550; white-space: nowrap; border: 0; background: none; cursor: pointer; width: 100%; text-align: start;
+  text-decoration: none; font-size: var(--t-md); font-weight: 500; white-space: nowrap; border: 0; background: none; cursor: pointer; width: 100%; text-align: start;
   transition: background 0.12s, color 0.12s;
 }
 .lateral-item svg, .lateral-seccion svg { opacity: 0.85; }
 .lateral-item:hover, .lateral-seccion:hover { background: var(--lateral-2); color: var(--lateral-fuerte); }
-.lateral-item.activo { background: var(--lateral-activo-fondo); color: var(--lateral-activo); font-weight: 620; }
-.lateral-item.activo::before { content: ''; position: absolute; inset-inline-start: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--lateral-acento); }
+.lateral-item.activo { background: var(--lateral-activo-fondo); color: var(--lateral-activo); font-weight: 600; }
 .lateral-item.activo svg { opacity: 1; color: var(--lateral-acento); }
+.lateral-item.activo .nav-cuenta { background: var(--acento); color: var(--sobre-acento); }
 .lateral-seccion { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--lateral-linea); border-radius: 0 0 8px 8px; }
 .lateral-flecha { margin-inline-start: auto; }
 .lateral-texto { overflow: hidden; text-overflow: ellipsis; }
-.lateral-grupo { font-size: var(--t-xs); letter-spacing: 0; color: var(--lateral-tenue); padding: 10px 10px 3px; font-weight: 650; white-space: nowrap; }
+/* Título de grupo (Operación, Control, Datos…): versalitas pequeñas, solo para ordenar el menú */
+.lateral-grupo { font-size: var(--t-2xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--lateral-tenue); padding: 14px 10px 4px; font-weight: 550; white-space: nowrap; }
 .lateral-sub { font-size: var(--t-sm); padding: 7px 10px; }
-.lateral .nav-cuenta { margin-inline-start: auto; }
+.lateral .nav-cuenta { margin-inline-start: auto; background: var(--lateral-2); color: var(--lateral-texto); }
+/* Pie: la persona que trabaja (abre su perfil) */
+.lateral-usuario { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; color: var(--lateral-fuerte); text-decoration: none; min-width: 0; }
+.lateral-usuario:hover, .lateral-usuario.router-link-active { background: var(--lateral-2); }
+.lateral-usuario .lateral-texto { font-size: var(--t-sm); line-height: 1.25; }
+.lateral-usuario b { display: block; font-weight: 550; overflow: hidden; text-overflow: ellipsis; }
+.lateral-usuario .lateral-texto > span { color: var(--lateral-tenue); font-size: var(--t-xs); }
+.compacta .lateral-usuario { justify-content: center; padding: 6px 0; }
 .lateral-pie { border-top: 1px solid var(--lateral-linea); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .lateral-preferencias { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .lateral-preferencias .idioma, .lateral-preferencias .sb { min-width: 0; }
@@ -58,10 +66,11 @@
   position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px; height: 60px; padding: 0 24px;
   background: var(--barra-sup); backdrop-filter: saturate(160%) blur(10px); border-bottom: 1px solid var(--linea);
 }
+.cabecera-derecha .btn-icono { color: var(--tinta-2); }
 .cabecera-busqueda { flex: 0 1 420px; min-width: 0; }
 .cabecera-busqueda.bg-disparador, .cabecera .bg-disparador { width: 100%; max-width: 420px; background: var(--superficie-2); }
 .cabecera-derecha { margin-inline-start: auto; display: flex; align-items: center; gap: 10px; flex: none; }
-.nav-cuenta { font-size: var(--t-2xs); font-weight: 700; background: var(--acento); color: #fff; border-radius: 10px; padding: 0 7px; line-height: 1.6; }
+.nav-cuenta { font-size: var(--t-2xs); font-weight: 650; background: var(--acento); color: var(--sobre-acento); border-radius: 10px; padding: 0 7px; line-height: 1.6; }
 .avatar {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;
   background: var(--acento-claro); color: var(--acento-texto); font-weight: 700; font-size: var(--t-xs); border: 1px solid var(--acento-medio);
@@ -115,6 +124,9 @@
   .boton-menu { display: grid !important; }
   .cabecera { padding: 0 14px; gap: 10px; }
   .usuario-datos { display: none; }
+}
+@media (max-width: 900px) {
+  .cabecera .cabecera-idioma { display: none !important; }
 }
 @media (max-width: 720px) {
   .indicador-guardado, .proveedor-fijo { display: none; }

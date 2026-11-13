@@ -95,11 +95,16 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--acento); width
 .panel-plano { box-shadow: none; }
 
 /* Barra del módulo (como en el ERP): apartados en pestañas y la acción principal a la derecha */
-.modulo-barra { display: flex; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--linea); margin: -6px 0 20px; }
+/* Barra del módulo: una franja blanca de borde a borde bajo la barra superior, con los
+   apartados en pestañas y la acción principal a la derecha */
+.modulo-barra { display: flex; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--linea); background: var(--superficie);
+  margin: -24px -28px 22px; padding: 4px 28px 0; }
 .modulo-barra .pestanas { margin: 0; border-bottom: 0; flex: 1; min-width: 0; }
 .modulo-barra .pestana { padding: 12px 14px; font-size: var(--t-base); text-decoration: none; }
-.modulo-barra .pestana[aria-current] { color: var(--acento-texto); border-bottom-color: var(--acento); }
+.modulo-barra .pestana { color: var(--tinta-2); font-weight: 500; }
+.modulo-barra .pestana[aria-current] { color: var(--tinta); border-bottom-color: var(--acento); font-weight: 600; }
 .modulo-barra-accion { padding-bottom: 8px; flex: none; }
+@media (max-width: 720px) { .modulo-barra { margin: -16px -14px 16px; padding: 0 14px; } }
 @media (max-width: 600px) {
   .modulo-barra { flex-wrap: wrap-reverse; align-items: stretch; }
   .modulo-barra-accion { width: 100%; padding: 0; }

@@ -11,12 +11,25 @@ import { esInterno, puede, sesion } from '@/stores/sesion'
 // maestros que se abren en /mantenimiento?catalogo=…). Con titulo, el encabezado
 // de sus páginas no repite la pestaña (p. ej. «Configuración» → «Configuración de productos»).
 
+// Grupos del menú lateral, en el orden de la cadena de abastecimiento: lo que se
+// opera cada día, lo que se controla, los datos propios, los módulos que la
+// empresa puede apagar y la configuración. Un módulo apagado (o sin permiso)
+// desaparece del menú sin dejar el título de su grupo vacío.
+export const GRUPOS = () => ({
+  operacion: t('Operation'),
+  control: t('Control'),
+  datos: t('Data'),
+  opcionales: t('Optional modules'),
+  sistema: t('System'),
+})
+
 // Catálogos de datos maestros por módulo (los que no estén aquí van a Configuración)
 export const CATALOGOS_DE = {
   productos: ['articulos', 'atributos', 'escalas', 'marcas', 'listas', 'dominios', 'acuerdos'],
-  compras: ['proveedores', 'sociedades', 'contactos'],
-  facturacion: ['tipos_empaque', 'series'],
-  logistica: ['centros', 'almacenes', 'puertos', 'regiones', 'transportistas', 'tipos_unidad', 'liberaciones', 'pasos_lt', 'leadtimes'],
+  terceros: ['proveedores', 'sociedades', 'contactos', 'transportistas'],
+  empaque: ['tipos_empaque', 'series'],
+  transporte: ['centros', 'almacenes', 'puertos', 'regiones', 'tipos_unidad', 'liberaciones'],
+  seguimiento: ['pasos_lt', 'leadtimes'],
   configuracion: ['paises'],
 }
 
@@ -24,53 +37,95 @@ const catalogo = (clave, texto, primero, permiso = 'catalogos.ver') => ({
   a: `/mantenimiento?catalogo=${primero}`, texto, permiso, catalogos: CATALOGOS_DE[clave],
 })
 
+// Permisos de lectura de cada parte de la operación (también los usa Análisis)
+const VE_ALGO = ['oc.ver', 'factura.ver', 'transporte.gestionar', 'producto.ver']
+
 export const MODULOS = () => [
-  { clave: 'inicio', texto: t('Home'), icono: 'tablero', a: '/', exacto: true, apartados: [] },
+  { clave: 'inicio', texto: t('Home'), icono: 'inicio', a: '/', exacto: true, apartados: [] },
+
+  // ---- Operación: compra → despacho → transporte → inventario ----
   {
-    clave: 'compras', texto: t('Purchasing'), icono: 'ordenes',
+    clave: 'compras', grupo: 'operacion', texto: t('Purchasing'), icono: 'ordenes',
     apartados: [
       // Cada módulo abre en su resumen: los indicadores del módulo (seguimiento/indicadores.py)
       { a: '/compras/resumen', texto: t('Summary'), permiso: 'oc.ver', exacto: true },
-      { a: '/ordenes', texto: t('Purchase orders'), permiso: 'oc.ver', prefijos: ['/ordenes'] },
-      { a: '/importar', texto: t('Load purchase orders'), permiso: 'oc.importar', prefijos: ['/importar'] },
-      catalogo('compras', t('Suppliers and companies'), 'proveedores'),
+      { a: '/ordenes', texto: t('Orders'), permiso: 'oc.ver', prefijos: ['/ordenes'] },
+      { a: '/importar', texto: t('Load orders'), permiso: 'oc.importar', prefijos: ['/importar'] },
     ],
     accion: { a: '/ordenes/nueva', texto: t('New PO'), permiso: 'oc.editar' },
   },
   {
-    clave: 'facturacion', texto: t('Invoicing'), icono: 'factura',
+    // La factura comercial del proveedor y sus listas de empaque forman un despacho
+    clave: 'despacho', grupo: 'operacion', texto: t('Dispatch'), icono: 'factura',
     apartados: [
       { a: '/facturacion/resumen', texto: t('Summary'), permiso: 'factura.ver', exacto: true },
-      { a: '/facturas', texto: t('Invoices and packing lists'), permiso: 'factura.ver', prefijos: ['/facturas', '/packing-lists'] },
-      { a: '/empaque/recetas', texto: t('Packing recipes'), permiso: 'catalogos.ver', prefijos: ['/empaque'] },
-      { a: '/plantillas', texto: t('Packing templates'), permiso: 'plantilla.editar', prefijos: ['/plantillas'] },
-      catalogo('facturacion', t('Packaging types and numbering'), 'tipos_empaque'),
+      { a: '/facturas', texto: t('Dispatches'), permiso: 'factura.ver', prefijos: ['/facturas', '/packing-lists'] },
     ],
   },
   {
-    clave: 'logistica', texto: t('Logistics'), icono: 'barco',
+    clave: 'transporte', grupo: 'operacion', texto: t('Transport'), icono: 'camion',
     apartados: [
       { a: '/logistica/resumen', texto: t('Summary'), permiso: ['transporte.gestionar', 'seguimiento.ver'], exacto: true },
       { a: '/transporte', texto: t('Shipments'), permiso: 'transporte.gestionar', prefijos: ['/transporte'] },
-      { a: '/inventario', texto: t('Stock'), permiso: ['inventario.ver', 'recepcion.registrar'], prefijos: ['/inventario'] },
-      { a: '/seguimiento', texto: t('Tracking'), permiso: 'seguimiento.ver', prefijos: ['/seguimiento'] },
-      { a: '/leadtimes', texto: t('Lead times'), permiso: 'catalogos.ver', prefijos: ['/leadtimes'] },
-      catalogo('logistica', t('Places and carriers'), 'centros'),
+      catalogo('transporte', t('Places and units'), 'centros'),
     ],
   },
   {
-    clave: 'productos', texto: t('Products'), icono: 'caja',
+    clave: 'inventario', grupo: 'operacion', texto: t('Inventory'), icono: 'caja',
+    apartados: [
+      { a: '/inventario', texto: t('Stock'), permiso: ['inventario.ver', 'recepcion.registrar'], prefijos: ['/inventario'] },
+    ],
+  },
+
+  // ---- Control ----
+  {
+    clave: 'seguimiento', grupo: 'control', texto: t('Tracking'), icono: 'pulso',
+    apartados: [
+      { a: '/seguimiento', texto: t('By PO line'), permiso: 'seguimiento.ver', prefijos: ['/seguimiento'] },
+      { a: '/leadtimes', texto: t('Lead times'), permiso: 'catalogos.ver', prefijos: ['/leadtimes'] },
+      catalogo('seguimiento', t('Lead time steps'), 'pasos_lt'),
+    ],
+  },
+  {
+    clave: 'analisis', grupo: 'control', texto: t('Analysis'), icono: 'grafica',
+    apartados: [
+      { a: '/tableros', texto: t('Indicators'), permiso: VE_ALGO, prefijos: ['/tableros'] },
+      { a: '/reportes', texto: t('Reports'), permiso: VE_ALGO, prefijos: ['/reportes'] },
+    ],
+  },
+
+  // ---- Datos propios de la empresa ----
+  {
+    clave: 'productos', grupo: 'datos', texto: t('Products'), icono: 'capas',
     apartados: [
       { a: '/productos', texto: t('Summary'), permiso: 'producto.ver', exacto: true },
       { a: '/productos/catalogo', texto: t('Catalog'), permiso: 'producto.ver', prefijos: ['/productos/catalogo', '/productos/nuevo'], patron: /^\/productos\/\d+/ },
-      { a: '/familias', texto: t('Classification'), permiso: ['clasificacion.ver', 'aranceles.ver'], prefijos: ['/familias', '/aranceles'] },
-      { a: '/productos/configuracion', texto: t('Setup'), titulo: t('Products setup'), permiso: 'catalogos.ver', prefijos: ['/productos/configuracion', '/grupos-producto'],
-        catalogos: CATALOGOS_DE.productos },
+      { a: '/productos/configuracion', texto: t('Families and attributes'), titulo: t('Products setup'), permiso: 'catalogos.ver',
+        prefijos: ['/productos/configuracion', '/grupos-producto'], catalogos: CATALOGOS_DE.productos },
     ],
     accion: { a: '/productos/nuevo', texto: t('New product'), permiso: 'catalogos.crear' },
   },
   {
-    clave: 'etiquetas', texto: t('Labels'), icono: 'etiqueta',
+    // Proveedores, sociedades compradoras, contactos y transportistas: los terceros con que se trabaja
+    clave: 'terceros', grupo: 'datos', texto: t('Third parties'), icono: 'usuarios',
+    apartados: [
+      { a: '/mantenimiento?catalogo=proveedores', texto: t('Suppliers'), permiso: 'catalogos.ver', catalogos: ['proveedores', 'contactos'] },
+      { a: '/mantenimiento?catalogo=transportistas', texto: t('Carriers'), permiso: 'catalogos.ver', catalogos: ['transportistas'] },
+      { a: '/mantenimiento?catalogo=sociedades', texto: t('Buying companies'), permiso: 'catalogos.ver', catalogos: ['sociedades'] },
+    ],
+  },
+  {
+    clave: 'empaque', grupo: 'datos', texto: t('Packing'), icono: 'archivador',
+    apartados: [
+      { a: '/empaque/recetas', texto: t('Recipes'), permiso: 'catalogos.ver', prefijos: ['/empaque'] },
+      { a: '/plantillas', texto: t('Templates'), permiso: 'plantilla.editar', prefijos: ['/plantillas'] },
+      catalogo('empaque', t('Packaging types and numbering'), 'tipos_empaque'),
+    ],
+  },
+
+  // ---- Módulos que la empresa puede apagar (Configuración → Empresa → Módulos) ----
+  {
+    clave: 'etiquetas', grupo: 'opcionales', texto: t('Labels'), icono: 'etiqueta',
     apartados: [
       { a: '/etiquetas', texto: t('Print'), permiso: 'etiquetas.ver', exacto: true, prefijos: ['/etiquetas/trabajos'] },
       { a: '/etiquetas/disenos', texto: t('Designs'), permiso: 'etiquetas.ver', prefijos: ['/etiquetas/disenos'] },
@@ -78,14 +133,17 @@ export const MODULOS = () => [
     ],
   },
   {
-    clave: 'analisis', texto: t('Analysis'), icono: 'grafica',
+    // Comercio exterior (módulo «clasificacion»): sale de Productos para quien no importa
+    clave: 'aduana', grupo: 'opcionales', texto: t('Customs'), icono: 'escudo',
     apartados: [
-      { a: '/tableros', texto: t('Indicators'), permiso: ['oc.ver', 'factura.ver', 'transporte.gestionar', 'producto.ver'], prefijos: ['/tableros'] },
-      { a: '/reportes', texto: t('Reports'), permiso: ['oc.ver', 'factura.ver', 'transporte.gestionar', 'producto.ver'], prefijos: ['/reportes'] },
+      { a: '/familias', texto: t('Classification'), permiso: 'clasificacion.ver', prefijos: ['/familias'] },
+      { a: '/aranceles', texto: t('Tariff schedule'), permiso: 'aranceles.ver', prefijos: ['/aranceles'] },
     ],
   },
+
+  // ---- Sistema ----
   {
-    clave: 'configuracion', texto: t('Settings'), icono: 'engrane',
+    clave: 'configuracion', grupo: 'sistema', texto: t('Settings'), icono: 'engrane',
     apartados: [
       // Portada: todo lo que se configura, también lo de cada módulo, en un solo lugar
       { a: '/configuracion', texto: t('Overview'), permiso: ['admin', 'integraciones.ver', 'catalogos.ver'], exacto: true },
