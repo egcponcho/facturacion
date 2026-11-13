@@ -1,11 +1,19 @@
 from fastapi import APIRouter
 
 from app.esquemas import CierreRecepcionIn, RecepcionSinConteoIn, RecepcionUnidadIn
+from app.modulos.recepcion import bandeja
 from app.modulos.recepcion import existencias as inv
 from app.modulos.recepcion import recepcion as svc
 from app.web.rutas import Clave, Db, User, ejecutar
 
 router = APIRouter()
+
+
+@router.get("/recepciones")
+def recepciones(db: Db, user: User, vista: str = "pendientes"):
+    """Unidades de carga por recibir (vista=pendientes: en camino o ya llegadas) o recibidas (vista=recibidas),
+    con lo enviado, recibido y pendiente de cada una."""
+    return bandeja.lista(db, user, vista)
 
 
 @router.get("/unidades/{unidad_id}/recepcion")

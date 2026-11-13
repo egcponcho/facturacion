@@ -71,6 +71,13 @@ export const MODULOS = () => [
     ],
   },
   {
+    // Bodega: lo que llega y hay que contar, y lo ya recibido (diseño v3)
+    clave: 'recepcion', grupo: 'operacion', texto: t('Receiving'), icono: 'bandeja',
+    apartados: [
+      { a: '/recepcion', texto: t('To receive'), permiso: ['recepcion.registrar', 'transporte.gestionar', 'inventario.ver'], prefijos: ['/recepcion'] },
+    ],
+  },
+  {
     clave: 'inventario', grupo: 'operacion', texto: t('Inventory'), icono: 'caja',
     apartados: [
       { a: '/inventario', texto: t('Stock'), permiso: ['inventario.ver', 'recepcion.registrar'], prefijos: ['/inventario'] },

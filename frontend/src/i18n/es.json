@@ -4311,7 +4311,7 @@
 "Received now": "Recibido ahora",
 "Received now {0}": "Recibido ahora {0}",
 "Received on": "Recibida el",
-"Received units": "Unidades recibidas",
+"Received units": "Recibidas",
 "Received without differences": "Recibido sin novedad",
 "Received {0}": "Recibido {0}",
 "Receiving plant": "Centro receptor",
@@ -4928,7 +4928,7 @@
 "Shipments that arrived on or before their ETA ÷ shipments with an ETA that arrived in the period × 100.": "Embarques que arribaron en su ETA o antes ÷ embarques con ETA que arribaron en el período × 100.",
 "Shipments with ETA in the next 7 days.": "Embarques con ETA en los próximos 7 días.",
 "Shipments, warehouse receipts, stock and logistics costs": "Embarques, recepción en bodega, existencias y costos logísticos",
-"Shipped": "Embarcado",
+"Shipped": "Enviado",
 "Shipping line": "Naviera",
 "Shipping line SCAC or airline IATA prefix.": "Código SCAC de la naviera o prefijo IATA de la aerolínea.",
 "Shipping line or carrier.": "Naviera o transportista.",
@@ -8230,5 +8230,13 @@
 "{0} {1}% vs. previous period": "{0} {1} % vs. período anterior",
 "{0} tasks · urgent: {1}": "{0} tareas · urgentes: {1}",
 "Executive dashboard": "Tablero ejecutivo",
-"Showing your own data only.": "Se muestran solo tus datos."
+"Showing your own data only.": "Se muestran solo tus datos.",
+"To receive": "Por recibir",
+"Receiving": "Recepción",
+"Load units to count at the warehouse and the ones already received. Units still on the way show their ETA so the work can be planned.": "Unidades de carga por contar en bodega y las ya recibidas. Las que vienen en camino muestran su ETA para planear el trabajo.",
+"{0} packing lists": "{0} listas de empaque",
+"Expected": "Prevista",
+"Nothing to receive. Units appear here when their shipment is on the way.": "Nada por recibir. Las unidades aparecen aquí cuando su embarque va en camino.",
+"No units received yet.": "Todavía no hay unidades recibidas.",
+"ETA": "ETA"
 }
