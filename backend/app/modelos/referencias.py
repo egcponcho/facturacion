@@ -65,6 +65,7 @@ COHERENCIA: dict[str, list[tuple[str, str]]] = {
     "grupo_cajas_items": [("grupo_id", "grupos_cajas"), ("pl_linea_id", "pl_lineas")],
     "recepciones": [("pl_linea_id", "pl_lineas")],
     "recepcion_registros": [("unidad_carga_id", "unidades_carga")],
+    "pagos_proveedor": [("factura_id", "facturas")],
     "recepcion_movimientos": [("registro_id", "recepcion_registros"), ("pl_linea_id", "pl_lineas")],
     "unidades_carga": [("embarque_id", "embarques")],
     "eventos_embarque": [("embarque_id", "embarques"), ("unidad_carga_id", "unidades_carga")],

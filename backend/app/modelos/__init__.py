@@ -126,6 +126,7 @@ from app.modelos.productos import (
     ProductoFoto,
     ProductoVersion,
 )
+from app.modelos.pagos import PagoProveedor
 from app.modelos.referencias import aplicar as _aplicar_referencias
 from app.modelos.restricciones import aplicar as _aplicar_restricciones
 from app.modelos.sistema import Alerta, Edicion, Historial, Idempotencia, Meta, Reporte, RespaldoMigracion, VersionDatos
@@ -148,6 +149,7 @@ _aplicar_restricciones(_Base.metadata)
 _aplicar_referencias(_Base.metadata)
 
 __all__ = [
+    "PagoProveedor",
     "CampoEtiqueta",
     "EtiquetadoFamilia",
     "FamiliaComex",

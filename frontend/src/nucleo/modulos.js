@@ -50,6 +50,7 @@ export const MODULOS = () => [
       // Cada módulo abre en su resumen: los indicadores del módulo (seguimiento/indicadores.py)
       { a: '/compras/resumen', texto: t('Summary'), permiso: 'oc.ver', exacto: true },
       { a: '/ordenes', texto: t('Orders'), permiso: 'oc.ver', prefijos: ['/ordenes'] },
+      { a: '/compras/pagos', texto: t('Invoices and payments'), permiso: 'pago.ver', prefijos: ['/compras/pagos'] },
       { a: '/importar', texto: t('Load orders'), permiso: 'oc.importar', prefijos: ['/importar'] },
     ],
     accion: { a: '/ordenes/nueva', texto: t('New PO'), permiso: 'oc.editar' },

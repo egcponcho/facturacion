@@ -28,6 +28,10 @@ MODULOS = [
         ("factura.reabrir", "Reopen finalized invoices", INTERNOS, False),
         ("factura.cancelar", "Cancel invoices", TODOS, True),
     ]),
+    ("Payments", [
+        ("pago.ver", "See supplier invoices to pay, their three-way match and payments", INTERNOS, False),
+        ("pago.gestionar", "Schedule, record and void supplier payments and change due dates", INTERNOS, False),
+    ]),
     ("Packing lists", [
         ("pl.editar", "Create and edit packing lists", TODOS, True),
         ("pl.finalizar", "Finalize packing lists", "finalizan", True),
@@ -95,6 +99,7 @@ MODULOS_ACTIVABLES = {
     "clasificacion": ("Foreign trade: customs technical sheet, tariff classification, tariff schedule and trade agreements",
                       ["aranceles.ver", "aranceles.editar", "clasificacion.ver", "clasificacion.configurar"]),
     "seguimiento": ("Tracking and lead times", ["seguimiento.ver"]),
+    "pagos": ("Supplier payments: invoices to pay, three-way match and payment schedule", ["pago.ver", "pago.gestionar"]),
     "etiquetado": ("Labels: label designs, versions and label generation",
                    ["etiquetas.ver", "etiquetas.generar", "etiquetas.disenar", "etiquetas.aprobar", "etiquetas.configurar",
                     "etiquetas.familias", "etiquetas.campos"]),
