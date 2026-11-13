@@ -3,7 +3,7 @@ from app.core.errores import ErrorNegocio
 from app.core.modulos import Modulo
 from app.modelos import OrdenCompra, PosicionOC
 from app.modulos.acceso.permisos import asegurar_proveedor
-from app.modulos.compras import api, api_flujo
+from app.modulos.compras import api, api_flujo, api_solicitudes
 from app.modulos.comun import edicion
 
 
@@ -24,6 +24,6 @@ def _al_cargar() -> None:
 MODULO = Modulo(
     clave="compras", nombre="Órdenes de compra",
     descripcion="Órdenes de compra: importación, asistente, aprobación, liberaciones y líneas disponibles para facturar.",
-    rutas=lambda: [api.router, api_flujo.router],
+    rutas=lambda: [api.router, api_flujo.router, api_solicitudes.router],
     al_cargar=_al_cargar,
 )

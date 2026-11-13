@@ -59,6 +59,7 @@ const routes = [
   { path: '/transporte/embarques/:id', component: () => import('@/modulos/transporte/vistas/EmbarqueView.vue'), props: true, meta: { permiso: 'transporte.gestionar' } },
   { path: '/transporte/unidades/:id(\\d+)/recepcion', component: () => import('@/modulos/transporte/vistas/RecepcionView.vue'), props: true, meta: { permiso: ['recepcion.registrar', 'transporte.gestionar', 'inventario.ver'] } },
   { path: '/inventario', component: () => import('@/modulos/transporte/vistas/ExistenciasView.vue'), meta: { permiso: ['inventario.ver', 'recepcion.registrar'] } },
+  { path: '/compras/solicitudes', component: () => import('@/modulos/compras/vistas/SolicitudesView.vue'), meta: { permiso: 'solicitud.ver' } },
   { path: '/compras/pagos', component: () => import('@/modulos/pagos/vistas/PagosView.vue'), meta: { permiso: 'pago.ver' } },
   { path: '/recepcion', component: () => import('@/modulos/transporte/vistas/PorRecibirView.vue'), meta: { permiso: ['recepcion.registrar', 'transporte.gestionar', 'inventario.ver'] } },
   // La OC una por una se crea en el asistente (antes era un modo de esta pantalla)

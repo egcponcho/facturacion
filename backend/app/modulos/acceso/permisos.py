@@ -21,6 +21,11 @@ MODULOS = [
         ("oc.importar", "Import POs from the ERP", INTERNOS, False),
         ("oc.empaque", "Edit casepack and inner pack of a PO line", INTERNOS, False),
     ]),
+    ("Purchase requests", [
+        ("solicitud.ver", "See purchase requests", INTERNOS, False),
+        ("solicitud.crear", "Create and edit purchase requests", INTERNOS, False),
+        ("solicitud.aprobar", "Approve, reject and convert purchase requests into POs", INTERNOS, False),
+    ]),
     ("Invoices", [
         ("factura.ver", "See invoices, packing lists and their files", TODOS, True),
         ("factura.editar", "Create and edit invoices", TODOS, True),
