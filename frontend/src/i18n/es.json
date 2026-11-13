@@ -8163,5 +8163,21 @@
 "The technical sheets of its products start with this category (what the product is), and the classification engine uses it while a sheet has none.": "Las fichas técnicas de sus productos empiezan con esta categoría (qué es el producto), y el motor de clasificación la usa mientras una ficha no tenga la suya.",
 "{0} products of this family have no category in their sheet yet.": "{0} productos de esta familia aún no tienen categoría en su ficha.",
 "Foreign trade": "Comercio exterior",
-"Check the customs category.": "Revise la categoría aduanera."
+"Check the customs category.": "Revise la categoría aduanera.",
+"Buying companies": "Sociedades compradoras",
+"By PO line": "Por línea de OC",
+"Control": "Control",
+"Customs": "Aduana",
+"Dispatch": "Despacho",
+"Dispatches": "Despachos",
+"Families and attributes": "Familias y atributos",
+"Graphite side bar, blue accent.": "Barra lateral grafito, acento azul.",
+"Inventory": "Inventario",
+"Light side bar, petrol blue accent (standard).": "Barra lateral clara, acento azul petróleo (la de fábrica).",
+"Load orders": "Cargar órdenes",
+"Optional modules": "Módulos opcionales",
+"Places and units": "Lugares y unidades",
+"Slate and petrol": "Pizarra y petróleo",
+"Templates": "Plantillas",
+"Third parties": "Terceros"
 }

@@ -16,7 +16,7 @@ import { cargarSesion, cerrarSesion, elegirProveedor, eligeProveedor, sesion } f
 import { errorApi, ui } from '@/stores/ui'
 import { api } from '@/nucleo/api'
 import { tituloSistema } from '@/nucleo/marca.js'
-import { modulosVisibles, ubicar } from '@/nucleo/modulos.js'
+import { GRUPOS, modulosVisibles, ubicar } from '@/nucleo/modulos.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,6 +35,9 @@ const ROLES = { admin: t('Administrator'), interno: t('Imports'), proveedor: t('
 // puede abrir (el router y el servidor lo revisan de nuevo).
 const modulos = computed(() => (sesion.usuario ? modulosVisibles() : []))
 const ubicacion = computed(() => ubicar(modulos.value, route))
+// Título del grupo del menú: va antes del primer módulo visible de cada grupo
+const grupos = computed(() => GRUPOS())
+const abreGrupo = (i) => modulos.value[i].grupo && modulos.value[i].grupo !== modulos.value[i - 1]?.grupo
 const cuenta = (m) => (m.clave === 'compras' && carrito.items.length) || null
 // Barra lateral: compacta (solo íconos) o completa; se recuerda por navegador
 const leer = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === '1' } catch { return d } }
@@ -103,7 +106,7 @@ async function volverAMiOrganizacion() {
       </div>
       <nav class="lateral-nav">
         <template v-for="(m, i) in modulos" :key="m.clave">
-          <div v-if="i === 1" class="lateral-grupo">{{ t('Modules') }}</div>
+          <div v-if="abreGrupo(i)" class="lateral-grupo">{{ tx(grupos[m.grupo]) }}</div>
           <router-link :to="m.a" class="lateral-item" :class="{ activo: activo(m) }"
                        :aria-current="activo(m) ? 'location' : undefined" :title="plegada ? tx(m.texto) : undefined">
             <Icono :nombre="m.icono" :tam="18" /><span class="lateral-texto">{{ tx(m.texto) }}</span>
@@ -112,7 +115,12 @@ async function volverAMiOrganizacion() {
         </template>
       </nav>
       <div class="lateral-pie">
-        <div class="lateral-preferencias"><SelectorIdioma /><SelectorTema /></div>
+        <!-- La persona que trabaja: su perfil y su rol -->
+        <router-link to="/perfil" class="lateral-usuario" :title="t('My profile')">
+          <Avatar :nombre="sesion.usuario.nombre" :foto="sesion.usuario.foto" :tam="30" />
+          <span class="lateral-texto"><b>{{ tx(sesion.usuario.nombre) }}</b>
+            <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span></span>
+        </router-link>
         <button type="button" class="lateral-item lateral-plegar" :title="plegada ? t('Expand menu') : t('Collapse menu')" @click="plegar">
           <Icono :nombre="plegada ? 'derecha' : 'atras'" :tam="16" /><span class="lateral-texto">{{ t('Collapse menu') }}</span>
         </button>
@@ -135,16 +143,9 @@ async function volverAMiOrganizacion() {
             <SelectBusqueda :model-value="sesion.proveedorId || ''" :opciones="opcionesProveedor" :vacio="t('All suppliers')" :busqueda="true"
                             :etiqueta="t('Supplier')" :prefijo="false" @update:model-value="elegirProveedor(Number($event) || null)" />
           </div>
-          <div class="usuario">
-            <router-link to="/perfil" class="usuario-enlace" :title="t('My profile')" :aria-label="t('My profile')">
-              <Avatar :nombre="sesion.usuario.nombre" :foto="sesion.usuario.foto" :tam="32" />
-              <div class="usuario-datos">
-                <b>{{ tx(sesion.usuario.nombre) }}</b>
-                <span>{{ tx(sesion.usuario.proveedor || sesion.usuario.rol_nombre || ROLES[sesion.usuario.rol]) }}</span>
-              </div>
-            </router-link>
-            <button type="button" class="btn-icono" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
-          </div>
+          <SelectorIdioma class="cabecera-idioma" />
+          <SelectorTema compacto />
+          <button type="button" class="btn-icono" :aria-label="t('Sign out')" :title="t('Sign out')" @click="salir"><Icono nombre="salir" /></button>
         </div>
       </header>
       <main class="contenido">

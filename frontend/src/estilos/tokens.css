@@ -4,20 +4,20 @@
 */
 :root {
   /* Neutros (comunes a todas las paletas) */
-  --tinta: #0f1419;
-  --tinta-2: #38414d;
-  --tinta-3: #5c6775;
-  --papel: #f4f5f7;
+  --tinta: #1d2433;
+  --tinta-2: #4b5565;
+  --tinta-3: #6b7484;
+  --papel: #f6f7f9;
   --superficie: #ffffff;
-  --superficie-2: #f1f3f5;
-  --linea: #e1e4e9;
-  --linea-suave: #eceef1;
-  --borde-hover: #c9ced6;
-  --fila-hover: #f6f8fa;
+  --superficie-2: #f9fafb;
+  --linea: #e4e7ec;
+  --linea-suave: #eef0f3;
+  --borde-hover: #cfd4dc;
+  --fila-hover: #f5f7f9;
   /* Rampa secuencial (un tono) para etapas ordenadas: de claro a oscuro */
-  --tramo-1: #86b6ef; --tramo-2: #5598e7; --tramo-3: #2a78d6; --tramo-4: #1c5cab; --tramo-5: #104281;
+  --tramo-1: #a9cdd2; --tramo-2: #6fa9b2; --tramo-3: #3a8592; --tramo-4: #0f5f6e; --tramo-5: #0a4651;
   /* Etapas del lead time (categórico, orden fijo validado para daltonismo) */
-  --etapa-1: #2a78d6; --etapa-2: #eb6834; --etapa-3: #1baf7a; --etapa-4: #eda100; --etapa-5: #e87ba4; --etapa-6: #008300; --etapa-7: #4a3aa7;
+  --etapa-1: #0f5f6e; --etapa-2: #5b7fa6; --etapa-3: #8aa69a; --etapa-4: #c49a52; --etapa-5: #9a6f8c; --etapa-6: #2e7556; --etapa-7: #7d8696;
   /* Acento y barra lateral: los de la paleta de la empresa (abajo), en su versión clara */
   --acento: var(--pal-acento);
   --acento-hover: var(--pal-acento-hover);
@@ -43,53 +43,54 @@
   --marca-2: var(--pal-marca-2);
   --marino: var(--pal-profundo);
   /* Estados (comunes) */
-  --ok: #15803d;
-  --ok-fondo: #e8f6ed;
-  --ok-borde: #c6e7d1;
-  --ok-suave: #f5fbf7;
-  --aviso: #a15c07;
-  --aviso-fondo: #fdf3dc;
-  --aviso-borde: #f0d9a6;
-  --aviso-suave: #fffaf0;
-  --error: #c81e1e;
-  --error-fondo: #fdecec;
-  --info: #2563eb;
-  --info-fondo: #eef4ff;
-  --info-texto: #1e40af;
+  --ok: #2e7556;
+  --ok-fondo: #e8f2ed;
+  --ok-borde: #c9e0d4;
+  --ok-suave: #f4f9f6;
+  --aviso: #8f5f05;
+  --aviso-fondo: #f7efdc;
+  --aviso-borde: #ead8ae;
+  --aviso-suave: #fcf8ee;
+  --error: #a33a36;
+  --error-fondo: #f8e8e7;
+  --info: #3d5a80;
+  --info-fondo: #eaeff6;
+  --info-texto: #2f4766;
   --sobre-estado: #ffffff;
-  --barra-sup: rgba(246, 247, 249, 0.88);
-  --velo: rgba(17, 20, 28, 0.45);
-  --flotante: #1b1e26;
+  --barra-sup: rgba(255, 255, 255, 0.92);
+  --velo: rgba(15, 18, 24, 0.35);
+  --flotante: #1d2433;
   --flotante-2: #a0a7b4;
   --flotante-borde: #353a46;
   --toast-error: #8f1d1d;
-  --eje: #7a8291;
-  --rejilla: #e7e9ee;
-  --base-eje: #c5cad3;
-  --flujo-1: #86b6ef;
-  --flujo-2: #5598e7;
-  --flujo-3: #2a78d6;
-  --flujo-4: #1c5cab;
-  --flujo-5: #104281;
-  --sombra: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --sombra-media: 0 4px 14px -4px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.05);
-  --sombra-flotante: 0 18px 40px -12px rgba(16, 24, 40, 0.28);
+  --eje: #7d8696;
+  --rejilla: #e9ecf0;
+  --base-eje: #cfd4dc;
+  --flujo-1: #a9cdd2;
+  --flujo-2: #6fa9b2;
+  --flujo-3: #3a8592;
+  --flujo-4: #0f5f6e;
+  --flujo-5: #0a4651;
+  --sombra: 0 1px 2px rgba(29, 36, 51, 0.05);
+  --sombra-media: 0 4px 14px -4px rgba(29, 36, 51, 0.1), 0 2px 4px -2px rgba(29, 36, 51, 0.05);
+  --sombra-flotante: 0 12px 32px rgba(29, 36, 51, 0.14);
   color-scheme: light;
 
-  /* Paleta de fábrica «Operación»: barra lateral grafito y acento azul (Configuración → Empresa → Marca).
-     Se lee como una consola de operación: la barra oscura enmarca y el contenido queda claro. */
-  --pal-acento: #1f5fd6; --pal-acento-hover: #194fb4; --pal-acento-claro: #edf3fe; --pal-acento-medio: #c3d6f8;
-  --pal-acento-texto: #1a4fb0; --pal-sobre-acento: #ffffff; --pal-foco: rgba(31, 95, 214, 0.28);
-  --pal-lateral: #111418; --pal-lateral-2: #1b1f25; --pal-lateral-texto: #c9ced6; --pal-lateral-tenue: #8b93a1;
-  --pal-lateral-fuerte: #ffffff; --pal-lateral-activo: #ffffff; --pal-lateral-activo-fondo: rgba(255, 255, 255, 0.08);
-  --pal-lateral-acento: #5b9bff; --pal-lateral-linea: rgba(255, 255, 255, 0.07); --pal-lateral-control: rgba(255, 255, 255, 0.06);
-  --pal-marca-1: #3b82f6; --pal-marca-2: #1f5fd6; --pal-profundo: #0b1f44;
+  /* Paleta de fábrica «Pizarra y petróleo» (Configuración → Empresa → Marca): neutros fríos,
+     un solo acento azul petróleo y barra lateral clara en el tema claro (grafito en el oscuro).
+     Se lee como una herramienta de operación sobria: el color solo marca la acción y lo activo. */
+  --pal-acento: #0f5f6e; --pal-acento-hover: #0b4c58; --pal-acento-claro: #e5f0f1; --pal-acento-medio: #b7d5d9;
+  --pal-acento-texto: #0d5763; --pal-sobre-acento: #ffffff; --pal-foco: rgba(15, 95, 110, 0.28);
+  --pal-lateral: #fbfbfc; --pal-lateral-2: #eef1f4; --pal-lateral-texto: #4b5565; --pal-lateral-tenue: #6b7484;
+  --pal-lateral-fuerte: #1d2433; --pal-lateral-activo: #0f5f6e; --pal-lateral-activo-fondo: #e5f0f1;
+  --pal-lateral-acento: #0f5f6e; --pal-lateral-linea: #e4e7ec; --pal-lateral-control: #f1f3f5;
+  --pal-marca-1: #0f5f6e; --pal-marca-2: #0f5f6e; --pal-profundo: #0a3d47;
   /* … y su versión oscura (la toma el tema oscuro) */
-  --pald-acento: #5b9bff; --pald-acento-hover: #8ab8ff; --pald-acento-claro: rgba(91, 155, 255, 0.14); --pald-acento-medio: rgba(91, 155, 255, 0.4);
-  --pald-acento-texto: #8ab8ff; --pald-sobre-acento: #071a3a; --pald-foco: rgba(91, 155, 255, 0.35);
-  --pald-lateral: #0b0d10; --pald-lateral-2: #171a1f; --pald-lateral-texto: #c9ced6; --pald-lateral-tenue: #8b93a1;
-  --pald-lateral-fuerte: #ffffff; --pald-lateral-activo: #ffffff; --pald-lateral-activo-fondo: rgba(255, 255, 255, 0.07);
-  --pald-lateral-acento: #8ab8ff; --pald-lateral-linea: rgba(255, 255, 255, 0.06); --pald-lateral-control: rgba(255, 255, 255, 0.05);
+  --pald-acento: #3fa6b3; --pald-acento-hover: #5bb7c2; --pald-acento-claro: #12303a; --pald-acento-medio: rgba(63, 166, 179, 0.4);
+  --pald-acento-texto: #6cc0ca; --pald-sobre-acento: #0b1418; --pald-foco: rgba(63, 166, 179, 0.35);
+  --pald-lateral: #12161c; --pald-lateral-2: #1c222b; --pald-lateral-texto: #a7afbc; --pald-lateral-tenue: #7d8696;
+  --pald-lateral-fuerte: #ffffff; --pald-lateral-activo: #ffffff; --pald-lateral-activo-fondo: #12303a;
+  --pald-lateral-acento: #3fa6b3; --pald-lateral-linea: #222833; --pald-lateral-control: rgba(255, 255, 255, 0.05);
 
   --radio: 8px;
   --radio-panel: 10px;
@@ -124,7 +125,21 @@
   background: var(--papel);
   -webkit-font-smoothing: antialiased;
 }
-/* Otras paletas: solo cambian el acento y la barra lateral (los neutros y los estados son los mismos) */
+/* Otras paletas: solo cambian el acento y la barra lateral (los neutros y los estados son los mismos).
+   «Operación»: la de fábrica anterior, barra grafito y acento azul. */
+:root[data-paleta='operacion'] {
+  --pal-acento: #1f5fd6; --pal-acento-hover: #194fb4; --pal-acento-claro: #edf3fe; --pal-acento-medio: #c3d6f8;
+  --pal-acento-texto: #1a4fb0; --pal-sobre-acento: #ffffff; --pal-foco: rgba(31, 95, 214, 0.28);
+  --pal-lateral: #111418; --pal-lateral-2: #1b1f25; --pal-lateral-texto: #c9ced6; --pal-lateral-tenue: #8b93a1;
+  --pal-lateral-fuerte: #ffffff; --pal-lateral-activo: #ffffff; --pal-lateral-activo-fondo: rgba(255, 255, 255, 0.08);
+  --pal-lateral-acento: #5b9bff; --pal-lateral-linea: rgba(255, 255, 255, 0.07); --pal-lateral-control: rgba(255, 255, 255, 0.06);
+  --pal-marca-1: #3b82f6; --pal-marca-2: #1f5fd6; --pal-profundo: #0b1f44;
+  --pald-acento: #5b9bff; --pald-acento-hover: #8ab8ff; --pald-acento-claro: rgba(91, 155, 255, 0.14); --pald-acento-medio: rgba(91, 155, 255, 0.4);
+  --pald-acento-texto: #8ab8ff; --pald-sobre-acento: #071a3a; --pald-foco: rgba(91, 155, 255, 0.35);
+  --pald-lateral: #0b0d10; --pald-lateral-2: #171a1f; --pald-lateral-texto: #c9ced6; --pald-lateral-tenue: #8b93a1;
+  --pald-lateral-fuerte: #ffffff; --pald-lateral-activo: #ffffff; --pald-lateral-activo-fondo: rgba(255, 255, 255, 0.07);
+  --pald-lateral-acento: #8ab8ff; --pald-lateral-linea: rgba(255, 255, 255, 0.06); --pald-lateral-control: rgba(255, 255, 255, 0.05);
+}
 :root[data-paleta='esmeralda'] {
   --pal-acento: #047857; --pal-acento-hover: #065f46; --pal-acento-claro: #ecfdf5; --pal-acento-medio: #a7f3d0;
   --pal-acento-texto: #065f46; --pal-sobre-acento: #ffffff; --pal-foco: rgba(4, 120, 87, 0.25);
@@ -166,18 +181,18 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --tinta: #e7e9ee;
-    --tinta-2: #c4c9d3;
-    --tinta-3: #979eac;
-    --papel: #0d0f12;
-    --superficie: #15181d;
-    --superficie-2: #1c2028;
-    --linea: #2a2f39;
-    --linea-suave: #20242c;
-    --borde-hover: #3b414d;
-    --fila-hover: #1b1f27;
-    --tramo-1: #184f95; --tramo-2: #256abf; --tramo-3: #3987e5; --tramo-4: #6da7ec; --tramo-5: #9ec5f4;
-    --etapa-1: #3987e5; --etapa-2: #d95926; --etapa-3: #199e70; --etapa-4: #c98500; --etapa-5: #d55181; --etapa-6: #008300; --etapa-7: #9085e9;
+    --tinta: #e6e9ee;
+    --tinta-2: #a7afbc;
+    --tinta-3: #8b94a3;
+    --papel: #0e1116;
+    --superficie: #151a21;
+    --superficie-2: #1a2029;
+    --linea: #262d38;
+    --linea-suave: #1e242d;
+    --borde-hover: #343c49;
+    --fila-hover: #1a2029;
+    --tramo-1: #164a53; --tramo-2: #1f6f7b; --tramo-3: #3fa6b3; --tramo-4: #79c3cc; --tramo-5: #b2dde2;
+    --etapa-1: #3fa6b3; --etapa-2: #7f9fcc; --etapa-3: #9dbcad; --etapa-4: #d4ad6a; --etapa-5: #c093b2; --etapa-6: #4fae84; --etapa-7: #8b94a3;
     --acento: var(--pald-acento);
     --acento-hover: var(--pald-acento-hover);
     --acento-claro: var(--pald-acento-claro);
@@ -195,34 +210,34 @@
     --lateral-acento: var(--pald-lateral-acento);
     --lateral-linea: var(--pald-lateral-linea);
     --lateral-control: var(--pald-lateral-control);
-    --ok: #4ade80;
-    --ok-fondo: rgba(74, 222, 128, 0.13);
-    --ok-borde: rgba(74, 222, 128, 0.3);
-    --ok-suave: rgba(74, 222, 128, 0.06);
-    --aviso: #fbbf24;
-    --aviso-fondo: rgba(251, 191, 36, 0.13);
-    --aviso-borde: rgba(251, 191, 36, 0.32);
-    --aviso-suave: rgba(251, 191, 36, 0.06);
-    --error: #f87171;
-    --error-fondo: rgba(248, 113, 113, 0.13);
-    --info: #93c5fd;
-    --info-fondo: rgba(96, 165, 250, 0.13);
-    --info-texto: #bfdbfe;
-    --sobre-estado: #052e16;
-    --barra-sup: rgba(14, 16, 20, 0.88);
+    --ok: #4fae84;
+    --ok-fondo: #12251d;
+    --ok-borde: rgba(79, 174, 132, 0.32);
+    --ok-suave: rgba(79, 174, 132, 0.06);
+    --aviso: #d4a64a;
+    --aviso-fondo: #2a2213;
+    --aviso-borde: rgba(212, 166, 74, 0.32);
+    --aviso-suave: rgba(212, 166, 74, 0.06);
+    --error: #e07a72;
+    --error-fondo: #2c1716;
+    --info: #8aa8d3;
+    --info-fondo: #18233a;
+    --info-texto: #b4c8e6;
+    --sobre-estado: #0b1418;
+    --barra-sup: rgba(21, 26, 33, 0.92);
     --velo: rgba(0, 0, 0, 0.55);
     --flotante: #232731;
     --flotante-2: #a9b0bd;
     --flotante-borde: #3b414d;
     --toast-error: #7f1d1d;
-    --eje: #8b93a2;
-    --rejilla: #262b34;
-    --base-eje: #3f4552;
-    --flujo-1: #2f64b8;
-    --flujo-2: #3a7bd5;
-    --flujo-3: #5b98e6;
-    --flujo-4: #8ab6ef;
-    --flujo-5: #bcd6f7;
+    --eje: #8b94a3;
+    --rejilla: #232a34;
+    --base-eje: #343c49;
+    --flujo-1: #164a53;
+    --flujo-2: #1f6f7b;
+    --flujo-3: #3fa6b3;
+    --flujo-4: #79c3cc;
+    --flujo-5: #b2dde2;
     --sombra: 0 1px 2px rgba(0, 0, 0, 0.3);
     --sombra-media: 0 6px 18px rgba(0, 0, 0, 0.35);
     --sombra-flotante: 0 16px 40px rgba(0, 0, 0, 0.5);
@@ -230,18 +245,18 @@
   }
 }
 :root[data-theme='dark'] {
-  --tinta: #e7e9ee;
-  --tinta-2: #c4c9d3;
-  --tinta-3: #979eac;
-  --papel: #0d0f12;
-  --superficie: #15181d;
-  --superficie-2: #1c2028;
-  --linea: #2a2f39;
-  --linea-suave: #20242c;
-  --borde-hover: #3b414d;
-  --fila-hover: #1b1f27;
-  --tramo-1: #184f95; --tramo-2: #256abf; --tramo-3: #3987e5; --tramo-4: #6da7ec; --tramo-5: #9ec5f4;
-  --etapa-1: #3987e5; --etapa-2: #d95926; --etapa-3: #199e70; --etapa-4: #c98500; --etapa-5: #d55181; --etapa-6: #008300; --etapa-7: #9085e9;
+  --tinta: #e6e9ee;
+  --tinta-2: #a7afbc;
+  --tinta-3: #8b94a3;
+  --papel: #0e1116;
+  --superficie: #151a21;
+  --superficie-2: #1a2029;
+  --linea: #262d38;
+  --linea-suave: #1e242d;
+  --borde-hover: #343c49;
+  --fila-hover: #1a2029;
+  --tramo-1: #164a53; --tramo-2: #1f6f7b; --tramo-3: #3fa6b3; --tramo-4: #79c3cc; --tramo-5: #b2dde2;
+  --etapa-1: #3fa6b3; --etapa-2: #7f9fcc; --etapa-3: #9dbcad; --etapa-4: #d4ad6a; --etapa-5: #c093b2; --etapa-6: #4fae84; --etapa-7: #8b94a3;
   --acento: var(--pald-acento);
   --acento-hover: var(--pald-acento-hover);
   --acento-claro: var(--pald-acento-claro);
@@ -259,34 +274,34 @@
   --lateral-acento: var(--pald-lateral-acento);
   --lateral-linea: var(--pald-lateral-linea);
   --lateral-control: var(--pald-lateral-control);
-  --ok: #4ade80;
-  --ok-fondo: rgba(74, 222, 128, 0.13);
-  --ok-borde: rgba(74, 222, 128, 0.3);
-  --ok-suave: rgba(74, 222, 128, 0.06);
-  --aviso: #fbbf24;
-  --aviso-fondo: rgba(251, 191, 36, 0.13);
-  --aviso-borde: rgba(251, 191, 36, 0.32);
-  --aviso-suave: rgba(251, 191, 36, 0.06);
-  --error: #f87171;
-  --error-fondo: rgba(248, 113, 113, 0.13);
-  --info: #93c5fd;
-  --info-fondo: rgba(96, 165, 250, 0.13);
-  --info-texto: #bfdbfe;
-  --sobre-estado: #052e16;
-  --barra-sup: rgba(14, 16, 20, 0.88);
+  --ok: #4fae84;
+  --ok-fondo: #12251d;
+  --ok-borde: rgba(79, 174, 132, 0.32);
+  --ok-suave: rgba(79, 174, 132, 0.06);
+  --aviso: #d4a64a;
+  --aviso-fondo: #2a2213;
+  --aviso-borde: rgba(212, 166, 74, 0.32);
+  --aviso-suave: rgba(212, 166, 74, 0.06);
+  --error: #e07a72;
+  --error-fondo: #2c1716;
+  --info: #8aa8d3;
+  --info-fondo: #18233a;
+  --info-texto: #b4c8e6;
+  --sobre-estado: #0b1418;
+  --barra-sup: rgba(21, 26, 33, 0.92);
   --velo: rgba(0, 0, 0, 0.55);
   --flotante: #232731;
   --flotante-2: #a9b0bd;
   --flotante-borde: #3b414d;
   --toast-error: #7f1d1d;
-  --eje: #8b93a2;
-  --rejilla: #262b34;
-  --base-eje: #3f4552;
-  --flujo-1: #2f64b8;
-  --flujo-2: #3a7bd5;
-  --flujo-3: #5b98e6;
-  --flujo-4: #8ab6ef;
-  --flujo-5: #bcd6f7;
+  --eje: #8b94a3;
+  --rejilla: #232a34;
+  --base-eje: #343c49;
+  --flujo-1: #164a53;
+  --flujo-2: #1f6f7b;
+  --flujo-3: #3fa6b3;
+  --flujo-4: #79c3cc;
+  --flujo-5: #b2dde2;
   --sombra: 0 1px 2px rgba(0, 0, 0, 0.3);
   --sombra-media: 0 6px 18px rgba(0, 0, 0, 0.35);
   --sombra-flotante: 0 16px 40px rgba(0, 0, 0, 0.5);
