@@ -199,6 +199,8 @@ TABLAS = ("ordenes", "seguimiento", "facturas", "productos", "embarques", "factu
 
 
 DENSIDADES = ("compacta", "normal", "amplia")
+# Filas por página que se pueden recordar por tabla (pie de TablaDatos)
+FILAS_POR_PAGINA = (5, 10, 15, 25, 50, 100)
 # Una entrada por tabla que la persona ajustó (columnas, anchos, densidad): son
 # pocos bytes cada una y el sistema tiene más de cien tablas (una por catálogo,
 # por reporte…); con 60 se rechazaba guardar la densidad de las siguientes.
@@ -207,7 +209,7 @@ MAX_TABLAS = 400
 
 def guardar_tabla(db: Session, user: Usuario, tabla: str, datos: dict | None) -> dict:
     """Configuración de una tabla de la persona (componente TablaDatos): columnas
-    visibles en su orden, anchos y densidad. null vuelve a la vista inicial."""
+    visibles en su orden, anchos, densidad y filas por página. null vuelve a la vista inicial."""
     if not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", tabla or ""):
         raise ErrorNegocio("Unknown table.", 404, "no_encontrado")
     pref = dict(user.preferencias or {})
@@ -226,6 +228,8 @@ def guardar_tabla(db: Session, user: Usuario, tabla: str, datos: dict | None) ->
                               for k, v in list(anchos.items())[:60] if isinstance(v, (int, float)) and not isinstance(v, bool)}
         if datos.get("densidad") in DENSIDADES:
             conf["densidad"] = datos["densidad"]
+        if datos.get("filas") in FILAS_POR_PAGINA and not isinstance(datos.get("filas"), bool):
+            conf["filas"] = datos["filas"]
         if tabla not in tablas and len(tablas) >= MAX_TABLAS:
             raise ErrorNegocio("Too many saved tables.", 422, "validacion")
         tablas[tabla] = conf

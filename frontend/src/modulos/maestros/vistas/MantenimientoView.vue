@@ -259,6 +259,9 @@ async function cargarOpciones() {
 }
 
 // La tabla pide cada vez que cambia su orden, sus filtros o su página
+const exportarPagina = (page, size, c) => api.get(`/catalogos/${tipo.value}`, {
+  q: filtros.q, orden: c.orden, page, size, f: Object.keys(c.filtros).length ? JSON.stringify(c.filtros) : undefined,
+})
 async function consultar(c = ultima.value) {
   if (!c || !cat.value) return
   ultima.value = c
@@ -567,7 +570,7 @@ onMounted(async () => {
         </template>
       </ArticulosGenericos>
       <TablaDatos v-else ref="tabla" :key="`${tipo}-${montaje}`" :tabla="`catalogo_${tipo}`" modo="servidor" :columnas="columnasTabla" :filas="datos.items"
-                  :total="datos.total" :cargando="cargando" :valores="valoresColumna" :filtros-iniciales="iniciales" :fila-activa="editando"
+                  :total="datos.total" :cargando="cargando" :valores="valoresColumna" :exportar-pagina="exportarPagina" :filtros-iniciales="iniciales" :fila-activa="editando"
                   :externos="{ q: filtros.q }" :mas-filtros-activos="fueraActivos" :etiqueta="cat.titulo"
                   @consulta="consultar" @vista="(x) => { filtros.q = x.q || ''; recargar() }" @limpiar-externos="filtros.q = ''; recargar()">
         <template #barra>
